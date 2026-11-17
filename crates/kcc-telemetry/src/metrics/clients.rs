@@ -2,7 +2,7 @@
 
 use alloc::collections::BTreeMap;
 
-use kcc_app::{poller::Snapshot, settings::ClientLabel};
+use kcc_app::{poller::Snapshot, pseudonym, settings::ClientLabel};
 use serde_json::Value;
 
 use super::{
@@ -40,13 +40,7 @@ fn online(host: &Value) -> bool {
 }
 
 /// Renders the heavy families; returns how many per-client series were dropped.
-pub(super) fn heavy(
-    sink: &Sink,
-    router: &str,
-    snapshot: &Snapshot,
-    per_client: PerClient,
-    pseudonyms: &mut BTreeMap<String, String>,
-) -> u64 {
+pub(super) fn heavy(sink: &Sink, router: &str, snapshot: &Snapshot, per_client: PerClient) -> u64 {
     let hosts = rows(&snapshot.hotspot);
     let online_count = hosts.iter().filter(|host| online(host)).count();
     let offline_count = hosts.len().saturating_sub(online_count);
@@ -68,7 +62,7 @@ pub(super) fn heavy(
     }
     storage(sink, router, &snapshot.media);
     if per_client.enabled {
-        clients(sink, router, &hosts, per_client, pseudonyms)
+        clients(sink, router, &hosts, per_client)
     } else {
         0
     }
@@ -123,13 +117,7 @@ fn storage(sink: &Sink, router: &str, media: &Value) {
 }
 
 /// Per-client series for at most `per_client.max` clients (lowest MACs first).
-fn clients(
-    sink: &Sink,
-    router: &str,
-    hosts: &[&Value],
-    per_client: PerClient,
-    pseudonyms: &mut BTreeMap<String, String>,
-) -> u64 {
+fn clients(sink: &Sink, router: &str, hosts: &[&Value], per_client: PerClient) -> u64 {
     let mut keyed: Vec<(&str, &Value)> = hosts
         .iter()
         .filter_map(|host| text(host, "mac").map(|mac| (mac, *host)))
@@ -137,7 +125,7 @@ fn clients(
     keyed.sort_unstable_by(|left, right| left.0.cmp(right.0));
     let dropped = keyed.len().saturating_sub(per_client.max);
     for (mac, host) in keyed.into_iter().take(per_client.max) {
-        let label = client_label(mac, host, per_client.label, pseudonyms);
+        let label = client_label(router, mac, host, per_client.label);
         let labels = [router, label.as_str()];
         for (keys, name) in [
             (
@@ -159,31 +147,21 @@ fn clients(
     u64::try_from(dropped).unwrap_or(u64::MAX)
 }
 
-/// The label of one client: its name, a stable `client-N` pseudonym (the scheme of the MCP
-/// `redact_clients` switch) or, only when configured, its MAC.
+/// The label of one client: its name, a pseudonym (a keyed hash of the MAC scoped to
+/// `router`, stable for the life of the process and nothing is stored) or, only when
+/// configured, its MAC.
 #[expect(
     clippy::wildcard_enum_match_arm,
     reason = "ClientLabel is non_exhaustive; unknown schemes fall back to the pseudonym"
 )]
-fn client_label(
-    mac: &str,
-    host: &Value,
-    scheme: ClientLabel,
-    pseudonyms: &mut BTreeMap<String, String>,
-) -> String {
+fn client_label(router: &str, mac: &str, host: &Value, scheme: ClientLabel) -> String {
     let named = match scheme {
         ClientLabel::Name => text(host, "name").map(str::to_owned),
         ClientLabel::Mac => Some(mac.to_owned()),
         // Pseudonym, and any future scheme until mapped: the privacy-safe default.
         _ => None,
     };
-    named.unwrap_or_else(|| {
-        let next = pseudonyms.len().saturating_add(1);
-        pseudonyms
-            .entry(mac.to_owned())
-            .or_insert_with(|| format!("client-{next}"))
-            .clone()
-    })
+    named.unwrap_or_else(|| pseudonym::client(router, mac))
 }
 
 /// A count as a gauge value.

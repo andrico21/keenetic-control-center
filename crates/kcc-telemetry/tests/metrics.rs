@@ -60,6 +60,15 @@ struct Rig {
 /// Starts a KN-1811 fake router on `firmware`, a registry with RCI observers, the shared
 /// poller and an exporter for `metrics_toml`, and waits for the first polling round.
 async fn rig(firmware: Firmware, metrics_toml: &str) -> Result<Rig, Box<dyn Error>> {
+    rig_with_routers(firmware, metrics_toml, &["fake"]).await
+}
+
+/// Like [`rig`], with every id of `ids` registered against the same fake router.
+async fn rig_with_routers(
+    firmware: Firmware,
+    metrics_toml: &str,
+    ids: &[&str],
+) -> Result<Rig, Box<dyn Error>> {
     let directory = TempDir::new()?;
     let router = FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?).build()?;
     let (address, handle) = router.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
@@ -72,28 +81,32 @@ async fn rig(firmware: Firmware, metrics_toml: &str) -> Result<Rig, Box<dyn Erro
         RouterRegistry::new(state, &[], &outbound)?
             .with_rci_observers(self_metrics.rci_observers()),
     );
-    registry
-        .create(
-            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
-            ManagedRouterProfile::new(
-                "fake".to_owned(),
-                Url::parse(&format!("http://{address}"))?,
-                "admin".to_owned(),
-                password,
-            ),
-        )
-        .await?;
+    for id in ids {
+        registry
+            .create(
+                &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+                ManagedRouterProfile::new(
+                    (*id).to_owned(),
+                    Url::parse(&format!("http://{address}"))?,
+                    "admin".to_owned(),
+                    password.clone(),
+                ),
+            )
+            .await?;
+    }
     let config = Config::from_toml_str(&format!("[metrics]\nenabled = true\n{metrics_toml}"))?;
     config.validate()?;
     let poller = Poller::new(registry);
     let exporter = MetricsExporter::new(Arc::clone(&poller), &config.metrics, self_metrics)?;
     let prometheus = Registry::new();
     exporter.register(&prometheus)?;
-    exporter.watch("fake").await;
-    settle("the first polling round", async || {
-        Ok(poller.light_rounds("fake").await >= 1)
-    })
-    .await?;
+    for id in ids {
+        exporter.watch(id).await;
+        settle("the first polling round", async || {
+            Ok(poller.light_rounds(id).await >= 1)
+        })
+        .await?;
+    }
     // The round's publish queued the exporter's follower, which runs before this task resumes.
     task::yield_now().await;
     Ok(Rig {
@@ -119,6 +132,26 @@ fn samples<'text>(text: &'text str, name: &str) -> Vec<&'text str> {
                 .is_some_and(|rest| rest.starts_with('{') || rest.starts_with(' '))
         })
         .collect()
+}
+
+/// The `client` label values of the receive-byte series of `router`.
+fn client_labels(text: &str, router: &str) -> BTreeSet<String> {
+    samples(text, "keenetic_client_receive_bytes_total")
+        .into_iter()
+        .filter(|line| line.contains(&format!("router=\"{router}\"")))
+        .filter_map(|line| line.split("client=\"").nth(1)?.split('"').next())
+        .map(str::to_owned)
+        .collect()
+}
+
+/// Whether `label` is `client-` and sixteen lowercase hex digits.
+fn is_pseudonym(label: &str) -> bool {
+    label.strip_prefix("client-").is_some_and(|hash| {
+        hash.len() == 16
+            && hash
+                .bytes()
+                .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+    })
 }
 
 /// Label names of one sample line.
@@ -287,13 +320,11 @@ async fn stale_cache_drops_series_and_reports_down() -> TestResult {
 async fn per_client_series_are_capped_and_counted() -> TestResult {
     let rig = rig(Firmware::V5_1, "per_client = true\nper_client_max = 3\n").await?;
     let first = scrape(&rig.registry)?;
-    let clients: BTreeSet<&str> = samples(&first, "keenetic_client_receive_bytes_total")
-        .into_iter()
-        .filter_map(|line| line.split("client=\"").nth(1)?.split('"').next())
-        .collect();
-    assert_eq!(
-        clients,
-        BTreeSet::from(["client-1", "client-2", "client-3"])
+    let clients = client_labels(&first, "fake");
+    assert_eq!(clients.len(), 3, "{clients:?}");
+    assert!(
+        clients.iter().all(|label| is_pseudonym(label)),
+        "{clients:?}"
     );
     assert!(!first.contains("02:00:00:00:10:"), "pseudonyms, not MACs");
     assert_eq!(
@@ -305,6 +336,34 @@ async fn per_client_series_are_capped_and_counted() -> TestResult {
         samples(&second, "kcc_metrics_series_dropped_total"),
         ["kcc_metrics_series_dropped_total{router=\"fake\"} 6"]
     );
+    assert_eq!(
+        client_labels(&second, "fake"),
+        clients,
+        "stable across scrapes"
+    );
+    rig.handle.shutdown().await?;
+    Ok(())
+}
+
+/// G-17: the same MAC on two routers yields different pseudonyms and the same one on every
+/// scrape; the series per scrape are unchanged.
+#[tokio::test(start_paused = true)]
+async fn per_client_pseudonyms_are_scoped_to_the_router() -> TestResult {
+    let rig = rig_with_routers(
+        Firmware::V5_1,
+        "per_client = true\nper_client_max = 3\n",
+        &["fake", "fake-2"],
+    )
+    .await?;
+    let first = scrape(&rig.registry)?;
+    let one = client_labels(&first, "fake");
+    let two = client_labels(&first, "fake-2");
+    assert_eq!((one.len(), two.len()), (3, 3), "{first}");
+    assert!(one.is_disjoint(&two), "{one:?} {two:?}");
+    assert!(one.iter().chain(&two).all(|label| is_pseudonym(label)));
+    let second = scrape(&rig.registry)?;
+    assert_eq!(client_labels(&second, "fake"), one);
+    assert_eq!(client_labels(&second, "fake-2"), two);
     rig.handle.shutdown().await?;
     Ok(())
 }

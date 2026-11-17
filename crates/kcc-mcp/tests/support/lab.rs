@@ -135,6 +135,16 @@ impl Lab {
         role: Role,
         allow_destructive: bool,
     ) -> TestResult<Self> {
+        Self::start_with_privacy(routers, role, allow_destructive, PrivacyConfig::default()).await
+    }
+
+    /// Starts a session with an explicit destructive-operation switch and privacy settings.
+    pub(crate) async fn start_with_privacy(
+        routers: Vec<(&str, FakeRouter)>,
+        role: Role,
+        allow_destructive: bool,
+        privacy: PrivacyConfig,
+    ) -> TestResult<Self> {
         let directory = TempDir::new()?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut outbound = OutboundConfig::default();
@@ -184,7 +194,7 @@ impl Lab {
         let roles = RoleSource::new(vec![admin(), lab_only(), role.clone()]);
         let server = KccMcp::new(
             config,
-            PrivacyConfig::default(),
+            privacy,
             Arc::clone(&registry),
             workflow,
             Arc::clone(&jobs),

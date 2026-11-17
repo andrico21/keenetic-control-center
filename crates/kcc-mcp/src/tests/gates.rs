@@ -14,10 +14,7 @@ use crate::{
     McpFailure, McpIdentity, RouterId, authorize_routers,
     generic::rci::{RciWriteInput, rci_execute},
     registry::definitions::tools,
-    support::{
-        shape::{pseudonymize, shape},
-        truncate::Shaping,
-    },
+    support::{scrub::pseudonymize, shape::shape, truncate::Shaping},
 };
 
 #[tokio::test]
@@ -99,8 +96,7 @@ fn client_redaction_hides_fixture_addresses() {
             {"mac":"02:00:00:00:00:02","hostname":"laptop","ip":"192.0.2.11"}
         ]
     });
-    let mut pseudonyms = Default::default();
-    pseudonymize(&mut value, &mut pseudonyms, None);
+    pseudonymize(&mut value);
     let text = serde_json::to_string(&value).expect("JSON fixture serializes");
     for secret in [
         "02:00:00:00:00:01",

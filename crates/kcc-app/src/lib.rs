@@ -21,6 +21,7 @@ pub mod jobs;
 pub mod permissions;
 pub mod persist;
 pub mod poller;
+pub mod pseudonym;
 pub mod registry;
 pub mod role_source;
 pub mod secrets;

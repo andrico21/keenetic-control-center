@@ -35,9 +35,8 @@ mod support;
 #[cfg(test)]
 mod tests;
 
-use alloc::{collections::BTreeMap, sync::Arc};
+use alloc::sync::Arc;
 use core::fmt;
-use std::sync::Mutex;
 
 use kcc_app::{
     api_key_use::KeyUseRecorder,
@@ -242,7 +241,6 @@ pub struct KccMcp {
     key_use: Option<Arc<KeyUseRecorder>>,
     tool_router: ToolRouter<Self>,
     tool_specs: Arc<[ToolSpec]>,
-    pseudonyms: Arc<Mutex<BTreeMap<String, String>>>,
     audit: Option<AuditLog>,
     migrations: Arc<Migrations>,
     presets: Arc<Presets>,

@@ -153,3 +153,12 @@
 ## [2026-11-17] Todo 44
 - Pseudonym width 64 bits (16 hex): output of std SipHash `hash_one`; a collision merges two labels only; one hash, no second independent hash needed for a home-sized client set. Shared helper lives in kcc-app (both kcc-mcp and kcc-telemetry already depend on it; no new dependency edge, no new crate).
 - Pseudonym text changes from `client-N` to `client-<16 hex>` (D-NODEPLOY; CHANGELOG line).
+
+## [2026-11-17] Todo 47
+- E-14: generic tool metadata is written once in `registry::definitions::generic()`; `#[tool(name = ..)]` carries the join key only; `ToolDescription::tool_annotations()` is shared by `support::route::route` and the generic patch. Routing the generic tools through `route()` was rejected (it changes argument-parse errors and result shaping for every generic tool). ns3 mask duplicates were already gone (todo 6): `backups.rs`, `config_text`/kcc-web all call `kcc_config::mask::redacted_config`.
+- E-10: 123 `missing_errors_doc` hits fixed with `# Errors` sections instead of 123 expects.
+
+## [2026-11-17] Todo 46
+- G-16: `kcc_metrics_series_dropped` gauge (per router, Presence PerClient) = series dropped at the latest scrape; the `Shared.dropped` map is deleted. G-18: `keenetic_interface_up{router,interface,type}` + new `keenetic_interface_info{router,interface,description}` (always 1, emitted for every interface with an id). G-19: `JobFollower` (private, `instrumentation/job_follow.rs`) re-reads every counted job from `JobRunner::get` on `Lagged`. Jobs whose only events fell into the lost window and that never reappear are not recoverable (no listing API); the plan asks for the known ids only.
+- Dashboard: new target D `keenetic_interface_info` in the "Interface state" table, dropped-series panel renamed expr. No alert rule referenced a changed name.
+- Changed test expectation: `per_client_series_are_capped_and_counted` became `per_client_series_are_capped` (the counter assertions moved to the new G-16 test).

@@ -12,7 +12,9 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
-use super::{call::finish_with_context, shape::FailureContext, validate::parse_cursor};
+use super::{
+    call::finish_with_context, scrub::scrub_text, shape::FailureContext, validate::parse_cursor,
+};
 use crate::{KccMcp, McpFailure, registry::definitions::ToolDescription};
 
 /// The description of the `confirm` input of every curated write tool.
@@ -29,19 +31,30 @@ pub(crate) struct Progress {
     peer: Peer<RoleServer>,
     /// The client's token.
     token: ProgressToken,
+    /// Whether client identifiers are pseudonymized in messages.
+    redact_clients: bool,
 }
 
 impl Progress {
     /// Captures the request's progress token, when present.
-    pub(crate) fn from_request(context: &RequestContext<RoleServer>) -> Option<Self> {
+    pub(crate) fn from_request(
+        context: &RequestContext<RoleServer>,
+        redact_clients: bool,
+    ) -> Option<Self> {
         context.meta.get_progress_token().map(|token| Self {
             peer: context.peer.clone(),
             token,
+            redact_clients,
         })
     }
 
     /// Sends one notification; a closed session only loses the notification.
     pub(crate) async fn notify(&self, progress: u32, message: String) {
+        let message = if self.redact_clients {
+            scrub_text(&message)
+        } else {
+            message
+        };
         let param = ProgressNotificationParam::new(self.token.clone(), f64::from(progress))
             .with_message(message);
         if let Err(error) = self.peer.notify_progress(param).await {
@@ -121,7 +134,10 @@ where
     ToolRoute::new_dyn(tool, move |context: ToolCallContext<'_, KccMcp>| {
         let service = context.service;
         let arguments = Value::Object(context.arguments.unwrap_or_default());
-        let progress = Progress::from_request(&context.request_context);
+        let progress = Progress::from_request(
+            &context.request_context,
+            service.privacy.redact_clients_in_mcp,
+        );
         let router = ["host", "router", "source", "target"]
             .into_iter()
             .find_map(|key| arguments.get(key).and_then(Value::as_str))

@@ -49,7 +49,9 @@ poller caches, Web UI preset drafts, MCP migration plans and transient MCP prese
   configure. See below.
 - **Prometheus metrics** (off by default) expose router metrics to whoever can reach the
   metrics listener. Per-client series are off by default; when on, clients are labelled
-  by a pseudonym unless `per_client_label` says `name` or `mac`.
+  by a pseudonym unless `per_client_label` says `name` or `mac`. The pseudonym is a keyed
+  hash of the MAC and the router with a random per-process key: the same on every scrape
+  while kcc runs, different on each router and after each restart.
 - **MCP results** go to the assistant, and from there usually to a third-party model
   provider. See below.
 
@@ -70,10 +72,14 @@ forwards these results to its model provider, whose retention policy then applie
   `show running-config`, unless the role holds RevealSecrets on that router. With
   RevealSecrets those strings arrive as the router sent them, stored secrets included,
   so give an assistant's key RevealSecrets only when its model may see them.
-- `[privacy] redact_clients_in_mcp = true` replaces MAC addresses, and values under keys
-  containing `mac`, `hostname`, `host_name`, `ip` or `address`, with stable pseudonyms
-  for the life of the server process. Client display names (`name`) and free-form
-  log text aren't pseudonymized.
+- `[privacy] redact_clients_in_mcp = true` replaces MAC addresses, client names (the
+  `name`, `hostname`, `host`, `fqdn` and `alias` members of a client object) and values
+  under keys that have `mac`, `hostname`, `host_name`, `ip` or `address` as a whole word
+  (`ip_address` does, `description` does not), and the MAC, IPv4 and IPv6 addresses inside
+  any other text, including the progress notifications of running tools. A host name
+  written inside free text, such as a log line, can't be recognised and stays. The
+  pseudonym is `client-` and 16 hex digits of a keyed hash whose random key lives only in
+  the running process: it's stable until kcc restarts and different afterwards.
 - Limit exposure with a narrow role and router scope for the API key, and fewer
   toolsets.
 

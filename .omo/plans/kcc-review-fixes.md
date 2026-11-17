@@ -1010,7 +1010,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(mcp): truthful result shaping
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 44. Client pseudonymization covers names, free text and notifications, bounded per router
+- [x] 44. Client pseudonymization covers names, free text and notifications, bounded per router
   What to do / Must NOT do: Per the findings: redact_clients covers client names, free text and progress notifications; the pseudonymizer matches IP fields exactly (not the substring "ip"); both pseudonymizers (MCP E-13 and metrics G-17) use a keyed hash with a per-process random key instead of a growing map - use std's `std::hash::RandomState` (SipHash with a random key), no new crate. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `E-05` (medium; critic confirmed) `redact_clients_in_mcp` misses client names, free text and progress notifications. Evidence: `crates/kcc-mcp/src/support/shape.rs:271-278`, `kcc-domain/src/clients.rs:38`, `domains/write/jobs.rs:70-74`, `kcc-domain/src/diagnostics.rs:94-98`. Fix: Add `name` under client objects. Scrub MAC and IP patterns inside strings. Pass progress messages through the same pseudonymizer.
   - `E-13` (low; critic confirmed) The pseudonymizer over-matches on the substring "ip", and its map grows without bound. Evidence: `crates/kcc-mcp/src/support/shape.rs:258-264,274-276`, `lib.rs:244`, `generic/router.rs:85`. Fix: Match whole key tokens (`key == "ip"` or split on `-`/`_`), and bound or session-scope the map.

@@ -152,7 +152,7 @@ never age-pruned and remain subject to normal crash recovery.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `redact_clients_in_mcp` | bool | `false` | pseudonymize client MACs, host names and addresses in MCP results ([PRIVACY.md](PRIVACY.md)) |
+| `redact_clients_in_mcp` | bool | `false` | pseudonymize client MACs, names, host names and addresses, also inside free text and progress messages, in MCP results; pseudonyms last for one process run ([PRIVACY.md](PRIVACY.md)) |
 
 ## `[metrics]`
 
@@ -165,7 +165,7 @@ never age-pruned and remain subject to normal crash recovery.
 | `heavy_interval` | duration | `120s` | refresh of heavy items (at least `60s` and at least `interval`) |
 | `per_client` | bool | `false` | export per-client series |
 | `per_client_max` | integer | `256` | per-router cap on exported clients (at least 1); overflow is counted |
-| `per_client_label` | string | `"pseudonym"` | client label: `name`, `pseudonym` or `mac` |
+| `per_client_label` | string | `"pseudonym"` | client label: `name`, `pseudonym` (a per-router keyed hash, stable for one process run) or `mac` |
 
 See [MONITORING.md](MONITORING.md) and [METRICS.md](METRICS.md).
 

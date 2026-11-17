@@ -1,7 +1,6 @@
 //! Construction and the macro-generated RMCP router of the generic tools.
 
-use alloc::{collections::BTreeMap, sync::Arc};
-use std::sync::Mutex;
+use alloc::sync::Arc;
 
 use kcc_app::{
     api_key_use::KeyUseRecorder,
@@ -85,7 +84,6 @@ impl KccMcp {
             key_use: None,
             tool_router,
             tool_specs: tool_specs.into(),
-            pseudonyms: Arc::new(Mutex::new(BTreeMap::new())),
             audit: None,
             migrations: Arc::default(),
             presets: Arc::default(),

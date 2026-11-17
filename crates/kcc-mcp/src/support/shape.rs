@@ -1,13 +1,10 @@
 //! Result shaping: secret redaction, client pseudonyms, projection, and the byte budget.
 
-use alloc::collections::BTreeMap;
-use std::sync::PoisonError;
-
 use kcc_app::audit::receipt::AuditReceipt;
 use kcc_config::mask::mask_json;
 use serde_json::Value;
 
-use super::truncate::Shaping;
+use super::{scrub::pseudonymize, truncate::Shaping};
 use crate::{KccMcp, McpFailure, support::validate::valid_host};
 
 /// Non-secret context retained from parsed tool input for failure auditing.
@@ -84,11 +81,7 @@ pub(crate) fn shape(
 ) -> Result<String, McpFailure> {
     mask_json(&mut value, "<redacted>");
     if server.privacy.redact_clients_in_mcp {
-        let mut pseudonyms = server
-            .pseudonyms
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
-        pseudonymize(&mut value, &mut pseudonyms, None);
+        pseudonymize(&mut value);
     }
     shaping.project(&mut value);
     let encoded = serde_json::to_string(&value).map_err(|error| {
@@ -102,55 +95,6 @@ pub(crate) fn shape(
         return Ok(encoded);
     }
     shaping.cut(&value, cap)
-}
-
-/// Replaces client identifiers with stable per-session pseudonyms.
-pub(crate) fn pseudonymize(
-    value: &mut Value,
-    pseudonyms: &mut BTreeMap<String, String>,
-    parent_key: Option<&str>,
-) {
-    match value {
-        Value::Object(object) => {
-            for (key, nested) in object {
-                pseudonymize(nested, pseudonyms, Some(key));
-            }
-        }
-        Value::Array(values) => {
-            for nested in values {
-                pseudonymize(nested, pseudonyms, parent_key);
-            }
-        }
-        Value::String(text) if client_identifier(parent_key, text) => {
-            let next = pseudonyms.len().saturating_add(1);
-            let replacement = pseudonyms
-                .entry(text.clone())
-                .or_insert_with(|| format!("client-{next}"))
-                .clone();
-            *text = replacement;
-        }
-        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
-    }
-}
-
-/// Whether a string under `parent_key` identifies a client.
-fn client_identifier(parent_key: Option<&str>, value: &str) -> bool {
-    let key_match = parent_key.is_some_and(|key| {
-        let lowered = key.to_ascii_lowercase();
-        ["mac", "hostname", "host_name", "ip", "address"]
-            .iter()
-            .any(|needle| lowered.contains(needle))
-    });
-    key_match || looks_like_mac(value)
-}
-
-/// Whether `value` is a colon-separated MAC address.
-fn looks_like_mac(value: &str) -> bool {
-    value.len() == 17
-        && value.split(':').count() == 6
-        && value
-            .split(':')
-            .all(|part| part.len() == 2 && part.bytes().all(|byte| byte.is_ascii_hexdigit()))
 }
 
 #[cfg(test)]

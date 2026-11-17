@@ -60,7 +60,6 @@ impl MetricsExporter {
             },
             routers: Mutex::new(BTreeMap::new()),
             sink: Sink::new()?,
-            pseudonyms: Mutex::new(BTreeMap::new()),
             dropped: Mutex::new(BTreeMap::new()),
             scrape: Mutex::new(()),
             self_metrics,

@@ -432,6 +432,17 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **Client pseudonyms are complete, exact and bounded.** `[privacy] redact_clients_in_mcp`
+  now also pseudonymizes client names (`name`, `hostname`, `host`, `fqdn`, `alias` inside a
+  client object), replaces MAC, IPv4 and IPv6 addresses found inside any free-text string,
+  and applies the same pseudonymizer to progress notifications of running tools. An
+  identifying key is matched by whole word (`ip`, `ip_address`, `ipAddress`, `mac`,
+  `hostname`, `address`), no longer by the letters "ip": `description`, `script` and `tip`
+  keep their values. Pseudonyms, in MCP results and in the per-client metrics labels, are now
+  `client-` plus 16 hex digits of a keyed hash with a random per-process key (before:
+  `client-N` from a map that grew with every client seen). They are stable only while one
+  kcc process runs and change with every start; the metrics pseudonym of a MAC also differs
+  per router.
 - **MCP results keep their codes when they are cut to `max_result_bytes`.** A result over the
   budget used to be replaced by `{"truncated": true, "next_cursor": "1"}`, which dropped the
   error code, the fail-safe message and the unsaved/persists flags of a failed write. Now

@@ -41,8 +41,6 @@ pub(super) struct Shared {
     pub routers: Mutex<BTreeMap<String, Cached>>,
     /// Router families.
     pub sink: Sink,
-    /// MAC to `client-N` pseudonyms.
-    pub pseudonyms: Mutex<BTreeMap<String, String>>,
     /// Dropped per-client series per router, summed over scrapes.
     pub dropped: Mutex<BTreeMap<String, u64>>,
     /// Serializes scrapes (the sink is refilled per scrape).
@@ -77,13 +75,7 @@ impl Shared {
             return 0;
         }
         system::info(&self.sink, router, &snapshot.info);
-        clients::heavy(
-            &self.sink,
-            router,
-            snapshot,
-            self.per_client,
-            &mut lock(&self.pseudonyms),
-        )
+        clients::heavy(&self.sink, router, snapshot, self.per_client)
     }
 }
 

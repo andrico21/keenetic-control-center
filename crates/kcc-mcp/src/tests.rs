@@ -2,7 +2,6 @@
 #![expect(
     clippy::absolute_paths,
     clippy::assertions_on_result_states,
-    clippy::default_trait_access,
     clippy::expect_used,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
@@ -14,6 +13,7 @@
 pub(crate) mod fixture;
 mod gates;
 mod persists;
+mod privacy;
 mod random;
 mod shaping;
 mod strategies;

@@ -16,7 +16,8 @@ ports below 1024 are refused.
 - Every router family carries `router`, the profile id.
 - Per-client families exist only with `per_client = true`, for at most `per_client_max`
   clients per router (lowest MAC first; the rest are counted in
-  `kcc_metrics_series_dropped_total`). Clients are labelled with a `client-N` pseudonym
+  `kcc_metrics_series_dropped_total`). Clients are labelled with a `client-<16 hex>` pseudonym
+  (a keyed hash of the MAC and the router, stable only while one kcc process runs)
   unless `per_client_label` is `name` or `mac`.
 - The rmcp-server-kit families (`rmcp_server_kit_*`) are listed in the kit documentation.
 
