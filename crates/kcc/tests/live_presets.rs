@@ -209,8 +209,19 @@ async fn rehearse(target: &Target, allow_loopback: bool) -> TestResult {
     let (captured, _) = kcc(home.path(), &[&capture[..], &["--name", "live51"]].concat())?;
     assert_eq!(captured, 0_i32, "preset capture failed");
     let apply = [
-        "--router", "target", "--json", "preset", "apply", "live51", "--mode", "merge", "--yes",
-        "--finish", "rollback",
+        "--router",
+        "target",
+        "--json",
+        "--confirm-destructive",
+        "target",
+        "preset",
+        "apply",
+        "live51",
+        "--mode",
+        "merge",
+        "--yes",
+        "--finish",
+        "rollback",
     ];
     let (applied, stdout) = kcc(home.path(), &apply)?;
     assert_eq!(applied, 0_i32, "preset apply failed: {stdout}");

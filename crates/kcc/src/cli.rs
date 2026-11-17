@@ -46,6 +46,7 @@ mod exit_from;
 mod files;
 mod fleet;
 mod issues;
+mod line_diff;
 mod migrate;
 mod migrate_apply;
 mod migrate_plan;

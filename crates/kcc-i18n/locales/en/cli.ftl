@@ -116,3 +116,4 @@ cli-router-external-password = Router { $router } reads its password from the pl
 cli-listener-in-use = kcc reaches this router through that listener, so the change would cut kcc off and roll back every unsaved change; it was not sent. Change it on the router, then edit the router URL in kcc with `kcc router edit --url`.
 cli-router-password-env-shared = KCC_PASSWORD can stand in for one secret per command only. Give the other secrets with --password-file, --token-file or --read-password-file.
 cli-dhcp-pool-replace-needs = DHCP pool { $name } already exists. To replace it, also give { $missing }, or its current settings would be reset to the defaults; nothing was sent.
+cli-backup-diff-too-large = The two backups differ in too many commands to compare in order. Nothing was printed; compare them in the Web UI or compare the files on disk.

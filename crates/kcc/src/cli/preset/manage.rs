@@ -4,6 +4,7 @@ use kcc_app::{
     permissions::{Permission, Role},
     secrets::{MasterKey, master_key_path},
 };
+use kcc_catalog::Risk;
 use kcc_i18n::keys;
 use kcc_migrate::presets::{
     model::{CaptureRequest, Preset},
@@ -15,6 +16,7 @@ use super::source::Origin;
 use crate::cli::{
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome, denied},
+    secret::confirm,
 };
 
 /// Opens the encrypted preset store; contacts no router.
@@ -262,6 +264,17 @@ pub(super) async fn delete(ctx: &Ctx, services: &Services, id: &str) -> Outcome 
         .get(&role, id)
         .map_err(|error| map_preset(&error, id))?;
     visible(ctx, &preset)?;
+    if let Err(failure) = confirm(ctx.out(), ctx.globals(), Risk::Destructive, id, false) {
+        ctx.audit(
+            services,
+            "cli.preset.delete",
+            preset.source_router(),
+            json!({ "id": id }),
+            "refused",
+        )
+        .await;
+        return Err(failure);
+    }
     store
         .delete(&role, id)
         .map_err(|error| map_preset(&error, id))?;

@@ -63,6 +63,28 @@ pub async fn run(cli: Cli) -> u8 {
     }
 }
 
+/// Reports a command-line parse failure and returns the process exit code.
+///
+/// Help and version go to stdout as clap prints them. A usage error goes to stderr: as the
+/// failure envelope when `--json` is among `arguments`, else as clap prints it.
+#[inline]
+#[must_use]
+pub fn report_parse_error(error: &clap::Error, arguments: &[String]) -> u8 {
+    let code = u8::try_from(error.exit_code()).unwrap_or(Exit::Usage.code());
+    let json = error.use_stderr()
+        && arguments
+            .iter()
+            .take_while(|argument| *argument != "--")
+            .any(|argument| argument == "--json");
+    if json {
+        let failure = Failure::text(Exit::Usage, &error.to_string().trim_end());
+        Out::new(true, locale(None).unwrap_or(Locale::En)).failure(&failure);
+        return Exit::Usage.code();
+    }
+    drop(error.print());
+    code
+}
+
 /// Runs one command.
 ///
 /// # Errors

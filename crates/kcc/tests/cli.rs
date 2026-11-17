@@ -16,6 +16,8 @@ mod admin;
 mod apply_permissions;
 #[path = "cli/audit_pending.rs"]
 mod audit_pending;
+#[path = "cli/backup_diff.rs"]
+mod backup_diff;
 #[path = "cli/basics.rs"]
 mod basics;
 #[path = "cli/batch_outcomes.rs"]
@@ -26,6 +28,8 @@ mod bracket;
 mod bracket_failures;
 #[path = "cli/busy.rs"]
 mod busy;
+#[path = "cli/cli_contract.rs"]
+mod cli_contract;
 #[path = "cli/dns.rs"]
 mod dns;
 #[path = "cli/failsafe.rs"]

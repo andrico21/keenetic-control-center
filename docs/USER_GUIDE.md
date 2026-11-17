@@ -266,6 +266,13 @@ reconnects and checks the router's checksum. A raw restore has no live progress,
 backup that changes the management address ends with "the router did not answer".
 Backups are pruned by `[backups] keep_last` and `max_age`.
 
+`kcc backup diff <older> <newer>` compares the two configurations command by command, in
+order, including changed secrets, and prints the removed and added commands with every
+secret replaced by `<redacted>` (JSON: `removed` and `added`); a difference too large to
+compare in order is refused with exit 4. `kcc preset delete <id>` is destructive and needs
+`--confirm-destructive <id>`. With `--json`, an argument error is the usual
+`{"error": {...}}` object on stderr with `"kind": "usage"` and exit code 2.
+
 ## Presets and settings copy
 
 ![Preset review](images/presets.png)

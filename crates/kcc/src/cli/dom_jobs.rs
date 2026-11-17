@@ -234,9 +234,11 @@ async fn commit(ctx: &Ctx) -> Outcome {
     .map_err(|error| match error {
         CommitError::Domain(domain) => Failure::from(domain),
         CommitError::Registry(registry) => Failure::from(registry),
-        CommitError::ConfirmationRequired => {
-            Failure::message(Exit::Policy, keys::CLI_CONFIRM_MISSING, &[("router", "-")])
-        }
+        CommitError::ConfirmationRequired => Failure::message(
+            Exit::Policy,
+            keys::CLI_CONFIRM_MISSING,
+            &[("router", target.id())],
+        ),
         CommitError::Job(_) | _ => Failure::text(Exit::Conflict, &error),
     })?;
     report(ctx, &job, follow(&job, events).await)

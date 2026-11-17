@@ -114,6 +114,22 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **`kcc backup diff` compares what changed, in order.** It compared sets of redacted
+  lines, so a changed secret, a reordered command or a repeated command showed no
+  difference. It now compares the complete text of every command in order (as the Web UI
+  does) and prints the removed and added commands redacted, `kcc` refuses a difference
+  too large to compare in order with exit 4, and its help no longer says "Count".
+- **Rollback finishes and `preset delete` are confirmed like the other destructive
+  actions.** `--finish rollback` of `kcc migrate apply`, `kcc preset apply` and `kcc copy`
+  needs `--confirm-destructive <router>` in addition to `--yes`, and `kcc preset delete
+  <id>` needs `--confirm-destructive <id>`; a refusal exits 10 before anything is sent.
+- **Rollback results say `"unsaved": false`.** `kcc config failsafe rollback` and `kcc
+  migrate finish rollback` reported `"unsaved": true` after the router restored its saved
+  configuration.
+- **`--json` covers argument errors.** An unknown flag or a missing argument prints the
+  `{"error": {"kind": "usage", ...}}` object on stderr and exits 2; help and version are
+  unchanged.
+- **A missing confirmation names the router** instead of `-`.
 - **Secret writes prove the new value.** Setting the password of a router account (also
   the VPN server account password), a PPP connection or a Wi-Fi access point now reads the
   stored, encoded value from the running configuration before the write and fails with

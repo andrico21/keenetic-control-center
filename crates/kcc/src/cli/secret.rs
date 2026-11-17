@@ -81,7 +81,10 @@ pub(crate) fn confirm(
             if globals.yes() {
                 return Ok(());
             }
-            let answer = ask(&out.tr(keys::CLI_CONFIRM_ASK, &[("router", router)]))?;
+            let answer = ask(
+                &out.tr(keys::CLI_CONFIRM_ASK, &[("router", router)]),
+                router,
+            )?;
             if answer.eq_ignore_ascii_case("yes") || answer.eq_ignore_ascii_case("y") {
                 Ok(())
             } else {
@@ -96,7 +99,10 @@ pub(crate) fn confirm(
                     Err(refused(router))
                 };
             }
-            let answer = ask(&out.tr(keys::CLI_CONFIRM_TYPE, &[("router", router)]))?;
+            let answer = ask(
+                &out.tr(keys::CLI_CONFIRM_TYPE, &[("router", router)]),
+                router,
+            )?;
             if answer == router {
                 Ok(())
             } else {
@@ -115,19 +121,15 @@ fn refused(router: &str) -> Failure {
     )
 }
 
-/// Prints `question` on stderr and reads one line from a terminal.
+/// Prints `question` about `router` on stderr and reads one line from a terminal.
 ///
 /// # Errors
 ///
-/// Returns the policy refusal when stdin is not a terminal.
-fn ask(question: &str) -> Outcome<String> {
+/// Returns the policy refusal naming `router` when stdin is not a terminal.
+fn ask(question: &str, router: &str) -> Outcome<String> {
     let stdin = io::stdin();
     if !stdin.is_terminal() {
-        return Err(Failure::message(
-            Exit::Policy,
-            keys::CLI_CONFIRM_MISSING,
-            &[("router", "-")],
-        ));
+        return Err(refused(router));
     }
     let mut stderr = io::stderr().lock();
     write!(stderr, "{question} ")?;

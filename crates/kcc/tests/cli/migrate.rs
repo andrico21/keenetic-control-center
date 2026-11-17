@@ -323,3 +323,44 @@ async fn finishing_a_kept_migration_says_what_the_router_did() -> TestResult {
     }
     Ok(())
 }
+
+/// F-12: `apply --finish rollback` is destructive and needs `--confirm-destructive`;
+/// `--yes` alone does not confirm it, and nothing is sent before the refusal.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn apply_finishing_with_rollback_needs_the_destructive_confirmation() -> TestResult {
+    let (env, handle) = target(Firmware::V5_1).await?;
+    let source = format!("file:{}", env.path("source.txt").display());
+    let plan_path = env.path("plan.json");
+    let plan_arg = plan_path.to_str().ok_or("non-UTF-8 path")?;
+    let planned = env.kcc(&["migrate", "plan", "--from", &source, "--out", plan_arg])?;
+    assert_eq!(planned.code, 0_i32, "{planned:?}");
+    let before = handle.request_log().len();
+
+    let refused = env.kcc(&[
+        "migrate", "apply", "--from", &source, "--plan", plan_arg, "--yes", "--finish", "rollback",
+    ])?;
+
+    assert_eq!(refused.code, 10_i32, "{refused:?}");
+    assert!(
+        !handle.request_log().iter().skip(before).any(|record| record
+            .command()
+            .is_some_and(|command| command.contains("migrated-1"))),
+        "nothing applied before the refusal"
+    );
+    let confirmed = env.kcc(&[
+        "migrate",
+        "apply",
+        "--from",
+        &source,
+        "--plan",
+        plan_arg,
+        "--yes",
+        "--confirm-destructive",
+        "target",
+        "--finish",
+        "rollback",
+    ])?;
+    assert_eq!(confirmed.code, 0_i32, "{confirmed:?}");
+    handle.shutdown().await?;
+    Ok(())
+}

@@ -274,7 +274,9 @@ Applying, keeping and saving need `Read`, `Migrate`, `Write` and `Save`, which t
 `operator` role holds: the recovery timer around the run is armed, kept alive and disarmed
 under the run's `Migrate`. A rollback finish (chosen with `--finish rollback`, `finish
 rollback` or a rollback button) and a plan that installs components also need
-`Destructive`, checked before any router request.
+`Destructive`, checked before any router request. `--finish rollback` of `migrate apply`,
+`preset apply` and `copy` also needs `--confirm-destructive <router>` (a `--yes` alone does
+not confirm it), as `finish rollback` does.
 When a verification failure causes the router to roll back, apply prints
 "Migration verification failed. kcc rolled back automatically and restored the startup configuration." and exits 6.
 In router mode, migration commit, preset save and `kcc config failsafe commit` use the

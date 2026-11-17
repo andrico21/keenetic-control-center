@@ -77,7 +77,7 @@ async fn save_writes_the_lines_to_startup_and_is_audited_as_the_cli_user() -> Te
 async fn rollback_restores_the_running_config_from_before_the_copy() -> TestResult {
     let pair = Pair::start(Profile::default()).await?;
     let running = pair.target.running_config_text();
-    let run = pair.copy(&["--finish", "rollback"])?;
+    let run = pair.copy(&["--finish", "rollback", "--confirm-destructive", "fake-b"])?;
     assert_eq!(run.code, 0_i32, "{run:?}");
     let result: Value = stdout_json(&run)?;
     assert_eq!(result.get("applied"), Some(&json!(1_u64)), "{result}");
@@ -109,5 +109,18 @@ async fn copy_finishing_with_save_never_says_unsaved() -> TestResult {
         !run.stdout.contains(&not_saved) && !run.stderr.contains(&not_saved),
         "{run:?}"
     );
+    pair.stop().await
+}
+
+/// F-12: finishing a copy with a rollback is destructive; `--yes` alone does not confirm it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn rollback_finish_needs_the_destructive_confirmation() -> TestResult {
+    let pair = Pair::start(Profile::default()).await?;
+
+    let refused = pair.copy(&["--finish", "rollback"])?;
+
+    assert_eq!(refused.code, 10_i32, "{refused:?}");
+    let confirmed = pair.copy(&["--finish", "rollback", "--confirm-destructive", "fake-b"])?;
+    assert_eq!(confirmed.code, 0_i32, "{confirmed:?}");
     pair.stop().await
 }

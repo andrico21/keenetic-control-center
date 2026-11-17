@@ -358,6 +358,9 @@ pub const CLI_ROUTER_PASSWORD_ENV_SHARED: MessageKey =
 /// `cli-dhcp-pool-replace-needs` in `cli.ftl`.
 pub const CLI_DHCP_POOL_REPLACE_NEEDS: MessageKey = MessageKey::new("cli-dhcp-pool-replace-needs");
 
+/// `cli-backup-diff-too-large` in `cli.ftl`.
+pub const CLI_BACKUP_DIFF_TOO_LARGE: MessageKey = MessageKey::new("cli-backup-diff-too-large");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -6687,7 +6690,7 @@ pub const WEB_DHCP_ERROR_DNS_ONE: MessageKey = MessageKey::new("web-dhcp-error-d
 pub const WEB_SECRET_CHANGED: MessageKey = MessageKey::new("web-secret-changed");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2129] = [
+pub static ALL: [MessageKey; 2130] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -6803,6 +6806,7 @@ pub static ALL: [MessageKey; 2129] = [
     CLI_LISTENER_IN_USE,
     CLI_ROUTER_PASSWORD_ENV_SHARED,
     CLI_DHCP_POOL_REPLACE_NEEDS,
+    CLI_BACKUP_DIFF_TOO_LARGE,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

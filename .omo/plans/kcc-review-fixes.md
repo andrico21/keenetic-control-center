@@ -1280,7 +1280,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): typed HTML fragments instead of String + safe
   Recommended task executor category: deep-low - correctness reasoning across files, settled by reading the code
 
-- [ ] 61. CLI behaviour fixes
+- [x] 61. CLI behaviour fixes
   What to do / Must NOT do: Per the findings: `backup diff` compares ordered unredacted lines (redact the printed output) and its help says what it does; one confirmation gate per action; rollback results report saved state correctly; VPN secret writes take their gate and `unsaved` from the plan; `--json` covers argument errors; fix the `-` router in confirmation messages. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `F-07` (medium; critic adjusted) `backup diff` compares sets of redacted lines, so it misses real changes, and its help text says "Count". Evidence: `crates/kcc/src/cli/persist.rs:176-186`, `args_fleet.rs:139`, `kcc-web/src/config_page/text.rs:36-43`. Fix: Diff the full-text digests in order (as the Web does), print `shown[i]`, and fix the help text. Critic correction (binding): Drop the claim about `up`/`exit`/`shutdown` in other blocks. The defect is invisible secret changes, plus set semantics for reordering and exact duplicates.
   - `F-12` (low; critic adjusted, medium->low) Inconsistent confirmation gates for the same action. Evidence: `migrate_apply.rs:49`, `preset/run.rs:75`, `migrate.rs:170-171`, `preset/finish.rs:91`. Fix: When `finish == Rollback`, also run `confirm(Risk::Destructive, ...)`. Give `preset delete` a confirmation.

@@ -136,7 +136,7 @@ pub enum BackupCommand {
         #[arg(long, value_name = "PATH")]
         output: Option<PathBuf>,
     },
-    /// Count the lines that differ between two backups.
+    /// Show the commands that differ between two backups, in order, with secrets redacted.
     Diff {
         /// Older backup name.
         older: String,

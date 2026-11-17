@@ -42,6 +42,18 @@ pub fn password_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     router_users::change_request(operation)
 }
 
+/// Plans the named IKE key used by an IPsec/IKEv2 server without sending anything.
+///
+/// # Errors
+///
+/// Returns an error when the name or the key cannot be one safe router CLI word
+/// ([`crate::DomainError::InvalidCliToken`]), or when the catalog refuses the planned
+/// request ([`crate::DomainError::Validation`]).
+#[inline]
+pub fn plan_ike_psk(router: &RouterCtx, name: ObjectName, psk: SecretString) -> Result<ChangeOp> {
+    credentials::plan(router, &CredentialTarget::Ike(name), psk)
+}
+
 /// Sets and verifies the named IKE key used by an IPsec/IKEv2 server; returns the
 /// change's result, its audit receipt included.
 ///

@@ -1,6 +1,7 @@
 //! Keenetic Control Center command-line entry point.
 
 use std::{
+    env,
     io::{self, Write as _},
     process::ExitCode,
 };
@@ -20,8 +21,11 @@ fn main() -> ExitCode {
     let cli = match Cli::try_parse_process() {
         Ok(cli) => cli,
         Err(error) => {
-            drop(error.print());
-            return ExitCode::from(u8::try_from(error.exit_code()).unwrap_or(2));
+            let arguments = env::args_os()
+                .skip(1)
+                .filter_map(|argument| argument.into_string().ok())
+                .collect::<Vec<_>>();
+            return ExitCode::from(entry::report_parse_error(&error, &arguments));
         }
     };
     let runtime = match Builder::new_multi_thread().enable_all().build() {

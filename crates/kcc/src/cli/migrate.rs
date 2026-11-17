@@ -182,7 +182,7 @@ async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
     };
     let document = run_change(ctx, services, &target, gate, async |changes, router| {
         let _: Closed = reported(ctx.out(), step.0, close(changes, router, mode, step).await)?;
-        Ok(applied(step.0 == Close::Rollback))
+        Ok(applied(false))
     })
     .await?;
     let out = ctx.out();

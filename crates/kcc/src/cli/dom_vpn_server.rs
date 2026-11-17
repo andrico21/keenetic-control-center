@@ -1,14 +1,15 @@
 //! VPN server writes: typed `VpnServerChange`s and secret-safe keys and passwords.
 
 use kcc_app::permissions::Permission;
-use kcc_catalog::Risk;
-use kcc_domain::vpn_servers::{self, VpnServerChange, VpnServerService, secrets as server_secrets};
+use kcc_domain::{
+    vpn_clients,
+    vpn_servers::{self, VpnServerChange, VpnServerService, secrets as server_secrets},
+};
 
 use super::{
     args_dom_family::Family,
     args_dom_vpn_server::{PoolServer, ServiceKind, VpnServerSecretCommand, VpnServerWriteCommand},
     args_domains_wire::VpnServerCommand,
-    change::{Gate, applied},
     context::Ctx,
     dom_net::new_secret,
     dom_wire::{self, object},
@@ -51,12 +52,9 @@ async fn secrets(ctx: &Ctx, command: VpnServerSecretCommand) -> Outcome {
             let session = Session::open(ctx, Permission::Write).await?;
             let key_name = object(&name)?;
             let psk = new_secret(ctx, &name)?;
-            let gate = Gate::new(Risk::Write, Permission::Write, false);
+            let operation = server_secrets::plan_ike_psk(session.router(), key_name, psk)?;
             session
-                .change(gate, async move |changes, router| {
-                    drop(server_secrets::apply_ike_psk(changes, router, key_name, psk).await?);
-                    Ok(applied(true))
-                })
+                .cli(&operation, vpn_clients::change_request(&operation)?)
                 .await
         }
         VpnServerSecretCommand::Password { user } => {

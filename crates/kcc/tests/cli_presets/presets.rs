@@ -125,3 +125,37 @@ async fn finishing_an_unknown_run_is_a_usage_error_without_requests() -> TestRes
     assert_eq!(pair.requests(), before);
     pair.stop().await
 }
+
+/// F-12: deleting a stored preset is destructive and needs `--confirm-destructive <id>`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn preset_delete_asks_for_confirmation() -> TestResult {
+    let pair = Pair::start(Profile::default()).await?;
+    let env = &pair.env;
+    let captured = env.kcc(&[
+        "preset",
+        "capture",
+        "--from",
+        "fake-a",
+        "--groups",
+        "dns-secure",
+        "--name",
+        "dns-secure",
+    ])?;
+    assert_eq!(captured.code, 0_i32, "{captured:?}");
+
+    let refused = env.kcc(&["--json", "preset", "delete", "dns-secure"])?;
+
+    assert_eq!(refused.code, 10_i32, "{refused:?}");
+    let kept = env.kcc(&["--json", "preset", "show", "dns-secure"])?;
+    assert_eq!(kept.code, 0_i32, "the preset survives a refusal: {kept:?}");
+    let deleted = env.kcc(&[
+        "--json",
+        "--confirm-destructive",
+        "dns-secure",
+        "preset",
+        "delete",
+        "dns-secure",
+    ])?;
+    assert_eq!(deleted.code, 0_i32, "{deleted:?}");
+    pair.stop().await
+}

@@ -21,7 +21,8 @@ use super::{
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     files,
-    redact::{redacted_copy, redacted_lines},
+    line_diff::between,
+    redact::{Lines, redacted_copy},
     secret::confirm,
 };
 
@@ -127,7 +128,7 @@ async fn failsafe(ctx: &Ctx, services: &Services, action: FailsafeAction, second
             };
             let closing = (step, Permission::Destructive);
             let _: Closed = reported(ctx.out(), step, close(changes, router, mode, closing).await)?;
-            Ok(applied(step == Close::Rollback))
+            Ok(applied(false))
         },
     )
     .await?;
@@ -179,17 +180,20 @@ pub(crate) async fn backup(ctx: &Ctx, command: BackupCommand) -> Outcome {
                 ctx.authorize_audited(&services, &[Permission::Read], &[&router])
                     .await?,
             );
-            let before = redacted_lines(services.backups().get(&router, &older)?.expose_secret())?;
-            let after = redacted_lines(services.backups().get(&router, &newer)?.expose_secret())?;
-            let removed = before
+            let before = Lines::read(services.backups().get(&router, &older)?.expose_secret())?;
+            let after = Lines::read(services.backups().get(&router, &newer)?.expose_secret())?;
+            let changes = between(before.digests(), after.digests()).ok_or_else(|| {
+                Failure::message(Exit::Validation, keys::CLI_BACKUP_DIFF_TOO_LARGE, &[])
+            })?;
+            let removed = changes
+                .removed()
                 .iter()
-                .filter(|line| !after.contains(line))
-                .cloned()
+                .map(|&index| before.shown(index))
                 .collect::<Vec<_>>();
-            let added = after
+            let added = changes
+                .added()
                 .iter()
-                .filter(|line| !before.contains(line))
-                .cloned()
+                .map(|&index| after.shown(index))
                 .collect::<Vec<_>>();
             let human = removed
                 .iter()

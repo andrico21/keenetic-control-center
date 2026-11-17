@@ -7,7 +7,6 @@ use kcc_app::{
     permissions::Permission,
     secrets::files::{SecretFileError, open_secret_file},
 };
-use kcc_catalog::Risk;
 use kcc_domain::{
     interfaces,
     vpn_clients::{
@@ -24,7 +23,6 @@ use super::{
         CryptoKind, ProtocolKind, RoutesKind, SecretKind, VpnSecretCommand, VpnWriteCommand,
     },
     args_domains_wire::VpnCommand,
-    change::{Gate, applied},
     context::Ctx,
     dom_net::new_secret,
     dom_wire::{self, object},
@@ -98,12 +96,9 @@ async fn secrets(ctx: &Ctx, command: VpnSecretCommand) -> Outcome {
                 SecretKind::ProfileXauth => CredentialTarget::ProfileXauth(object_name),
             };
             let value = new_secret(ctx, &name)?;
-            let gate = Gate::new(Risk::Write, Permission::Write, false);
+            let operation = client_secrets::plan(session.router(), &target, value)?;
             session
-                .change(gate, async move |changes, router| {
-                    drop(client_secrets::apply(changes, router, &target, value).await?);
-                    Ok(applied(true))
-                })
+                .cli(&operation, vpn_clients::change_request(&operation)?)
                 .await
         }
     }

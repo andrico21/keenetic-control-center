@@ -52,6 +52,27 @@ fn request_failure(error: PresetApplyError) -> Failure {
     }
 }
 
+/// Confirms the apply, and a rollback finish chosen up front as the destructive act it is.
+///
+/// # Errors
+///
+/// Returns the policy refusal (exit 10) when a confirmation is missing or wrong.
+// NOT cancel-safe: the refusal audit may append after cancellation.
+async fn confirm_apply(
+    ctx: &Ctx,
+    services: &Services,
+    target: &str,
+    finish: Option<Finish>,
+) -> Outcome {
+    let confirmation = confirm(ctx.out(), ctx.globals(), Risk::Management, target, false);
+    ctx.confirmed(services, target, confirmation).await?;
+    if matches!(finish, Some(Finish::Rollback)) {
+        let rollback = confirm(ctx.out(), ctx.globals(), Risk::Destructive, target, false);
+        ctx.confirmed(services, target, rollback).await?;
+    }
+    Ok(())
+}
+
 /// Plans `preset` onto `target`, prints the plan, asks (or `--yes`), applies, verifies,
 /// and ends the run as `finish` says or as chosen on the terminal.
 ///
@@ -72,8 +93,7 @@ pub(super) async fn apply(
     let out = ctx.out();
     out.note(&human);
     planned.ready()?;
-    let confirmation = confirm(out, ctx.globals(), Risk::Management, target, false);
-    ctx.confirmed(services, target, confirmation).await?;
+    confirm_apply(ctx, services, target, finish).await?;
     let (role, reviewed, inventory) = planned.into_parts();
     let mut input = PresetApplyRequest::new(
         Arc::clone(services.workflow()),

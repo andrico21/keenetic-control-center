@@ -48,6 +48,10 @@ pub(crate) async fn apply(
     let (target, role, plan, source, management_password) = planned.into_parts();
     let confirmation = secret::confirm(ctx.out(), ctx.globals(), Risk::Management, &target, false);
     ctx.confirmed(services, &target, confirmation).await?;
+    if finish == FinishAction::Rollback {
+        let rollback = secret::confirm(ctx.out(), ctx.globals(), Risk::Destructive, &target, false);
+        ctx.confirmed(services, &target, rollback).await?;
+    }
     let mut request = ApplyRequest::new(
         Arc::clone(services.workflow()),
         services.audit_log().clone(),
