@@ -15,4 +15,5 @@ pub(crate) mod fixture;
 mod gates;
 mod persists;
 mod random;
+mod shaping;
 mod strategies;

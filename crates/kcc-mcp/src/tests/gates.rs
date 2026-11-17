@@ -14,7 +14,10 @@ use crate::{
     McpFailure, McpIdentity, RouterId, authorize_routers,
     generic::rci::{RciWriteInput, rci_execute},
     registry::definitions::tools,
-    support::shape::{pseudonymize, shape},
+    support::{
+        shape::{pseudonymize, shape},
+        truncate::Shaping,
+    },
 };
 
 #[tokio::test]
@@ -188,12 +191,12 @@ async fn oversized_result_returns_truncation_marker() -> Result<(), Box<dyn Erro
     let text = shape(
         fixture.server(),
         json!({"value":"x".repeat(1024)}),
-        Some("request"),
+        Shaping::new(Some("request")),
     )
     .map_err(|error| format!("shape failed: {error:?}"))?;
     let value: Value = serde_json::from_str(&text)?;
     assert_eq!(value.get("truncated"), Some(&Value::Bool(true)));
-    assert!(value.get("next_cursor").is_some());
+    assert_eq!(value.get("next_cursor"), None);
     fixture.shutdown().await?;
     Ok(())
 }

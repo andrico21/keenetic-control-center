@@ -45,7 +45,7 @@ pub(super) struct RouteInput {
     host: String,
     /// Write operation.
     op: String,
-    /// Unused confirmation flag accepted for a uniform interface.
+    /// Confirms a management change.
     #[serde(default)]
     confirm: bool,
     /// Destination network (IPv4) or prefix (IPv6), or `default`.
@@ -75,7 +75,7 @@ pub(super) struct PolicyInput {
     host: String,
     /// Write operation.
     op: String,
-    /// Unused confirmation flag accepted for a uniform interface.
+    /// Confirms a management change.
     #[serde(default)]
     confirm: bool,
     /// Policy name.

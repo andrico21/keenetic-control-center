@@ -109,6 +109,11 @@ impl RciReadInput {
     pub(crate) fn router(&self) -> &str {
         &self.host
     }
+
+    /// Item members the caller asked to keep.
+    pub(crate) fn fields(&self) -> &[String] {
+        self.fields.as_deref().unwrap_or_default()
+    }
 }
 
 impl RciWriteInput {

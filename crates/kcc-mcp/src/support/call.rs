@@ -60,7 +60,7 @@ async fn answer(
     result: Result<Value, McpFailure>,
     request_id: &str,
 ) -> CallToolResult {
-    match result.and_then(|value| shape(server, value, Some(request_id))) {
+    match result.and_then(|value| shape(server, value, context.shaping(Some(request_id)))) {
         Ok(text) => CallToolResult::success(vec![ContentBlock::text(text)]),
         Err(error) => {
             tracing::warn!(request_id, code = error.code(), "MCP tool request failed");
@@ -130,7 +130,7 @@ async fn answer(
             {
                 drop(object.insert("field".to_owned(), Value::String(field.clone())));
             }
-            let text = shape(server, reply, Some(request_id))
+            let text = shape(server, reply, context.shaping(Some(request_id)))
                 .unwrap_or_else(|_error| "{\"error\":\"internal\"}".to_owned());
             CallToolResult::error(vec![ContentBlock::text(text)])
         }

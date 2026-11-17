@@ -149,3 +149,7 @@
 - Schema changes: every curated domain write tool (`schema_with_ops`) gets one `confirm` description (CONFIRM_DOC); `kcc_firewall_write` loses `index` and `description` (still invalid_arguments when sent: unknown field). Doc comments "Unused confirmation flag..." replaced on routing, policy, nat, firewall, clients, dhcp, segments, dns inputs.
 - Changed test expectation: `oversized_result_returns_truncation_marker` (gates.rs) now expects NO `next_cursor` (the tool has no cursor input) instead of a meaningless "1".
 - `docs/MCP_TOOLS.md` unchanged by `cargo xtask gen-tool-docs` (it lists no schemas).
+
+## [2026-11-17] Todo 44
+- Pseudonym width 64 bits (16 hex): output of std SipHash `hash_one`; a collision merges two labels only; one hash, no second independent hash needed for a home-sized client set. Shared helper lives in kcc-app (both kcc-mcp and kcc-telemetry already depend on it; no new dependency edge, no new crate).
+- Pseudonym text changes from `client-N` to `client-<16 hex>` (D-NODEPLOY; CHANGELOG line).

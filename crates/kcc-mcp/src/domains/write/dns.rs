@@ -31,7 +31,7 @@ pub(super) struct DnsInput {
     host: String,
     /// Write operation.
     op: String,
-    /// Unused confirmation flag accepted for a uniform interface.
+    /// Confirms a management change.
     #[serde(default)]
     confirm: bool,
     /// Profile, group, or domain name.

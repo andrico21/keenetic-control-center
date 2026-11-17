@@ -45,6 +45,28 @@ pub(crate) struct ListInput {
     fields: Option<Vec<String>>,
 }
 
+impl ListInput {
+    /// The projection members and page offset that shape the reply.
+    pub(crate) fn shape_input(&self) -> (Vec<String>, Option<usize>) {
+        shape_input(self.fields.as_deref(), self.cursor.as_deref())
+    }
+}
+
+impl CatalogSearchInput {
+    /// The projection members and page offset that shape the reply.
+    pub(crate) fn shape_input(&self) -> (Vec<String>, Option<usize>) {
+        shape_input(self.fields.as_deref(), self.cursor.as_deref())
+    }
+}
+
+/// The requested members and the page offset; an unparsable cursor fails the tool itself.
+fn shape_input(fields: Option<&[String]>, cursor: Option<&str>) -> (Vec<String>, Option<usize>) {
+    (
+        fields.unwrap_or_default().to_vec(),
+        Some(parse_cursor(cursor).unwrap_or(0)),
+    )
+}
+
 /// A catalog search.
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -145,7 +167,7 @@ pub(crate) async fn catalog_search(
     validate_fields(input.fields.as_deref())?;
     let (_identity, host) = server.authorize_host(Permission::Read, input.host)?;
     let catalog = server.catalog(host.as_str()).await?;
-    let limit = usize::from(input.limit.unwrap_or(20).min(100));
+    let limit = usize::from(input.limit.unwrap_or(20).clamp(1, 100));
     let offset = parse_cursor(input.cursor.as_deref())?;
     let results = catalog
         .search(&input.query, offset.saturating_add(limit).saturating_add(1))

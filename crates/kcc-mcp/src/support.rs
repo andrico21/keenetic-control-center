@@ -9,4 +9,5 @@ pub(crate) mod names;
 pub(crate) mod raw_change;
 pub(crate) mod route;
 pub(crate) mod shape;
+pub(crate) mod truncate;
 pub(crate) mod validate;

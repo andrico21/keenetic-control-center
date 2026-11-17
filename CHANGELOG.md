@@ -432,6 +432,30 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **MCP results keep their codes when they are cut to `max_result_bytes`.** A result over the
+  budget used to be replaced by `{"truncated": true, "next_cursor": "1"}`, which dropped the
+  error code, the fail-safe message and the unsaved/persists flags of a failed write. Now
+  `error`, `message`, `field`, `unsaved`, `persists_immediately`, `audit_pending`,
+  `request_id`, `applied`, `rebooting`, `factory_reset`, `job_id` and `status` are kept, the
+  largest array is cut to the items that fit, and `truncated` is `true`. `next_cursor` is the
+  offset of the first item not returned, and only for a tool that has a `cursor` input (it is
+  absent when no item fits and for every other tool). A kept payload that alone exceeds the
+  budget is still refused with `internal`.
+- **The MCP `fields` argument is applied.** `kcc_routers_list`, `kcc_catalog_search` and
+  `kcc_rci_read` keep only the requested members of every object item of the result's
+  arrays (the router `statuses` of `kcc_rci_read` are kept whole); an unknown name is absent
+  and masked or pseudonymized values stay masked. Before, the argument was validated and
+  ignored.
+- **MCP `limit` is clamped to 1..=100** for `kcc_routers_list` and `kcc_catalog_search`, like
+  the migration tools. `limit: 0` used to return no items and, for `kcc_catalog_search`, a
+  `next_cursor` equal to the current cursor.
+- **The `confirm` input of the curated MCP write tools is documented truthfully**:
+  "required when the change touches management" (or is destructive), one text for the
+  routing, policy, NAT, firewall, client, DHCP, segment and DNS tools (and every other
+  curated write tool). Before, those tools called it "unused". `kcc_firewall_write` no longer
+  lists the `index` and `description` inputs: the tool never accepted them and answers
+  `invalid_arguments` as before when they are sent.
+
 - **Tab-indented configuration text is refused instead of being flattened.** Leading
   whitespace other than spaces is an invalid-indentation parse error naming the line;
   space indentation reads as before.

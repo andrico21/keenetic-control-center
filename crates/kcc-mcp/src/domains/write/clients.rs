@@ -49,7 +49,7 @@ pub(super) struct ClientInput {
     host: String,
     /// Write operation.
     op: String,
-    /// Unused confirmation flag accepted for a uniform interface.
+    /// Confirms a management change.
     #[serde(default)]
     confirm: bool,
     /// Client MAC address.
@@ -77,7 +77,7 @@ pub(super) struct DhcpInput {
     host: String,
     /// Write operation.
     op: String,
-    /// Unused confirmation flag accepted for a uniform interface.
+    /// Confirms a management change.
     #[serde(default)]
     confirm: bool,
     /// Pool name.
@@ -108,7 +108,7 @@ pub(super) struct SegmentInput {
     host: String,
     /// Write operation.
     op: String,
-    /// Unused confirmation flag accepted for a uniform interface.
+    /// Confirms a management change.
     #[serde(default)]
     confirm: bool,
     /// Segment id.

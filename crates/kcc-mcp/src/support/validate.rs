@@ -114,7 +114,7 @@ pub(crate) fn paginate(
     limit: Option<u16>,
 ) -> Result<(), McpFailure> {
     let offset = parse_cursor(cursor)?;
-    let count = usize::from(limit.unwrap_or(50).min(100));
+    let count = usize::from(limit.unwrap_or(50).clamp(1, 100));
     if offset >= items.len() {
         items.clear();
     } else {

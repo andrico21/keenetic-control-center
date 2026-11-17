@@ -63,7 +63,7 @@ pub(super) struct NatInput {
     host: String,
     /// Write operation.
     op: String,
-    /// Unused confirmation flag accepted for a uniform interface.
+    /// Confirms a management change.
     #[serde(default)]
     confirm: bool,
     /// Ingress interface.
@@ -93,7 +93,7 @@ pub(super) struct FirewallInput {
     host: String,
     /// Write operation.
     op: String,
-    /// Unused confirmation flag accepted for a uniform interface.
+    /// Confirms a management change.
     #[serde(default)]
     confirm: bool,
     /// Access-list name.
@@ -116,12 +116,6 @@ pub(super) struct FirewallInput {
     /// Destination port.
     #[serde(default)]
     port: Option<u16>,
-    /// Rule index for a description or schedule property.
-    #[serde(default)]
-    index: Option<u32>,
-    /// Rule description or schedule name for an indexed rule.
-    #[serde(default)]
-    description: Option<String>,
     /// Interface for `binding`.
     #[serde(default)]
     interface: Option<String>,
@@ -203,9 +197,6 @@ fn plan_firewall(
             direction,
             !input.remove,
         ));
-    }
-    if input.index.is_some() || input.description.is_some() {
-        return Err(McpFailure::InvalidArguments);
     }
     let protocol = match needed(input.protocol)? {
         Transport::Tcp => RuleProtocol::Tcp,

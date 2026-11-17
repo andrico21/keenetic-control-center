@@ -168,3 +168,6 @@
 - `cargo test -p kcc-catalog --lib` takes ~6 min on 2 jobs (risk tests over three catalogs): budget for it.
 - [todo 43] `routers_list` never emits `next_cursor` for a full page (only the truncation path does); `catalog_search` fetches `offset+limit+1` results each call. Not changed.
 - [todo 43] Reverted my own edit of two test files with `git checkout -- <file>` once (they had no other change); no other git state touched.
+
+## [2026-11-17] Todo 44 worker incident (disclosed)
+- While killing my own stale cargo batch I ran `pkill -x cargo`, which matches EVERY cargo process of the user, not only mine. No other cargo process was listed afterwards, but if the orchestrator's gate or another worker had a cargo process running at ~09:55 it was killed and must be re-run. Rule for next time: kill exact PIDs only.

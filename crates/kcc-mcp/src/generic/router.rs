@@ -152,9 +152,12 @@ impl KccMcp {
         )
     )]
     async fn routers_list(&self, Parameters(input): Parameters<ListInput>) -> CallToolResult {
-        finish(self, "kcc_routers_list", true, async {
-            fleet::routers_list(self, input)
-        })
+        let (fields, cursor) = input.shape_input();
+        finish_with_context(
+            self,
+            FailureContext::new("kcc_routers_list", true, None).with_input(&fields, cursor),
+            async { fleet::routers_list(self, input) },
+        )
         .await
     }
 
@@ -192,10 +195,10 @@ impl KccMcp {
         &self,
         Parameters(input): Parameters<CatalogSearchInput>,
     ) -> CallToolResult {
-        finish(
+        let (fields, cursor) = input.shape_input();
+        finish_with_context(
             self,
-            "kcc_catalog_search",
-            true,
+            FailureContext::new("kcc_catalog_search", true, None).with_input(&fields, cursor),
             fleet::catalog_search(self, input),
         )
         .await
@@ -236,9 +239,10 @@ impl KccMcp {
     )]
     async fn rci_read(&self, Parameters(input): Parameters<RciReadInput>) -> CallToolResult {
         let router = input.router().to_owned();
+        let fields = input.fields().to_vec();
         finish_with_context(
             self,
-            FailureContext::new("kcc_rci_read", true, Some(&router)),
+            FailureContext::new("kcc_rci_read", true, Some(&router)).with_input(&fields, None),
             rci::rci_read(self, input),
         )
         .await

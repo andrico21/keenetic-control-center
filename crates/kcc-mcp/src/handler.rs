@@ -31,6 +31,7 @@ use crate::{
         errors::{failure_error, internal_error},
         names,
         shape::{FailureContext, shape},
+        truncate::Shaping,
         validate::{MAX_PATH_CHARS, valid_host, valid_text},
     },
 };
@@ -142,7 +143,7 @@ impl ServerHandler for KccMcp {
                 "last_change": result.last_change,
                 "fetched_at": result.fetched_at
             });
-            let text = shape(self, value, None).map_err(failure_error)?;
+            let text = shape(self, value, Shaping::new(None)).map_err(failure_error)?;
             return Ok(ReadResourceResult::new(vec![
                 ResourceContents::text(text, uri).with_mime_type("application/json"),
             ])
@@ -165,7 +166,7 @@ impl ServerHandler for KccMcp {
                 "prefix_no": command.prefix_no,
                 "schema": catalog.to_json_schema(&decoded)
             });
-            let text = shape(self, value, None).map_err(failure_error)?;
+            let text = shape(self, value, Shaping::new(None)).map_err(failure_error)?;
             return Ok(ReadResourceResult::new(vec![
                 ResourceContents::text(text, uri).with_mime_type("application/json"),
             ])

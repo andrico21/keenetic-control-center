@@ -5,8 +5,9 @@ use std::sync::PoisonError;
 
 use kcc_app::audit::receipt::AuditReceipt;
 use kcc_config::mask::mask_json;
-use serde_json::{Value, json};
+use serde_json::Value;
 
+use super::truncate::Shaping;
 use crate::{KccMcp, McpFailure, support::validate::valid_host};
 
 /// Non-secret context retained from parsed tool input for failure auditing.
@@ -15,6 +16,8 @@ pub(crate) struct FailureContext<'call> {
     tool: &'static str,
     read_only: bool,
     router: Option<&'call str>,
+    fields: &'call [String],
+    cursor: Option<usize>,
 }
 
 impl<'call> FailureContext<'call> {
@@ -24,7 +27,23 @@ impl<'call> FailureContext<'call> {
             tool,
             read_only,
             router: router.filter(|value| valid_host(value).is_ok()),
+            fields: &[],
+            cursor: None,
         }
+    }
+
+    /// The same call, projecting its list items to `fields` and paging from `cursor`.
+    pub(crate) const fn with_input(self, fields: &'call [String], cursor: Option<usize>) -> Self {
+        Self {
+            fields,
+            cursor,
+            ..self
+        }
+    }
+
+    /// How this call's result is shaped, answering `request_id`.
+    pub(super) const fn shaping(&self, request_id: Option<&'call str>) -> Shaping<'call> {
+        Shaping::new(request_id).with_input(self.fields, self.cursor)
     }
 
     /// Tool registry name used as the audit action suffix.
@@ -61,7 +80,7 @@ pub(crate) fn noting(mut result: Value, audit: &AuditReceipt) -> Value {
 pub(crate) fn shape(
     server: &KccMcp,
     mut value: Value,
-    request_id: Option<&str>,
+    shaping: Shaping<'_>,
 ) -> Result<String, McpFailure> {
     mask_json(&mut value, "<redacted>");
     if server.privacy.redact_clients_in_mcp {
@@ -71,16 +90,7 @@ pub(crate) fn shape(
             .unwrap_or_else(PoisonError::into_inner);
         pseudonymize(&mut value, &mut pseudonyms, None);
     }
-    let fields = value.get("fields").and_then(Value::as_array).map(|items| {
-        items
-            .iter()
-            .filter_map(Value::as_str)
-            .map(str::to_owned)
-            .collect::<Vec<_>>()
-    });
-    if let Some(selected) = fields {
-        project(&mut value, &selected);
-    }
+    shaping.project(&mut value);
     let encoded = serde_json::to_string(&value).map_err(|error| {
         tracing::error!(error = ?error, "MCP result serialization failed");
         McpFailure::Internal
@@ -91,16 +101,7 @@ pub(crate) fn shape(
     if encoded.len() <= cap {
         return Ok(encoded);
     }
-    let truncated = json!({
-        "truncated": true,
-        "next_cursor": "1",
-        "request_id": request_id
-    });
-    let fallback = serde_json::to_string(&truncated).map_err(|_error| McpFailure::Internal)?;
-    if fallback.len() > cap {
-        return Err(McpFailure::Internal);
-    }
-    Ok(fallback)
+    shaping.cut(&value, cap)
 }
 
 /// Replaces client identifiers with stable per-session pseudonyms.
@@ -150,14 +151,6 @@ fn looks_like_mac(value: &str) -> bool {
         && value
             .split(':')
             .all(|part| part.len() == 2 && part.bytes().all(|byte| byte.is_ascii_hexdigit()))
-}
-
-/// Keeps only the selected top-level fields.
-fn project(value: &mut Value, fields: &[String]) {
-    let Value::Object(object) = value else {
-        return;
-    };
-    object.retain(|key, _nested| fields.contains(key));
 }
 
 #[cfg(test)]
