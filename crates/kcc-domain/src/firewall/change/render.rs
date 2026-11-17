@@ -13,11 +13,16 @@
 
 use alloc::{format, vec};
 
-use kcc_app::workflow::{CliChangeRequest, CliCommand as ValidatedCli};
+use kcc_app::workflow::{
+    CliChangeRequest, CliCommand as ValidatedCli, PresencePredicate, VerificationSpec,
+};
 use kcc_catalog::ValidatedRequest;
 use serde_json::{Value, json};
 
-use super::verify::{OwnedRuleProperty, Verification};
+use super::{
+    super::rule_list::ListedRule,
+    verify::{OwnedRuleProperty, Verification},
+};
 use crate::{ChangeOp, DomainError, Result, cli_token, verification as readback};
 
 /// Converts a validated firewall operation into protected CLI workflow input.
@@ -30,12 +35,72 @@ pub(super) fn request(
         .requests
         .last()
         .ok_or(DomainError::InvalidResponse)?;
+    // A move is not stored as a line, so its own line cannot be read back; the moved
+    // rule's line must still be there, and the planner's read-back checks its position.
+    let verify = verification
+        .moved()
+        .map(|(list, rule)| {
+            let mut spec = VerificationSpec::presence(
+                Vec::new(),
+                validated.path.clone(),
+                PresencePredicate::ConfigCommand,
+            );
+            spec.expected = Value::Array(
+                ["access-list", list]
+                    .into_iter()
+                    .map(str::to_owned)
+                    .chain(stored_words(rule))
+                    .map(Value::String)
+                    .collect(),
+            );
+            spec
+        })
+        .into_iter()
+        .collect();
     readback::complete(CliChangeRequest::new(
         vec![ValidatedCli::new(line, validated.clone())?],
-        Vec::new(),
+        verify,
         operation.permission,
         json!({"domain":"firewall"}),
     ))
+}
+
+/// The words `rule` is stored as after `access-list <name>`: as read, or rendered from its
+/// identity when it was planned from the identity alone.
+fn stored_words(rule: &ListedRule) -> Vec<String> {
+    match rule.structured() {
+        Some(configured) if rule.words().is_empty() => {
+            let found = &configured.rule;
+            let mut words = vec![
+                found.action.name().to_owned(),
+                found.protocol.name().to_owned(),
+                found.source.clone(),
+                found.source_mask.clone(),
+            ];
+            port_words(&mut words, found.source_port, found.source_end_port);
+            words.extend([found.destination.clone(), found.destination_mask.clone()]);
+            port_words(
+                &mut words,
+                found.destination_port,
+                found.destination_end_port,
+            );
+            words
+        }
+        Some(_) | None => rule.words().to_vec(),
+    }
+}
+
+fn port_words(words: &mut Vec<String>, start: Option<u16>, end: Option<u16>) {
+    match (start, end) {
+        (None, None | Some(_)) => {}
+        (Some(port), None) => words.extend(["port".to_owned(), "eq".to_owned(), port.to_string()]),
+        (Some(first), Some(last)) => words.extend([
+            "port".to_owned(),
+            "range".to_owned(),
+            first.to_string(),
+            last.to_string(),
+        ]),
+    }
 }
 
 fn line(operation: &ChangeOp, verification: &Verification) -> Result<String> {

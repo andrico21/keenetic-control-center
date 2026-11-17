@@ -1086,7 +1086,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(domain,web,cli): correct DHCP pool planning and parsing
   Recommended task executor category: deep-low - correctness reasoning across files, settled by reading the code
 
-- [ ] 49. Firewall planner and reader correctness
+- [x] 49. Firewall planner and reader correctness
   What to do / Must NOT do: Per the findings: FQDN group description works; `plan_rule` refuses ports unless the protocol is TCP or UDP, and the test matrix asserts the refusal; one unparsable rule is reported, not fatal to every write (and never after the write); D-07: document the read-back limit for an already-existing target in the rustdoc and docs/BACKLOG.md (the critic's narrowed scope); reorder goes through `RuleProperty::Order` and the catalog argument from todo 41, and the Web stops building its own line (W3-08). Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `D-03` (medium; critic confirmed) Setting an FQDN group description is always refused. Evidence: `crates/kcc-domain/src/dns/change.rs:172-175`, `kcc-catalog/src/validate.rs:225-230`. Fix: Validate `{"description"}` only and carry `name` outside the validated value, as `FqdnInclude` does. Add a test.
   - `D-05` (medium; critic confirmed) Ports are rendered for ICMP/ESP/GRE/IPIP/IP firewall rules, and the test matrix accepts it. Evidence: `firewall/change.rs:193-202`, `crates/kcc-mcp/src/domains/write/filtering.rs:214,227`, `tests/firewall_render.rs:25,117-121`. Fix: Refuse ports unless the protocol is TCP or UDP, either in `plan_rule` or by making `Rule` carry ports only for TCP/UDP. Drop those cells from the matrix, or assert the refusal.

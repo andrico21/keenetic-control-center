@@ -20,8 +20,8 @@ use kcc_domain::{
     dns::{self, DnsChange},
     firewall::{
         self,
-        change::RuleProperty,
         model::{Action, Protocol, Rule},
+        rule_list::ListedRule,
     },
     interfaces::{self, ManagementVerdict},
     routing::{change as routing, model::Ipv6Route},
@@ -229,29 +229,45 @@ async fn dns_description_and_ipv6_route_render_their_requests() -> TestResult {
     Ok(())
 }
 
-/// B-08: moving a firewall rule validates the position its line names.
+/// B-08, D-10, W3-08: moving a firewall rule goes through the domain's order planner; the
+/// line names the position its validated `new-index` carries, and the move applies.
 #[tokio::test]
 async fn firewall_order_renders_its_request() -> TestResult {
     for firmware in PROFILES {
         let fixture = Fixture::spawn(firmware).await?;
         let mut changes = fixture.changes().await?;
-        for destination in ["198.51.100.20", "198.51.100.21"] {
-            let rule = Rule::new(Action::Permit, Protocol::Tcp, "192.0.2.10", destination);
-            let added = firewall::change::plan_add_rule(fixture.context(), "OrderAcl", &rule)?;
+        let rules = ["198.51.100.20", "198.51.100.21"]
+            .map(|destination| Rule::new(Action::Permit, Protocol::Tcp, "192.0.2.10", destination));
+        for rule in &rules {
+            let added = firewall::change::plan_add_rule(fixture.context(), "OrderAcl", rule)?;
             drop(firewall::change::apply(&mut changes, fixture.context(), &added).await?);
         }
-        let lists = firewall::read::configured_rules(fixture.context()).await?;
-        let first = lists
-            .get("OrderAcl")
-            .and_then(|rules| rules.first())
-            .ok_or("rule was not read back")?;
-        let planned = firewall::change::plan_rule_property(
-            fixture.context(),
-            "OrderAcl",
-            first,
-            RuleProperty::Order(1),
-        )?;
-        drop(assert_renders(&firewall::change::request(&planned)?)?);
+        let listed = firewall::read::configured_list(fixture.context(), "OrderAcl").await?;
+        let first = listed.first().ok_or("rule was not read back")?;
+
+        let planned = firewall::change::plan_order_rule(fixture.context(), "OrderAcl", first, 1)?;
+        let request = firewall::change::request(&planned)?;
+
+        assert_eq!(
+            assert_renders(&request)?,
+            ["access-list OrderAcl rule 0 order 1"]
+        );
+        let [command] = request.commands.as_slice() else {
+            return Err("one command".into());
+        };
+        assert_eq!(
+            command.validated().value(),
+            &serde_json::json!({"index":0_u32,"new-index":1_u32})
+        );
+        drop(firewall::change::apply(&mut changes, fixture.context(), &planned).await?);
+        let moved = firewall::read::configured_list(fixture.context(), "OrderAcl").await?;
+        assert_eq!(
+            moved
+                .get(1)
+                .and_then(ListedRule::structured)
+                .map(|found| &found.rule),
+            rules.first()
+        );
         drop(changes);
         fixture.shutdown().await?;
     }

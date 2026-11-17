@@ -122,3 +122,69 @@ async fn fqdn_include_uses_the_group_context_and_applies() -> TestResult {
     }
     Ok(())
 }
+
+/// D-03: an FQDN group description is validated as `{description}` alone and sent in the
+/// group's context; 4.3 documents no such command and refuses it before any request.
+#[tokio::test]
+async fn fqdn_group_description_is_set_in_the_group_context() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let before = fixture.handle().request_count();
+        let planned = dns::plan_change(
+            fixture.context(),
+            &DnsChange::FqdnDescription {
+                name: "Blocked".to_owned(),
+                description: "Video sites".to_owned(),
+            },
+        );
+        if firmware == Firmware::V4_3 {
+            assert!(
+                matches!(
+                    &planned,
+                    Err(DomainError::Validation { issues }) if issues.iter().any(|issue| matches!(
+                        issue,
+                        ValidationIssue::UnknownPath { path } if path == "object-group fqdn description"
+                    ))
+                ),
+                "{planned:?}"
+            );
+            assert_eq!(fixture.handle().request_count(), before);
+            fixture.shutdown().await?;
+            continue;
+        }
+        let described = planned?;
+        let request = dns::change_request(&described)?;
+        let [command] = request.commands.as_slice() else {
+            return Err("one command".into());
+        };
+        assert_eq!(
+            command.validated().value(),
+            &serde_json::json!({"description":"Video sites"})
+        );
+        let group = dns::plan_change(
+            fixture.context(),
+            &DnsChange::FqdnGroup {
+                name: "Blocked".to_owned(),
+            },
+        )?;
+        let mut changes = fixture.changes().await?;
+
+        drop(changes.apply_cli(dns::change_request(&group)?).await?);
+        drop(changes.apply_cli(request).await?);
+
+        let sent = fixture
+            .handle()
+            .request_log()
+            .iter()
+            .filter_map(|record| record.command().map(str::to_owned))
+            .collect::<Vec<_>>();
+        assert!(
+            sent.iter()
+                .any(|line| line == "object-group fqdn Blocked description \"Video sites\""),
+            "{sent:?}"
+        );
+        drop(changes);
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}

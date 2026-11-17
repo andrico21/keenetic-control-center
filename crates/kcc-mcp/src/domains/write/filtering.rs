@@ -113,7 +113,7 @@ pub(super) struct FirewallInput {
     /// Destination address.
     #[serde(default)]
     destination: Option<String>,
-    /// Destination port.
+    /// Destination port (`tcp` and `udp` rules only).
     #[serde(default)]
     port: Option<u16>,
     /// Interface for `binding`.

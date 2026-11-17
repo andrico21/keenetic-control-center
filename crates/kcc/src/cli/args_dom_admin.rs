@@ -68,10 +68,10 @@ pub enum FirewallWriteCommand {
         /// Destination mask (default: one host).
         #[arg(long)]
         destination_mask: Option<String>,
-        /// Source port.
+        /// Source port (TCP and UDP rules only).
         #[arg(long)]
         source_port: Option<u16>,
-        /// Destination port.
+        /// Destination port (TCP and UDP rules only).
         #[arg(long)]
         port: Option<u16>,
         /// Remove exactly this rule instead.

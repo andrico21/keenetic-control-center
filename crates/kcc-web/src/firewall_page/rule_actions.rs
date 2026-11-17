@@ -179,16 +179,14 @@ pub(crate) async fn remove(
                     .list(named.list())
                     .map_or(0, |list| list.entries().iter().filter(same).count());
                 Ok(
-                    lines::remove_rule(domain, named.list(), (rule, entry.rule().words())).map(
-                        |request| {
-                            let expect = Expect::Count {
-                                list: named.list().to_owned(),
-                                words: entry.rule().words().to_vec(),
-                                count: count.saturating_sub(1),
-                            };
-                            Planned::new(request, expect, filtered(&firewall, named.list()))
-                        },
-                    ),
+                    lines::remove_rule(domain, named.list(), rule).map(|request| {
+                        let expect = Expect::Count {
+                            list: named.list().to_owned(),
+                            words: entry.rule().words().to_vec(),
+                            count: count.saturating_sub(1),
+                        };
+                        Planned::new(request, expect, filtered(&firewall, named.list()))
+                    }),
                 )
             },
             async |planned, domain| sender.assess(domain, planned).await,
@@ -234,7 +232,7 @@ pub(crate) async fn move_rule(
                     return Err(Invalid::from(Vec::new()).into());
                 }
                 Ok(
-                    lines::order(domain, named.list(), (named.index(), to)).map(|request| {
+                    lines::order(domain, named.list(), (&entry.listed(), to)).map(|request| {
                         let expect = Expect::At {
                             list: named.list().to_owned(),
                             position: to,

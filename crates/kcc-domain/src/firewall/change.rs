@@ -13,20 +13,24 @@
 )]
 
 mod render;
+mod rule;
 mod verify;
 
-use alloc::{format, vec};
+use alloc::vec;
 use core::slice;
 
 use kcc_app::{
     permissions::Permission,
     workflow::{ChangeSet, CliChangeRequest, CliChangeResult, WorkflowError},
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest, ValidationIssue};
+use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Map, Value, json};
 
 use self::verify::{OwnedRuleProperty, Verification};
-use super::model::{ConfiguredRule, Direction, Rule};
+use super::{
+    model::{ConfiguredRule, Direction, Rule},
+    rule_list::ListedRule,
+};
 use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token};
 
 /// A catalog-validated firewall operation with its full-identity read-back contract.
@@ -75,12 +79,12 @@ pub fn request(change: &Plan) -> Result<CliChangeRequest> {
 
 /// Plans adding one access-list rule.
 pub fn plan_add_rule(router: &RouterCtx, name: &str, rule: &Rule) -> Result<Plan> {
-    plan_rule(router, name, rule, false)
+    rule::plan_rule(router, name, rule, false)
 }
 
 /// Plans removing exactly one access-list rule.
 pub fn plan_remove_rule(router: &RouterCtx, name: &str, rule: &Rule) -> Result<Plan> {
-    plan_rule(router, name, rule, true)
+    rule::plan_rule(router, name, rule, true)
 }
 
 /// Plans one rule order, description, disable, or schedule property.
@@ -90,7 +94,32 @@ pub fn plan_rule_property(
     rule: &ConfiguredRule,
     property: RuleProperty<'_>,
 ) -> Result<Plan> {
-    let index = u32::try_from(rule.index).map_err(|_error| DomainError::InvalidResponse)?;
+    plan_property(
+        router,
+        name,
+        ListedRule::new(rule.index, Vec::new(), Some(rule.clone())),
+        property,
+    )
+}
+
+/// Plans moving `rule` of the list `name` to `position`, counted from zero, as
+/// `access-list <name> rule <index> order <position>`; a rule in any stored form can move.
+pub fn plan_order_rule(
+    router: &RouterCtx,
+    name: &str,
+    rule: &ListedRule,
+    position: usize,
+) -> Result<Plan> {
+    plan_property(router, name, rule.clone(), RuleProperty::Order(position))
+}
+
+fn plan_property(
+    router: &RouterCtx,
+    name: &str,
+    before: ListedRule,
+    property: RuleProperty<'_>,
+) -> Result<Plan> {
+    let index = u32::try_from(before.index()).map_err(|_error| DomainError::InvalidResponse)?;
     let body = match property {
         RuleProperty::Description(Some(value)) => json!({"index":index,"description":value}),
         RuleProperty::Description(None) | RuleProperty::Schedule(None) => {
@@ -110,7 +139,7 @@ pub fn plan_rule_property(
         operation: contextual(router, name, "access-list rule", &body)?,
         verification: Verification::Property {
             list: name.to_owned(),
-            before: rule.clone(),
+            before,
             property: property.owned(),
         },
     })
@@ -189,80 +218,6 @@ pub async fn apply(
     })?;
     change.verification.verify(router).await?;
     Ok(result)
-}
-
-fn plan_rule(router: &RouterCtx, name: &str, rule: &Rule, remove: bool) -> Result<Plan> {
-    let mut body = json!({"source":rule.source,"source-mask":rule.source_mask,"destination":rule.destination,"destination-mask":rule.destination_mask});
-    let fields = body.as_object_mut().ok_or(DomainError::InvalidResponse)?;
-    insert_port(fields, "source", rule.source_port, rule.source_end_port)?;
-    insert_port(
-        fields,
-        "destination",
-        rule.destination_port,
-        rule.destination_end_port,
-    )?;
-    if remove {
-        insert(fields, "no", json!(true));
-    }
-    let operation = contextual(
-        router,
-        name,
-        &format!("access-list {}", rule.action.name()),
-        &body,
-    )?;
-    let verification = if remove {
-        Verification::Remove {
-            list: name.to_owned(),
-            rule: rule.clone(),
-        }
-    } else {
-        Verification::Add {
-            list: name.to_owned(),
-            rule: rule.clone(),
-        }
-    };
-    let plan = Plan {
-        operation,
-        verification,
-    };
-    // The rule line must render the planned request, e.g. ports only on `tcp`/`udp`.
-    drop(request(&plan)?);
-    Ok(plan)
-}
-
-fn insert_port(
-    fields: &mut Map<String, Value>,
-    side: &str,
-    start: Option<u16>,
-    end: Option<u16>,
-) -> Result<()> {
-    let (port, end_port, operator) = match side {
-        "source" => ("source-port", "source-end-port", "src-port-operator"),
-        "destination" => (
-            "destination-port",
-            "destination-end-port",
-            "dst-port-operator",
-        ),
-        _ => return Err(DomainError::InvalidResponse),
-    };
-    match (start, end) {
-        (None, None) => Ok(()),
-        (Some(value), None) => {
-            insert(fields, operator, json!("eq"));
-            insert(fields, port, json!(value));
-            Ok(())
-        }
-        (Some(first), Some(last)) if first <= last => {
-            insert(fields, port, json!(first));
-            insert(fields, end_port, json!(last));
-            Ok(())
-        }
-        (None | Some(_), Some(_)) => Err(DomainError::Validation {
-            issues: vec![ValidationIssue::InvalidValue {
-                field: end_port.to_owned(),
-            }],
-        }),
-    }
 }
 
 fn contextual(router: &RouterCtx, name: &str, path: &str, body: &Value) -> Result<ChangeOp> {

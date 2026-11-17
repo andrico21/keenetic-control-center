@@ -7,6 +7,7 @@ use kcc_domain::{
         change::{self as firewall_change, RuleProperty},
         model::{Action, Direction, Protocol, Rule},
         read as firewall_read,
+        rule_list::ListedRule,
     },
     schedules::{self, ActionTime, ScheduleAction},
     storage::{self, MaintenanceAction, MaintenanceRequest},
@@ -92,10 +93,10 @@ async fn firewall_writes(ctx: &Ctx, command: FirewallWriteCommand) -> Outcome {
         } => {
             let position =
                 usize::try_from(index).map_err(|_error| DomainError::FirewallRuleAbsent)?;
-            let rules = firewall_read::configured_rules(router).await?;
+            let rules = firewall_read::configured_list(router, &acl).await?;
             let rule = rules
-                .get(&acl)
-                .and_then(|entries| entries.get(position))
+                .get(position)
+                .and_then(ListedRule::structured)
                 .ok_or(DomainError::FirewallRuleAbsent)?;
             let property = match (description.as_deref(), schedule.as_deref()) {
                 (Some(text), _) => RuleProperty::Description(Some(text)),

@@ -114,6 +114,17 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **Firewall rules with ports need TCP or UDP.** A firewall rule with a source or
+  destination port on `icmp`, `esp`, `gre`, `ipip` or `ip` is refused while planning as a
+  validation error on the field `source-port` or `destination-port` (CLI exit 4, MCP
+  `validation_failed`), before anything is sent; it was refused before as an internal line
+  error.
+- **Firewall reorder goes through the domain planner.** The Web "Move up"/"Move down"
+  actions plan the move with `firewall::change::plan_order_rule`
+  (`access-list <list> rule <index> order <position>`, validated as `index` and
+  `new-index`) instead of building their own line. The public reader
+  `firewall::read::configured_rules` is replaced by `configured_list(router, list)`, which
+  returns `ListedRule` entries.
 - **DHCP pools: one DNS server, a clearable DNS field, no silent overwrite.** A pool
   with more than one DNS server is refused before anything is sent: `kcc dhcp pool`
   with a second `--dns` exits 4 (validation, field `dns`), MCP answers
@@ -463,6 +474,16 @@ The first release, `0.1.0`, is in preparation and contains:
   a new stream label.
 
 ### Fixed
+
+- **An FQDN group description can be set.** `kcc dns fqdn-group ... --description` and the
+  MCP DNS tool were always refused (the group name was validated as an unknown field of
+  `object-group fqdn description`); the description is now sent as
+  `object-group fqdn <name> description "<text>"` on 5.x firmware. 4.3 documents no such
+  command and still refuses it before anything is sent.
+- **One unreadable firewall rule no longer blocks every firewall write.** The CLI and MCP
+  firewall writes read back only the list they change, and keep a rule they do not model
+  (for example `port gt 1024`) as an unstructured entry; before, such a rule in any list
+  made every write fail, and an added rule was reported failed after it was sent.
 
 - **DHCP pools are read only from their own block.** Indented lines of a later
   top-level block (`bind` under `ipv6 subnet`, `enable` under `crypto map`) no longer

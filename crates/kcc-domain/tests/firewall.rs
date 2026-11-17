@@ -18,6 +18,7 @@ use kcc_domain::{
         descriptor::DESCRIPTOR,
         model::{Action, Direction, Protocol, Rule},
         read,
+        rule_list::ListedRule,
     },
 };
 use kcc_testkit::{FaultInjection, model::Firmware};
@@ -107,8 +108,8 @@ async fn removal_uses_full_protocol_and_port_identity() -> TestResult {
         let remove = change::plan_remove_rule(fixture.context(), "WebAcl", &tcp)?;
         drop(change::apply(&mut changes, fixture.context(), &remove).await?);
 
-        let rules = read::configured_rules(fixture.context()).await?;
-        let remaining = rules.get("WebAcl").ok_or("missing WebAcl")?;
+        let listed = read::configured_list(fixture.context(), "WebAcl").await?;
+        let remaining: Vec<_> = listed.iter().filter_map(ListedRule::structured).collect();
         assert!(!remaining.iter().any(|configured| configured.rule == tcp));
         assert!(remaining.iter().any(|configured| configured.rule == udp));
         assert!(
@@ -199,4 +200,53 @@ async fn a_reversed_port_range_names_its_field() -> TestResult {
     );
     assert_eq!(fixture.handle().request_log().len(), before);
     fixture.shutdown().await
+}
+
+/// D-06: a rule the planner cannot read in one list blocks no write, before or after it.
+///
+/// `MixedAcl` holds a `port gt` rule the planner does not model; adding and removing a
+/// rule in that list and adding one to another list all succeed and read back.
+#[tokio::test]
+async fn an_unstructured_rule_blocks_no_write() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        drop(
+            fixture
+                .context()
+                .client
+                .parse(
+                    "access-list MixedAcl permit tcp 0.0.0.0 0.0.0.0 port gt 1024 0.0.0.0 0.0.0.0",
+                )
+                .await?,
+        );
+        let rule = Rule::new(Action::Deny, Protocol::Udp, "192.0.2.10", "198.51.100.20");
+        let mut changes = fixture.changes().await?;
+
+        for list in ["MixedAcl", "CleanAcl"] {
+            let added = change::plan_add_rule(fixture.context(), list, &rule)?;
+            drop(change::apply(&mut changes, fixture.context(), &added).await?);
+        }
+        let removed = change::plan_remove_rule(fixture.context(), "MixedAcl", &rule)?;
+        drop(change::apply(&mut changes, fixture.context(), &removed).await?);
+
+        let mixed = read::configured_list(fixture.context(), "MixedAcl").await?;
+        let [unstructured] = mixed.as_slice() else {
+            return Err(format!("{mixed:?}").into());
+        };
+        assert_eq!(
+            (
+                unstructured.index(),
+                unstructured.structured(),
+                unstructured.words().join(" ")
+            ),
+            (
+                0,
+                None,
+                "permit tcp 0.0.0.0 0.0.0.0 port gt 1024 0.0.0.0 0.0.0.0".to_owned()
+            )
+        );
+        drop(changes);
+        fixture.shutdown().await?;
+    }
+    Ok(())
 }

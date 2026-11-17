@@ -38,6 +38,12 @@ pub(super) fn plan(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
             cli_token::token(name)?,
             cli_token::token(address)?
         )
+    } else if let DnsChange::FqdnDescription { name, description } = change {
+        format!(
+            "object-group fqdn {} description {}",
+            cli_token::token(name)?,
+            cli_token::quoted_text(description)?
+        )
     } else {
         render_validated(&validated)?
     };
@@ -180,9 +186,12 @@ fn catalog_input(change: &DnsChange) -> (&'static str, Value) {
             ("ip host", json!({"domain":domain,"address":address}))
         }
         DnsChange::FqdnGroup { name } => ("object-group fqdn", json!({"name":name})),
-        DnsChange::FqdnDescription { name, description } => (
+        DnsChange::FqdnDescription {
+            name: _,
+            description,
+        } => (
             "object-group fqdn description",
-            json!({"name":name,"description":description}),
+            json!({"description":description}),
         ),
         DnsChange::FqdnInclude { name: _, address } => {
             ("object-group fqdn include", json!({"address":address}))
@@ -250,7 +259,6 @@ fn render_validated(validated: &ValidatedRequest) -> Result<String> {
         "dns-proxy route object-group" => render_route(value),
         "ip name-server" => line_1(&validated.path, value, "address"),
         "ip host" => line_2(&validated.path, value, "domain", "address"),
-        "object-group fqdn description" => contextual_line(value),
         "nextdns assign" => render_nextdns(value),
         _ => Err(DomainError::InvalidResponse),
     }
@@ -312,14 +320,6 @@ fn line_2(path: &str, value: &Value, first: &str, second: &str) -> Result<String
         "{path} {} {}",
         required_text(value, first)?,
         required_text(value, second)?
-    ))
-}
-
-fn contextual_line(value: &Value) -> Result<String> {
-    Ok(format!(
-        "object-group fqdn {} description {}",
-        required_text(value, "name")?,
-        description(value)?
     ))
 }
 

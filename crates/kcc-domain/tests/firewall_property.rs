@@ -13,6 +13,7 @@ use kcc_domain::firewall::{
     change::{self, RuleProperty},
     model::{Action, ConfiguredRule, Protocol, Rule},
     read,
+    rule_list::ListedRule,
 };
 use kcc_testkit::model::Firmware;
 
@@ -32,10 +33,11 @@ fn property(keyword: &str, value: Option<&'static str>) -> RuleProperty<'static>
 
 /// The rule as the router has it now.
 async fn current(fixture: &Fixture, rule: &Rule) -> TestResult<ConfiguredRule> {
-    let lists = read::configured_rules(fixture.context()).await?;
-    let found = lists
-        .get(LIST)
-        .and_then(|rules| rules.iter().find(|candidate| candidate.rule == *rule))
+    let listed = read::configured_list(fixture.context(), LIST).await?;
+    let found = listed
+        .iter()
+        .filter_map(ListedRule::structured)
+        .find(|candidate| candidate.rule == *rule)
         .ok_or("rule was not read back")?;
     Ok(found.clone())
 }

@@ -6,6 +6,7 @@
 
 use super::{
     model::{ConfiguredRule, Direction},
+    rule_list::ListedRule,
     rule_words::StoredRule,
 };
 
@@ -81,6 +82,14 @@ impl ListEntry {
                 self.description(),
             ),
         )
+    }
+
+    /// The rule as the firewall planner lists it: its full identity when it is in the
+    /// structured form, else its stored words.
+    #[inline]
+    #[must_use]
+    pub fn listed(&self) -> ListedRule {
+        ListedRule::new(self.index, self.rule.words().to_vec(), self.configured())
     }
 }
 

@@ -1,49 +1,15 @@
 //! Firewall CLI requests, delegating validated rule rendering to the domain.
 
-use kcc_app::{
-    permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand as ValidatedCli},
-};
-use kcc_catalog::{HttpMethod, ValidatedRequest};
+use kcc_app::workflow::CliChangeRequest;
 use kcc_domain::{
     DomainError, RouterCtx,
     firewall::{
         change::{self, RuleProperty},
         model::{ConfiguredRule, Direction},
+        rule_list::ListedRule,
         rule_words::RuleForm,
     },
 };
-use serde_json::{Value, json};
-
-/// The request of one firewall `line`, standing for `leaf`.
-///
-/// # Errors
-///
-/// Returns a workflow error when `line` does not render `leaf`.
-fn request(line: String, leaf: ValidatedRequest) -> Result<CliChangeRequest, DomainError> {
-    Ok(CliChangeRequest::new(
-        vec![ValidatedCli::new(line, leaf)?],
-        Vec::new(),
-        Permission::Write,
-        json!({"domain": "firewall"}),
-    ))
-}
-
-/// `body` of `path` validated by the router's catalog.
-///
-/// # Errors
-///
-/// Returns the catalog's findings.
-fn validated(
-    domain: &RouterCtx,
-    path: &str,
-    body: &Value,
-) -> Result<ValidatedRequest, DomainError> {
-    domain
-        .catalog
-        .validate(path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })
-}
 
 /// Adds `rule` to the list `list`, in the documented form.
 ///
@@ -58,7 +24,7 @@ pub(crate) fn add_rule(
     change::request(&change::plan_add_rule(domain, list, &rule.rule())?)
 }
 
-/// Removes the rule stored as `words` from the list `list`.
+/// Removes `rule` from the list `list`.
 ///
 /// # Errors
 ///
@@ -66,12 +32,12 @@ pub(crate) fn add_rule(
 pub(crate) fn remove_rule(
     domain: &RouterCtx,
     list: &str,
-    (rule, _words): (&RuleForm, &[String]),
+    rule: &RuleForm,
 ) -> Result<CliChangeRequest, DomainError> {
     change::request(&change::plan_remove_rule(domain, list, &rule.rule())?)
 }
 
-/// Moves rule `index` of the list `list` to position `to`.
+/// Moves `rule` of the list `list` to position `to`.
 ///
 /// # Errors
 ///
@@ -79,16 +45,9 @@ pub(crate) fn remove_rule(
 pub(crate) fn order(
     domain: &RouterCtx,
     list: &str,
-    (index, to): (usize, usize),
+    (rule, to): (&ListedRule, usize),
 ) -> Result<CliChangeRequest, DomainError> {
-    drop(validated(domain, "access-list", &json!({"name": list}))?);
-    let checked = validated(
-        domain,
-        "access-list rule",
-        &json!({"index": index, "new-index": to}),
-    )?;
-    let line = format!("access-list {list} rule {index} order {to}");
-    request(line, checked)
+    change::request(&change::plan_order_rule(domain, list, rule, to)?)
 }
 
 /// Disables rule `index` of the list `list`, or enables it again.

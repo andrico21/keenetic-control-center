@@ -11,12 +11,14 @@ mod support;
 
 use core::error::Error;
 
+use kcc_catalog::ValidationIssue;
 use kcc_domain::{
     DomainError,
     firewall::{
         change,
-        model::{Action, Protocol, Rule},
+        model::{Action, ConfiguredRule, Protocol, Rule},
         read,
+        rule_list::ListedRule,
     },
 };
 use kcc_testkit::model::Firmware;
@@ -53,6 +55,8 @@ struct Case<'name> {
     schedule: Option<&'name str>,
 }
 
+/// Every rule field combination reaches the router and reads back; D-05: ports on a
+/// protocol other than TCP or UDP are refused as the port field before any request.
 #[tokio::test(flavor = "multi_thread")]
 async fn every_rule_field_combination_reaches_and_returns_from_the_router() -> TestResult {
     let mut profiles = JoinSet::new();
@@ -124,12 +128,19 @@ async fn exercise(firmware: Firmware, case: Case<'_>) -> TestResult {
         PortCase::Range => rule = rule.with_destination_port_range(8000, 8002),
     }
     if ported && !matches!(protocol, Protocol::Tcp | Protocol::Udp) {
-        // The manual documents ports only for `tcp` and `udp` rules: refused while planning.
+        // D-05: the manual documents ports only for `tcp` and `udp` rules, so the planner
+        // refuses the port field itself before any request.
         let sent = fixture.handle().request_count();
         let planned = change::plan_add_rule(fixture.context(), "MatrixAcl", &rule);
         assert!(
-            matches!(planned, Err(DomainError::Workflow(_))),
-            "{firmware} {}: ports on a protocol without ports were planned",
+            matches!(
+                &planned,
+                Err(DomainError::Validation { issues }) if issues.iter().any(|issue| matches!(
+                    issue,
+                    ValidationIssue::InvalidValue { field } if field == "destination-port"
+                ))
+            ),
+            "{firmware} {}: ports on a protocol without ports were planned: {planned:?}",
             protocol.name()
         );
         assert_eq!(fixture.handle().request_count(), sent, "nothing is sent");
@@ -150,11 +161,8 @@ async fn exercise(firmware: Firmware, case: Case<'_>) -> TestResult {
             .any(|request| request.command() == Some(expected.as_str())),
         "expected CLI line did not reach the fake router: {expected}"
     );
-    let configured = read::configured_rules(fixture.context()).await?;
-    let found = configured
-        .get("MatrixAcl")
-        .and_then(|rules| rules.iter().find(|candidate| candidate.rule == rule))
-        .ok_or("rule was not read back")?;
+    let configured = read::configured_list(fixture.context(), "MatrixAcl").await?;
+    let found = structured(&configured, &rule).ok_or("rule was not read back")?;
     if disabled {
         let planned = change::plan_rule_property(
             fixture.context(),
@@ -165,11 +173,9 @@ async fn exercise(firmware: Firmware, case: Case<'_>) -> TestResult {
         drop(change::apply(&mut changes, fixture.context(), &planned).await?);
     }
     if schedule.is_some() {
-        let current = read::configured_rules(fixture.context()).await?;
-        let current_rule = current
-            .get("MatrixAcl")
-            .and_then(|rules| rules.iter().find(|candidate| candidate.rule == rule))
-            .ok_or("rule was not read before schedule")?;
+        let current = read::configured_list(fixture.context(), "MatrixAcl").await?;
+        let current_rule =
+            structured(&current, &rule).ok_or("rule was not read before schedule")?;
         let planned = change::plan_rule_property(
             fixture.context(),
             "MatrixAcl",
@@ -178,16 +184,24 @@ async fn exercise(firmware: Firmware, case: Case<'_>) -> TestResult {
         )?;
         drop(change::apply(&mut changes, fixture.context(), &planned).await?);
     }
-    let reread = read::configured_rules(fixture.context()).await?;
-    let identity = reread
-        .get("MatrixAcl")
-        .and_then(|rules| rules.iter().find(|candidate| candidate.rule == rule))
-        .ok_or("full identity was not read back")?;
+    let reread = read::configured_list(fixture.context(), "MatrixAcl").await?;
+    let identity = structured(&reread, &rule).ok_or("full identity was not read back")?;
     assert_eq!(identity.disabled, disabled, "disabled state differs");
     assert_eq!(identity.schedule.as_deref(), schedule, "schedule differs");
     drop(changes);
     fixture.shutdown().await?;
     Ok(())
+}
+
+/// The read-back identity of `rule` among `listed`.
+fn structured<'listed>(
+    listed: &'listed [ListedRule],
+    rule: &Rule,
+) -> Option<&'listed ConfiguredRule> {
+    listed
+        .iter()
+        .filter_map(ListedRule::structured)
+        .find(|candidate| candidate.rule == *rule)
 }
 
 fn expected_line(list: &str, rule: &Rule) -> String {
