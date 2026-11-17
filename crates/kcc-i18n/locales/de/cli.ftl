@@ -117,3 +117,24 @@ cli-listener-in-use = kcc erreicht diesen Router über diesen Listener; die Änd
 cli-router-password-env-shared = KCC_PASSWORD kann pro Befehl nur ein Geheimnis ersetzen. Geben Sie die anderen Geheimnisse mit --password-file, --token-file oder --read-password-file an.
 cli-dhcp-pool-replace-needs = Der DHCP-Pool { $name } existiert bereits. Geben Sie zum Ersetzen auch { $missing } an, sonst würden seine aktuellen Einstellungen auf die Standardwerte zurückgesetzt; es wurde nichts gesendet.
 cli-backup-diff-too-large = Die beiden Sicherungen unterscheiden sich in zu vielen Befehlen, um sie der Reihenfolge nach zu vergleichen. Es wurde nichts ausgegeben; vergleichen Sie sie in der Weboberfläche oder vergleichen Sie die Dateien auf dem Datenträger.
+cli-failsafe-seconds-range = --seconds muss im Bereich 300..=3600 liegen
+cli-startup-config-not-utf8 = die Startkonfiguration ist kein UTF-8
+cli-user-password-format = --user-password erwartet <user>=<file>
+cli-from-format = --from muss <router-id>, router:<id>, backup:<router>/<name> oder file:<path> sein
+cli-source-no-firmware = die Quelle nennt keine Firmwareversion
+cli-route-ipv4-options = --mask und --metric sind IPv4-Optionen
+cli-wireguard-conf-too-large = die WireGuard-Konfiguration ist größer als 64 KiB
+cli-role-unknown = die Rolle { $name } aus [cli] existiert nicht
+cli-tls-no-out-dir = kein --out-dir angegeben und kein Konfigurationsverzeichnis der Plattform vorhanden
+cli-health-cert-empty = die Zertifikatsdatei des Servers ist leer
+cli-health-status = /healthz antwortete mit { $status }
+cli-migration-job-no-result = der Migrationsauftrag endete ohne Ergebnis
+cli-preset-job-no-result = der Vorlagenauftrag endete ohne Ergebnis
+cli-lang-unsupported = --lang { $value } wird nicht unterstützt; verwenden Sie en, ru, uk, de, be oder kk
+cli-serve-no-config-path = kein Konfigurationspfad angegeben und kein Konfigurationsverzeichnis der Plattform vorhanden
+cli-serve-locked = kcc serve kann mit dem Zustandsverzeichnis { $path } nicht starten: ein anderes kcc serve hält die Serversperre ({ $reason })
+cli-serve-log-metrics-unavailable = die Protokollmetriken sind nicht verfügbar
+cli-serve-stdio-role-unknown = die konfigurierte stdio-Rolle { $name } existiert nicht
+cli-serve-locale-unsupported = web.default_locale wird nicht unterstützt
+cli-serve-bind = Bindung an { $address }:{ $port } fehlgeschlagen: { $reason }
+cli-serve-audit-writer-terminated = der Audit-Schreiber wurde beendet

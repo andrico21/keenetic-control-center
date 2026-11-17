@@ -8,6 +8,7 @@ use kcc_app::{
     registry::scope_matches,
     settings::CliConfig,
 };
+use kcc_i18n::keys;
 
 use super::exit::{Exit, Failure, Outcome, denied};
 
@@ -37,9 +38,10 @@ impl Principal {
             .find(|role| role.name == config.role)
             .cloned()
             .ok_or_else(|| {
-                Failure::text(
+                Failure::message(
                     Exit::Generic,
-                    &format!("[cli] role {:?} does not exist", config.role),
+                    keys::CLI_ROLE_UNKNOWN,
+                    &[("name", &format!("{:?}", config.role))],
                 )
             })?;
         Ok(Self {

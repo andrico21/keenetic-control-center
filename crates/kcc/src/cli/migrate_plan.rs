@@ -149,7 +149,7 @@ fn choices(ctx: &Ctx, input: &PlanInput, login: &str) -> Outcome<(Choices, Optio
     for pair in &input.user_passwords {
         let (user, file) = pair
             .split_once('=')
-            .ok_or_else(|| Failure::text(Exit::Usage, "--user-password takes <user>=<file>"))?;
+            .ok_or_else(|| Failure::message(Exit::Usage, keys::CLI_USER_PASSWORD_FORMAT, &[]))?;
         let password = read_secret(
             Some(file.as_ref()),
             &ctx.out()

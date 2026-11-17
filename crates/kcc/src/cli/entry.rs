@@ -2,7 +2,7 @@
 
 use std::env;
 
-use kcc_i18n::locale::Locale;
+use kcc_i18n::{keys, locale::Locale};
 
 use super::{
     accounts, api_keys,
@@ -26,7 +26,7 @@ pub async fn run(cli: Cli) -> u8 {
     let out = match locale(cli.lang.as_deref()) {
         Ok(locale) => Out::new(cli.json, locale),
         Err(failure) => {
-            Out::new(cli.json, Locale::En).failure(&failure);
+            Out::new(cli.json, locale(None).unwrap_or(Locale::En)).failure(&failure);
             return failure.exit().code();
         }
     };
@@ -116,9 +116,10 @@ async fn domain(command: DomainCommand, globals: Globals, out: Out) -> Outcome {
 fn locale(flag: Option<&str>) -> Outcome<Locale> {
     if let Some(tag) = flag {
         return Locale::from_tag(tag).ok_or_else(|| {
-            Failure::text(
+            Failure::message(
                 Exit::Usage,
-                &format!("unsupported --lang {tag:?}; use en, ru, uk, de, be or kk"),
+                keys::CLI_LANG_UNSUPPORTED,
+                &[("value", &format!("{tag:?}"))],
             )
         });
     }
@@ -137,7 +138,7 @@ fn server_code(result: Result<server_error::Outcome, server_error::ServerError>,
     match result {
         Ok(outcome) => outcome.code(),
         Err(error) => {
-            out.failure(&Failure::text(Exit::Generic, &error));
+            out.failure(&Failure::from(error));
             Exit::Generic.code()
         }
     }

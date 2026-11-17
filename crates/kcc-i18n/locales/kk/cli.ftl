@@ -117,3 +117,24 @@ cli-listener-in-use = kcc роутерге осы порт арқылы қосы
 cli-router-password-env-shared = KCC_PASSWORD бір командада тек бір құпияны алмастыра алады. Қалған құпияларды --password-file, --token-file немесе --read-password-file арқылы беріңіз.
 cli-dhcp-pool-replace-needs = { $name } DHCP пулы бұрыннан бар. Оны ауыстыру үшін { $missing } да көрсетіңіз, әйтпесе оның ағымдағы баптаулары әдепкі мәндерге қайтарылады; ешнәрсе жіберілген жоқ.
 cli-backup-diff-too-large = Сақтық көшірмелер реті бойынша салыстыруға болмайтындай көп командаларда ерекшеленеді. Ештеңе шығарылмады; оларды веб-интерфейсте салыстырыңыз немесе дисктегі файлдарды салыстырыңыз.
+cli-failsafe-seconds-range = --seconds мәні 300..=3600 аралығында болуы керек
+cli-startup-config-not-utf8 = бастапқы конфигурация UTF-8 кодтауында емес
+cli-user-password-format = --user-password мәні <user>=<file> түрінде болуы керек
+cli-from-format = --from мәні <router-id>, router:<id>, backup:<router>/<name> немесе file:<path> түрінде болуы керек
+cli-source-no-firmware = дереккөзде микробағдарлама нұсқасы көрсетілмеген
+cli-route-ipv4-options = --mask және --metric тек IPv4 үшін қолданылады
+cli-wireguard-conf-too-large = WireGuard конфигурациясы 64 КиБ-тан үлкен
+cli-role-unknown = [cli] бөліміндегі { $name } рөлі жоқ
+cli-tls-no-out-dir = --out-dir көрсетілмеген және жүйелік конфигурация каталогы жоқ
+cli-health-cert-empty = сервер сертификатының файлы бос
+cli-health-status = /healthz { $status } деп жауап берді
+cli-migration-job-no-result = көшіру тапсырмасы нәтижесіз аяқталды
+cli-preset-job-no-result = пресет тапсырмасы нәтижесіз аяқталды
+cli-lang-unsupported = --lang { $value } қолдау көрсетілмейді; en, ru, uk, de, be немесе kk қолданыңыз
+cli-serve-no-config-path = конфигурация жолы көрсетілмеген және жүйелік конфигурация каталогы жоқ
+cli-serve-locked = kcc serve қызметін { $path } күй каталогымен іске қосу мүмкін емес: сервер құлпын басқа kcc serve ұстап тұр ({ $reason })
+cli-serve-log-metrics-unavailable = журнал метрикалары қолжетімсіз
+cli-serve-stdio-role-unknown = бапталған stdio рөлі { $name } жоқ
+cli-serve-locale-unsupported = web.default_locale мәніне қолдау көрсетілмейді
+cli-serve-bind = { $address }:{ $port } мекенжайын тыңдау мүмкін болмады: { $reason }
+cli-serve-audit-writer-terminated = аудит журналына жазу тоқтады

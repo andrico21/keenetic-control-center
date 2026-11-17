@@ -143,9 +143,10 @@ fn read_conf(path: &Path) -> Outcome<Zeroizing<String>> {
         .take(MAX_CONF_BYTES.saturating_add(1))
         .read_to_string(&mut text)?;
     if u64::try_from(text.len()).unwrap_or(u64::MAX) > MAX_CONF_BYTES {
-        return Err(Failure::text(
+        return Err(Failure::message(
             Exit::Validation,
-            "the WireGuard configuration is larger than 64 KiB",
+            keys::CLI_WIREGUARD_CONF_TOO_LARGE,
+            &[],
         ));
     }
     Ok(text)

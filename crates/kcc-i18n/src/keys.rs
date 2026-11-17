@@ -361,6 +361,74 @@ pub const CLI_DHCP_POOL_REPLACE_NEEDS: MessageKey = MessageKey::new("cli-dhcp-po
 /// `cli-backup-diff-too-large` in `cli.ftl`.
 pub const CLI_BACKUP_DIFF_TOO_LARGE: MessageKey = MessageKey::new("cli-backup-diff-too-large");
 
+/// `cli-failsafe-seconds-range` in `cli.ftl`.
+pub const CLI_FAILSAFE_SECONDS_RANGE: MessageKey = MessageKey::new("cli-failsafe-seconds-range");
+
+/// `cli-startup-config-not-utf8` in `cli.ftl`.
+pub const CLI_STARTUP_CONFIG_NOT_UTF8: MessageKey = MessageKey::new("cli-startup-config-not-utf8");
+
+/// `cli-user-password-format` in `cli.ftl`.
+pub const CLI_USER_PASSWORD_FORMAT: MessageKey = MessageKey::new("cli-user-password-format");
+
+/// `cli-from-format` in `cli.ftl`.
+pub const CLI_FROM_FORMAT: MessageKey = MessageKey::new("cli-from-format");
+
+/// `cli-source-no-firmware` in `cli.ftl`.
+pub const CLI_SOURCE_NO_FIRMWARE: MessageKey = MessageKey::new("cli-source-no-firmware");
+
+/// `cli-route-ipv4-options` in `cli.ftl`.
+pub const CLI_ROUTE_IPV4_OPTIONS: MessageKey = MessageKey::new("cli-route-ipv4-options");
+
+/// `cli-wireguard-conf-too-large` in `cli.ftl`.
+pub const CLI_WIREGUARD_CONF_TOO_LARGE: MessageKey =
+    MessageKey::new("cli-wireguard-conf-too-large");
+
+/// `cli-role-unknown` in `cli.ftl`.
+pub const CLI_ROLE_UNKNOWN: MessageKey = MessageKey::new("cli-role-unknown");
+
+/// `cli-tls-no-out-dir` in `cli.ftl`.
+pub const CLI_TLS_NO_OUT_DIR: MessageKey = MessageKey::new("cli-tls-no-out-dir");
+
+/// `cli-health-cert-empty` in `cli.ftl`.
+pub const CLI_HEALTH_CERT_EMPTY: MessageKey = MessageKey::new("cli-health-cert-empty");
+
+/// `cli-health-status` in `cli.ftl`.
+pub const CLI_HEALTH_STATUS: MessageKey = MessageKey::new("cli-health-status");
+
+/// `cli-migration-job-no-result` in `cli.ftl`.
+pub const CLI_MIGRATION_JOB_NO_RESULT: MessageKey = MessageKey::new("cli-migration-job-no-result");
+
+/// `cli-preset-job-no-result` in `cli.ftl`.
+pub const CLI_PRESET_JOB_NO_RESULT: MessageKey = MessageKey::new("cli-preset-job-no-result");
+
+/// `cli-lang-unsupported` in `cli.ftl`.
+pub const CLI_LANG_UNSUPPORTED: MessageKey = MessageKey::new("cli-lang-unsupported");
+
+/// `cli-serve-no-config-path` in `cli.ftl`.
+pub const CLI_SERVE_NO_CONFIG_PATH: MessageKey = MessageKey::new("cli-serve-no-config-path");
+
+/// `cli-serve-locked` in `cli.ftl`.
+pub const CLI_SERVE_LOCKED: MessageKey = MessageKey::new("cli-serve-locked");
+
+/// `cli-serve-log-metrics-unavailable` in `cli.ftl`.
+pub const CLI_SERVE_LOG_METRICS_UNAVAILABLE: MessageKey =
+    MessageKey::new("cli-serve-log-metrics-unavailable");
+
+/// `cli-serve-stdio-role-unknown` in `cli.ftl`.
+pub const CLI_SERVE_STDIO_ROLE_UNKNOWN: MessageKey =
+    MessageKey::new("cli-serve-stdio-role-unknown");
+
+/// `cli-serve-locale-unsupported` in `cli.ftl`.
+pub const CLI_SERVE_LOCALE_UNSUPPORTED: MessageKey =
+    MessageKey::new("cli-serve-locale-unsupported");
+
+/// `cli-serve-bind` in `cli.ftl`.
+pub const CLI_SERVE_BIND: MessageKey = MessageKey::new("cli-serve-bind");
+
+/// `cli-serve-audit-writer-terminated` in `cli.ftl`.
+pub const CLI_SERVE_AUDIT_WRITER_TERMINATED: MessageKey =
+    MessageKey::new("cli-serve-audit-writer-terminated");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -6694,7 +6762,7 @@ pub const WEB_ADMIN_ERROR_PERMISSION_UNKNOWN: MessageKey =
     MessageKey::new("web-admin-error-permission-unknown");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2131] = [
+pub static ALL: [MessageKey; 2152] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -6811,6 +6879,27 @@ pub static ALL: [MessageKey; 2131] = [
     CLI_ROUTER_PASSWORD_ENV_SHARED,
     CLI_DHCP_POOL_REPLACE_NEEDS,
     CLI_BACKUP_DIFF_TOO_LARGE,
+    CLI_FAILSAFE_SECONDS_RANGE,
+    CLI_STARTUP_CONFIG_NOT_UTF8,
+    CLI_USER_PASSWORD_FORMAT,
+    CLI_FROM_FORMAT,
+    CLI_SOURCE_NO_FIRMWARE,
+    CLI_ROUTE_IPV4_OPTIONS,
+    CLI_WIREGUARD_CONF_TOO_LARGE,
+    CLI_ROLE_UNKNOWN,
+    CLI_TLS_NO_OUT_DIR,
+    CLI_HEALTH_CERT_EMPTY,
+    CLI_HEALTH_STATUS,
+    CLI_MIGRATION_JOB_NO_RESULT,
+    CLI_PRESET_JOB_NO_RESULT,
+    CLI_LANG_UNSUPPORTED,
+    CLI_SERVE_NO_CONFIG_PATH,
+    CLI_SERVE_LOCKED,
+    CLI_SERVE_LOG_METRICS_UNAVAILABLE,
+    CLI_SERVE_STDIO_ROLE_UNKNOWN,
+    CLI_SERVE_LOCALE_UNSUPPORTED,
+    CLI_SERVE_BIND,
+    CLI_SERVE_AUDIT_WRITER_TERMINATED,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

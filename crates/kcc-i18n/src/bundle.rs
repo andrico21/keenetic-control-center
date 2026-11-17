@@ -292,6 +292,8 @@ mod tests {
             "permissions",
             "missing",
             "time",
+            "status",
+            "reason",
         ] {
             args.set(name, "x");
         }

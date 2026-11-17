@@ -117,3 +117,24 @@ cli-listener-in-use = kcc подключается к роутеру через 
 cli-router-password-env-shared = KCC_PASSWORD может заменить только один секрет в одной команде. Передайте остальные секреты через --password-file, --token-file или --read-password-file.
 cli-dhcp-pool-replace-needs = Пул DHCP { $name } уже существует. Чтобы заменить его, укажите также { $missing }, иначе его текущие настройки сбросятся к значениям по умолчанию; ничего не отправлено.
 cli-backup-diff-too-large = Резервные копии отличаются слишком большим числом команд, чтобы сравнить их по порядку. Ничего не выведено; сравните их в веб-интерфейсе или сравните файлы на диске.
+cli-failsafe-seconds-range = значение --seconds должно быть в диапазоне 300..=3600
+cli-startup-config-not-utf8 = стартовая конфигурация не в кодировке UTF-8
+cli-user-password-format = --user-password принимает значение вида <user>=<file>
+cli-from-format = --from должен иметь вид <router-id>, router:<id>, backup:<router>/<name> или file:<path>
+cli-source-no-firmware = в источнике не указана версия прошивки
+cli-route-ipv4-options = --mask и --metric применимы только к IPv4
+cli-wireguard-conf-too-large = конфигурация WireGuard больше 64 КиБ
+cli-role-unknown = роль { $name } из раздела [cli] не существует
+cli-tls-no-out-dir = не указан --out-dir и нет системного каталога конфигурации
+cli-health-cert-empty = файл сертификата сервера пуст
+cli-health-status = /healthz ответил { $status }
+cli-migration-job-no-result = задание миграции завершилось без результата
+cli-preset-job-no-result = задание пресета завершилось без результата
+cli-lang-unsupported = --lang { $value } не поддерживается; используйте en, ru, uk, de, be или kk
+cli-serve-no-config-path = не указан путь к конфигурации и нет системного каталога конфигурации
+cli-serve-locked = не удаётся запустить kcc serve с каталогом состояния { $path }: блокировку сервера удерживает другой kcc serve ({ $reason })
+cli-serve-log-metrics-unavailable = метрики журнала недоступны
+cli-serve-stdio-role-unknown = настроенная роль stdio { $name } не существует
+cli-serve-locale-unsupported = значение web.default_locale не поддерживается
+cli-serve-bind = не удалось занять адрес { $address }:{ $port }: { $reason }
+cli-serve-audit-writer-terminated = запись журнала аудита прекратилась

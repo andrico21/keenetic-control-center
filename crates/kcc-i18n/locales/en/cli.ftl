@@ -117,3 +117,24 @@ cli-listener-in-use = kcc reaches this router through that listener, so the chan
 cli-router-password-env-shared = KCC_PASSWORD can stand in for one secret per command only. Give the other secrets with --password-file, --token-file or --read-password-file.
 cli-dhcp-pool-replace-needs = DHCP pool { $name } already exists. To replace it, also give { $missing }, or its current settings would be reset to the defaults; nothing was sent.
 cli-backup-diff-too-large = The two backups differ in too many commands to compare in order. Nothing was printed; compare them in the Web UI or compare the files on disk.
+cli-failsafe-seconds-range = --seconds must be 300..=3600
+cli-startup-config-not-utf8 = startup configuration is not UTF-8
+cli-user-password-format = --user-password takes <user>=<file>
+cli-from-format = --from must be <router-id>, router:<id>, backup:<router>/<name> or file:<path>
+cli-source-no-firmware = the source names no firmware version
+cli-route-ipv4-options = --mask and --metric are IPv4 options
+cli-wireguard-conf-too-large = the WireGuard configuration is larger than 64 KiB
+cli-role-unknown = [cli] role { $name } does not exist
+cli-tls-no-out-dir = no --out-dir and no platform config directory
+cli-health-cert-empty = the server certificate file is empty
+cli-health-status = /healthz answered { $status }
+cli-migration-job-no-result = the migration job ended without a result
+cli-preset-job-no-result = the preset job ended without a result
+cli-lang-unsupported = unsupported --lang { $value }; use en, ru, uk, de, be or kk
+cli-serve-no-config-path = no config path and no platform config directory
+cli-serve-locked = cannot start kcc serve with state directory { $path }: another kcc serve holds the server lock ({ $reason })
+cli-serve-log-metrics-unavailable = log metrics are unavailable
+cli-serve-stdio-role-unknown = configured stdio role { $name } does not exist
+cli-serve-locale-unsupported = web.default_locale is unsupported
+cli-serve-bind = bind { $address }:{ $port }: { $reason }
+cli-serve-audit-writer-terminated = audit writer terminated

@@ -16,6 +16,7 @@ use kcc_app::{
 use kcc_i18n::keys;
 
 use super::exit::{Exit, Failure, denied};
+use crate::server_error::ServerError;
 
 impl From<StateError> for Failure {
     fn from(error: StateError) -> Self {
@@ -131,5 +132,59 @@ impl From<io::Error> for Failure {
 impl From<serde_json::Error> for Failure {
     fn from(error: serde_json::Error) -> Self {
         Self::text(Exit::Validation, &error)
+    }
+}
+
+impl From<ServerError> for Failure {
+    fn from(error: ServerError) -> Self {
+        let message = |key, args: &[(&'static str, &str)]| Self::message(Exit::Generic, key, args);
+        match &error {
+            ServerError::NoConfigPath => message(keys::CLI_SERVE_NO_CONFIG_PATH, &[]),
+            ServerError::ServerLock { dir, source } => message(
+                keys::CLI_SERVE_LOCKED,
+                &[
+                    ("path", &dir.display().to_string()),
+                    ("reason", &source.to_string()),
+                ],
+            ),
+            ServerError::TlsKeyReadable { path } => message(
+                keys::ERRORS_SECRET_FILE_PERMISSIONS,
+                &[("path", &path.display().to_string())],
+            ),
+            ServerError::LogMetricsUnavailable => {
+                message(keys::CLI_SERVE_LOG_METRICS_UNAVAILABLE, &[])
+            }
+            ServerError::UnknownStdioRole(role) => message(
+                keys::CLI_SERVE_STDIO_ROLE_UNKNOWN,
+                &[("name", &format!("{role:?}"))],
+            ),
+            ServerError::UnsupportedLocale => message(keys::CLI_SERVE_LOCALE_UNSUPPORTED, &[]),
+            ServerError::Bind {
+                address,
+                port,
+                source,
+            } => message(
+                keys::CLI_SERVE_BIND,
+                &[
+                    ("address", address),
+                    ("port", &port.to_string()),
+                    ("reason", &source.to_string()),
+                ],
+            ),
+            ServerError::AuditWriterTerminated => {
+                message(keys::CLI_SERVE_AUDIT_WRITER_TERMINATED, &[])
+            }
+            ServerError::Config(_)
+            | ServerError::Kit(_)
+            | ServerError::State(_)
+            | ServerError::TlsKey(_)
+            | ServerError::Core(_)
+            | ServerError::Registry(_)
+            | ServerError::Roles(_)
+            | ServerError::Jobs(_)
+            | ServerError::Reload(_)
+            | ServerError::Logs(_)
+            | ServerError::Metrics(_) => Self::text(Exit::Generic, &error),
+        }
     }
 }

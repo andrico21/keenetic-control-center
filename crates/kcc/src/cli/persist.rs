@@ -97,7 +97,11 @@ pub(crate) async fn failsafe(ctx: &Ctx, action: FailsafeAction, seconds: u64) ->
         FailsafeAction::Commit => (Permission::Save, Risk::Write),
     };
     if !TIMER_RANGE.contains(&seconds) {
-        return Err(Failure::text(Exit::Usage, &"--seconds must be 300..=3600"));
+        return Err(Failure::message(
+            Exit::Usage,
+            keys::CLI_FAILSAFE_SECONDS_RANGE,
+            &[],
+        ));
     }
     let target = ctx.target(services, &[permission]).await?;
     let mode = recovery_mode(&target).await?;
@@ -248,7 +252,7 @@ async fn backup_create(ctx: &Ctx, services: &Services, reason: &str) -> Outcome 
         .download_config(ConfigKind::Startup)
         .await?;
     let text = str::from_utf8(bytes.expose_secret())
-        .map_err(|_error| Failure::text(Exit::Router, &"startup configuration is not UTF-8"))?;
+        .map_err(|_error| Failure::message(Exit::Router, keys::CLI_STARTUP_CONFIG_NOT_UTF8, &[]))?;
     let info = services
         .backups()
         .create(&router, reason, &SecretString::from(text.to_owned()))?;

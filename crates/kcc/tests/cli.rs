@@ -46,6 +46,8 @@ mod firewall_permissions;
 mod health;
 #[path = "cli/interface_refusals.rs"]
 mod interface_refusals;
+#[path = "cli/localized_failures.rs"]
+mod localized_failures;
 #[path = "cli/migrate.rs"]
 mod migrate;
 #[path = "cli/migrate_finish.rs"]

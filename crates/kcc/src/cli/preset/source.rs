@@ -4,6 +4,7 @@ use kcc_app::{
     accounts::{Clock as _, SystemClock},
     permissions::{Permission, Role},
 };
+use kcc_i18n::keys;
 use kcc_migrate::{
     presets::model::{PresetSource, PresetSourceKind},
     source::SourceConfig,
@@ -52,7 +53,7 @@ impl Origin {
             .map_err(|error| Failure::text(Exit::Validation, &error))?;
         let firmware = config
             .firmware
-            .ok_or_else(|| Failure::text(Exit::Validation, "the source names no firmware version"))?
+            .ok_or_else(|| Failure::message(Exit::Validation, keys::CLI_SOURCE_NO_FIRMWARE, &[]))?
             .to_string();
         let model = config
             .header

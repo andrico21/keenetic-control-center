@@ -49,12 +49,9 @@ pub(crate) fn completions(shell: Shell) -> Outcome {
 /// Returns generation or file failures; existing files are never replaced.
 pub(crate) fn self_signed(out: Out, command: TlsCommand) -> Outcome {
     let TlsCommand::SelfSigned { hosts, out_dir } = command;
-    let dir = out_dir.or_else(default_config_dir).ok_or_else(|| {
-        Failure::text(
-            Exit::Usage,
-            &"no --out-dir and no platform config directory",
-        )
-    })?;
+    let dir = out_dir
+        .or_else(default_config_dir)
+        .ok_or_else(|| Failure::message(Exit::Usage, keys::CLI_TLS_NO_OUT_DIR, &[]))?;
     let generated = rcgen::generate_simple_self_signed(hosts)
         .map_err(|error| Failure::text(Exit::Generic, &error))?;
     files::private_dir(&dir)?;
@@ -113,9 +110,7 @@ pub(crate) async fn healthcheck(globals: &Globals) -> Outcome {
             let leaf = CertificateDer::pem_file_iter(cert)
                 .map_err(|error| Failure::text(Exit::Generic, &error))?
                 .next()
-                .ok_or_else(|| {
-                    Failure::text(Exit::Generic, &"the server certificate file is empty")
-                })?
+                .ok_or_else(|| Failure::message(Exit::Generic, keys::CLI_HEALTH_CERT_EMPTY, &[]))?
                 .map_err(|error| Failure::text(Exit::Generic, &error))?;
             let provider = ring::default_provider();
             let tls = rustls::ClientConfig::builder_with_provider(Arc::new(provider.clone()))
@@ -149,9 +144,10 @@ pub(crate) async fn healthcheck(globals: &Globals) -> Outcome {
     if status == StatusCode::OK {
         Ok(())
     } else {
-        Err(Failure::text(
+        Err(Failure::message(
             Exit::Generic,
-            &format!("/healthz answered {status}"),
+            keys::CLI_HEALTH_STATUS,
+            &[("status", &status.to_string())],
         ))
     }
 }

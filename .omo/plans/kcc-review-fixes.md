@@ -1327,7 +1327,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(cli): stdio MCP shuts down gracefully on signals
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 64. Every user-visible string comes from kcc-i18n
+- [x] 64. Every user-visible string comes from kcc-i18n
   What to do / Must NOT do: Move every listed English string to keys in all six locales; regenerate keys.rs with `cargo xtask i18n-gen`. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `F-10` (medium; critic confirmed) User-visible English strings outside `kcc-i18n`. Evidence: see the finding text. Fix: Add keys and use `Failure::message`.
   Must NOT: change unrelated behaviour, add a crate that is not already in `[workspace.dependencies]` or `Cargo.lock`, weaken a security control, change the audit entry format or hash rule, or touch files owned by another open todo of the same wave beyond what this todo needs; keep routes, MCP tool names/schemas and CLI flags except where a finding above changes them on purpose (name each such change in the commit body).

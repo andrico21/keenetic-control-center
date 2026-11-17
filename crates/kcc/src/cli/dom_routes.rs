@@ -11,6 +11,7 @@ use kcc_domain::{
         model::{Ipv4Route, Ipv6Route},
     },
 };
+use kcc_i18n::keys;
 use serde_json::json;
 
 use super::{
@@ -98,9 +99,10 @@ fn ipv4(args: &RouteArgs) -> Ipv4Route {
 /// Returns the command's failure with its exit code.
 fn ipv6(args: &RouteArgs) -> Outcome<Ipv6Route> {
     if args.mask.is_some() || args.metric.is_some() {
-        return Err(Failure::text(
+        return Err(Failure::message(
             Exit::Usage,
-            "--mask and --metric are IPv4 options",
+            keys::CLI_ROUTE_IPV4_OPTIONS,
+            &[],
         ));
     }
     let mut route = Ipv6Route::via_gateway(

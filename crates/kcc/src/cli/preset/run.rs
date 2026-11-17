@@ -124,7 +124,7 @@ pub(super) async fn apply(
     out.note(&out.tr(keys::CLI_PRESET_RUN, &[("name", &run), ("router", target)]));
     let mut applier = done
         .await
-        .map_err(|_error| Failure::text(Exit::Generic, "the preset job ended without a result"))?
+        .map_err(|_error| Failure::message(Exit::Generic, keys::CLI_PRESET_JOB_NO_RESULT, &[]))?
         .map_err(apply_failure)?;
     let report = applier.report().clone();
     if let Some(failure) = report.failure {

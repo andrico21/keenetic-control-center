@@ -1008,6 +1008,13 @@ The first release, `0.1.0`, is in preparation and contains:
   queued audit entries were lost. It now stops reading stdin, waits (at most 10 s) for
   open change brackets, drains jobs, flushes the audit log and exits 0, as `kcc serve`
   does. SIGHUP is unchanged.
+- **CLI messages are now translated.** The remaining English-only explanations of the
+  command line (`--seconds`, `--from`, `--user-password`, IPv4-only route options, an
+  oversized WireGuard file, a source without a firmware version, an unknown `[cli]` or
+  stdio role, `healthcheck` and `tls self-signed` failures, and the start-up failures of
+  `kcc serve` and `kcc mcp stdio`) are now shown in the output language. English text is
+  unchanged. An unsupported `--lang` is now reported in the language of `KCC_LANG`,
+  `LC_ALL` or `LANG` instead of always in English.
 
 ### Security
 

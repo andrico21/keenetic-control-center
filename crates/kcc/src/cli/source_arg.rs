@@ -1,5 +1,6 @@
 //! The `--from` source of `migrate` and `preset`: one grammar and one reader.
 
+use kcc_i18n::keys;
 use kcc_rci::{ConfigKind, SecretBytes};
 use secrecy::ExposeSecret as _;
 use tokio::fs::read;
@@ -96,10 +97,7 @@ fn exact(bytes: &[u8]) -> SecretBytes {
 
 /// The usage failure of a malformed `--from`.
 fn usage() -> Failure {
-    Failure::text(
-        Exit::Usage,
-        "--from must be <router-id>, router:<id>, backup:<router>/<name> or file:<path>",
-    )
+    Failure::message(Exit::Usage, keys::CLI_FROM_FORMAT, &[])
 }
 
 #[cfg(test)]

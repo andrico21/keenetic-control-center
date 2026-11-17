@@ -117,3 +117,24 @@ cli-listener-in-use = kcc підключається до роутера чер�
 cli-router-password-env-shared = KCC_PASSWORD може замінити лише один секрет в одній команді. Передайте інші секрети через --password-file, --token-file або --read-password-file.
 cli-dhcp-pool-replace-needs = Пул DHCP { $name } уже існує. Щоб замінити його, вкажіть також { $missing }, інакше його поточні налаштування скинуться до типових; нічого не надіслано.
 cli-backup-diff-too-large = Резервні копії відрізняються надто великою кількістю команд, щоб порівняти їх за порядком. Нічого не виведено; порівняйте їх у вебінтерфейсі або порівняйте файли на диску.
+cli-failsafe-seconds-range = значення --seconds має бути в діапазоні 300..=3600
+cli-startup-config-not-utf8 = стартова конфігурація не в кодуванні UTF-8
+cli-user-password-format = --user-password приймає значення вигляду <user>=<file>
+cli-from-format = --from має мати вигляд <router-id>, router:<id>, backup:<router>/<name> або file:<path>
+cli-source-no-firmware = у джерелі не вказано версію прошивки
+cli-route-ipv4-options = --mask і --metric застосовні лише до IPv4
+cli-wireguard-conf-too-large = конфігурація WireGuard більша за 64 КіБ
+cli-role-unknown = роль { $name } з розділу [cli] не існує
+cli-tls-no-out-dir = не вказано --out-dir і немає системного каталогу конфігурації
+cli-health-cert-empty = файл сертифіката сервера порожній
+cli-health-status = /healthz відповів { $status }
+cli-migration-job-no-result = завдання міграції завершилося без результату
+cli-preset-job-no-result = завдання пресета завершилося без результату
+cli-lang-unsupported = --lang { $value } не підтримується; використовуйте en, ru, uk, de, be або kk
+cli-serve-no-config-path = не вказано шлях до конфігурації і немає системного каталогу конфігурації
+cli-serve-locked = не вдається запустити kcc serve з каталогом стану { $path }: блокування сервера утримує інший kcc serve ({ $reason })
+cli-serve-log-metrics-unavailable = метрики журналу недоступні
+cli-serve-stdio-role-unknown = налаштована роль stdio { $name } не існує
+cli-serve-locale-unsupported = значення web.default_locale не підтримується
+cli-serve-bind = не вдалося зайняти адресу { $address }:{ $port }: { $reason }
+cli-serve-audit-writer-terminated = запис журналу аудиту припинився
