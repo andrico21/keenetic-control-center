@@ -1,16 +1,4 @@
 //! Secret-free VPN server configuration and service control.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "domain planners and async reads are not useful inline candidates"
-)]
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private conversion helpers directly mirror catalog command names"
-    )
-)]
 
 mod render;
 pub mod secrets;
@@ -22,13 +10,13 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
-use kcc_catalog::{HttpMethod, Risk};
+use kcc_catalog::Risk;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token,
+    cli_token, descriptor, planning::validate,
 };
 
 /// Service-backed VPN server kind.
@@ -159,35 +147,30 @@ pub enum VpnServerChange {
     },
 }
 
-const READS: &[OperationDescriptor] = &[OperationDescriptor {
-    name: "configuration",
-    catalog_path: "vpn-server",
-    risk: Risk::Read,
-    permission: Permission::Read,
-    persists_immediately: false,
-}];
+/// VPN server reads.
+const READS: &[OperationDescriptor] = &[descriptor::read("configuration", "vpn-server")];
 
+/// VPN server writes.
 const WRITES: &[OperationDescriptor] = &[
-    operation("vpn_service", "service vpn-server"),
-    operation("sstp_service", "service sstp-server"),
-    operation("ipsec_service", "service ipsec"),
-    operation("openconnect_service", "service oc-server"),
-    operation("vpn_interface", "vpn-server interface"),
-    operation("vpn_pool", "vpn-server pool-range"),
-    operation("sstp_interface", "sstp-server interface"),
-    operation("sstp_pool", "sstp-server pool-range"),
-    operation("wireguard_interface", "wireguard-server interface"),
-    operation("openconnect_interface", "oc-server interface"),
-    operation("openconnect_pool", "oc-server pool-range"),
-    operation("ipsec_virtual_ip", "crypto map virtual-ip enable"),
-    operation("ike_psk", "crypto ike key"),
-    OperationDescriptor {
-        name: "password",
-        catalog_path: "user password plain",
-        risk: Risk::Management,
-        permission: Permission::ManageUsers,
-        persists_immediately: false,
-    },
+    descriptor::write("vpn_service", "service vpn-server"),
+    descriptor::write("sstp_service", "service sstp-server"),
+    descriptor::write("ipsec_service", "service ipsec"),
+    descriptor::write("openconnect_service", "service oc-server"),
+    descriptor::write("vpn_interface", "vpn-server interface"),
+    descriptor::write("vpn_pool", "vpn-server pool-range"),
+    descriptor::write("sstp_interface", "sstp-server interface"),
+    descriptor::write("sstp_pool", "sstp-server pool-range"),
+    descriptor::write("wireguard_interface", "wireguard-server interface"),
+    descriptor::write("openconnect_interface", "oc-server interface"),
+    descriptor::write("openconnect_pool", "oc-server pool-range"),
+    descriptor::write("ipsec_virtual_ip", "crypto map virtual-ip enable"),
+    descriptor::write("ike_psk", "crypto ike key"),
+    descriptor::operation(
+        "password",
+        "user password plain",
+        Risk::Management,
+        Permission::ManageUsers,
+    ),
 ];
 
 /// VPN server domain metadata.
@@ -199,7 +182,13 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads only explicitly selected non-secret VPN server configuration fields.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
     let tree = json!({
         "vpn-server":{"interface":{},"pool-range":{},"dns-servers":{},"mtu":{},"mru":{},"multi-login":{}},
@@ -240,6 +229,13 @@ pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
 }
 
 /// Plans one non-secret catalog-validated VPN server mutation.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_change(router: &RouterCtx, change: &VpnServerChange) -> Result<ChangeOp> {
     if let VpnServerChange::IpsecMap { name }
     | VpnServerChange::IpsecVirtualIp { name, enabled: _ }
@@ -257,18 +253,21 @@ pub fn plan_change(router: &RouterCtx, change: &VpnServerChange) -> Result<Chang
     {
         cli_token::validate(name)?;
     }
-    let (path, body, line) = render::input(change);
+    let (path, body, line) = render::input(change)?;
     let verify = verification::specs(change, path, &body);
-    let validated = router
-        .catalog
-        .validate(path, HttpMethod::Post, &body)
-        .map_err(|issues| DomainError::Validation { issues })?;
+    let validated = validate(router, path, &body)?;
     let mut operation = ChangeOp::new(Vec::new(), verify, Risk::Write, Permission::Write, false);
     operation.push(ValidatedCli::new(line, validated)?);
     Ok(operation)
 }
 
 /// Converts a VPN server plan to protected workflow input.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     if operation.commands.is_empty() {
         return Err(DomainError::InvalidResponse);
@@ -281,24 +280,16 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     ))
 }
 
+/// The server settings in `value`, or the defaults when absent or undecodable.
 fn decode(value: Option<&Value>) -> ServerConfigStatus {
     decode_opt(value).unwrap_or_default()
 }
 
+/// `value` decoded as `T`, or `None` when absent or undecodable.
 fn decode_opt<T>(value: Option<&Value>) -> Option<T>
 where
     T: DeserializeOwned,
 {
     let selected = value?;
     serde_json::from_value(selected.clone()).ok()
-}
-
-const fn operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk: Risk::Write,
-        permission: Permission::Write,
-        persists_immediately: false,
-    }
 }

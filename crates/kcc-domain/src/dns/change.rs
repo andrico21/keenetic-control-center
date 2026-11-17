@@ -1,11 +1,4 @@
 //! Catalog validation and protected workflow conversion for DNS changes.
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private render helpers are named after the catalog fields they transform"
-    )
-)]
 
 use alloc::{format, vec};
 
@@ -13,19 +6,25 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec},
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{Risk, ValidatedRequest};
 use serde_json::{Value, json};
 
 use super::{DnsChange, FilterEngine, HttpsUpstream, RebindProtection, TlsUpstream};
-use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token, verification};
+use crate::{
+    ChangeOp, DomainError, Result, RouterCtx, cli_token, planning::validate,
+    request_words::negated, verification,
+};
 
 /// Validates a typed DNS change against the selected router catalog.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 pub(super) fn plan(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
     let (path, body) = catalog_input(change);
-    let validated = router
-        .catalog
-        .validate(path, HttpMethod::Post, &body)
-        .map_err(|issues| DomainError::Validation { issues })?;
+    let validated = validate(router, path, &body)?;
     let line = if let DnsChange::FqdnInclude { name, address } = change {
         format!(
             "object-group fqdn {} include {}",
@@ -109,6 +108,14 @@ pub(super) fn plan(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
 
 /// Converts validated DNS operations to protected CLI workflow input: the planned
 /// commands, or a line rendered from each request of a plan built from requests alone.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when a field of a plan built from requests alone is
+/// not one safe CLI word, [`DomainError::InvalidResponse`] when such a request is not a DNS
+/// command, lacks a field, or when a command cannot be given a read-back of its own (a
+/// secret-bearing command, or a line that is not exactly one configuration row), and
+/// [`DomainError::Workflow`] when a rendered line does not match its request.
 pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let commands = if operation.commands.is_empty() {
         operation
@@ -132,6 +139,7 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     ))
 }
 
+/// The catalog path and body of one DNS change.
 fn catalog_input(change: &DnsChange) -> (&'static str, Value) {
     let (path, mut body) = match change {
         DnsChange::TlsUpstream(value) => ("dns-proxy tls upstream", tls_body(value)),
@@ -212,6 +220,7 @@ fn catalog_input(change: &DnsChange) -> (&'static str, Value) {
     (path, body)
 }
 
+/// The catalog body of a DNS-over-TLS upstream.
 fn tls_body(value: &TlsUpstream) -> Value {
     json!({
         "address":value.address,
@@ -223,6 +232,7 @@ fn tls_body(value: &TlsUpstream) -> Value {
     })
 }
 
+/// The catalog body of a DNS-over-HTTPS upstream.
 fn https_body(value: &HttpsUpstream) -> Value {
     json!({
         "url":value.url,
@@ -233,6 +243,12 @@ fn https_body(value: &HttpsUpstream) -> Value {
     })
 }
 
+/// The CLI line of one validated DNS proxy request.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] for a path this module does not render, and
+/// the refusals of the path's own renderer.
 fn render_validated(validated: &ValidatedRequest) -> Result<String> {
     let value = validated.value();
     match validated.path.as_str() {
@@ -264,6 +280,12 @@ fn render_validated(validated: &ValidatedRequest) -> Result<String> {
     }
 }
 
+/// The `dns-proxy tls upstream` line of `value`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when a required field is missing or is not one
+/// bare CLI word.
 fn render_tls(value: &Value) -> Result<String> {
     let mut parts = vec![
         "dns-proxy tls upstream".to_owned(),
@@ -277,6 +299,12 @@ fn render_tls(value: &Value) -> Result<String> {
     Ok(parts.join(" "))
 }
 
+/// The `dns-proxy https upstream` line of `value`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when a required field is missing or is not one
+/// bare CLI word.
 fn render_https(value: &Value) -> Result<String> {
     let mut parts = vec![
         "dns-proxy https upstream".to_owned(),
@@ -289,6 +317,12 @@ fn render_https(value: &Value) -> Result<String> {
     Ok(parts.join(" "))
 }
 
+/// The `dns-proxy route` line of `value`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when a required field is missing or is not one
+/// bare CLI word.
 fn render_route(value: &Value) -> Result<String> {
     let mut parts = vec![
         "dns-proxy route object-group".to_owned(),
@@ -299,6 +333,12 @@ fn render_route(value: &Value) -> Result<String> {
     Ok(parts.join(" "))
 }
 
+/// The `nextdns` line of `value`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when a required field is missing or is not one
+/// bare CLI word.
 fn render_nextdns(value: &Value) -> Result<String> {
     let token = required_text(value, "token")?;
     Ok(if value.get("host").is_some() {
@@ -311,10 +351,22 @@ fn render_nextdns(value: &Value) -> Result<String> {
     })
 }
 
+/// `path` followed by the required field `first` of `value`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the field is missing or is not one bare
+/// CLI word.
 fn line_1(path: &str, value: &Value, first: &str) -> Result<String> {
     Ok(format!("{path} {}", required_text(value, first)?))
 }
 
+/// `path` followed by the required fields `first` and `second` of `value`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when a field is missing or is not one bare CLI
+/// word.
 fn line_2(path: &str, value: &Value, first: &str, second: &str) -> Result<String> {
     Ok(format!(
         "{path} {} {}",
@@ -324,6 +376,12 @@ fn line_2(path: &str, value: &Value, first: &str, second: &str) -> Result<String
 }
 
 /// The free-text `description` field as one quoted CLI word.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when a reply or a plan does not have the
+/// expected shape ([`DomainError::InvalidResponse`]).
 fn description(value: &Value) -> Result<String> {
     cli_token::quoted_text(
         value
@@ -333,6 +391,12 @@ fn description(value: &Value) -> Result<String> {
     )
 }
 
+/// `path` with the field `field` of `value`, or `no <path>` when `value` removes it.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the field is missing or is not one bare
+/// CLI word.
 fn optional_line(path: &str, value: &Value, field: &str) -> Result<String> {
     if value.get("no").and_then(Value::as_bool) == Some(true) {
         Ok(format!("no {path}"))
@@ -341,14 +405,16 @@ fn optional_line(path: &str, value: &Value, field: &str) -> Result<String> {
     }
 }
 
+/// `path`, or `no <path>` when `value` removes the setting.
 fn toggle_line(path: &str, value: &Value) -> String {
-    if value.get("no").and_then(Value::as_bool) == Some(true) {
-        format!("no {path}")
-    } else {
-        path.to_owned()
-    }
+    negated(value, path.to_owned())
 }
 
+/// Appends the field `key` of `value`, after `prefix` when given, when the field is set.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the field is not one bare CLI word.
 fn push_optional(
     parts: &mut Vec<String>,
     value: &Value,
@@ -366,6 +432,11 @@ fn push_optional(
 }
 
 /// The `key` field as one bare CLI token.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn required_text(value: &Value, key: &str) -> Result<String> {
     value_text(
         value
@@ -376,6 +447,12 @@ fn required_text(value: &Value, key: &str) -> Result<String> {
 }
 
 /// A scalar as one bare CLI token; text that would split into more words is refused.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 fn value_text(value: &Value) -> Result<String> {
     let text = value
         .as_str()
@@ -384,6 +461,7 @@ fn value_text(value: &Value) -> Result<String> {
     Ok(text)
 }
 
+/// The catalog arguments of a DNS-over-HTTPS upstream, in CLI order.
 fn render_https_args(value: &HttpsUpstream) -> Vec<Value> {
     let mut args = vec![Value::String(value.url.clone())];
     if let Some(format) = &value.format {
@@ -407,6 +485,7 @@ fn render_https_args(value: &HttpsUpstream) -> Vec<Value> {
     args
 }
 
+/// The router name of a DNS filter engine.
 const fn engine_name(engine: FilterEngine) -> &'static str {
     match engine {
         FilterEngine::Interceptor => "interceptor",
@@ -417,6 +496,7 @@ const fn engine_name(engine: FilterEngine) -> &'static str {
     }
 }
 
+/// The router name of a rebind protection mode.
 const fn rebind_name(mode: RebindProtection) -> &'static str {
     match mode {
         RebindProtection::Auto => "auto",

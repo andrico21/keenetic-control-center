@@ -1,20 +1,11 @@
 //! Connected-client inventory and hotspot controls.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::module_name_repetitions,
-    reason = "domain operation names follow the plan; async reads and planning functions are not inline candidates"
-)]
 
 mod command;
 
 use alloc::{collections::BTreeMap, vec};
 use core::result::Result as CoreResult;
 
-use kcc_app::{
-    permissions::Permission,
-    workflow::{ChangeSet, CliChangeResult, WorkflowError},
-};
+use kcc_app::workflow::{ChangeSet, CliChangeResult, WorkflowError};
 use kcc_catalog::Risk;
 use kcc_rci::Mac;
 use serde::{Deserialize, Serialize};
@@ -22,7 +13,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    read_show,
+    descriptor, read_show,
 };
 
 /// Tolerant `show ip hotspot` row.
@@ -96,19 +87,19 @@ pub enum PolicySelection<'value> {
 const NAME_CHARS: usize = 64;
 
 /// Client read inventory.
-const READS: &[OperationDescriptor] = &[operation("list", "show ip hotspot", Risk::Read)];
+const READS: &[OperationDescriptor] = &[descriptor::by_risk("list", "show ip hotspot", Risk::Read)];
 
 /// Client write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    operation("register", "known host", Risk::Write),
-    operation("remove", "known host", Risk::Write),
-    operation("access", "ip hotspot host", Risk::Write),
-    operation("schedule", "ip hotspot host", Risk::Write),
-    operation("policy", "ip hotspot host", Risk::Write),
-    operation("priority", "ip hotspot host priority", Risk::Write),
-    operation("default_policy", "ip hotspot default-policy", Risk::Write),
-    operation("interface_policy", "ip hotspot policy", Risk::Write),
-    operation("wake", "ip hotspot wake", Risk::Write),
+    descriptor::by_risk("register", "known host", Risk::Write),
+    descriptor::by_risk("remove", "known host", Risk::Write),
+    descriptor::by_risk("access", "ip hotspot host", Risk::Write),
+    descriptor::by_risk("schedule", "ip hotspot host", Risk::Write),
+    descriptor::by_risk("policy", "ip hotspot host", Risk::Write),
+    descriptor::by_risk("priority", "ip hotspot host priority", Risk::Write),
+    descriptor::by_risk("default_policy", "ip hotspot default-policy", Risk::Write),
+    descriptor::by_risk("interface_policy", "ip hotspot policy", Risk::Write),
+    descriptor::by_risk("wake", "ip hotspot wake", Risk::Write),
 ];
 
 /// Clients domain metadata.
@@ -120,13 +111,29 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads all connected and remembered clients from `show ip hotspot`.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the read is named after the router list it returns, like the reads of the other domain modules"
+)]
 pub async fn read_clients(router: &RouterCtx) -> Result<Vec<Client>> {
     read_show(&router.client, &["show", "ip", "hotspot"]).await
 }
 
 /// Reads one client by MAC address.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_client(router: &RouterCtx, mac: &str) -> Result<Option<Client>> {
     Ok(read_clients(router).await?.into_iter().find(|client| {
         client
@@ -138,6 +145,12 @@ pub async fn read_client(router: &RouterCtx, mac: &str) -> Result<Option<Client>
 
 /// Plans registration or rename through `known host <name> <mac>`, the name sent as one
 /// quoted word.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_register(router: &RouterCtx, mac: Mac, name: &str) -> Result<ChangeOp> {
     command::plan(
         router,
@@ -149,6 +162,7 @@ pub fn plan_register(router: &RouterCtx, mac: Mac, name: &str) -> Result<ChangeO
 /// reported name with every other character replaced by a hyphen, else one made from
 /// its MAC address.
 #[must_use]
+#[inline]
 pub fn registration_name(client: &Client) -> String {
     let reported: String = client
         .name
@@ -176,11 +190,23 @@ pub fn registration_name(client: &Client) -> String {
 }
 
 /// Plans the only supported host-removal path: `no known host <mac>`.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_remove(router: &RouterCtx, mac: &str) -> Result<ChangeOp> {
     command::plan(router, &[("known host", json!({"mac":mac,"no":true}))])
 }
 
 /// Plans a permit or deny override, registering an unknown client first in the same operation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_access(
     router: &RouterCtx,
     client: &Client,
@@ -191,6 +217,12 @@ pub fn plan_access(
 }
 
 /// Plans a client schedule, registering an unknown client first in the same operation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_schedule(
     router: &RouterCtx,
     client: &Client,
@@ -201,6 +233,12 @@ pub fn plan_schedule(
 }
 
 /// Plans a client policy, registering an unknown client first in the same operation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_policy(
     router: &RouterCtx,
     client: &Client,
@@ -211,6 +249,13 @@ pub fn plan_policy(
 }
 
 /// Plans client priority, registering an unknown client first in the same operation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]), or when a reply or a plan does not have the expected
+/// shape ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn plan_priority(
     router: &RouterCtx,
     client: &Client,
@@ -227,6 +272,12 @@ pub fn plan_priority(
 }
 
 /// Plans the default hotspot policy.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_default_policy(router: &RouterCtx, selection: PolicySelection<'_>) -> Result<ChangeOp> {
     command::plan(
         router,
@@ -235,6 +286,13 @@ pub fn plan_default_policy(router: &RouterCtx, selection: PolicySelection<'_>) -
 }
 
 /// Plans the hotspot policy for one interface.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]), or when a reply or a plan does not have the expected
+/// shape ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn plan_interface_policy(
     router: &RouterCtx,
     interface: &str,
@@ -247,14 +305,26 @@ pub fn plan_interface_policy(
 }
 
 /// Plans Wake-on-LAN for one client MAC.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_wake(router: &RouterCtx, mac: &str) -> Result<ChangeOp> {
     command::plan(router, &[("ip hotspot wake", json!({"mac":mac}))])
 }
 
 /// Executes a client plan through the protected workflow, which reads host mutations back
 /// from `show ip hotspot` (authoritative for registered names) before it audits them.
+///
+/// # Errors
+///
+/// Returns an error when the change workflow fails: dispatch, read-back or audit (a
+/// [`WorkflowError`]).
 // NOT cancel-safe: cancelled after the CLI request is sent, the router stays changed
 // and the read-back verification never runs.
+#[inline]
 pub async fn apply(
     changes: &mut ChangeSet,
     _router: &RouterCtx,
@@ -263,26 +333,13 @@ pub async fn apply(
     changes.apply_cli(command::request(operation)?).await
 }
 
-/// Builds one descriptor.
-const fn operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission: if matches!(risk, Risk::Read) {
-            Permission::Read
-        } else {
-            Permission::Write
-        },
-        persists_immediately: false,
-    }
-}
-
 /// Plans one host field with registration first when needed.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]), or when a reply or a plan does not have the expected
+/// shape ([`DomainError::InvalidResponse`]).
 fn plan_host_field(
     router: &RouterCtx,
     client: &Client,

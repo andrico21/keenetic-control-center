@@ -1,10 +1,4 @@
 //! Router services and management listener settings.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::module_name_repetitions,
-    reason = "domain operation names follow the plan; planning and asynchronous reads are not useful inline candidates"
-)]
 
 use alloc::{collections::BTreeMap, vec};
 
@@ -12,14 +6,15 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{Risk, ValidatedRequest};
 use kcc_rci::RouterUrl;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token::validate as validate_token, descriptor,
+    cli_token::validate as validate_token, descriptor, planning::validate,
+    request_words::first_argument,
 };
 
 #[cfg(test)]
@@ -130,7 +125,7 @@ pub enum HttpSslSetting {
 }
 
 /// Service read inventory.
-const READS: &[OperationDescriptor] = &[operation(
+const READS: &[OperationDescriptor] = &[descriptor::operation(
     "list",
     "service http",
     Risk::Read,
@@ -139,25 +134,25 @@ const READS: &[OperationDescriptor] = &[operation(
 
 /// Service write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    operation(
+    descriptor::operation(
         "set_service",
         "service http",
         Risk::Write,
         Permission::Write,
     ),
-    operation(
+    descriptor::operation(
         "management_port",
         "ip http port",
         Risk::Management,
         Permission::Write,
     ),
-    operation(
+    descriptor::operation(
         "management_security_level",
         "ip http security-level",
         Risk::Management,
         Permission::Write,
     ),
-    operation(
+    descriptor::operation(
         "http_ssl",
         "ip http ssl enable",
         Risk::Management,
@@ -174,7 +169,18 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads enabled router services.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the read is named after the router list it returns, like the reads of the other domain modules"
+)]
 pub async fn read_services(router: &RouterCtx) -> Result<Vec<ServiceState>> {
     let response = router.client.show_rc(json!({"service":{}})).await?;
     serde_json::from_value::<ServiceProjection>(response.configuration_tree().clone())
@@ -183,6 +189,13 @@ pub async fn read_services(router: &RouterCtx) -> Result<Vec<ServiceState>> {
 }
 
 /// Plans enabling or disabling one service present in the selected catalog.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_service(router: &RouterCtx, name: &str, enabled: bool) -> Result<ChangeOp> {
     validate_token(name)?;
     let path = format!("service {name}");
@@ -203,6 +216,13 @@ pub fn plan_service(router: &RouterCtx, name: &str, enabled: bool) -> Result<Cha
 
 /// Plans a management listener port change; moving the plain-HTTP listener the router
 /// profile's URL uses is refused, since kcc would lose its own connection mid-change.
+///
+/// # Errors
+///
+/// Returns an error when the change would cut kcc off from the router
+/// ([`DomainError::ProtectedAccount`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_port(router: &RouterCtx, listener: ManagementListener, port: u16) -> Result<ChangeOp> {
     let url = router.client.router_url();
     if listener == ManagementListener::Http && !url.is_https() && url.port() != Some(port) {
@@ -217,6 +237,12 @@ pub fn plan_port(router: &RouterCtx, listener: ManagementListener, port: u16) ->
 }
 
 /// Plans a management listener security-level change.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_security_level(
     router: &RouterCtx,
     listener: ManagementListener,
@@ -229,6 +255,13 @@ pub fn plan_security_level(
 /// Plans one HTTP TLS or ACME setting; a setting that closes, moves or redirects the
 /// listener the router profile's URL uses is refused, since kcc would lose its own
 /// connection mid-change.
+///
+/// # Errors
+///
+/// Returns an error when the change would cut kcc off from the router
+/// ([`DomainError::ProtectedAccount`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_http_ssl(router: &RouterCtx, setting: HttpSslSetting) -> Result<ChangeOp> {
     if cuts_own_listener(router.client.router_url(), setting) {
         return Err(DomainError::ProtectedAccount);
@@ -246,6 +279,12 @@ pub fn plan_http_ssl(router: &RouterCtx, setting: HttpSslSetting) -> Result<Chan
 }
 
 /// Converts a service plan into the only workflow request permitted to execute it.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let request = operation
         .requests
@@ -260,16 +299,6 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     ))
 }
 
-/// Builds one operation descriptor.
-const fn operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-    permission: Permission,
-) -> OperationDescriptor {
-    descriptor::operation(name, catalog_path, risk, permission)
-}
-
 /// Whether `setting` closes, moves or redirects the listener `url` reaches the router on.
 fn cuts_own_listener(url: &RouterUrl, setting: HttpSslSetting) -> bool {
     let https = url.is_https();
@@ -282,6 +311,11 @@ fn cuts_own_listener(url: &RouterUrl, setting: HttpSslSetting) -> bool {
 }
 
 /// Plans a management-risk operation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 fn plan_management(router: &RouterCtx, path: &str, body: &Value) -> Result<ChangeOp> {
     let request = validate(router, path, body)?;
     Ok(management_change(request))
@@ -298,14 +332,6 @@ fn management_change(request: ValidatedRequest) -> ChangeOp {
     )
 }
 
-/// Validates one catalog request.
-fn validate(router: &RouterCtx, path: &str, body: &Value) -> Result<ValidatedRequest> {
-    router
-        .catalog
-        .validate(path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })
-}
-
 /// Serializes a validated fixed-form request into router CLI syntax.
 fn command_line(request: &ValidatedRequest) -> String {
     let prefix = if request.value().get("no").and_then(Value::as_bool) == Some(true) {
@@ -313,20 +339,11 @@ fn command_line(request: &ValidatedRequest) -> String {
     } else {
         ""
     };
-    let argument = request
-        .value()
-        .as_object()
-        .and_then(|object| {
-            object
-                .iter()
-                .find(|(key, _value)| key.as_str() != "no")
-                .map(|(_key, value)| value)
-        })
-        .map_or_default(|value| match value {
-            Value::String(text) => text.clone(),
-            Value::Number(number) => number.to_string(),
-            Value::Null | Value::Bool(_) | Value::Array(_) | Value::Object(_) => String::new(),
-        });
+    let argument = first_argument(request.value()).map_or_default(|value| match value {
+        Value::String(text) => text.clone(),
+        Value::Number(number) => number.to_string(),
+        Value::Null | Value::Bool(_) | Value::Array(_) | Value::Object(_) => String::new(),
+    });
     let separator = if argument.is_empty() { "" } else { " " };
     format!("{prefix}{}{separator}{argument}", request.path)
 }

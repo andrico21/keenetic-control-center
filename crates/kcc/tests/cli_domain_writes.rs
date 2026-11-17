@@ -15,8 +15,6 @@
 mod admin;
 #[path = "cli_domain_writes/coverage.rs"]
 mod coverage;
-#[path = "cli_domain_writes/excluded.rs"]
-mod excluded;
 #[path = "cli_domain_writes/exposed.rs"]
 mod exposed;
 #[path = "cli_domain_writes/gate.rs"]

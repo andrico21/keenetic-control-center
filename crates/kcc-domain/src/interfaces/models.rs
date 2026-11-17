@@ -41,6 +41,11 @@ pub struct Interface {
 
 /// Unmodelled interface fields at the read boundary: `authentication` reduced to the
 /// names of the stored credentials, and every `ns3` member removed.
+///
+/// # Errors
+///
+/// Returns the deserializer's error when the unmodelled interface fields are not a map of JSON
+/// values.
 fn without_credentials<'de, D>(deserializer: D) -> Result<BTreeMap<String, Value>, D::Error>
 where
     D: Deserializer<'de>,

@@ -1,9 +1,4 @@
-//! Attached storage inventory and destructive maintenance operations.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "domain planning and asynchronous reads are not useful inline candidates"
-)]
+//! Attached storage inventory and the destructive media eject.
 
 use alloc::{collections::BTreeMap, vec};
 
@@ -12,13 +7,13 @@ use kcc_app::{
     registry::authorize,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
-use kcc_catalog::{HttpMethod, Risk};
+use kcc_catalog::Risk;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token::validate as validate_token, read_show,
+    cli_token::validate as validate_token, descriptor, planning::validate, read_show,
 };
 
 /// One mounted media volume.
@@ -59,80 +54,19 @@ pub struct UsbDevice {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// Destructive storage maintenance action.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-pub enum MaintenanceAction {
-    /// Checks a partition for filesystem errors.
-    Check,
-    /// Formats a partition with the requested filesystem.
-    Format,
-}
-
-/// Inputs required to authorize and confirm destructive storage maintenance.
-#[derive(Clone, Copy, Debug)]
-#[non_exhaustive]
-pub struct MaintenanceRequest<'input> {
-    /// Router id used for scope authorization.
-    pub router_name: &'input str,
-    /// Caller role.
-    pub role: &'input Role,
-    /// Target partition identifier.
-    pub partition: &'input str,
-    /// Filesystem name for format, absent for check.
-    pub filesystem: Option<&'input str>,
-    /// Explicit destructive confirmation.
-    pub confirmed: bool,
-}
-
-impl<'input> MaintenanceRequest<'input> {
-    /// Creates a destructive maintenance request.
-    #[inline]
-    #[must_use]
-    pub const fn new(
-        router_name: &'input str,
-        role: &'input Role,
-        partition: &'input str,
-        filesystem: Option<&'input str>,
-        confirmed: bool,
-    ) -> Self {
-        Self {
-            router_name,
-            role,
-            partition,
-            filesystem,
-            confirmed,
-        }
-    }
-}
-
 /// Storage read inventory.
 const READS: &[OperationDescriptor] = &[
-    operation("media", "show media", Risk::Read, Permission::Read),
-    operation("usb", "show usb", Risk::Read, Permission::Read),
+    descriptor::read("media", "show media"),
+    descriptor::read("usb", "show usb"),
 ];
 
 /// Storage write inventory.
-const WRITES: &[OperationDescriptor] = &[
-    operation(
-        "eject",
-        "system eject",
-        Risk::Destructive,
-        Permission::Destructive,
-    ),
-    operation(
-        "partition_check",
-        "system partition check",
-        Risk::Destructive,
-        Permission::Destructive,
-    ),
-    operation(
-        "partition_format",
-        "system partition format",
-        Risk::Destructive,
-        Permission::Destructive,
-    ),
-];
+const WRITES: &[OperationDescriptor] = &[descriptor::operation(
+    "eject",
+    "system eject",
+    Risk::Destructive,
+    Permission::Destructive,
+)];
 
 /// Storage domain metadata.
 pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
@@ -143,18 +77,39 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads mounted media volumes.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_media(router: &RouterCtx) -> Result<Vec<MediaVolume>> {
     read_show(&router.client, &["show", "media"]).await
 }
 
 /// Reads attached USB devices.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_usb(router: &RouterCtx) -> Result<Vec<UsbDevice>> {
     read_show(&router.client, &["show", "usb"]).await
 }
 
 /// Plans a confirmed destructive media eject.
+///
+/// # Errors
+///
+/// Returns an error when the role lacks the permission or the router scope
+/// ([`DomainError::PermissionDenied`]), when the destructive change is not confirmed
+/// ([`DomainError::ConfirmationRequired`]), when an argument cannot be one safe router CLI
+/// word ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_eject(
     router: &RouterCtx,
     router_name: &str,
@@ -166,104 +121,39 @@ pub fn plan_eject(
         .map_err(|_error| DomainError::PermissionDenied)?;
     confirm(confirmed)?;
     validate_token(media)?;
-    let validated = router
-        .catalog
-        .validate("system eject", HttpMethod::Post, &json!({"name":media}))
-        .map_err(|issues| DomainError::Validation { issues })?;
-    Ok(destructive(vec![validated]))
-}
-
-/// Plans confirmed destructive partition maintenance.
-pub fn plan_maintenance(
-    router: &RouterCtx,
-    action: MaintenanceAction,
-    request: MaintenanceRequest<'_>,
-) -> Result<ChangeOp> {
-    authorize(request.role, Permission::Destructive, request.router_name)
-        .map_err(|_error| DomainError::PermissionDenied)?;
-    confirm(request.confirmed)?;
-    validate_token(request.partition)?;
-    let (path, body) = match action {
-        MaintenanceAction::Check => (
-            "system partition check",
-            json!({"partition":request.partition}),
-        ),
-        MaintenanceAction::Format => {
-            let filesystem = request.filesystem.ok_or(DomainError::InvalidCliToken)?;
-            validate_token(filesystem)?;
-            (
-                "system partition format",
-                json!({"partition":request.partition,"filesystem":filesystem}),
-            )
-        }
-    };
-    let validated = router
-        .catalog
-        .validate(path, HttpMethod::Post, &body)
-        .map_err(|issues| DomainError::Validation { issues })?;
+    let validated = validate(router, "system eject", &json!({"name":media}))?;
     Ok(destructive(vec![validated]))
 }
 
 /// Converts a storage plan into a protected workflow request.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let request = operation
         .requests
         .first()
         .ok_or(DomainError::InvalidResponse)?;
-    let line = match request.path.as_str() {
-        "system eject" => format!(
-            "system eject {}",
-            request
-                .value()
-                .get("name")
-                .and_then(Value::as_str)
-                .ok_or(DomainError::InvalidResponse)?
-        ),
-        "system partition check" => format!(
-            "system partition {} check",
-            request
-                .value()
-                .get("partition")
-                .and_then(Value::as_str)
-                .ok_or(DomainError::InvalidResponse)?
-        ),
-        "system partition format" => format!(
-            "system partition {} format {}",
-            request
-                .value()
-                .get("partition")
-                .and_then(Value::as_str)
-                .ok_or(DomainError::InvalidResponse)?,
-            request
-                .value()
-                .get("filesystem")
-                .and_then(Value::as_str)
-                .ok_or(DomainError::InvalidResponse)?
-        ),
-        _ => return Err(DomainError::InvalidResponse),
-    };
+    if request.path != "system eject" {
+        return Err(DomainError::InvalidResponse);
+    }
+    let line = format!(
+        "system eject {}",
+        request
+            .value()
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or(DomainError::InvalidResponse)?
+    );
     Ok(CliChangeRequest::new(
         vec![ValidatedCli::new(line, request.clone())?],
         Vec::new(),
         Permission::Destructive,
         json!({"operation":request.path}),
     ))
-}
-
-/// Builds one operation descriptor.
-const fn operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-    permission: Permission,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission,
-        persists_immediately: false,
-    }
 }
 
 /// Builds the shared destructive operation shape.
@@ -278,6 +168,11 @@ const fn destructive(requests: Vec<kcc_catalog::ValidatedRequest>) -> ChangeOp {
 }
 
 /// Requires explicit confirmation before catalog or router work.
+///
+/// # Errors
+///
+/// Returns an error when the destructive change is not confirmed
+/// ([`DomainError::ConfirmationRequired`]).
 const fn confirm(confirmed: bool) -> Result<()> {
     if confirmed {
         Ok(())

@@ -1,9 +1,4 @@
 //! Router login accounts and service tags.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "domain planning and asynchronous reads are not useful inline candidates"
-)]
 
 use alloc::{collections::BTreeMap, vec};
 
@@ -14,7 +9,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli, PresencePredicate, VerificationSpec},
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{Risk, ValidatedRequest};
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -22,7 +17,7 @@ use serde_json::{Value, json};
 use self::protection::OwnLogins;
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token::validate as validate_token,
+    cli_token::validate as validate_token, descriptor, planning::validate,
 };
 
 /// One secret-free router account returned by `show rc user`.
@@ -65,24 +60,29 @@ struct UserProjection {
 }
 
 /// Router-user read inventory.
-const READS: &[OperationDescriptor] = &[operation("list", "user", Risk::Read, Permission::Read)];
+const READS: &[OperationDescriptor] = &[descriptor::operation(
+    "list",
+    "user",
+    Risk::Read,
+    Permission::Read,
+)];
 
 /// Router-user write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    operation("create", "user", Risk::Management, Permission::ManageUsers),
-    operation(
+    descriptor::operation("create", "user", Risk::Management, Permission::ManageUsers),
+    descriptor::operation(
         "set_tag",
         "user tag",
         Risk::Management,
         Permission::ManageUsers,
     ),
-    operation(
+    descriptor::operation(
         "set_password",
         "user password plain",
         Risk::Management,
         Permission::ManageUsers,
     ),
-    operation("delete", "user", Risk::Management, Permission::ManageUsers),
+    descriptor::operation("delete", "user", Risk::Management, Permission::ManageUsers),
 ];
 
 /// Router-user domain metadata.
@@ -94,7 +94,14 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads router accounts while discarding password hashes at the response boundary.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_users(router: &RouterCtx) -> Result<Vec<RouterUser>> {
     let response = router.client.show_rc(json!({"user":{}})).await?;
     let projection =
@@ -116,6 +123,13 @@ pub async fn read_users(router: &RouterCtx) -> Result<Vec<RouterUser>> {
 }
 
 /// Plans creation of a passwordless account and its initial tags.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_create(router: &RouterCtx, name: &str, tags: &[&str]) -> Result<ChangeOp> {
     validate_token(name)?;
     let mut requests = vec![validate(router, "user", &json!({"name":name}))?];
@@ -128,6 +142,14 @@ pub fn plan_create(router: &RouterCtx, name: &str, tags: &[&str]) -> Result<Chan
 
 /// Plans adding or removing one account tag; removing a tag from an account kcc signs in
 /// with is refused, as is removing `cli` from `admin`.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), when the change would cut kcc off from the router
+/// ([`DomainError::ProtectedAccount`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_tag(
     router: &RouterCtx,
     name: &str,
@@ -154,6 +176,13 @@ pub fn plan_tag(
 }
 
 /// Plans a plaintext password write whose printable plan retains only a redacted projection.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_password(
     router: &RouterCtx,
     name: &str,
@@ -186,6 +215,13 @@ pub fn plan_password(
 }
 
 /// Plans deletion unless kcc signs in with the account.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_delete(router: &RouterCtx, name: &str, own: &OwnLogins) -> Result<ChangeOp> {
     validate_token(name)?;
     own.guard(name)?;
@@ -197,6 +233,14 @@ pub fn plan_delete(router: &RouterCtx, name: &str, own: &OwnLogins) -> Result<Ch
 }
 
 /// Converts a user plan into the only workflow request permitted to execute it.
+///
+/// # Errors
+///
+/// Returns an error when the plan holds no request, a request lacks its login name or tag,
+/// the password request cannot be rendered, or its read-back cannot be built
+/// ([`DomainError::InvalidResponse`]), or when a rendered line does not bind to its request
+/// ([`DomainError::Workflow`]).
+#[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let first = operation
         .requests
@@ -248,30 +292,6 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         operation.permission,
         json!({"operation":"router_user","login":name}),
     ))
-}
-
-/// Builds one operation descriptor.
-const fn operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-    permission: Permission,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission,
-        persists_immediately: false,
-    }
-}
-
-/// Validates one catalog request.
-fn validate(router: &RouterCtx, path: &str, body: &Value) -> Result<ValidatedRequest> {
-    router
-        .catalog
-        .validate(path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })
 }
 
 /// Constructs the shared account-management operation shape.

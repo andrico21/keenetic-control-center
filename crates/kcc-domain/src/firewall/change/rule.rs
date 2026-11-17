@@ -1,11 +1,4 @@
 //! Planning of access-list rule additions and removals.
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private body assembly helpers are narrowly named"
-    )
-)]
 
 use alloc::{format, vec};
 
@@ -14,11 +7,18 @@ use serde_json::{Map, Value, json};
 
 use super::{
     super::model::{Protocol, Rule},
-    Plan, contextual, insert, request,
+    Plan, PortSide, contextual, insert, request,
     verify::Verification,
 };
 use crate::{DomainError, Result, RouterCtx};
 
+/// Plans adding or removing the rule `rule` in the access list `name`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Validation`] for a port on a protocol other than TCP or UDP, a
+/// port range whose end comes first, or a request the catalog refuses, and
+/// [`DomainError::InvalidCliToken`] for an invalid list name.
 pub(super) fn plan_rule(router: &RouterCtx, name: &str, rule: &Rule, remove: bool) -> Result<Plan> {
     if !matches!(rule.protocol, Protocol::Tcp | Protocol::Udp) {
         // The manuals document port matches only for `tcp` and `udp` rules.
@@ -42,10 +42,15 @@ pub(super) fn plan_rule(router: &RouterCtx, name: &str, rule: &Rule, remove: boo
     }
     let mut body = json!({"source":rule.source,"source-mask":rule.source_mask,"destination":rule.destination,"destination-mask":rule.destination_mask});
     let fields = body.as_object_mut().ok_or(DomainError::InvalidResponse)?;
-    insert_port(fields, "source", rule.source_port, rule.source_end_port)?;
     insert_port(
         fields,
-        "destination",
+        PortSide::Source,
+        rule.source_port,
+        rule.source_end_port,
+    )?;
+    insert_port(
+        fields,
+        PortSide::Destination,
         rule.destination_port,
         rule.destination_end_port,
     )?;
@@ -78,21 +83,19 @@ pub(super) fn plan_rule(router: &RouterCtx, name: &str, rule: &Rule, remove: boo
     Ok(plan)
 }
 
+/// Inserts the port fields of one side of a rule.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Validation`] naming the end port when a range has no start or
+/// its end comes first.
 fn insert_port(
     fields: &mut Map<String, Value>,
-    side: &str,
+    side: PortSide,
     start: Option<u16>,
     end: Option<u16>,
 ) -> Result<()> {
-    let (port, end_port, operator) = match side {
-        "source" => ("source-port", "source-end-port", "src-port-operator"),
-        "destination" => (
-            "destination-port",
-            "destination-end-port",
-            "dst-port-operator",
-        ),
-        _ => return Err(DomainError::InvalidResponse),
-    };
+    let (port, end_port, operator) = side.fields();
     match (start, end) {
         (None, None) => Ok(()),
         (Some(value), None) => {

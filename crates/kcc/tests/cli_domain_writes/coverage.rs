@@ -8,7 +8,7 @@ use clap::CommandFactory as _;
 use kcc::cli::args::Cli;
 use kcc_domain::{DomainId, registry};
 
-use crate::{excluded::EXCLUDED, exposed::EXPOSED};
+use crate::exposed::EXPOSED;
 
 /// Every subcommand path of the clap tree, as words after `kcc`.
 fn command_paths() -> BTreeSet<String> {
@@ -38,7 +38,7 @@ fn registered(domain: DomainId, op: &str) -> bool {
 }
 
 #[test]
-fn every_registry_write_has_a_subcommand_or_a_documented_exclusion() {
+fn every_registry_write_has_a_subcommand() {
     let paths = command_paths();
     for descriptor in registry() {
         for operation in descriptor.write_ops {
@@ -46,16 +46,10 @@ fn every_registry_write_has_a_subcommand_or_a_documented_exclusion() {
                 .iter()
                 .filter(|row| row.domain == descriptor.id && row.op == operation.name)
                 .count();
-            let excluded = EXCLUDED
-                .iter()
-                .filter(|row| row.domain == descriptor.id && row.op == operation.name)
-                .count();
             assert_eq!(
-                exposed + excluded,
-                1,
-                "{:?} {} needs exactly one subcommand row or one exclusion",
-                descriptor.id,
-                operation.name
+                exposed, 1,
+                "{:?} {} needs exactly one subcommand row",
+                descriptor.id, operation.name
             );
         }
     }
@@ -72,20 +66,6 @@ fn every_registry_write_has_a_subcommand_or_a_documented_exclusion() {
             row.domain,
             row.op,
             row.command
-        );
-    }
-    for row in EXCLUDED {
-        assert!(
-            registered(row.domain, row.op),
-            "stale exclusion {:?} {}",
-            row.domain,
-            row.op
-        );
-        assert!(
-            !row.reason.trim().is_empty(),
-            "{:?} {} has no reason",
-            row.domain,
-            row.op
         );
     }
 }

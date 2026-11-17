@@ -16,7 +16,7 @@ use kcc_app::{
     workflow::{CliChangeRequest, CliCommand as ValidatedCli, WorkflowError},
 };
 use kcc_catalog::HttpMethod;
-use kcc_domain::configuration::{self, SafetyNet};
+use kcc_domain::configuration;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde_json::json;
 
@@ -72,7 +72,8 @@ pub(crate) async fn save(
     let outcome = action
         .run_planned(Planned::described(|changes, _context| {
             Box::pin(async move {
-                configuration::save(changes)
+                changes
+                    .save()
                     .await
                     .map(|()| Applied::Done { unsaved: false })
             })
@@ -100,7 +101,8 @@ pub(crate) async fn commit(
     let outcome = action
         .run_planned(Planned::described(|changes, _context| {
             Box::pin(async move {
-                SafetyNet::commit(changes)
+                changes
+                    .commit()
                     .await
                     .map(|()| Applied::Done { unsaved: false })
             })

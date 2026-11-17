@@ -48,6 +48,7 @@ struct WireAccessPoint {
 }
 
 impl<'de> Deserialize<'de> for AccessPoint {
+    #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -105,29 +106,4 @@ pub struct Station {
     /// Unmodelled station fields.
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
-}
-
-/// Stored NS3 presence and encoded-length validation result.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[non_exhaustive]
-pub struct Ns3Presence {
-    /// Whether an NS3 value exists.
-    pub present: bool,
-    /// Encoded byte length when present.
-    pub encoded_length: Option<usize>,
-    /// Whether the encoded length is plausible for NS3 storage.
-    pub plausible_length: bool,
-}
-
-impl Ns3Presence {
-    /// Creates an NS3 presence summary.
-    #[inline]
-    #[must_use]
-    pub const fn new(present: bool, encoded_length: Option<usize>, plausible_length: bool) -> Self {
-        Self {
-            present,
-            encoded_length,
-            plausible_length,
-        }
-    }
 }

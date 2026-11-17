@@ -4,7 +4,7 @@
 //! Those writes are unsupported; the available OpenVPN commands only configure routing,
 //! connection selection, and name servers.
 
-use core::{result::Result as CoreResult, str::from_utf8};
+use core::result::Result as CoreResult;
 
 use kcc_app::{
     permissions::Permission,
@@ -14,8 +14,8 @@ use kcc_app::{
     },
 };
 use kcc_catalog::Risk;
-use kcc_rci::{ConfigKind, ObjectName};
-use secrecy::{ExposeSecret as _, SecretString};
+use kcc_rci::ObjectName;
+use secrecy::SecretString;
 use serde_json::json;
 
 use super::change;
@@ -81,6 +81,13 @@ impl CredentialTarget {
 }
 
 /// Plans a credential without retaining a printable secret or sending a router request.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan(
     router: &RouterCtx,
     target: &CredentialTarget,
@@ -120,12 +127,15 @@ pub fn plan(
     Ok(operation)
 }
 
-/// Applies a credential and verifies only the stored payload's presence and length;
-/// returns the change's result, its audit receipt included.
+/// Applies a credential and returns the change's result, its audit receipt included.
+///
+/// The change workflow verifies only the stored payload's presence and length (the plan's
+/// `ConfigSecret` check) before the audit entry.
 ///
 /// # Errors
 /// Returns validation, dispatch, or presence verification failures without credential text.
 // NOT cancel-safe: a router write may finish before the subsequent read-back.
+#[inline]
 pub async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -134,36 +144,5 @@ pub async fn apply(
 ) -> CoreResult<CliChangeResult, WorkflowError> {
     let operation = plan(router, target, secret)?;
     let request = change::request(&operation)?;
-    let applied = changes.apply_cli(request).await?;
-    let bytes = router.client.download_config(ConfigKind::Running).await?;
-    let text =
-        from_utf8(bytes.expose_secret()).map_err(|_error| WorkflowError::UndecodableConfig)?;
-    let (_, _, prefix) = target.binding();
-    let mut contexts = Vec::<(usize, &str)>::new();
-    let present = text.lines().any(|line| {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with('!') || trimmed.is_empty() {
-            return false;
-        }
-        let indent = line.len().saturating_sub(trimmed.len());
-        contexts.retain(|(depth, _)| *depth < indent);
-        let remaining = contexts
-            .iter()
-            .try_fold(prefix.as_str(), |rest, (_, context)| {
-                rest.strip_prefix(context)?.strip_prefix(' ')
-            });
-        let present = remaining
-            .and_then(|rest| trimmed.strip_prefix(rest))
-            .and_then(|tail| tail.strip_prefix(' '))
-            .map(|payload| payload.strip_prefix("ns3 ").unwrap_or(payload))
-            .is_some_and(|payload| !payload.is_empty() && payload.len() <= 512);
-        contexts.push((indent, trimmed));
-        present
-    });
-    if !present {
-        return Err(WorkflowError::VerificationFailed {
-            field: "vpn/credential".to_owned(),
-        });
-    }
-    Ok(applied)
+    changes.apply_cli(request).await
 }

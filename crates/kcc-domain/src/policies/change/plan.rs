@@ -1,43 +1,56 @@
 //! Catalog-validated connection-policy plans.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "policy planning is not an inline candidate"
-)]
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private validation and body assembly helpers are named after their policy role"
-    )
-)]
 
 use alloc::vec;
 
 use kcc_app::permissions::Permission;
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{Risk, ValidatedRequest};
 use serde_json::{Map, Value, json};
 
 use super::super::model::{PolicyPermit, PolicyRateLimit, PolicyRoute};
-use crate::{ChangeOp, DomainError, Result, RouterCtx};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, planning::validate};
 
 /// Plans creation of an empty connection policy.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn create(router: &RouterCtx, name: &str) -> Result<ChangeOp> {
     context_plan(router, name, false)
 }
 
 /// Plans removal of one connection policy.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn remove(router: &RouterCtx, name: &str) -> Result<ChangeOp> {
     context_plan(router, name, true)
 }
 
 /// Plans setting or clearing a policy description.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn description(router: &RouterCtx, name: &str, description: Option<&str>) -> Result<ChangeOp> {
     let body = description.map_or_else(|| json!({"no":true}), |value| json!({"description":value}));
     leaf_plan(router, name, "ip policy description", &body)
 }
 
 /// Plans adding or removing a permitted interface.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]), or when a reply or a plan does not have the expected
+/// shape ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn permit(
     router: &RouterCtx,
     name: &str,
@@ -52,11 +65,24 @@ pub fn permit(
 }
 
 /// Plans enabling or disabling policy multipath routing.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn multipath(router: &RouterCtx, name: &str, enabled: bool) -> Result<ChangeOp> {
     leaf_plan(router, name, "ip policy multipath", &toggle(enabled))
 }
 
 /// Plans adding or removing one policy-owned IPv4 route.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]), or when a reply or a plan does not have the expected
+/// shape ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn route(
     router: &RouterCtx,
     name: &str,
@@ -76,6 +102,13 @@ pub fn route(
 }
 
 /// Plans setting or removing one interface rate limit.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]), or when a reply or a plan does not have the expected
+/// shape ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn rate_limit(
     router: &RouterCtx,
     name: &str,
@@ -95,10 +128,21 @@ pub fn rate_limit(
 }
 
 /// Plans enabling or disabling standalone policy operation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn standalone(router: &RouterCtx, name: &str, enabled: bool) -> Result<ChangeOp> {
     leaf_plan(router, name, "ip policy standalone", &toggle(enabled))
 }
 
+/// Plans creating or removing the policy context `name`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Validation`] when the catalog refuses the request.
 fn context_plan(router: &RouterCtx, name: &str, remove: bool) -> Result<ChangeOp> {
     let body = if remove {
         json!({"name":name,"no":true})
@@ -108,23 +152,23 @@ fn context_plan(router: &RouterCtx, name: &str, remove: bool) -> Result<ChangeOp
     Ok(operation(vec![validate(router, "ip policy", &body)?]))
 }
 
+/// Plans `path` with `body` under the policy context `name`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Validation`] when the catalog refuses a request.
 fn leaf_plan(router: &RouterCtx, name: &str, path: &str, body: &Value) -> Result<ChangeOp> {
     let context = validate(router, "ip policy", &json!({"name":name}))?;
     let leaf = validate(router, path, body)?;
     Ok(operation(vec![context, leaf]))
 }
 
-fn validate(router: &RouterCtx, path: &str, body: &Value) -> Result<ValidatedRequest> {
-    router
-        .catalog
-        .validate(path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })
-}
-
+/// A policy plan of `requests`: write risk, needing `Write`.
 const fn operation(requests: Vec<ValidatedRequest>) -> ChangeOp {
     ChangeOp::new(requests, Vec::new(), Risk::Write, Permission::Write, false)
 }
 
+/// The body of a toggle: empty to enable, `no` to disable.
 fn toggle(enabled: bool) -> Value {
     if enabled {
         json!({})
@@ -133,18 +177,21 @@ fn toggle(enabled: bool) -> Value {
     }
 }
 
+/// Inserts `no` when the setting is disabled.
 fn insert_removal(fields: &mut Map<String, Value>, enabled: bool) {
     if !enabled {
         drop(fields.insert("no".to_owned(), Value::Bool(true)));
     }
 }
 
+/// Inserts the text `value` as `name` when it is given.
 fn insert_optional_text(fields: &mut Map<String, Value>, name: &str, value: Option<&String>) {
     if let Some(text) = value {
         drop(fields.insert(name.to_owned(), Value::String(text.clone())));
     }
 }
 
+/// Inserts the number `value` as `name` when it is given.
 fn insert_optional_number(fields: &mut Map<String, Value>, name: &str, value: Option<u32>) {
     if let Some(number) = value {
         drop(fields.insert(name.to_owned(), json!(number)));

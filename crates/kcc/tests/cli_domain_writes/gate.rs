@@ -28,7 +28,13 @@ const WRITES: &[&[&str]] = &[
     &["policies", "create", "Policy9"],
     &["firewall", "bind", "WebAcl", "--interface", "ISP"],
     &["--yes", "services", "port", "telnet", "2323"],
-    &["--confirm-destructive", "lab-1", "storage", "check", "sda1"],
+    &[
+        "--confirm-destructive",
+        "lab-1",
+        "storage",
+        "eject",
+        "Media0",
+    ],
     &[
         "schedules",
         "action",

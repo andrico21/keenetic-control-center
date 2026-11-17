@@ -102,6 +102,11 @@ const FAIL_SAFE_KEEP_ALIVE: &str = "system configuration fail-safe keep-alive";
 const SYSTEM_REBOOT: &str = "system reboot";
 
 /// Builds the protected non-terminal CLI request of one recovery timer step.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a request
+/// ([`WorkflowError::CatalogValidation`]).
 pub(super) fn cli_request(
     router: &RouterCtx,
     timer: Timer,

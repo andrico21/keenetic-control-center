@@ -194,19 +194,3 @@ async fn wpa_psk_control_character_is_refused_before_router_request() -> TestRes
     }
     Ok(())
 }
-
-#[test]
-fn ns3_verification_checks_presence_and_length_without_decoding() {
-    let plausible = "A".repeat(24);
-
-    let present = wifi::ns3_presence(Some(&plausible));
-    let malformed = wifi::ns3_presence(Some("short"));
-    let absent = wifi::ns3_presence(None);
-
-    assert!(present.present);
-    assert_eq!(present.encoded_length, Some(24));
-    assert!(present.plausible_length);
-    assert!(malformed.present);
-    assert!(!malformed.plausible_length);
-    assert!(!absent.present);
-}

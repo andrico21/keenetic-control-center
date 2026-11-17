@@ -1,4 +1,4 @@
-//! Firewall, storage and schedule writes.
+//! Firewall and schedule writes.
 
 use kcc_app::permissions::Permission;
 use kcc_domain::{
@@ -10,16 +10,15 @@ use kcc_domain::{
         rule_list::ListedRule,
     },
     schedules::{self, ActionTime, ScheduleAction},
-    storage::{self, MaintenanceAction, MaintenanceRequest},
 };
 
 use super::{
     args_dom_admin::{
         AclDirection, ActionChoice, FirewallWriteCommand, RuleProtocolChoice,
-        SchedulesWriteCommand, StorageWriteCommand, VerdictChoice,
+        SchedulesWriteCommand, VerdictChoice,
     },
     args_dom_family::Family,
-    args_domains_net::{FirewallCommand, SchedulesCommand, StorageCommand},
+    args_domains_net::{FirewallCommand, SchedulesCommand},
     change::{Gate, applied},
     context::Ctx,
     dom_net,
@@ -142,49 +141,6 @@ const fn rule_protocol(choice: RuleProtocolChoice) -> Protocol {
         RuleProtocolChoice::Gre => Protocol::Gre,
         RuleProtocolChoice::Ipip => Protocol::IpIp,
     }
-}
-
-/// Runs a `storage` command: the first commands, or the writes added here.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn storage(
-    ctx: &Ctx,
-    command: Family<StorageCommand, StorageWriteCommand>,
-) -> Outcome {
-    match command {
-        Family::Base(sub) => dom_net::storage(ctx, sub).await,
-        Family::Writes(sub) => storage_writes(ctx, sub).await,
-    }
-}
-
-/// Runs a destructive storage maintenance action.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-async fn storage_writes(ctx: &Ctx, command: StorageWriteCommand) -> Outcome {
-    let session = Session::open(ctx, Permission::Destructive).await?;
-    let target = session.target();
-    let (action, partition, filesystem) = match &command {
-        StorageWriteCommand::Check { partition } => (MaintenanceAction::Check, partition, None),
-        StorageWriteCommand::Format {
-            partition,
-            filesystem,
-        } => (
-            MaintenanceAction::Format,
-            partition,
-            Some(filesystem.as_str()),
-        ),
-    };
-    let request = MaintenanceRequest::new(target.id(), target.role(), partition, filesystem, true);
-    let operation = storage::plan_maintenance(session.router(), action, request)?;
-    session
-        .cli(&operation, storage::change_request(&operation)?)
-        .await
 }
 
 /// Runs a `schedules` command: the first commands, or the writes added here.

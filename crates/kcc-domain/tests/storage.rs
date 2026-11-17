@@ -9,10 +9,7 @@
 
 mod support;
 
-use kcc_domain::{
-    DomainError,
-    storage::{self, MaintenanceAction, MaintenanceRequest},
-};
+use kcc_domain::{DomainError, storage};
 
 use crate::support::{Fixture, PROFILES, TestResult, administrator};
 
@@ -36,16 +33,12 @@ async fn media_and_usb_inventory_decode_typed_fixtures() -> TestResult {
 }
 
 #[tokio::test]
-async fn unconfirmed_format_is_refused_before_any_router_request() -> TestResult {
+async fn unconfirmed_eject_is_refused_before_any_router_request() -> TestResult {
     for firmware in PROFILES {
         let fixture = Fixture::spawn(firmware).await?;
         let before = fixture.handle().request_count();
         let role = administrator();
-        let result = storage::plan_maintenance(
-            fixture.context(),
-            MaintenanceAction::Format,
-            MaintenanceRequest::new("router", &role, "Media0", Some("ext4"), false),
-        );
+        let result = storage::plan_eject(fixture.context(), "router", &role, "Media0", false);
         assert!(matches!(result, Err(DomainError::ConfirmationRequired)));
         assert_eq!(fixture.handle().request_count(), before);
         fixture.shutdown().await?;

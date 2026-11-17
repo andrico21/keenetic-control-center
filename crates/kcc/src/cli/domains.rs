@@ -42,7 +42,7 @@ pub(crate) async fn run(ctx: &Ctx, command: DomainCommand) -> Outcome {
         DomainCommand::Firewall(sub) => dom_admin::firewall(ctx, sub).await,
         DomainCommand::Services(sub) => dom_mgmt::services(ctx, sub).await,
         DomainCommand::Components(sub) => dom_jobs::components(ctx, sub).await,
-        DomainCommand::Storage(sub) => dom_admin::storage(ctx, sub).await,
+        DomainCommand::Storage(sub) => dom_net::storage(ctx, sub).await,
         DomainCommand::Schedules(sub) => dom_admin::schedules(ctx, sub).await,
         other @ (DomainCommand::Keendns(_)
         | DomainCommand::Log(_)

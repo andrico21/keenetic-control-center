@@ -7,7 +7,6 @@ use clap::{Subcommand, ValueEnum};
 use super::{
     args_dom_admin::{
         FirewallWriteCommand, KeenDnsWriteCommand, SchedulesWriteCommand, ServicesWriteCommand,
-        StorageWriteCommand,
     },
     args_dom_dns::DnsWriteCommand,
     args_dom_family::Family,
@@ -73,7 +72,7 @@ pub enum DomainCommand {
     Components(Family<ComponentsCommand, ComponentsWriteCommand>),
     /// Attached storage.
     #[command(subcommand)]
-    Storage(Family<StorageCommand, StorageWriteCommand>),
+    Storage(StorageCommand),
     /// Schedules.
     #[command(subcommand)]
     Schedules(Family<SchedulesCommand, SchedulesWriteCommand>),

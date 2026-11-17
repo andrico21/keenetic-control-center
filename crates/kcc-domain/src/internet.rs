@@ -1,10 +1,4 @@
 //! Internet status and ping-check operations.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::module_name_repetitions,
-    reason = "domain names follow the plan; async read bodies are not useful inline candidates"
-)]
 
 use alloc::collections::BTreeMap;
 
@@ -19,6 +13,10 @@ use crate::{DomainDescriptor, DomainId, OperationDescriptor, Result, RouterCtx, 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 #[non_exhaustive]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the public name is the vocabulary the Web, MCP and CLI front ends use"
+)]
 pub struct InternetStatus {
     /// Connection state, when reported.
     pub status: Option<String>,
@@ -68,13 +66,25 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads `show internet status`.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`crate::DomainError::Rci`], [`crate::DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_status(router: &RouterCtx) -> Result<InternetStatus> {
     read_show(&router.client, &["show", "internet", "status"]).await
 }
 
 /// Reads all ping-check profiles.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`crate::DomainError::Rci`], [`crate::DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_ping_check(router: &RouterCtx) -> Result<PingCheckProfiles> {
     read_show(&router.client, &["show", "ping-check"]).await
 }

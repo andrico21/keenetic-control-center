@@ -1,10 +1,5 @@
 //! Reversible creation and deletion of UI-visible network segments.
 #![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "async multi-step workflow operations and planning functions are not inline candidates"
-)]
-#![expect(
     clippy::pub_use,
     reason = "segment discovery types are part of the segments public facade"
 )]
@@ -26,7 +21,8 @@ use serde::{Deserialize, Serialize};
 pub use self::discovery::{DeleteSummary, SegmentView, VlanId};
 use self::step::{Direction, Step, steps};
 use crate::{
-    ChangeOp, DomainDescriptor, DomainId, OperationDescriptor, Result, RouterCtx, interfaces,
+    ChangeOp, DomainDescriptor, DomainId, OperationDescriptor, Result, RouterCtx, descriptor,
+    interfaces,
 };
 
 /// Complete input for one UI-visible network segment.
@@ -135,8 +131,8 @@ pub struct CreatedSegment {
 
 /// Segment write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    operation("create", "interface"),
-    operation("delete", "interface"),
+    descriptor::write("create", "interface"),
+    descriptor::write("delete", "interface"),
 ];
 
 /// Segments domain metadata.
@@ -154,7 +150,16 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Plans all validated create requests in execution order.
+///
+/// # Errors
+///
+/// Returns an error when an identifier cannot be one safe router CLI word
+/// ([`crate::DomainError::InvalidCliToken`]), when the catalog refuses a planned request
+/// ([`crate::DomainError::Validation`]), or when the interface topology needed to classify
+/// the plan cannot be read or does not decode ([`crate::DomainError::Rci`],
+/// [`crate::DomainError::InvalidResponse`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_create(router: &RouterCtx, segment: &SegmentSpec) -> Result<ChangeOp> {
     ownership::validate(segment)?;
     let definitions = steps(segment);
@@ -171,7 +176,16 @@ pub async fn plan_create(router: &RouterCtx, segment: &SegmentSpec) -> Result<Ch
 }
 
 /// Plans all validated delete requests in reverse execution order.
+///
+/// # Errors
+///
+/// Returns an error when an identifier cannot be one safe router CLI word
+/// ([`crate::DomainError::InvalidCliToken`]), when the catalog refuses a planned request
+/// ([`crate::DomainError::Validation`]), or when the interface topology needed to classify
+/// the plan cannot be read or does not decode ([`crate::DomainError::Rci`],
+/// [`crate::DomainError::InvalidResponse`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_delete(router: &RouterCtx, segment: &SegmentSpec) -> Result<ChangeOp> {
     ownership::validate(segment)?;
     let definitions = steps(segment);
@@ -189,8 +203,19 @@ pub async fn plan_delete(router: &RouterCtx, segment: &SegmentSpec) -> Result<Ch
 
 /// Creates one segment, rolling applied steps back in reverse order on failure; the failed
 /// step is rolled back first when its request may have changed the router.
+///
+/// # Errors
+///
+/// Returns an error when an identifier cannot be one safe router CLI word
+/// ([`crate::DomainError::InvalidCliToken`]), or when the running configuration cannot be
+/// read or already holds the segment's contexts or shared leaves
+/// ([`crate::DomainError::InvalidResponse`]); both arrive as [`SegmentError::Domain`]. A
+/// step, the baseline read or the ownership write that fails in the change workflow is a
+/// [`SegmentError::StepFailed`], and a failing rollback step is a
+/// [`SegmentError::RollbackFailed`].
 // NOT cancel-safe: cancelled between steps, the steps already applied stay on the router
 // and the reverse-order rollback never runs.
+#[inline]
 pub async fn create(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -245,17 +270,32 @@ pub async fn create(
 }
 
 /// Reads complete and partial segments with persisted creation ownership.
+///
+/// # Errors
+///
+/// Returns `DomainError::InvalidResponse` when the running configuration cannot be read or
+/// parsed; a failing router request is reported this way, not as `DomainError::Rci`. Ownership
+/// records that do not decode are skipped, not reported.
 #[expect(
     clippy::module_name_repetitions,
     reason = "read_segments is the requested public domain API"
 )]
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_segments(router: &RouterCtx) -> Result<Vec<SegmentView>> {
     discovery::read(router).await
 }
 
 /// Deletes only the shared step definition belonging to an unchanged discovered segment.
+///
+/// # Errors
+///
+/// Returns an error when the running configuration cannot be read, the discovered segment
+/// is gone or changed since it was read, or unrelated children were added to its contexts
+/// ([`crate::DomainError::InvalidResponse`], as [`SegmentError::Domain`]), or when a delete
+/// step fails in the change workflow ([`SegmentError::StepFailed`]).
 // NOT cancel-safe: cancelled between delete steps, the segment is left partly deleted.
+#[inline]
 pub async fn delete_discovered(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -280,7 +320,13 @@ pub async fn delete_discovered(
 }
 
 /// Deletes one segment by executing the same step definition in reverse order.
+///
+/// # Errors
+///
+/// Returns an error when a delete step fails in the change workflow: dispatch, read-back or
+/// audit ([`SegmentError::StepFailed`]).
 // NOT cancel-safe: cancelled between delete steps, the segment is left partly deleted.
+#[inline]
 pub async fn delete(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -295,15 +341,4 @@ pub async fn delete(
             })?;
     }
     Ok(())
-}
-
-/// Builds one segment operation descriptor.
-const fn operation(name: &'static str, path: &'static str) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path: path,
-        risk: Risk::Write,
-        permission: Permission::Write,
-        persists_immediately: false,
-    }
 }

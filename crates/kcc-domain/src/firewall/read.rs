@@ -1,9 +1,4 @@
 //! Firewall configuration and UPnP reads.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "router reads are not inline candidates"
-)]
 
 use core::str;
 
@@ -20,10 +15,17 @@ use super::{
     model::{Direction, UpnpRedirect},
     rule_list::{ListedRule, parse_list},
 };
-use crate::{DomainError, Result, RouterCtx, read_show};
+use crate::{DomainError, Result, RouterCtx, pointer, read_show};
 
 /// Reads named IPv4 access lists from the running configuration.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn access_lists(router: &RouterCtx) -> Result<Value> {
     let response = router.client.show_rc(json!({"access-list":{}})).await?;
     response
@@ -39,7 +41,13 @@ pub async fn access_lists(router: &RouterCtx) -> Result<Value> {
 /// Only that list is decoded, and a rule in a form the planner does not model is kept
 /// unstructured (its words, no identity), so it blocks no write to its own list or to
 /// another.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn configured_list(router: &RouterCtx, list: &str) -> Result<Vec<ListedRule>> {
     let lists = access_lists(router).await?;
     let object = lists.as_object().ok_or(DomainError::InvalidResponse)?;
@@ -51,7 +59,14 @@ pub async fn configured_list(router: &RouterCtx, list: &str) -> Result<Vec<Liste
 ///
 /// The configuration text is parsed and its secrets redacted before anything else reads
 /// it; only lines made of plain words are kept, so no secret reaches the result.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn firewall(router: &RouterCtx) -> Result<Firewall> {
     let bytes = router.client.download_config(ConfigKind::Running).await?;
     let text =
@@ -76,6 +91,11 @@ fn plain_words(line: &CliLine) -> Option<Vec<String>> {
 }
 
 /// Reads whether one interface carries the named access list in the requested direction.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 pub(crate) async fn has_binding(
     router: &RouterCtx,
     interface: &str,
@@ -90,7 +110,7 @@ pub(crate) async fn has_binding(
         .configuration_tree()
         .pointer(&format!(
             "/interface/{}/ip/access-group",
-            interface.replace('~', "~0").replace('/', "~1")
+            pointer::escape(interface)
         ))
         .and_then(Value::as_array)
         .is_some_and(|bindings| {
@@ -102,7 +122,13 @@ pub(crate) async fn has_binding(
 }
 
 /// Reads UPnP-created redirects.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn upnp_redirects(router: &RouterCtx) -> Result<Vec<UpnpRedirect>> {
     read_show(&router.client, &["show", "upnp", "redirect"]).await
 }

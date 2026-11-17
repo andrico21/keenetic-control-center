@@ -4,7 +4,6 @@
 #![expect(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::panic_in_result_fn,
     clippy::tests_outside_test_module,
     reason = "integration tests report failures through assertions"
 )]

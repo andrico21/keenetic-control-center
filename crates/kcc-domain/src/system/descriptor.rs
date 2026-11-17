@@ -3,82 +3,61 @@
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
 
-use crate::OperationDescriptor;
+use crate::{OperationDescriptor, descriptor};
 
 /// System read inventory.
 pub(super) const READS: &[OperationDescriptor] = &[
-    read_operation("version", "show version"),
-    read_operation("system", "show system"),
-    read_operation("clock_date", "show clock date"),
-    read_operation("ntp_status", "show ntp status"),
-    read_operation("system_mode", "show system mode"),
+    descriptor::read("version", "show version"),
+    descriptor::read("system", "show system"),
+    descriptor::read("clock_date", "show clock date"),
+    descriptor::read("ntp_status", "show ntp status"),
+    descriptor::read("system_mode", "show system mode"),
 ];
 
 /// System write inventory.
 pub(super) const WRITES: &[OperationDescriptor] = &[
-    write_operation(
+    descriptor::operation(
         "hostname",
         "system hostname",
         Risk::Write,
         Permission::Write,
     ),
-    write_operation(
+    descriptor::operation(
         "domainname",
         "system domainname",
         Risk::Write,
         Permission::Write,
     ),
-    write_operation(
+    descriptor::operation(
         "description",
         "system description",
         Risk::Write,
         Permission::Write,
     ),
-    write_operation(
+    descriptor::operation(
         "timezone",
         "system clock timezone",
         Risk::Write,
         Permission::Write,
     ),
-    write_operation("ntp_server", "ntp server", Risk::Write, Permission::Write),
-    write_operation("ntp_master", "ntp master", Risk::Write, Permission::Write),
-    write_operation(
+    descriptor::operation("ntp_server", "ntp server", Risk::Write, Permission::Write),
+    descriptor::operation("ntp_master", "ntp master", Risk::Write, Permission::Write),
+    descriptor::operation(
         "ntp_sync_period",
         "ntp sync-period",
         Risk::Write,
         Permission::Write,
     ),
-    write_operation(
+    descriptor::operation(
         "reboot",
         "system reboot",
         Risk::Destructive,
         Permission::Destructive,
     ),
-    write_operation(
+    descriptor::operation(
         "factory_reset",
         "system configuration factory-reset",
         Risk::Destructive,
         Permission::Destructive,
     ),
 ];
-
-/// Builds a read descriptor.
-const fn read_operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {
-    write_operation(name, catalog_path, Risk::Read, Permission::Read)
-}
-
-/// Builds a write descriptor.
-const fn write_operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-    permission: Permission,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission,
-        persists_immediately: false,
-    }
-}

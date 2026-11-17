@@ -10,7 +10,7 @@ use kcc_app::{
     },
 };
 use kcc_catalog::HttpMethod;
-use kcc_config::quoting::quote_cli_text;
+use kcc_config::{config_text::Ast, quoting::quote_cli_text};
 use serde_json::json;
 
 use super::{
@@ -18,9 +18,15 @@ use super::{
     discovery::{SegmentView, VlanId},
     step,
 };
-use crate::{DomainError, Result, RouterCtx};
+use crate::{DomainError, Result, RouterCtx, config_tree};
 
 /// Writes the ownership marker after the VLAN exists.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a request
+/// ([`WorkflowError::CatalogValidation`]), or when the change workflow fails: dispatch,
+/// read-back or audit (a [`WorkflowError`]).
 // NOT cancel-safe: the description may be written before the workflow returns.
 pub(super) async fn persist(
     changes: &mut ChangeSet,
@@ -58,6 +64,11 @@ pub(super) async fn persist(
 }
 
 /// Parses identifiers before they can become CLI tokens, including persisted records.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]).
 pub(super) fn validate(spec: &SegmentSpec) -> Result<()> {
     let _vlan = VlanId::new(spec.vlan_id)?;
     for name in spec
@@ -79,13 +90,18 @@ pub(super) fn validate(spec: &SegmentSpec) -> Result<()> {
 }
 
 /// Refuses shared leaves already present before creation rather than claiming ownership.
-pub(super) fn check_baseline(spec: &SegmentSpec, text: &str) -> Result<()> {
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
+pub(super) fn check_baseline(spec: &SegmentSpec, tree: &Ast) -> Result<()> {
     let bridge = format!("Bridge{}", spec.id);
-    if step::context_has_child(text, &format!("ip nat {bridge}"), None)
-        || step::context_has_child(text, &format!("ip hotspot policy {bridge} permit"), None)
+    if config_tree::context_has_child(tree, &format!("ip nat {bridge}"), None)
+        || config_tree::context_has_child(tree, &format!("ip hotspot policy {bridge} permit"), None)
         || spec.switch_ports.iter().any(|port| {
-            step::context_has_child(
-                text,
+            config_tree::context_has_child(
+                tree,
                 &format!("interface {port}"),
                 Some(&format!("switchport trunk vlan {}", spec.vlan_id)),
             )
@@ -97,28 +113,35 @@ pub(super) fn check_baseline(spec: &SegmentSpec, text: &str) -> Result<()> {
 }
 
 /// Refuses whole-context deletion when unrelated children were added after creation.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the running configuration cannot be read
+/// (a failed router request is reported this way, not as [`DomainError::Rci`]) or holds
+/// children in the segment's contexts that it does not own.
 // cancel-safe: only downloads running configuration.
 pub(super) async fn check_delete(router: &RouterCtx, view: &SegmentView) -> Result<()> {
-    let text = step::running_config(router)
+    let tree = step::running_config(router)
         .await
         .map_err(|_error| DomainError::InvalidResponse)?;
     let owned = view.delete_summary().owned_contexts;
     let definitions = view.steps();
-    let vlan = format!("interface Vlan{}", view.spec().id);
-    let mut context = "";
-    for line in text.lines() {
-        if !line.starts_with(' ') {
-            context = line;
-            continue;
-        }
-        if owned.iter().any(|name| name == context) {
-            let child = line.trim();
-            if context == vlan && child.starts_with("description ") {
+    let vlan = config_tree::command(&format!("interface Vlan{}", view.spec().id));
+    for (context, child) in config_tree::nested(&tree) {
+        if owned
+            .iter()
+            .any(|name| config_tree::command(name) == context.tokens)
+        {
+            let described = matches!(
+                config_tree::texts(&child.tokens).as_slice(),
+                ["description", _, ..]
+            );
+            if context.tokens == vlan && described {
                 continue;
             }
             if !definitions
                 .iter()
-                .any(|definition| definition.owns_child(context, child))
+                .any(|definition| definition.owns_child(&context.tokens, &child.tokens))
             {
                 return Err(DomainError::InvalidResponse);
             }

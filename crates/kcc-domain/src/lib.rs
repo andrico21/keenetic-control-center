@@ -1,8 +1,4 @@
 //! Curated router domains shared by the Web, MCP, and CLI front-ends.
-#![expect(
-    clippy::missing_errors_doc,
-    reason = "the public Result alias and one shared decode helper keep domain signatures uniform"
-)]
 #![cfg_attr(
     test,
     expect(
@@ -14,7 +10,11 @@
 extern crate alloc;
 
 mod cli_token;
+mod config_tree;
 mod descriptor;
+mod planning;
+mod pointer;
+mod request_words;
 mod workflow_error;
 
 pub mod clients;
@@ -341,6 +341,12 @@ impl From<SecretCommandError> for DomainError {
 pub type Result<T> = CoreResult<T, DomainError>;
 
 /// Reads and decodes one typed show resource.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 pub(crate) async fn read_show<T>(client: &RciClient, segments: &[&str]) -> Result<T>
 where
     T: DeserializeOwned,

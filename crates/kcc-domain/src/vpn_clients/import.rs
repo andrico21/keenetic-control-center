@@ -7,9 +7,18 @@ use kcc_app::{
 use kcc_catalog::Risk;
 
 use super::{VpnClientChange, WireGuardConfig, change, import_fields};
-use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token, pointer};
 
 /// Builds the complete import before any mutation can be dispatched.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Validation`] when the catalog refuses a command or a key,
+/// [`DomainError::InvalidCliToken`] when a name, key or field is not one safe CLI word,
+/// [`DomainError::Workflow`] when a rendered line does not match its request,
+/// [`DomainError::InvalidResponse`] when a secret command cannot be bound to its template or a
+/// field has an unexpected shape, and [`DomainError::Rci`] or [`DomainError::InvalidResponse`]
+/// when the management check cannot read the router.
 pub(super) async fn plan(
     router: &RouterCtx,
     name: &str,
@@ -38,7 +47,7 @@ pub(super) async fn plan(
                 argument: "private-key",
                 template: format!("interface {name} wireguard private-key {{/private-key}}"),
                 key: key.clone(),
-                pointer: format!("/{}/private-key", escape(name)),
+                pointer: format!("/{}/private-key", pointer::escape(name)),
             },
         )?,
         None => change::append(
@@ -59,7 +68,7 @@ pub(super) async fn plan(
                 argument: "obfs-key",
                 template: format!("interface {name} wireguard obfs-key {{/obfs-key}}"),
                 key: key.clone(),
-                pointer: format!("/{}/obfs-key", escape(name)),
+                pointer: format!("/{}/obfs-key", pointer::escape(name)),
             },
         )?;
     }
@@ -78,8 +87,8 @@ pub(super) async fn plan(
                     key: key.clone(),
                     pointer: format!(
                         "/{}/peers/{}/obfs-key",
-                        escape(name),
-                        escape(&peer.public_key)
+                        pointer::escape(name),
+                        pointer::escape(&peer.public_key)
                     ),
                 },
             )?;
@@ -98,8 +107,8 @@ pub(super) async fn plan(
                     key: key.clone(),
                     pointer: format!(
                         "/{}/peers/{}/preshared-key",
-                        escape(name),
-                        escape(&peer.public_key)
+                        pointer::escape(name),
+                        pointer::escape(&peer.public_key)
                     ),
                 },
             )?;
@@ -109,6 +118,13 @@ pub(super) async fn plan(
 }
 
 /// Plans one existing peer's preshared key alone, verified by its presence marker.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), when the catalog refuses the key
+/// ([`DomainError::Validation`]), or when the command template cannot be rendered
+/// ([`DomainError::InvalidResponse`]).
 pub(super) fn peer_preshared(
     router: &RouterCtx,
     name: &str,
@@ -136,8 +152,8 @@ pub(super) fn peer_preshared(
             key,
             pointer: format!(
                 "/{}/peers/{}/preshared-key",
-                escape(name),
-                escape(public_key)
+                pointer::escape(name),
+                pointer::escape(public_key)
             ),
         },
     )?;
@@ -159,6 +175,12 @@ struct SecretImport {
 }
 
 /// Appends a validated secret and its read-back expectation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]), or when a reply or a plan does not have the expected
+/// shape ([`DomainError::InvalidResponse`]).
 fn append_secret(router: &RouterCtx, operation: &mut ChangeOp, input: SecretImport) -> Result<()> {
     let request = router
         .catalog
@@ -174,9 +196,4 @@ fn append_secret(router: &RouterCtx, operation: &mut ChangeOp, input: SecretImpo
         PresencePredicate::Present,
     ));
     Ok(())
-}
-
-/// Escapes an identifier for a JSON pointer segment.
-fn escape(name: &str) -> String {
-    name.replace('~', "~0").replace('/', "~1")
 }

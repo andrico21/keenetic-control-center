@@ -1,10 +1,4 @@
 //! Named router schedules and their timed actions.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::module_name_repetitions,
-    reason = "domain operation names follow the plan; planning and asynchronous reads are not useful inline candidates"
-)]
 
 use alloc::{collections::BTreeMap, vec};
 
@@ -14,13 +8,13 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec},
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{Risk, ValidatedRequest};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token, cli_token::validate as validate_token, read_show,
+    cli_token, cli_token::validate as validate_token, descriptor, planning::validate, read_show,
 };
 
 /// One configured schedule.
@@ -90,7 +84,7 @@ impl ActionTime {
 }
 
 /// Schedule read inventory.
-const READS: &[OperationDescriptor] = &[operation(
+const READS: &[OperationDescriptor] = &[descriptor::operation(
     "list",
     "show schedule",
     Risk::Read,
@@ -99,14 +93,14 @@ const READS: &[OperationDescriptor] = &[operation(
 
 /// Schedule write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    operation("create", "schedule", Risk::Write, Permission::Write),
-    operation(
+    descriptor::operation("create", "schedule", Risk::Write, Permission::Write),
+    descriptor::operation(
         "description",
         "schedule description",
         Risk::Write,
         Permission::Write,
     ),
-    operation("action", "schedule action", Risk::Write, Permission::Write),
+    descriptor::operation("action", "schedule action", Risk::Write, Permission::Write),
 ];
 
 /// Schedules domain metadata.
@@ -118,12 +112,29 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads configured schedules.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the read is named after the router list it returns, like the reads of the other domain modules"
+)]
 pub async fn read_schedules(router: &RouterCtx) -> Result<Vec<ScheduleState>> {
     read_show(&router.client, &["show", "schedule"]).await
 }
 
 /// Plans schedule creation.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_create(router: &RouterCtx, name: &str) -> Result<ChangeOp> {
     validate_token(name)?;
     Ok(plan(vec![validate(
@@ -134,6 +145,13 @@ pub fn plan_create(router: &RouterCtx, name: &str) -> Result<ChangeOp> {
 }
 
 /// Plans a schedule description.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_description(router: &RouterCtx, name: &str, description: &str) -> Result<ChangeOp> {
     validate_token(name)?;
     Ok(plan(vec![
@@ -147,6 +165,13 @@ pub fn plan_description(router: &RouterCtx, name: &str, description: &str) -> Re
 }
 
 /// Plans one timed schedule action.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_action(router: &RouterCtx, name: &str, action: ActionTime) -> Result<ChangeOp> {
     validate_token(name)?;
     Ok(plan(vec![
@@ -165,6 +190,13 @@ pub fn plan_action(router: &RouterCtx, name: &str, action: ActionTime) -> Result
 }
 
 /// Converts a schedule plan into a protected workflow request.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when a reply or a plan does not have the
+/// expected shape ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let first = operation
         .requests
@@ -229,30 +261,6 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         Permission::Write,
         json!({"operation":"schedule","name":name}),
     ))
-}
-
-/// Builds one operation descriptor.
-const fn operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-    permission: Permission,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission,
-        persists_immediately: false,
-    }
-}
-
-/// Validates one catalog request.
-fn validate(router: &RouterCtx, path: &str, body: &Value) -> Result<ValidatedRequest> {
-    router
-        .catalog
-        .validate(path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })
 }
 
 /// Constructs the shared schedule operation shape.

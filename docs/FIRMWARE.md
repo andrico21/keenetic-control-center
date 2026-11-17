@@ -36,7 +36,7 @@ prints.
   router offers it, or HTTP digest. ndw4 is tested only against the simulator.
 - **Migration direction.** Configuration moves only onto the same or a newer line.
 - **Missing everywhere.** No catalog has `ipv6 access-list`, so IPv6 firewall lists
-  are read-only, and none has the storage partition check and format commands.
+  are read-only.
 
 ## Models
 

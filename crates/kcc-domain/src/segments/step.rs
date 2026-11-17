@@ -9,12 +9,13 @@ use kcc_app::{
     workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, WorkflowError},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_config::config_text::{Ast, Token, parse};
 use kcc_rci::ConfigKind;
 use secrecy::ExposeSecret as _;
 use serde_json::{Value, json};
 
 use super::SegmentSpec;
-use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
+use crate::{ChangeOp, Result, RouterCtx, config_tree, planning, verification};
 
 /// Direction in which a segment definition is executed.
 #[derive(Clone, Copy)]
@@ -59,8 +60,12 @@ impl Step {
     }
 
     /// Checks whether one context child belongs to this exact step definition.
-    pub(super) fn owns_child(&self, context: &str, child: &str) -> bool {
-        self.context == context && self.child.as_deref() == Some(child)
+    pub(super) fn owns_child(&self, context: &[Token], child: &[Token]) -> bool {
+        config_tree::command(&self.context) == context
+            && self
+                .child
+                .as_deref()
+                .is_some_and(|own| config_tree::command(own) == child)
     }
 
     /// Returns the generated command in one execution direction.
@@ -172,21 +177,30 @@ pub(super) fn steps(segment: &SegmentSpec) -> Vec<Step> {
 }
 
 /// Records which cleanup candidates were absent before segment creation.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode.
 pub(super) async fn record_baseline(
     router: &RouterCtx,
     definitions: &mut [Step],
 ) -> CoreResult<(), WorkflowError> {
-    let text = running_config(router).await?;
+    let tree = running_config(router).await?;
     for definition in definitions {
         definition.cleanup_owned = definition
             .cleanup_context
             .as_deref()
-            .is_some_and(|context| !context_has_child(&text, context, None));
+            .is_some_and(|context| !config_tree::context_has_child(&tree, context, None));
     }
     Ok(())
 }
 
 /// Plans the selected direction as one aggregate `ChangeOp`.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 pub(super) fn plan(
     router: &RouterCtx,
     definitions: &[Step],
@@ -210,6 +224,14 @@ pub(super) fn plan(
 }
 
 /// Executes and verifies one step in the selected direction.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a request
+/// ([`WorkflowError::CatalogValidation`]), when the change workflow fails: dispatch,
+/// read-back or audit (a [`WorkflowError`]), when a router request fails or its reply does
+/// not decode, or when the read-back does not show the change
+/// ([`WorkflowError::VerificationFailed`]).
 pub(super) async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -244,8 +266,9 @@ pub(super) async fn apply(
     );
     let verified_request = verification::complete(request)?;
     drop(changes.apply_cli(verified_request).await?);
-    let text = running_config(router).await?;
-    let present = context_has_child(&text, &definition.context, definition.child.as_deref());
+    let tree = running_config(router).await?;
+    let present =
+        config_tree::context_has_child(&tree, &definition.context, definition.child.as_deref());
     let verified = match direction {
         Direction::Create => present,
         Direction::Delete => !present,
@@ -258,36 +281,26 @@ pub(super) async fn apply(
     Ok(())
 }
 
-/// Downloads canonical running configuration text.
-pub(super) async fn running_config(router: &RouterCtx) -> CoreResult<String, WorkflowError> {
+/// Downloads and parses the running configuration.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode, or when the
+/// running configuration does not decode ([`WorkflowError::UndecodableConfig`]).
+// cancel-safe: only downloads running configuration.
+pub(super) async fn running_config(router: &RouterCtx) -> CoreResult<Ast, WorkflowError> {
     let bytes = router.client.download_config(ConfigKind::Running).await?;
-    from_utf8(bytes.expose_secret())
-        .map(str::to_owned)
-        .map_err(|_error| WorkflowError::UndecodableConfig)
-}
-
-/// Finds an exact top-level command and optional exact child in canonical config text.
-pub(super) fn context_has_child(text: &str, context: &str, child: Option<&str>) -> bool {
-    let mut selected = false;
-    for line in text.lines() {
-        if line.starts_with(' ') {
-            if selected && line.trim() == child.unwrap_or_default() {
-                return true;
-            }
-        } else {
-            selected = line == context;
-            if selected && child.is_none() {
-                return true;
-            }
-        }
-    }
-    false
+    let text =
+        from_utf8(bytes.expose_secret()).map_err(|_error| WorkflowError::UndecodableConfig)?;
+    parse(text).map_err(|_error| WorkflowError::UndecodableConfig)
 }
 
 /// Catalog-validates one step command while retaining its dynamic context in the CLI line.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 fn validate(router: &RouterCtx, command: &StepLine) -> Result<ValidatedRequest> {
-    router
-        .catalog
-        .validate(command.catalog_path, HttpMethod::Post, &command.body)
-        .map_err(|issues| DomainError::Validation { issues })
+    planning::validate(router, command.catalog_path, &command.body)
 }

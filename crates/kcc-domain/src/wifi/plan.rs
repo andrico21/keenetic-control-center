@@ -6,14 +6,21 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli, PresencePredicate, VerificationSpec},
 };
-use kcc_catalog::{HttpMethod, Risk};
+use kcc_catalog::Risk;
 use kcc_rci::ObjectName;
 use secrecy::SecretString;
 use serde_json::{Value, json};
 
-use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token, verification};
+use crate::{
+    ChangeOp, DomainError, Result, RouterCtx, cli_token, planning::validate, pointer, verification,
+};
 
 /// Validates one Wi-Fi plan with optional selected-interface read-back.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 pub(super) fn plan(
     router: &RouterCtx,
     name: &ObjectName,
@@ -25,6 +32,11 @@ pub(super) fn plan(
 }
 
 /// Validates one Wi-Fi plan with an already-classified risk.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 pub(super) fn plan_with_risk(
     router: &RouterCtx,
     name: &ObjectName,
@@ -33,12 +45,9 @@ pub(super) fn plan_with_risk(
     expected: Option<(&str, Value)>,
     risk: Risk,
 ) -> Result<ChangeOp> {
-    let validated = router
-        .catalog
-        .validate(path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })?;
+    let validated = validate(router, path, body)?;
     let verify = expected.map_or_else(Vec::new, |(field, value)| {
-        let escaped_name = name.as_str().replace('~', "~0").replace('/', "~1");
+        let escaped_name = pointer::escape(name.as_str());
         vec![VerificationSpec::new(
             vec!["show".to_owned(), "interface".to_owned()],
             format!("/{escaped_name}/{field}"),
@@ -55,6 +64,11 @@ pub(super) fn plan_with_risk(
 }
 
 /// Validates one secret Wi-Fi argument and verifies only its protected representation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 pub(super) fn plan_secret(
     router: &RouterCtx,
     name: &ObjectName,
@@ -66,7 +80,7 @@ pub(super) fn plan_secret(
         .catalog
         .validate_secret(path, argument, secret)
         .map_err(|issues| DomainError::Validation { issues })?;
-    let escaped_name = name.as_str().replace('~', "~0").replace('/', "~1");
+    let escaped_name = pointer::escape(name.as_str());
     Ok(ChangeOp::new(
         vec![validated],
         vec![VerificationSpec::presence(
@@ -84,6 +98,14 @@ pub(super) fn plan_secret(
 }
 
 /// Converts a Wi-Fi plan into a protected parser request.
+///
+/// # Errors
+///
+/// Returns an error when the plan holds no request, the request is not one this module
+/// renders, a field it needs is missing, or its read-back cannot be built
+/// ([`DomainError::InvalidResponse`]), when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the rendered line does not bind to its
+/// request ([`DomainError::Workflow`]).
 pub(super) fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChangeRequest> {
     let validated = operation
         .requests
@@ -112,6 +134,12 @@ pub(super) fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<
 }
 
 /// Renders the closed non-secret Wi-Fi command set.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when a reply or a plan does not have the
+/// expected shape ([`DomainError::InvalidResponse`]).
 fn render_line(name: &ObjectName, path: &str, value: &Value) -> Result<String> {
     let negative = value.get("no") == Some(&Value::Bool(true));
     let suffix = match path {
@@ -138,6 +166,11 @@ fn render_line(name: &ObjectName, path: &str, value: &Value) -> Result<String> {
 }
 
 /// Extracts a string field.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn string<'value>(value: &'value Value, field: &str) -> Result<&'value str> {
     value
         .get(field)
@@ -146,11 +179,21 @@ fn string<'value>(value: &'value Value, field: &str) -> Result<&'value str> {
 }
 
 /// Quotes a string field for the CLI parser.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]).
 fn quoted(value: &Value, field: &str) -> Result<String> {
     cli_token::quoted(string(value, field)?)
 }
 
 /// Extracts an integer field.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn integer(value: &Value, field: &str) -> Result<i64> {
     value
         .get(field)

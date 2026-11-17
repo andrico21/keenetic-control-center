@@ -20,6 +20,7 @@ impl OwnLogins {
     ///
     /// [`DomainError::ProtectedAccount`] when either login is empty: kcc cannot tell its
     /// own account apart (a token profile names none), so every account stays protected.
+    #[inline]
     pub fn new(login: &str, read_login: Option<&str>) -> Result<Self> {
         if login.is_empty() || read_login.is_some_and(str::is_empty) {
             return Err(DomainError::ProtectedAccount);
@@ -35,6 +36,7 @@ impl OwnLogins {
     /// # Errors
     ///
     /// [`DomainError::ProtectedAccount`] for either login.
+    #[inline]
     pub fn guard(&self, name: &str) -> Result<()> {
         let foreign = name != self.login && self.read_login.as_deref() != Some(name);
         foreign.ok_or(DomainError::ProtectedAccount)

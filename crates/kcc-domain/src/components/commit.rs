@@ -31,6 +31,16 @@ const RESTART_LIMIT: Duration = Duration::from_mins(15);
 const DOWN_PROGRESS: u8 = 60;
 
 /// Starts a confirmed destructive component commit job.
+///
+/// # Errors
+///
+/// Returns an error when the role lacks the permission or the router scope, or the router
+/// cannot be polled ([`CommitError::Registry`]), when the destructive change is not
+/// confirmed ([`CommitError::ConfirmationRequired`]), when the catalog refuses the request
+/// or the commit line does not render it, or when reading the pending components fails or
+/// does not decode ([`CommitError::Domain`]), or when the job cannot be recorded or
+/// started ([`CommitError::Job`]). Dispatch and read-back failures happen inside the job
+/// and are reported through it.
 // NOT cancel-safe: the submitted commit may reboot the router before the job is recorded.
 pub(super) async fn start(
     jobs: &Arc<JobRunner>,

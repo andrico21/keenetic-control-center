@@ -145,7 +145,7 @@ pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Valu
         server,
         &opened,
         (&operation, input.confirm, async |changes| {
-            interfaces::apply(changes, ctx, &name, &operation)
+            interfaces::apply(changes, &name, &operation)
                 .await
                 .map_err(|error| map_domain(DomainError::from(error)))
         }),

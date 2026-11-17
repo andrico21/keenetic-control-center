@@ -14,6 +14,12 @@ use crate::{
 
 /// Sets a router-account password used by VPN, SSTP, and OpenConnect servers.
 /// Existing service-access tags are preserved; callers manage those separately.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`crate::DomainError::Validation`]).
+#[inline]
 pub fn plan_password(
     router: &RouterCtx,
     user: &ObjectName,
@@ -24,6 +30,14 @@ pub fn plan_password(
 }
 
 /// Converts a server-account password plan to its protected workflow request.
+///
+/// # Errors
+///
+/// Returns `DomainError::InvalidResponse` when the plan holds no request, a request lacks the
+/// account name or a tag, or the password command cannot be bound to its template or given its
+/// read-back checks, and `DomainError::Workflow` when a rendered user line does not match its
+/// request.
+#[inline]
 pub fn password_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     router_users::change_request(operation)
 }
@@ -34,6 +48,7 @@ pub fn password_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 /// # Errors
 /// Returns validation, dispatch, or presence verification failures.
 // NOT cancel-safe: a write may complete before read-back.
+#[inline]
 pub async fn apply_ike_psk(
     changes: &mut ChangeSet,
     router: &RouterCtx,

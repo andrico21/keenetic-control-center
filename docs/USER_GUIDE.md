@@ -225,7 +225,7 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
   removals, commit (a background job that reboots the router). The job completes only
   after the router went down and came back with every queued change in place, and fails
   when the router comes back without them or does not restart within 15 minutes.
-- **Storage**: attached media; eject, check, format.
+- **Storage**: attached media; eject.
 - **Schedules**: create schedules and their actions.
 - **KeenDNS**: book or drop a name, set the access level, add proxy entries. The
   current access level and proxy entries aren't readable.

@@ -137,7 +137,7 @@ System changes, diagnostics, router users, services, components, storage, schedu
 | `kcc_router_users_write` | manage_users | no | no | `create`, `set_tag`, `set_password`, `delete` | Create, tag, set the password of or delete router accounts |
 | `kcc_services_write` | write | no | no | `set_service`, `management_port`, `management_security_level`, `http_ssl` | Change router services and management listeners |
 | `kcc_components_write` | write | no | yes | `check_update`, `install`, `remove`, `commit`, `auto_update_channel`, `auto_update_schedule` | Queue component changes, set auto-update, commit |
-| `kcc_storage_write` | destructive | no | yes | `eject`, `partition_check`, `partition_format` | Eject, check or format storage |
+| `kcc_storage_write` | destructive | no | yes | `eject` | Eject storage media |
 | `kcc_schedules_write` | write | no | no | `create`, `description`, `action` | Create schedules and set their actions |
 | `kcc_logging_write` | write | no | yes | `server`, `reduction`, `suppress`, `clear` | Change log servers, reduction and suppression; clear the log |
 

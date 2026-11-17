@@ -1,9 +1,4 @@
 //! WAN connection inventory and non-secret configuration plans.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "domain operation names follow the plan; async reads and planning helpers are not useful inline candidates"
-)]
 
 use alloc::{collections::BTreeMap, vec};
 use core::net::Ipv4Addr;
@@ -12,7 +7,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, PresencePredicate, VerificationSpec},
 };
-use kcc_catalog::{HttpMethod, Risk};
+use kcc_catalog::Risk;
 use kcc_rci::ObjectName;
 use secrecy::SecretString;
 use serde_json::{Value, json};
@@ -21,7 +16,8 @@ use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
     descriptor,
     interfaces::{self, ManagementVerdict},
-    read_show,
+    planning::validate,
+    pointer, read_show,
 };
 
 /// Tolerant, secret-free WAN response models.
@@ -54,20 +50,20 @@ impl StaticAddress {
 }
 
 /// WAN read inventory.
-const READS: &[OperationDescriptor] = &[read_operation("connections", "show interface")];
+const READS: &[OperationDescriptor] = &[descriptor::read("connections", "show interface")];
 
 /// WAN write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    write_operation("create", "interface"),
-    write_operation("delete", "interface"),
-    write_operation("address_static", "interface ip address"),
-    write_operation("address_dhcp", "interface ip address dhcp"),
-    write_operation("identity", "interface authentication identity"),
-    write_operation("password", "interface authentication password"),
-    write_operation("connect_via", "interface connect"),
-    write_operation("priority", "interface ip global"),
-    write_operation("mtu", "interface ip mtu"),
-    write_operation("default_route", "interface ipcp default-route"),
+    descriptor::write("create", "interface"),
+    descriptor::write("delete", "interface"),
+    descriptor::write("address_static", "interface ip address"),
+    descriptor::write("address_dhcp", "interface ip address dhcp"),
+    descriptor::write("identity", "interface authentication identity"),
+    descriptor::write("password", "interface authentication password"),
+    descriptor::write("connect_via", "interface connect"),
+    descriptor::write("priority", "interface ip global"),
+    descriptor::write("mtu", "interface ip mtu"),
+    descriptor::write("default_route", "interface ipcp default-route"),
 ];
 
 /// WAN domain metadata.
@@ -79,7 +75,13 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads IPoE, PPPoE, L2TP, and PPTP connections without returning credentials.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_connections(router: &RouterCtx) -> Result<BTreeMap<String, Connection>> {
     let interfaces: BTreeMap<String, Value> =
         read_show(&router.client, &["show", "interface"]).await?;
@@ -94,7 +96,13 @@ pub async fn read_connections(router: &RouterCtx) -> Result<BTreeMap<String, Con
 }
 
 /// Plans creation of a named connection interface.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_create(router: &RouterCtx, name: &ObjectName) -> Result<ChangeOp> {
     plan_named_generated(
         router,
@@ -107,7 +115,13 @@ pub async fn plan_create(router: &RouterCtx, name: &ObjectName) -> Result<Change
 }
 
 /// Plans deletion of a named connection interface.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_delete(router: &RouterCtx, name: &ObjectName) -> Result<ChangeOp> {
     plan_named_generated(
         router,
@@ -120,14 +134,19 @@ pub async fn plan_delete(router: &RouterCtx, name: &ObjectName) -> Result<Change
 }
 
 /// Plans DHCP addressing for an IPoE interface.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_dhcp(
     router: &RouterCtx,
     name: &ObjectName,
     verdict: ManagementVerdict,
 ) -> Result<ChangeOp> {
-    plan_named(
+    plan_with_risk(
         router,
-        name,
         "interface ip address dhcp",
         &json!({}),
         Vec::new(),
@@ -136,15 +155,20 @@ pub fn plan_dhcp(
 }
 
 /// Plans static IPv4 addressing.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_static_address(
     router: &RouterCtx,
     name: &ObjectName,
     address: StaticAddress,
     verdict: ManagementVerdict,
 ) -> Result<ChangeOp> {
-    plan_named(
+    plan_with_risk(
         router,
-        name,
         "interface ip address",
         &json!({"address": address.address, "mask": address.mask}),
         Vec::new(),
@@ -153,7 +177,13 @@ pub fn plan_static_address(
 }
 
 /// Plans the public authentication identity without handling a password.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_identity(
     router: &RouterCtx,
     name: &ObjectName,
@@ -170,7 +200,13 @@ pub async fn plan_identity(
 }
 
 /// Plans a PPP authentication password while retaining plaintext only in protected storage.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_password(
     router: &RouterCtx,
     name: &ObjectName,
@@ -180,7 +216,7 @@ pub async fn plan_password(
         .catalog
         .validate_secret("interface authentication password", "password", password)
         .map_err(|issues| DomainError::Validation { issues })?;
-    let escaped_name = name.as_str().replace('~', "~0").replace('/', "~1");
+    let escaped_name = pointer::escape(name.as_str());
     let operation = ChangeOp::new(
         vec![validated],
         vec![VerificationSpec::presence(
@@ -199,7 +235,13 @@ pub async fn plan_password(
 }
 
 /// Plans the underlying interface used by a tunneled connection.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_connect_via(
     router: &RouterCtx,
     name: &ObjectName,
@@ -216,7 +258,13 @@ pub async fn plan_connect_via(
 }
 
 /// Plans global-routing priority.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_priority(
     router: &RouterCtx,
     name: &ObjectName,
@@ -233,7 +281,13 @@ pub async fn plan_priority(
 }
 
 /// Plans interface MTU.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_mtu(router: &RouterCtx, name: &ObjectName, mtu: i64) -> Result<ChangeOp> {
     plan_named_generated(
         router,
@@ -246,7 +300,13 @@ pub async fn plan_mtu(router: &RouterCtx, name: &ObjectName, mtu: i64) -> Result
 }
 
 /// Plans whether IPCP supplies a default route.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_default_route(
     router: &RouterCtx,
     name: &ObjectName,
@@ -268,33 +328,24 @@ pub async fn plan_default_route(
 }
 
 /// Converts a WAN plan into a protected parser request.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the plan holds no request, the request is not a
+/// WAN command, lacks a field, or the password command cannot be bound to its template;
+/// [`DomainError::InvalidCliToken`] when an identity cannot be quoted; and
+/// [`DomainError::Workflow`] when a rendered line does not match its request.
+#[inline]
 pub fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChangeRequest> {
     render::request(name, operation)
 }
 
-/// Builds a read descriptor.
-const fn read_operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {
-    descriptor::operation(name, catalog_path, Risk::Read, Permission::Read)
-}
-
-/// Builds a write descriptor.
-const fn write_operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {
-    descriptor::operation(name, catalog_path, Risk::Write, Permission::Write)
-}
-
-/// Validates a named interface operation.
-fn plan_named(
-    router: &RouterCtx,
-    _name: &ObjectName,
-    catalog_path: &str,
-    body: &Value,
-    verify: Vec<VerificationSpec>,
-    risk: Risk,
-) -> Result<ChangeOp> {
-    plan_with_risk(router, catalog_path, body, verify, risk)
-}
-
 /// Validates and classifies a generated named-interface operation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
 async fn plan_named_generated(
     router: &RouterCtx,
@@ -309,6 +360,11 @@ async fn plan_named_generated(
 
 /// Raises `operation` to management risk when the connection `name` carries kcc's own
 /// connection; every WAN line names only that interface, so it alone is classified.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Rci`] when a router request of the management check fails, and
+/// [`DomainError::InvalidResponse`] when its replies do not decode.
 // cancel-safe: management classification performs read-only topology requests.
 async fn classified(
     router: &RouterCtx,
@@ -322,6 +378,11 @@ async fn classified(
 }
 
 /// Validates one WAN operation with explicit risk.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 fn plan_with_risk(
     router: &RouterCtx,
     catalog_path: &str,
@@ -329,10 +390,7 @@ fn plan_with_risk(
     verify: Vec<VerificationSpec>,
     risk: Risk,
 ) -> Result<ChangeOp> {
-    let validated = router
-        .catalog
-        .validate(catalog_path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })?;
+    let validated = validate(router, catalog_path, body)?;
     Ok(ChangeOp::new(
         vec![validated],
         verify,

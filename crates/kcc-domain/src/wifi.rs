@@ -1,13 +1,8 @@
 //! Wi-Fi access-point, radio, and station operations.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "domain async reads and planning functions are not useful inline candidates"
-)]
 
 use alloc::collections::BTreeMap;
 
-use kcc_app::{permissions::Permission, workflow::CliChangeRequest};
+use kcc_app::workflow::CliChangeRequest;
 use kcc_catalog::Risk;
 use kcc_rci::ObjectName;
 use secrecy::SecretString;
@@ -15,7 +10,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    interfaces, read_show,
+    descriptor, interfaces, read_show,
 };
 
 /// Tolerant, secret-free Wi-Fi response models.
@@ -29,8 +24,6 @@ pub type AccessPoint = models::AccessPoint;
 pub type Radio = models::Radio;
 /// Associated station view.
 pub type Station = models::Station;
-/// Stored NS3 marker summary.
-pub type Ns3Presence = models::Ns3Presence;
 
 /// Wi-Fi encryption selection.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -46,26 +39,26 @@ pub enum Encryption {
 
 /// Wi-Fi read inventory.
 const READS: &[OperationDescriptor] = &[
-    read_operation("access_point", "show interface"),
-    read_operation("radios", "show interface"),
-    read_operation("stations", "show associations"),
+    descriptor::read("access_point", "show interface"),
+    descriptor::read("radios", "show interface"),
+    descriptor::read("stations", "show associations"),
 ];
 
 /// Wi-Fi write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    write_operation("ssid", "interface ssid"),
-    write_operation("wpa_psk", "interface authentication wpa-psk"),
-    write_operation("encryption_enable", "interface encryption enable"),
-    write_operation("encryption_wpa2", "interface encryption wpa2"),
-    write_operation("encryption_wpa3", "interface encryption wpa3"),
-    write_operation("hide_ssid", "interface hide-ssid"),
-    write_operation("up", "interface up"),
-    write_operation("schedule", "interface schedule"),
-    write_operation("channel", "interface channel"),
-    write_operation("channel_width", "interface channel width"),
-    write_operation("power", "interface power"),
-    write_operation("country_code", "interface country-code"),
-    write_operation("band_steering", "interface band-steering"),
+    descriptor::write("ssid", "interface ssid"),
+    descriptor::write("wpa_psk", "interface authentication wpa-psk"),
+    descriptor::write("encryption_enable", "interface encryption enable"),
+    descriptor::write("encryption_wpa2", "interface encryption wpa2"),
+    descriptor::write("encryption_wpa3", "interface encryption wpa3"),
+    descriptor::write("hide_ssid", "interface hide-ssid"),
+    descriptor::write("up", "interface up"),
+    descriptor::write("schedule", "interface schedule"),
+    descriptor::write("channel", "interface channel"),
+    descriptor::write("channel_width", "interface channel width"),
+    descriptor::write("power", "interface power"),
+    descriptor::write("country_code", "interface country-code"),
+    descriptor::write("band_steering", "interface band-steering"),
 ];
 
 /// Wi-Fi domain metadata.
@@ -88,7 +81,14 @@ impl Encryption {
 }
 
 /// Reads one slash-safe access point through root POST.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_access_point(router: &RouterCtx, name: &ObjectName) -> Result<AccessPoint> {
     let value = serde_json::to_value(interfaces::read_interface(router, name).await?)
         .map_err(|_error| DomainError::InvalidResponse)?;
@@ -96,7 +96,13 @@ pub async fn read_access_point(router: &RouterCtx, name: &ObjectName) -> Result<
 }
 
 /// Reads radios and derives their bands from `show interface`.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_radios(router: &RouterCtx) -> Result<BTreeMap<String, Radio>> {
     let values: BTreeMap<String, Value> = read_show(&router.client, &["show", "interface"]).await?;
     Ok(values
@@ -109,23 +115,24 @@ pub async fn read_radios(router: &RouterCtx) -> Result<BTreeMap<String, Radio>> 
 }
 
 /// Reads associated Wi-Fi stations.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_stations(router: &RouterCtx) -> Result<Vec<Station>> {
     read_show(&router.client, &["show", "associations"]).await
 }
 
-/// Checks only NS3 presence and plausible encoded length, without decoding it.
-#[must_use]
-pub fn ns3_presence(blob: Option<&str>) -> Ns3Presence {
-    let length = blob.map(str::len);
-    Ns3Presence::new(
-        blob.is_some(),
-        length,
-        length.is_some_and(|value| value >= 24 && value.is_multiple_of(4)),
-    )
-}
-
 /// Plans an access-point SSID change.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_ssid(router: &RouterCtx, name: &ObjectName, ssid: &str) -> Result<ChangeOp> {
     plan::plan(
         router,
@@ -137,11 +144,23 @@ pub fn plan_ssid(router: &RouterCtx, name: &ObjectName, ssid: &str) -> Result<Ch
 }
 
 /// Plans a WPA pre-shared key while retaining plaintext only in protected storage.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_wpa_psk(router: &RouterCtx, name: &ObjectName, psk: SecretString) -> Result<ChangeOp> {
     plan::plan_secret(router, name, "interface authentication wpa-psk", "psk", psk)
 }
 
 /// Plans access-point encryption without handling PSK material.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_encryption(
     router: &RouterCtx,
     name: &ObjectName,
@@ -151,6 +170,12 @@ pub fn plan_encryption(
 }
 
 /// Plans whether an access point hides its SSID.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_hide_ssid(router: &RouterCtx, name: &ObjectName, hidden: bool) -> Result<ChangeOp> {
     plan::plan(
         router,
@@ -162,7 +187,13 @@ pub fn plan_hide_ssid(router: &RouterCtx, name: &ObjectName, hidden: bool) -> Re
 }
 
 /// Plans whether an access point is enabled.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_up(router: &RouterCtx, name: &ObjectName, enabled: bool) -> Result<ChangeOp> {
     let risk = if enabled {
         Risk::Write
@@ -189,7 +220,13 @@ pub async fn plan_up(router: &RouterCtx, name: &ObjectName, enabled: bool) -> Re
 }
 
 /// Plans an access-point schedule.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_schedule(
     router: &RouterCtx,
     name: &ObjectName,
@@ -209,6 +246,12 @@ pub async fn plan_schedule(
 }
 
 /// Plans automatic or firmware-defined radio channel selection.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_channel(router: &RouterCtx, name: &ObjectName, channel: &str) -> Result<ChangeOp> {
     plan::plan(
         router,
@@ -220,6 +263,12 @@ pub fn plan_channel(router: &RouterCtx, name: &ObjectName, channel: &str) -> Res
 }
 
 /// Plans radio channel width.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_channel_width(router: &RouterCtx, name: &ObjectName, width: &str) -> Result<ChangeOp> {
     plan::plan(
         router,
@@ -231,6 +280,12 @@ pub fn plan_channel_width(router: &RouterCtx, name: &ObjectName, width: &str) ->
 }
 
 /// Plans radio transmit power.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_power(router: &RouterCtx, name: &ObjectName, power: i64) -> Result<ChangeOp> {
     plan::plan(
         router,
@@ -242,6 +297,12 @@ pub fn plan_power(router: &RouterCtx, name: &ObjectName, power: i64) -> Result<C
 }
 
 /// Plans the radio country code.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_country_code(router: &RouterCtx, name: &ObjectName, code: &str) -> Result<ChangeOp> {
     plan::plan(
         router,
@@ -253,6 +314,12 @@ pub fn plan_country_code(router: &RouterCtx, name: &ObjectName, code: &str) -> R
 }
 
 /// Plans whether band steering is enabled.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_band_steering(
     router: &RouterCtx,
     name: &ObjectName,
@@ -268,30 +335,18 @@ pub fn plan_band_steering(
 }
 
 /// Converts a Wi-Fi plan into a protected parser request.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the plan holds no request, the request is not a
+/// Wi-Fi command, lacks a field, or a command cannot be given a read-back of its own (a
+/// secret-bearing command, or a line that is not exactly one configuration row), or the key
+/// command cannot be bound to its template; [`DomainError::InvalidCliToken`] when an SSID or
+/// country code cannot be quoted; and [`DomainError::Workflow`] when a rendered line does not
+/// match its request.
+#[inline]
 pub fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChangeRequest> {
     plan::change_request(name, operation)
-}
-
-/// Builds a read descriptor.
-const fn read_operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk: Risk::Read,
-        permission: Permission::Read,
-        persists_immediately: false,
-    }
-}
-
-/// Builds a write descriptor.
-const fn write_operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk: Risk::Write,
-        permission: Permission::Write,
-        persists_immediately: false,
-    }
 }
 
 /// Builds an enabled or `no` request body.

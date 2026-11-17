@@ -1,17 +1,6 @@
 //! Complete CLI rendering from catalog-validated firewall requests.
-#![expect(
-    clippy::missing_errors_doc,
-    reason = "workflow request rendering is not an inline candidate"
-)]
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private token renderers are narrowly named"
-    )
-)]
 
-use alloc::{format, vec};
+use alloc::vec;
 
 use kcc_app::workflow::{
     CliChangeRequest, CliCommand as ValidatedCli, PresencePredicate, VerificationSpec,
@@ -21,11 +10,24 @@ use serde_json::{Value, json};
 
 use super::{
     super::rule_list::ListedRule,
+    PortSide,
     verify::{OwnedRuleProperty, Verification},
 };
-use crate::{ChangeOp, DomainError, Result, cli_token, verification as readback};
+use crate::{
+    ChangeOp, DomainError, Result, cli_token,
+    request_words::{negated, number, text},
+    verification as readback,
+};
 
 /// Converts a validated firewall operation into protected CLI workflow input.
+///
+/// # Errors
+///
+/// Returns an error when the operation is not one this module renders, a field it needs is
+/// missing, or the rendered line has no single read-back command
+/// ([`DomainError::InvalidResponse`]), when a description cannot be one safe router CLI
+/// word ([`DomainError::InvalidCliToken`]), or when the rendered line does not bind to its
+/// request ([`DomainError::Workflow`]).
 pub(super) fn request(
     operation: &ChangeOp,
     verification: &Verification,
@@ -90,6 +92,7 @@ fn stored_words(rule: &ListedRule) -> Vec<String> {
     }
 }
 
+/// Appends the `port eq` or `port range` words of a stored rule side.
 fn port_words(words: &mut Vec<String>, start: Option<u16>, end: Option<u16>) {
     match (start, end) {
         (None, None | Some(_)) => {}
@@ -103,6 +106,13 @@ fn port_words(words: &mut Vec<String>, start: Option<u16>, end: Option<u16>) {
     }
 }
 
+/// The CLI line of a validated firewall operation and its verification.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the operation is not a context and a leaf
+/// request this module renders, and [`DomainError::InvalidCliToken`] when a description
+/// cannot be quoted.
 fn line(operation: &ChangeOp, verification: &Verification) -> Result<String> {
     let [context, leaf] = operation.requests.as_slice() else {
         return Err(DomainError::InvalidResponse);
@@ -138,38 +148,37 @@ fn line(operation: &ChangeOp, verification: &Verification) -> Result<String> {
         }
         _ => return Err(DomainError::InvalidResponse),
     }
-    let positive = words.join(" ");
-    Ok(if leaf.value().get("no") == Some(&Value::Bool(true)) {
-        format!("no {positive}")
-    } else {
-        positive
-    })
+    Ok(negated(leaf.value(), words.join(" ")))
 }
 
+/// Appends the protocol, address and port words of a rule request.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when an address field is missing or a port has
+/// neither an end nor the `eq` operator.
 fn render_rule(words: &mut Vec<String>, request: &ValidatedRequest, protocol: &str) -> Result<()> {
     words.extend([
         protocol.to_owned(),
         text(request, "source")?.to_owned(),
         text(request, "source-mask")?.to_owned(),
     ]);
-    render_port(words, request, "source")?;
+    render_port(words, request, PortSide::Source)?;
     words.extend([
         text(request, "destination")?.to_owned(),
         text(request, "destination-mask")?.to_owned(),
     ]);
-    render_port(words, request, "destination")
+    render_port(words, request, PortSide::Destination)
 }
 
-fn render_port(words: &mut Vec<String>, request: &ValidatedRequest, side: &str) -> Result<()> {
-    let (port, end, operator) = match side {
-        "source" => ("source-port", "source-end-port", "src-port-operator"),
-        "destination" => (
-            "destination-port",
-            "destination-end-port",
-            "dst-port-operator",
-        ),
-        _ => return Err(DomainError::InvalidResponse),
-    };
+/// Appends the port words of one side of a rule request.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the port has neither an end nor the `eq`
+/// operator.
+fn render_port(words: &mut Vec<String>, request: &ValidatedRequest, side: PortSide) -> Result<()> {
+    let (port, end, operator) = side.fields();
     match (number(request, port), number(request, end)) {
         (None, None) => Ok(()),
         (Some(value), None) if text(request, operator)? == "eq" => {
@@ -189,6 +198,13 @@ fn render_port(words: &mut Vec<String>, request: &ValidatedRequest, side: &str) 
     }
 }
 
+/// Appends the words of one rule property change.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the request has no rule index or does not
+/// match the property, and [`DomainError::InvalidCliToken`] when a description cannot be
+/// quoted.
 fn render_property(
     words: &mut Vec<String>,
     request: &ValidatedRequest,
@@ -219,16 +235,4 @@ fn render_property(
     }
     words.extend(property_words);
     Ok(())
-}
-
-fn text<'request>(request: &'request ValidatedRequest, field: &str) -> Result<&'request str> {
-    request
-        .value()
-        .get(field)
-        .and_then(Value::as_str)
-        .ok_or(DomainError::InvalidResponse)
-}
-
-fn number(request: &ValidatedRequest, field: &str) -> Option<u64> {
-    request.value().get(field).and_then(Value::as_u64)
 }

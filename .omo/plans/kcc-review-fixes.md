@@ -1134,7 +1134,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(domain): VPN planner fixes and key-free errors
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 52. kcc-domain hygiene: shared helpers, no dead or test-only code, narrow expects
+- [x] 52. kcc-domain hygiene: shared helpers, no dead or test-only code, narrow expects
   What to do / Must NOT do: Per the findings: one shared set of planner helpers and one config-text walker; typed input instead of sentinels/string dispatch; delete dead branches and phantom inventory entries; remove test-only production code; replace module/crate-wide `#[expect]` with item-level ones and fix what they hid; C-10: remove partition check and format from the domain, MCP and CLI (the Web already hides them), regenerate `docs/MCP_TOOLS.md` (`cargo xtask gen-tool-docs`) and add a CHANGELOG "Removed" line. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `C-17` (low; critic confirmed) The same helpers are copied across planners. Evidence: `interfaces.rs:262`, `wan.rs:177`, `wan/verification.rs:18`, `wifi/plan.rs:41,69`. Fix: Move them into `cli_token`, `descriptor` and one `pointer::escape` helper.
   - `D-19` (low; critic adjusted) The same planner helpers are copied across seven modules. Evidence: `firewall/change.rs:267-272`, `policies/change/plan.rs:117-122`, `routing/change.rs:184-196`, `nat/change.rs:337-349`. Fix: One crate-internal `plan_one(router, path, body, risk)` and one typed word renderer. Critic correction (binding): The NAT copies are at `nat/change.rs:121-133` (`plan`) and `156-163` (`push`).

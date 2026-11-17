@@ -6,6 +6,11 @@ use serde_json::{Value, json};
 use crate::{ChangeOp, DomainError, Result};
 
 /// Keeps secret checks and verifies the intended account and each changed tag.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 pub(super) fn specs(operation: &ChangeOp, name: &str) -> Result<Vec<VerificationSpec>> {
     let first = operation
         .requests

@@ -1,11 +1,8 @@
 //! Storage at `/ui/r/{router}/system/storage`: the mounted media and the USB devices,
-//! with Eject, Check and Format where the role may use them and the router's catalog has
-//! the command.
+//! with Eject where the role may use it and the router's catalog has the command.
 //!
-//! Every storage action is destructive: it needs `Destructive` and the router name typed
-//! into the kit's confirmation. The 4.3 to 5.1 catalogs have no `system partition check`
-//! or `format`, so the availability filter keeps those two hidden until a catalog has
-//! them; their routes stay, and refuse through catalog validation.
+//! Eject is destructive: it needs `Destructive` and the router name typed into the kit's
+//! confirmation.
 
 use askama::Template;
 use axum::{

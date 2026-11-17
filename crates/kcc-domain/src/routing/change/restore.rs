@@ -22,6 +22,11 @@ const UNSUPPORTED: [&str; 2] = ["auto", "reject"];
 pub(super) type Saved<T> = Result<T>;
 
 /// Reads every configured IPv4 static route from the running configuration.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
 pub(super) async fn saved_ipv4(router: &RouterCtx) -> Result<Vec<Saved<Ipv4Route>>> {
     let text = running_config(router).await?;
@@ -32,6 +37,11 @@ pub(super) async fn saved_ipv4(router: &RouterCtx) -> Result<Vec<Saved<Ipv4Route
 }
 
 /// Reads every configured IPv6 static route from the running configuration.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
 pub(super) async fn saved_ipv6(router: &RouterCtx) -> Result<Vec<Saved<Ipv6Route>>> {
     let text = running_config(router).await?;
@@ -86,6 +96,12 @@ async fn restore_all<T>(
 }
 
 /// Downloads the running configuration text.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
 async fn running_config(router: &RouterCtx) -> Result<String> {
     let bytes = router.client.download_config(ConfigKind::Running).await?;
@@ -108,6 +124,11 @@ fn route_words<'text>(text: &'text str, family: &str) -> Vec<Vec<&'text str>> {
 }
 
 /// Rebuilds an IPv4 route from the words after `ip route`.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn ipv4_route(words: &[&str]) -> Result<Ipv4Route> {
     let (destination, mask, tail) = match words {
         ["default", tail @ ..] => ("default", None, tail),
@@ -144,6 +165,11 @@ fn ipv4_route(words: &[&str]) -> Result<Ipv4Route> {
 }
 
 /// Rebuilds an IPv6 route from the words after `ipv6 route`.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn ipv6_route(words: &[&str]) -> Result<Ipv6Route> {
     let [prefix, tail @ ..] = words else {
         return Err(DomainError::InvalidResponse);

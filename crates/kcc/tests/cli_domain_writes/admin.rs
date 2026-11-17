@@ -147,15 +147,26 @@ async fn management_port_needs_yes_and_runs_inside_the_fail_safe_bracket() -> Te
     lab.shutdown().await
 }
 
+/// C-10: `storage check` and `storage format` are no longer subcommands: clap refuses them
+/// (exit 2) and nothing reaches the router.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn partition_check_is_refused_by_a_catalog_without_it() -> TestResult {
-    // KN-1811 firmware 5.1 has no `system partition check`: the plan fails validation
-    // (exit 4) and nothing reaches the workflow.
+async fn storage_check_and_format_are_unknown_subcommands() -> TestResult {
     let lab = Lab::spawn("").await?;
-    let run = lab.run(&["--confirm-destructive", "lab-1", "storage", "check", "sda1"])?;
-    assert_eq!(run.code, 4_i32, "{run:?}");
-    let entries = read_entries(&lab.env.state_dir())?;
-    assert_eq!(entries.len(), 0, "{entries:?}");
+    let check: &[&str] = &["--confirm-destructive", "lab-1", "storage", "check", "sda1"];
+    let format: &[&str] = &[
+        "--confirm-destructive",
+        "lab-1",
+        "storage",
+        "format",
+        "sda1",
+        "--filesystem",
+        "ext4",
+    ];
+    for argv in [check, format] {
+        let run = lab.run(argv)?;
+        assert_eq!(run.code, 2_i32, "{run:?}");
+    }
+    assert_eq!(lab.fake.request_count(), 0, "{:?}", lab.fake.request_log());
     lab.shutdown().await
 }
 

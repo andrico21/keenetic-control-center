@@ -1,11 +1,4 @@
 //! Non-secret VPN client command rendering.
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private conversion helpers directly mirror catalog command names"
-    )
-)]
 
 use kcc_catalog::ValidationIssue;
 use serde_json::{Value, json};
@@ -16,8 +9,15 @@ use crate::{
     cli_token::{quoted, token},
 };
 
+/// A catalog path, its body and the CLI line that renders it.
 type Rendered = (&'static str, Value, String);
 
+/// The catalog path, the body and the CLI line of one VPN client change.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when a name, key or value cannot be one safe
+/// CLI word, and [`DomainError::Validation`] for more ASC values than the router takes.
 pub(super) fn input(change: &VpnClientChange) -> Result<Rendered> {
     Ok(match change {
         VpnClientChange::Create { name } => (
@@ -117,6 +117,11 @@ pub(super) fn input(change: &VpnClientChange) -> Result<Rendered> {
     })
 }
 
+/// Renders enabling or disabling the interface `name`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when the name is not one safe CLI word.
 fn enabled_interface(name: &str, enabled: bool) -> Result<Rendered> {
     let path = if enabled {
         "interface up"
@@ -126,6 +131,11 @@ fn enabled_interface(name: &str, enabled: bool) -> Result<Rendered> {
     toggle(path, name, true)
 }
 
+/// Renders `leaf` under the `interface <name>` context.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when the name is not one safe CLI word.
 #[expect(
     clippy::needless_pass_by_value,
     reason = "rendered leaves are temporary owned strings moved into the final CLI line"
@@ -134,6 +144,12 @@ fn context(path: &'static str, name: &str, body: Value, leaf: String) -> Result<
     Ok((path, body, format!("interface {} {leaf}", token(name)?)))
 }
 
+/// Renders `command` under the WireGuard peer `public_key` of the interface `name`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when the name or the key is not one safe CLI
+/// word.
 fn peer_context(name: &str, public_key: &str, command: Rendered) -> Result<Rendered> {
     let (path, body, leaf) = command;
     context(
@@ -144,6 +160,12 @@ fn peer_context(name: &str, public_key: &str, command: Rendered) -> Result<Rende
     )
 }
 
+/// Renders a WireGuard peer endpoint.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when a name, key or address is not one safe
+/// CLI word.
 fn peer_endpoint(name: &str, public_key: &str, address: &str, port: u16) -> Result<Rendered> {
     peer_context(
         name,
@@ -156,6 +178,12 @@ fn peer_endpoint(name: &str, public_key: &str, address: &str, port: u16) -> Resu
     )
 }
 
+/// Renders a WireGuard peer allowed range.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when a name, key, address or mask is not one
+/// safe CLI word.
 fn peer_address(name: &str, public_key: &str, address: &str, mask: &str) -> Result<Rendered> {
     peer_context(
         name,
@@ -168,6 +196,12 @@ fn peer_address(name: &str, public_key: &str, address: &str, mask: &str) -> Resu
     )
 }
 
+/// Renders a WireGuard peer keepalive interval.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when the name or the key is not one safe CLI
+/// word.
 fn peer_keepalive(name: &str, public_key: &str, seconds: u16) -> Result<Rendered> {
     peer_context(
         name,
@@ -180,6 +214,12 @@ fn peer_keepalive(name: &str, public_key: &str, seconds: u16) -> Result<Rendered
     )
 }
 
+/// Renders the upstream proxy of the interface `name`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when the name or the host is not one safe CLI
+/// word.
 fn proxy_upstream(name: &str, host: &str, port: Option<u16>) -> Result<Rendered> {
     let upstream = token(host)?;
     context(
@@ -196,6 +236,11 @@ fn proxy_upstream(name: &str, host: &str, port: Option<u16>) -> Result<Rendered>
     )
 }
 
+/// Renders switching `path` on or off for the interface `name`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when the name is not one safe CLI word.
 fn toggle(path: &'static str, name: &str, enabled: bool) -> Result<Rendered> {
     let leaf = path.strip_prefix("interface ").unwrap_or(path);
     context(
@@ -214,6 +259,11 @@ fn toggle(path: &'static str, name: &str, enabled: bool) -> Result<Rendered> {
     )
 }
 
+/// Renders `path` for the interface `name`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when the name is not one safe CLI word.
 fn named(path: &'static str, name: &str) -> Result<Rendered> {
     Ok((
         path,
@@ -222,6 +272,12 @@ fn named(path: &'static str, name: &str) -> Result<Rendered> {
     ))
 }
 
+/// The quoted ASC values of a WireGuard interface.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Validation`] for more than sixteen values and
+/// [`DomainError::InvalidCliToken`] when a value cannot be quoted.
 fn asc_line(values: &[String]) -> Result<String> {
     if values.len() > ASC_FIELDS.len() {
         return Err(DomainError::Validation {
@@ -237,11 +293,13 @@ fn asc_line(values: &[String]) -> Result<String> {
     Ok(format!("wireguard asc {}", words.join(" ")))
 }
 
+/// The catalog names of the ASC values, in CLI order.
 const ASC_FIELDS: [&str; 16] = [
     "jc", "jmin", "jmax", "s1", "s2", "h1", "h2", "h3", "h4", "s3", "s4", "i1", "i2", "i3", "i4",
     "i5",
 ];
 
+/// The catalog body of the ASC values.
 fn asc_body(values: &[String]) -> Value {
     let map = ASC_FIELDS
         .iter()

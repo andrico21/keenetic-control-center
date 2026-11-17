@@ -1,11 +1,4 @@
 //! Strict WireGuard section parsing.
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private parser state and helpers are named after WireGuard syntax"
-    )
-)]
 
 use alloc::collections::BTreeMap;
 
@@ -19,33 +12,63 @@ use super::{
     },
 };
 
+/// The section the parser is in.
 enum Section {
+    /// The `[Interface]` section.
     Interface,
+    /// The `[Peer]` section with this index.
     Peer(usize),
 }
 
+/// The `[Interface]` fields read so far.
 #[derive(Default)]
 struct InterfaceDraft {
+    /// `PrivateKey`.
     private_key: Option<SecretString>,
+    /// `ObfsKey`.
     obfuscation_key: Option<SecretString>,
+    /// `ListenPort`.
     listen_port: Option<u16>,
+    /// `Address`.
     addresses: Option<Vec<String>>,
+    /// `DNS`.
     dns: Option<Vec<String>>,
+    /// The ASC values by name.
     asc: BTreeMap<String, String>,
 }
 
+/// The fields of one `[Peer]` read so far.
 #[derive(Default)]
 struct PeerDraft {
+    /// `PublicKey`.
     public_key: Option<String>,
+    /// `PresharedKey`.
     preshared_key: Option<SecretString>,
+    /// `ObfsKey`.
     obfuscation_key: Option<SecretString>,
+    /// `Endpoint`.
     endpoint: Option<String>,
+    /// `AllowedIPs`.
     allowed_ips: Option<Vec<String>>,
+    /// `PersistentKeepalive`.
     persistent_keepalive: Option<u16>,
+    /// The ASC values by name.
     asc: BTreeMap<String, String>,
 }
 
 /// Parses a strict standard WireGuard configuration.
+///
+/// # Errors
+///
+/// Returns the first parse failure met, reading line by line: [`WireGuardParseError::Malformed`]
+/// for a line that is not `key = value`, that precedes every section, or for an empty, over-long
+/// or control-character `ObfsKey`; [`WireGuardParseError::UnknownSection`] and
+/// [`WireGuardParseError::UnknownField`] for a name the format does not have;
+/// [`WireGuardParseError::Duplicate`] for a repeated `[Interface]` section or field;
+/// [`WireGuardParseError::InvalidKey`] for a key that is not Base64 of 32 bytes;
+/// [`WireGuardParseError::InvalidInteger`] for a port or keepalive that is not a 16-bit number;
+/// and [`WireGuardParseError::Missing`] when `[Interface]`, `[Peer]` or a peer's `PublicKey` is
+/// absent.
 pub(crate) fn parse(text: &str) -> Result<WireGuardConfig, WireGuardParseError> {
     let mut interface: Option<InterfaceDraft> = None;
     let mut peers = Vec::<PeerDraft>::new();
@@ -123,6 +146,11 @@ pub(crate) fn parse(text: &str) -> Result<WireGuardConfig, WireGuardParseError> 
     })
 }
 
+/// Opens the section a `[Interface]` or `[Peer]` header line starts.
+///
+/// # Errors
+///
+/// Returns [`WireGuardParseError`] for an unknown section or a second `[Interface]`.
 fn parse_section(
     line: &str,
     line_number: usize,
@@ -148,6 +176,11 @@ fn parse_section(
     }
 }
 
+/// Reads one `[Interface]` field into its draft.
+///
+/// # Errors
+///
+/// Returns [`WireGuardParseError`] for an unknown, repeated or malformed field.
 fn parse_interface_field(
     draft: &mut InterfaceDraft,
     field: &str,
@@ -165,6 +198,11 @@ fn parse_interface_field(
     }
 }
 
+/// Reads one `[Peer]` field into its draft.
+///
+/// # Errors
+///
+/// Returns [`WireGuardParseError`] for an unknown, repeated or malformed field.
 fn parse_peer_field(
     draft: &mut PeerDraft,
     field: &str,

@@ -19,8 +19,8 @@
 //! - `GET /ui/r/{router}/system/components`, `POST .../components/check`,
 //!   `POST .../components/queue?name=&action=install|remove`, `POST .../components/commit`:
 //!   the firmware, the component queue and the commit job that restarts the router.
-//! - `GET /ui/r/{router}/system/storage`, `POST .../storage/{eject,check}?media=`,
-//!   `GET|POST .../storage/format`: media and USB devices; every action is destructive.
+//! - `GET /ui/r/{router}/system/storage`, `POST .../storage/eject?media=`: media and USB
+//!   devices; the eject is destructive.
 //! - `GET /ui/r/{router}/system/schedules` and `POST` (create), `GET .../schedules/new`,
 //!   `GET|POST .../schedules/action`: schedules and their timed actions (writes).
 //! - `GET /ui/r/{router}/system/keendns`, `GET|POST .../keendns/book`,
@@ -115,14 +115,6 @@ pub(crate) fn routes() -> Router<WebState> {
         .route(
             "/ui/r/{router}/system/storage/eject",
             post(storage_actions::eject),
-        )
-        .route(
-            "/ui/r/{router}/system/storage/check",
-            post(storage_actions::check),
-        )
-        .route(
-            "/ui/r/{router}/system/storage/format",
-            get(storage_actions::format_dialog).post(storage_actions::format),
         )
         .route(
             "/ui/r/{router}/system/schedules",

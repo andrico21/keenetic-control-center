@@ -7,6 +7,11 @@ use serde_json::{Value, json};
 use crate::{DomainError, Result, verification::action_without_state};
 
 /// Builds expectations from validated non-secret command arguments.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 pub(super) fn specs(request: &ValidatedRequest) -> Result<Vec<VerificationSpec>> {
     if action_without_state(&request.path).is_some() {
         return Ok(Vec::new());

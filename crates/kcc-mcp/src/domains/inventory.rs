@@ -253,7 +253,7 @@ pub(crate) const WRITE_TOOLS: &[(Area, &str, &str, &str)] = &[
         Area::Storage,
         "kcc_storage_write",
         "system-admin",
-        "Eject, check or format storage",
+        "Eject storage media",
     ),
     (
         Area::Schedules,

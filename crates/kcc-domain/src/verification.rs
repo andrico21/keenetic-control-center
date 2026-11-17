@@ -26,10 +26,6 @@ pub const ACTIONS_WITHOUT_STATE: &[(&str, &str)] = &[
         "Ejection can detach the device and its read surface.",
     ),
     (
-        "media partition check",
-        "A filesystem check starts maintenance without a persistent result field.",
-    ),
-    (
         "system log clear",
         "The log may immediately refill after clearing.",
     ),

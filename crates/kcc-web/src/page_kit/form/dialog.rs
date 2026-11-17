@@ -82,12 +82,6 @@ impl FormDialog {
         self
     }
 
-    /// Marks the submit button as destroying something.
-    pub(crate) const fn danger(mut self) -> Self {
-        self.button = "danger";
-        self
-    }
-
     /// Uploads with `multipart/form-data`.
     pub(crate) const fn multipart(mut self) -> Self {
         self.multipart = true;

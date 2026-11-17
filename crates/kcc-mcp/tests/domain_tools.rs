@@ -655,6 +655,30 @@ mod tests {
         lab.stop().await
     }
 
+    /// C-10: the removed partition check and format operations are unknown operations of
+    /// `kcc_storage_write`, refused before the router is contacted.
+    #[tokio::test]
+    async fn removed_storage_operations_are_unknown() -> TestResult {
+        let lab = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+        let before = lab.requests("lab-1")?;
+        for op in ["partition_check", "partition_format"] {
+            let reply = lab
+                .call(
+                    "kcc_storage_write",
+                    json!({"host": "lab-1", "op": op, "name": "Media0", "value": "ext4", "confirm": true}),
+                    false,
+                )
+                .await?;
+            assert_eq!(reply.error(), Some("invalid_arguments"), "{op}");
+        }
+        assert_eq!(lab.requests("lab-1")?, before);
+        lab.stop().await
+    }
+
     /// Invalid router-shaped arguments never enter failure audit records.
     #[tokio::test]
     async fn invalid_router_arguments_are_omitted_from_failure_audits() -> TestResult {

@@ -1,10 +1,4 @@
 //! Firmware components, update policy, and rebooting component commits.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::module_name_repetitions,
-    reason = "domain operation names follow the plan; asynchronous router jobs are not useful inline candidates"
-)]
 
 use alloc::{collections::BTreeMap, sync::Arc, vec};
 use core::result::Result as CoreResult;
@@ -15,13 +9,14 @@ use kcc_app::{
     registry::{RegistryError, RouterRegistry},
     workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec},
 };
-use kcc_catalog::{Catalog, HttpMethod, Risk};
+use kcc_catalog::{Catalog, Risk};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token, descriptor::operation, read_show, verification,
+    cli_token, descriptor::operation, planning::validate, read_show, request_words::first_argument,
+    verification,
 };
 
 mod commit;
@@ -44,6 +39,10 @@ pub struct ComponentState {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 #[non_exhaustive]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the public name is the vocabulary the Web, MCP and CLI front ends use"
+)]
 pub struct PendingComponents {
     /// Components staged for installation.
     pub install: Vec<String>,
@@ -140,25 +139,54 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads installed components.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the read is named after the router list it returns, like the reads of the other domain modules"
+)]
 pub async fn read_components(router: &RouterCtx) -> Result<Vec<ComponentState>> {
     read_show(&router.client, &["show", "components", "list"]).await
 }
 
 /// Reads staged component changes.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_pending(router: &RouterCtx) -> Result<PendingComponents> {
     read_show(&router.client, &["show", "components", "pending"]).await
 }
 
 /// Plans an update-availability check.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_check_update(router: &RouterCtx) -> Result<ChangeOp> {
     plan_cli(router, "components check-update", &json!({}), Risk::Write)
 }
 
 /// Plans one component installation or removal queue operation.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_queue(router: &RouterCtx, action: QueueAction, component: &str) -> Result<ChangeOp> {
-    validate_token(component)?;
+    cli_token::validate(component)?;
     let path = match action {
         QueueAction::Install => "components install",
         QueueAction::Remove => "components remove",
@@ -167,8 +195,15 @@ pub fn plan_queue(router: &RouterCtx, action: QueueAction, component: &str) -> R
 }
 
 /// Plans the automatic-update channel.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_auto_update_channel(router: &RouterCtx, channel: &str) -> Result<ChangeOp> {
-    validate_token(channel)?;
+    cli_token::validate(channel)?;
     plan_cli(
         router,
         "components auto-update channel",
@@ -178,8 +213,15 @@ pub fn plan_auto_update_channel(router: &RouterCtx, channel: &str) -> Result<Cha
 }
 
 /// Plans the automatic-update schedule.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_auto_update_schedule(router: &RouterCtx, schedule: &str) -> Result<ChangeOp> {
-    validate_token(schedule)?;
+    cli_token::validate(schedule)?;
     plan_cli(
         router,
         "components auto-update schedule",
@@ -189,25 +231,23 @@ pub fn plan_auto_update_schedule(router: &RouterCtx, schedule: &str) -> Result<C
 }
 
 /// Converts a non-terminal component plan into a protected workflow request.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let request = operation
         .requests
         .first()
         .ok_or(DomainError::InvalidResponse)?;
-    let argument = request
-        .value()
-        .as_object()
-        .into_iter()
-        .flatten()
-        .find_map(|(key, value)| (key != "no").then_some(value))
-        .and_then(|value| match value {
-            Value::String(text) => Some(text.as_str()),
-            Value::Null
-            | Value::Bool(_)
-            | Value::Number(_)
-            | Value::Array(_)
-            | Value::Object(_) => None,
-        });
+    let argument = first_argument(request.value()).and_then(|value| match value {
+        Value::String(text) => Some(text.as_str()),
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::Array(_) | Value::Object(_) => {
+            None
+        }
+    });
     let line = argument.map_or_else(
         || request.path.clone(),
         |value| format!("{} {value}", request.path),
@@ -243,8 +283,17 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 }
 
 /// Starts a confirmed destructive component commit job.
+///
+/// # Errors
+///
+/// Returns [`CommitError::Registry`] when the role lacks the destructive permission or the router
+/// scope, or the router's information cannot be read; [`CommitError::ConfirmationRequired`] when
+/// `confirmed` is false; [`CommitError::Domain`] when the catalog refuses the commit request, its
+/// line does not match it, or the pending components cannot be read; and [`CommitError::Job`] when
+/// the job cannot be started, for example because another write job runs on the router.
 // NOT cancel-safe: once spawned, the commit job (which reboots the router) runs on without its id
 // reaching the caller; cancelled inside job start, the router's write-job slot can stay taken.
+#[inline]
 pub async fn start_commit_job(
     jobs: &Arc<JobRunner>,
     registry: Arc<RouterRegistry>,
@@ -285,11 +334,13 @@ pub enum CommitError {
 }
 
 /// Plans one catalog-validated component CLI operation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 fn plan_cli(router: &RouterCtx, path: &str, body: &Value, risk: Risk) -> Result<ChangeOp> {
-    let validated = router
-        .catalog
-        .validate(path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })?;
+    let validated = validate(router, path, body)?;
     Ok(ChangeOp::new(
         vec![validated],
         Vec::new(),
@@ -297,9 +348,4 @@ fn plan_cli(router: &RouterCtx, path: &str, body: &Value, risk: Risk) -> Result<
         Permission::Write,
         false,
     ))
-}
-
-/// Rejects values that cannot be represented as one unquoted router CLI token.
-fn validate_token(value: &str) -> Result<()> {
-    cli_token::validate(value)
 }

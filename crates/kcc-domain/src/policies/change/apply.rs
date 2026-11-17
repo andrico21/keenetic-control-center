@@ -1,16 +1,4 @@
 //! Protected connection-policy execution with fresh read-back verification.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "protected policy execution is not an inline candidate"
-)]
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "the private read-back decoder is named after its policy verification role"
-    )
-)]
 
 use kcc_app::workflow::{ChangeSet, CliChangeResult, WorkflowError};
 use serde_json::{Value, json};
@@ -19,8 +7,16 @@ use super::render;
 use crate::{ChangeOp, DomainError, Result, RouterCtx};
 
 /// Applies a policy plan and verifies it against a fresh `show rc` read.
+///
+/// # Errors
+///
+/// Returns an error when the change workflow fails: dispatch, read-back or audit
+/// ([`DomainError::Workflow`]), when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]), or when the read-back does not show the change
+/// ([`WorkflowError::VerificationFailed`]).
 // NOT cancel-safe: cancelled after the CLI request is sent, the router stays changed
 // and the read-back verification never runs.
+#[inline]
 pub async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -61,6 +57,12 @@ pub async fn apply(
     Ok(result)
 }
 
+/// The command words configured under the policy `name`, or `None` when it is absent.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Rci`] or [`DomainError::InvalidResponse`] when the running
+/// configuration cannot be read.
 async fn policy_commands(router: &RouterCtx, name: &str) -> Result<Option<Vec<Vec<String>>>> {
     let response = router.client.show_rc(json!({"ip":{"policy":{}}})).await?;
     response

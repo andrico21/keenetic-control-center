@@ -1,11 +1,4 @@
 //! Interface inventory and guarded connectivity changes.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::module_name_repetitions,
-    clippy::needless_pass_by_value,
-    reason = "domain operation names follow the plan; async workflow bodies are not useful inline candidates"
-)]
 
 use alloc::{collections::BTreeMap, vec};
 use core::result::Result as CoreResult;
@@ -16,13 +9,13 @@ use kcc_app::{
         ChangeSet, CliChangeRequest, CliChangeResult, CliCommand as ValidatedCli, VerificationSpec,
     },
 };
-use kcc_catalog::{HttpMethod, Risk};
+use kcc_catalog::Risk;
 use kcc_rci::{ObjectName, RciBody};
 use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token, read_show,
+    cli_token, descriptor, planning::validate, pointer, read_show,
 };
 
 /// Interface change execution and its read-back.
@@ -59,21 +52,32 @@ pub type ManagementVerdict = management::ManagementVerdict;
 
 /// Interface read inventory.
 const READS: &[OperationDescriptor] = &[
-    read_operation("list", "show interface"),
-    read_operation("get", "show interface"),
-    read_operation("statistics", "show interface stat"),
-    read_operation("traffic_history", "show interface rrd"),
+    descriptor::read("list", "show interface"),
+    descriptor::read("get", "show interface"),
+    descriptor::read("statistics", "show interface stat"),
+    descriptor::read("traffic_history", "show interface rrd"),
 ];
 
 /// Interface write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    write_operation("up", "interface up", Risk::Write),
-    write_operation("down", "interface down", Risk::Management),
-    write_operation("description", "interface description", Risk::Write),
-    write_operation(
+    descriptor::operation("up", "interface up", Risk::Write, Permission::Write),
+    descriptor::operation(
+        "down",
+        "interface down",
+        Risk::Management,
+        Permission::Write,
+    ),
+    descriptor::operation(
+        "description",
+        "interface description",
+        Risk::Write,
+        Permission::Write,
+    ),
+    descriptor::operation(
         "security_level",
         "interface security-level",
         Risk::Management,
+        Permission::Write,
     ),
 ];
 
@@ -97,13 +101,30 @@ impl SecurityLevel {
 }
 
 /// Reads all interface summaries keyed by interface name.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the read is named after the router list it returns, like the reads of the other domain modules"
+)]
 pub async fn read_interfaces(router: &RouterCtx) -> Result<BTreeMap<String, Interface>> {
     read_show(&router.client, &["show", "interface"]).await
 }
 
 /// Reads one interface through root POST, keeping slash-containing names out of URL paths.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_interface(router: &RouterCtx, name: &ObjectName) -> Result<Interface> {
     let RciBody::Json(response) = router.client.show_interface(name).await? else {
         return Err(DomainError::InvalidResponse);
@@ -117,29 +138,60 @@ pub async fn read_interface(router: &RouterCtx, name: &ObjectName) -> Result<Int
 }
 
 /// Reads counters for all interfaces.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_statistics(router: &RouterCtx) -> Result<BTreeMap<String, InterfaceStatistics>> {
     read_show(&router.client, &["show", "interface", "stat"]).await
 }
 
 /// Reads an interface traffic-history resource when the router exposes it.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_traffic_history(router: &RouterCtx) -> Result<TrafficHistory> {
     read_show(&router.client, &["show", "interface", "rrd"]).await
 }
 
 /// Plans enabling an interface.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_up(router: &RouterCtx, name: &ObjectName) -> Result<ChangeOp> {
     plan_state(router, name, true, ManagementVerdict::NotManagement)
 }
 
 /// Detects whether an interface carries the management connection.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Rci`] when a router request fails, and [`DomainError::InvalidResponse`]
+/// when the interface list or the bridge membership reply does not decode, or a bridge name is not
+/// a valid object name.
 // cancel-safe: only read requests; cancellation changes nothing on the router.
+#[inline]
 pub async fn detect_management(router: &RouterCtx, name: &ObjectName) -> Result<ManagementVerdict> {
     management::detect(router, name).await
 }
 
 /// Plans disabling an interface using an explicit management verdict.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_down(
     router: &RouterCtx,
     name: &ObjectName,
@@ -149,6 +201,12 @@ pub fn plan_down(
 }
 
 /// Plans an interface description change.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_description(
     router: &RouterCtx,
     name: &ObjectName,
@@ -158,7 +216,7 @@ pub fn plan_description(
         router,
         name,
         "interface description",
-        json!({"description": description}),
+        &json!({"description": description}),
         "/description",
         Value::String(description.to_owned()),
         Risk::Write,
@@ -166,6 +224,12 @@ pub fn plan_description(
 }
 
 /// Plans an interface security-zone change.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_security_level(
     router: &RouterCtx,
     name: &ObjectName,
@@ -176,55 +240,39 @@ pub fn plan_security_level(
         router,
         name,
         "interface security-level",
-        json!({level.as_str(): true}),
+        &json!({level.as_str(): true}),
         "/security-level",
         Value::String(level.as_str().to_owned()),
         verdict.risk(name),
     )
 }
 
-/// Executes an interface plan; a management change is read back through `show last-change`.
+/// Executes an interface plan through the change workflow, which reads it back.
 ///
 /// The caller confirms a management change and runs it inside its recovery bracket
 /// (`configuration::bracket::guarded`), as for every other management change.
+///
+/// # Errors
+///
+/// Returns an error when the change workflow fails: dispatch, read-back or audit (a
+/// [`kcc_app::workflow::WorkflowError`]).
 // NOT cancel-safe: cancelled mid-way, the change may be applied without its read-back.
+#[inline]
 pub async fn apply(
     changes: &mut ChangeSet,
-    router: &RouterCtx,
     name: &ObjectName,
     operation: &ChangeOp,
 ) -> CoreResult<CliChangeResult, InterfaceChangeError> {
     let request = change_request(name, operation)?;
-    guard::apply(changes, router, request, operation.risk).await
-}
-
-/// Builds a read descriptor.
-const fn read_operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk: Risk::Read,
-        permission: Permission::Read,
-        persists_immediately: false,
-    }
-}
-
-/// Builds a write descriptor.
-const fn write_operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission: Permission::Write,
-        persists_immediately: false,
-    }
+    guard::apply(changes, request).await
 }
 
 /// Plans an administrative-state change.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 fn plan_state(
     router: &RouterCtx,
     name: &ObjectName,
@@ -240,27 +288,26 @@ fn plan_state(
             verdict.risk(name),
         )
     };
-    plan_interface(router, name, path, json!({}), "/state", expected, risk)
+    plan_interface(router, name, path, &json!({}), "/state", expected, risk)
 }
 
 /// Validates one interface plan and attaches selected-interface verification.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 fn plan_interface(
     router: &RouterCtx,
     name: &ObjectName,
     catalog_path: &str,
-    body: Value,
+    body: &Value,
     field: &str,
     expected: Value,
     risk: Risk,
 ) -> Result<ChangeOp> {
-    let validated = router
-        .catalog
-        .validate(catalog_path, HttpMethod::Post, &body)
-        .map_err(|issues| DomainError::Validation { issues })?;
-    let pointer = format!(
-        "/{}{field}",
-        name.as_str().replace('~', "~0").replace('/', "~1")
-    );
+    let validated = validate(router, catalog_path, body)?;
+    let pointer = format!("/{}{field}", pointer::escape(name.as_str()));
     Ok(ChangeOp::new(
         vec![validated],
         vec![VerificationSpec::new(
@@ -275,6 +322,13 @@ fn plan_interface(
 }
 
 /// Converts a validated interface plan into its one parser request.
+///
+/// # Errors
+///
+/// Returns an error when the description cannot be one quoted router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the plan holds no interface request this
+/// module renders ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChangeRequest> {
     let validated = operation
         .requests

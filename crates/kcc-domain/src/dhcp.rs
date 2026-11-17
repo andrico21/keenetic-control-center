@@ -1,9 +1,4 @@
 //! DHCP pools, static leases, bindings, and ARP neighbours.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "async reads and small domain planning functions are not useful inline candidates"
-)]
 
 mod command;
 pub mod model;
@@ -14,11 +9,8 @@ use core::{
     str::{FromStr as _, from_utf8},
 };
 
-use kcc_app::{
-    permissions::Permission,
-    workflow::{ChangeSet, CliChangeResult, WorkflowError},
-};
-use kcc_catalog::{Risk, ValidationIssue};
+use kcc_app::workflow::{ChangeSet, CliChangeResult, WorkflowError};
+use kcc_catalog::ValidationIssue;
 use kcc_rci::{ConfigKind, Mac};
 use secrecy::ExposeSecret as _;
 use serde::de::DeserializeOwned;
@@ -27,21 +19,21 @@ use serde_json::{Value, json};
 use self::model::{Binding, Neighbour, Pool, PoolConfig, StaticLease};
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token, read_show,
+    cli_token, descriptor, read_show,
 };
 
 /// DHCP read inventory.
 const READS: &[OperationDescriptor] = &[
-    read_operation("pools", "ip dhcp pool"),
-    read_operation("static_leases", "ip dhcp host"),
-    read_operation("bindings", "show ip dhcp bindings"),
-    read_operation("neighbours", "show ip arp"),
+    descriptor::read("pools", "ip dhcp pool"),
+    descriptor::read("static_leases", "ip dhcp host"),
+    descriptor::read("bindings", "show ip dhcp bindings"),
+    descriptor::read("neighbours", "show ip arp"),
 ];
 
 /// DHCP write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    write_operation("pool", "ip dhcp pool"),
-    write_operation("static_lease", "ip dhcp host"),
+    descriptor::write("pool", "ip dhcp pool"),
+    descriptor::write("static_lease", "ip dhcp host"),
 ];
 
 /// DHCP domain metadata.
@@ -53,7 +45,14 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads DHCP pools from the running configuration text.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_pools(router: &RouterCtx) -> Result<Vec<Pool>> {
     let bytes = router.client.download_config(ConfigKind::Running).await?;
     let text = from_utf8(bytes.expose_secret()).map_err(|_error| DomainError::InvalidResponse)?;
@@ -61,7 +60,13 @@ pub async fn read_pools(router: &RouterCtx) -> Result<Vec<Pool>> {
 }
 
 /// Reads running static leases through `show rc ip dhcp host`.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> {
     let answer = router
         .client
@@ -71,19 +76,38 @@ pub async fn read_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> 
 }
 
 /// Reads current DHCP bindings.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_bindings(router: &RouterCtx) -> Result<Vec<Binding>> {
     read_show(&router.client, &["show", "ip", "dhcp", "bindings"]).await
 }
 
 /// Reads current ARP neighbours.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_neighbours(router: &RouterCtx) -> Result<Vec<Neighbour>> {
     read_show(&router.client, &["show", "ip", "arp"]).await
 }
 
 /// Plans a complete DHCP pool configuration; the pool name is one router object name, and
 /// more than one DNS server is refused before any request.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
     let name = cli_token::object_name(&pool.name)?;
     let mut inputs = vec![
@@ -128,7 +152,16 @@ pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
 }
 
 /// Plans a static lease only after validating the bound pool subnet and duplicate address.
+///
+/// # Errors
+///
+/// Returns an error when the lease is outside its pool
+/// ([`DomainError::StaticLeaseOutsidePool`]), when the address is leased to another MAC
+/// ([`DomainError::StaticLeaseAddressInUse`]), when the catalog refuses a planned request
+/// ([`DomainError::Validation`]), or when a router request fails or its reply does not
+/// decode ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: only read requests; cancellation changes nothing on the router.
+#[inline]
 pub async fn plan_static_lease(
     router: &RouterCtx,
     mac: Mac,
@@ -175,8 +208,14 @@ pub async fn plan_static_lease(
 
 /// Executes a DHCP plan through the protected workflow, which reads every line and static
 /// lease back before it audits the change.
+///
+/// # Errors
+///
+/// Returns an error when the change workflow fails: dispatch, read-back or audit (a
+/// [`WorkflowError`]).
 // NOT cancel-safe: cancelled after the CLI request is sent, the router stays changed
 // and the read-back verification never runs.
+#[inline]
 pub async fn apply(
     changes: &mut ChangeSet,
     _router: &RouterCtx,
@@ -185,29 +224,12 @@ pub async fn apply(
     changes.apply_cli(command::request(operation)?).await
 }
 
-/// Builds a read descriptor.
-const fn read_operation(name: &'static str, path: &'static str) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path: path,
-        risk: Risk::Read,
-        permission: Permission::Read,
-        persists_immediately: false,
-    }
-}
-
-/// Builds a write descriptor.
-const fn write_operation(name: &'static str, path: &'static str) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path: path,
-        risk: Risk::Write,
-        permission: Permission::Write,
-        persists_immediately: false,
-    }
-}
-
 /// Decodes projected configuration rows.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn decode_config_rows<T>(answer: &kcc_rci::ConfigurationAnswer, pointer: &str) -> Result<Vec<T>>
 where
     T: DeserializeOwned,

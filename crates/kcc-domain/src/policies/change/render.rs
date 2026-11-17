@@ -1,16 +1,4 @@
 //! Rendering of previously catalog-validated connection-policy requests.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "workflow request rendering is not an inline candidate"
-)]
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private token renderers are named after their validated policy command shape"
-    )
-)]
 
 use alloc::{format, vec};
 
@@ -18,9 +6,19 @@ use kcc_app::workflow::{CliChangeRequest, CliCommand as ValidatedCli};
 use kcc_catalog::ValidatedRequest;
 use serde_json::{Value, json};
 
-use crate::{ChangeOp, DomainError, Result, cli_token, verification};
+use crate::{
+    ChangeOp, DomainError, Result, cli_token,
+    request_words::{number, optional_text, text},
+    verification,
+};
 
 /// Converts a connection-policy plan into protected CLI workflow input.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let context = operation
         .requests
@@ -41,6 +39,11 @@ pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 }
 
 /// Returns the positive leaf tokens expected in a fresh running-config read.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 pub(super) fn expected_leaf(request: &ValidatedRequest) -> Result<Vec<String>> {
     let mut tokens = match request.path.as_str() {
         "ip policy description" if is_removal(request) => vec!["description".to_owned()],
@@ -71,10 +74,12 @@ pub(super) fn expected_leaf(request: &ValidatedRequest) -> Result<Vec<String>> {
     Ok(tokens)
 }
 
+/// Whether `request` removes its setting (`"no": true`).
 fn is_removal(request: &ValidatedRequest) -> bool {
     request.value().get("no") == Some(&Value::Bool(true))
 }
 
+/// The `ip policy <name>` context line, or its removal.
 fn context_line(request: &ValidatedRequest, name: &str) -> String {
     if is_removal(request) {
         format!("no ip policy {name}")
@@ -83,6 +88,12 @@ fn context_line(request: &ValidatedRequest, name: &str) -> String {
     }
 }
 
+/// The CLI line of one policy leaf request under the policy `name`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the request is missing a field it
+/// renders, and [`DomainError::InvalidCliToken`] when a description cannot be quoted.
 fn leaf_line(name: &str, request: &ValidatedRequest) -> Result<String> {
     let mut tokens = expected_leaf(request)?;
     let negated = tokens.first().is_some_and(|word| word == "no");
@@ -98,6 +109,11 @@ fn leaf_line(name: &str, request: &ValidatedRequest) -> Result<String> {
     Ok(if negated { format!("no {line}") } else { line })
 }
 
+/// The words of a policy route request.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when a required field is missing.
 fn route_tokens(request: &ValidatedRequest) -> Result<Vec<String>> {
     let mut words = vec!["route".to_owned()];
     if let Some(network) = optional_text(request, "network") {
@@ -116,6 +132,12 @@ fn route_tokens(request: &ValidatedRequest) -> Result<Vec<String>> {
     Ok(words)
 }
 
+/// The words of a policy rate-limit request.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the path has no direction or the
+/// interface is missing.
 fn rate_tokens(request: &ValidatedRequest) -> Result<Vec<String>> {
     let direction = request
         .path
@@ -127,19 +149,4 @@ fn rate_tokens(request: &ValidatedRequest) -> Result<Vec<String>> {
         direction.to_owned(),
         number(request, "rate").map_or_else(|| "auto".to_owned(), |rate| rate.to_string()),
     ])
-}
-
-fn text<'request>(request: &'request ValidatedRequest, field: &str) -> Result<&'request str> {
-    optional_text(request, field).ok_or(DomainError::InvalidResponse)
-}
-
-fn optional_text<'request>(
-    request: &'request ValidatedRequest,
-    field: &str,
-) -> Option<&'request str> {
-    request.value().get(field).and_then(Value::as_str)
-}
-
-fn number(request: &ValidatedRequest, field: &str) -> Option<u64> {
-    request.value().get(field).and_then(Value::as_u64)
 }

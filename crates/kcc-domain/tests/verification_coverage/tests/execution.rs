@@ -128,7 +128,7 @@ async fn interface_write(changes: &mut ChangeSet, router: &RouterCtx, op: &str) 
         !plan.verify.is_empty(),
         "interface planner lost verification"
     );
-    let result = interfaces::apply(changes, router, &target, &plan).await;
+    let result = interfaces::apply(changes, &target, &plan).await;
     assert!(result.is_err(), "interface no-op escaped verification");
     Ok(())
 }

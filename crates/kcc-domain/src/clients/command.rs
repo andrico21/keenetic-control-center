@@ -4,21 +4,23 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec},
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{Risk, ValidatedRequest};
 use serde_json::{Value, json};
 
-use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token, verification};
+use crate::{
+    ChangeOp, DomainError, Result, RouterCtx, cli_token, planning::validate, pointer, verification,
+};
 
 /// Catalog-validates ordered client command inputs.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 pub(super) fn plan(router: &RouterCtx, inputs: &[(&str, Value)]) -> Result<ChangeOp> {
     let requests = inputs
         .iter()
-        .map(|(path, body)| {
-            router
-                .catalog
-                .validate(path, HttpMethod::Post, body)
-                .map_err(|issues| DomainError::Validation { issues })
-        })
+        .map(|(path, body)| validate(router, path, body))
         .collect::<Result<Vec<_>>>()?;
     let mut operation = ChangeOp::new(
         Vec::new(),
@@ -35,6 +37,13 @@ pub(super) fn plan(router: &RouterCtx, inputs: &[(&str, Value)]) -> Result<Chang
 
 /// Converts planned client commands to a protected CLI request, whose host changes are read
 /// back from `show ip hotspot` before the workflow audits them.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when a host or policy request lacks a field its
+/// read-back needs, carries a priority that is not a number from 0 to 255, or has an unrecognised
+/// path, or when a command cannot be given a read-back of its own (a secret-bearing command, or a
+/// line that is not exactly one configuration row).
 pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let mut request = verification::complete(CliChangeRequest::new(
         operation.commands.clone(),
@@ -48,6 +57,12 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 
 /// The `show ip hotspot` row each host-affecting request leaves behind, its MAC address in
 /// the lower case the router reports.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when a host request lacks a field its row needs,
+/// carries a priority that is not a number from 0 to 255, or has a path that is not a host
+/// command.
 fn host_specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
     let mut specs = Vec::new();
     for request in &operation.requests {
@@ -72,6 +87,11 @@ fn host_specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
 
 /// The hotspot fields one host request sets, and whether its row must exist; `None` for a
 /// request that leaves no row to read.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn host_row(request: &ValidatedRequest) -> Result<Option<(Value, bool)>> {
     let field = |key: &str| {
         request
@@ -100,6 +120,11 @@ fn host_row(request: &ValidatedRequest) -> Result<Option<(Value, bool)>> {
 }
 
 /// Verifies non-host policy commands before the workflow records success.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn policy_specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
     operation
         .requests
@@ -125,10 +150,7 @@ fn policy_specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
                     .get("interface")
                     .and_then(Value::as_str)
                     .ok_or(DomainError::InvalidResponse)?;
-                format!(
-                    "/policy/{}",
-                    interface.replace('~', "~0").replace('/', "~1")
-                )
+                format!("/policy/{}", pointer::escape(interface))
             };
             Ok(VerificationSpec::new(
                 vec![
@@ -145,6 +167,11 @@ fn policy_specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
 }
 
 /// Renders one validated request without permitting arbitrary CLI input.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn cli_line(request: &ValidatedRequest) -> Result<String> {
     let text = |key: &str| {
         request
@@ -202,6 +229,11 @@ fn cli_line(request: &ValidatedRequest) -> Result<String> {
 }
 
 /// A registration name as one quoted CLI word; an empty name is refused.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]).
 fn registration_word(name: &str) -> Result<String> {
     if name.is_empty() {
         return Err(DomainError::InvalidCliToken);

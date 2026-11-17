@@ -1,9 +1,4 @@
 //! KeenDNS naming, remote web proxies, and cloud control exposure.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "domain planning and asynchronous reads are not useful inline candidates"
-)]
 
 use alloc::{collections::BTreeMap, vec};
 
@@ -21,13 +16,15 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
-use kcc_catalog::{HttpMethod, RawAuthorization, Risk, ValidatedRequest, ValidationIssue};
+use kcc_catalog::{RawAuthorization, Risk, ValidationIssue};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token::validate as validate_token, read_show,
+    cli_token::validate as validate_token,
+    planning::{plan_one, validate},
+    read_show,
 };
 
 /// Tolerant `show ndns` state.
@@ -119,16 +116,29 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads KeenDNS registration state.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_status(router: &RouterCtx) -> Result<KeenDnsState> {
     read_show(&router.client, &["show", "ndns"]).await
 }
 
 /// Plans booking a KeenDNS label and domain.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_book_name(router: &RouterCtx, name: &str, domain: &str) -> Result<ChangeOp> {
     validate_token(name)?;
     validate_token(domain)?;
-    plan(
+    plan_one(
         router,
         "ndns book-name",
         &json!({"name":name,"domain":domain}),
@@ -138,6 +148,13 @@ pub fn plan_book_name(router: &RouterCtx, name: &str, domain: &str) -> Result<Ch
 
 /// Plans dropping a KeenDNS label and domain: a management change when kcc reaches the
 /// router by that name.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_drop_name(router: &RouterCtx, name: &str, domain: &str) -> Result<ChangeOp> {
     validate_token(name)?;
     validate_token(domain)?;
@@ -147,7 +164,7 @@ pub fn plan_drop_name(router: &RouterCtx, name: &str, domain: &str) -> Result<Ch
     } else {
         Risk::Write
     };
-    plan(
+    plan_one(
         router,
         "ndns drop-name",
         &json!({"name":name,"domain":domain}),
@@ -171,6 +188,13 @@ fn reached_by(host: Option<&str>, booked: &str) -> bool {
 }
 
 /// Plans creation or deletion of one named HTTP proxy entry.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_proxy(router: &RouterCtx, name: &str, enabled: bool) -> Result<ChangeOp> {
     validate_token(name)?;
     let body = if enabled {
@@ -178,7 +202,7 @@ pub fn plan_proxy(router: &RouterCtx, name: &str, enabled: bool) -> Result<Chang
     } else {
         json!({"name":name,"no":true})
     };
-    plan(router, "ip http proxy", &body, Risk::Management)
+    plan_one(router, "ip http proxy", &body, Risk::Management)
 }
 
 /// Plans a proxy upstream to one LAN host, given by its IP address, MAC address or host
@@ -186,6 +210,13 @@ pub fn plan_proxy(router: &RouterCtx, name: &str, enabled: bool) -> Result<Chang
 ///
 /// The upstream line itself is what the catalog validates: its protocol keyword, host
 /// and port are checked against the command's documented forms.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_proxy_upstream(
     router: &RouterCtx,
     proxy: &str,
@@ -232,11 +263,17 @@ pub fn plan_proxy_upstream(
 }
 
 /// Plans cloud-control exposure.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_cloud_security_level(
     router: &RouterCtx,
     level: RemoteSecurityLevel,
 ) -> Result<ChangeOp> {
-    plan(
+    plan_one(
         router,
         "cloud control2 security-level",
         &json!({"level":level.name()}),
@@ -245,6 +282,12 @@ pub fn plan_cloud_security_level(
 }
 
 /// Converts a KeenDNS plan into a protected workflow request.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     if !operation.commands.is_empty() {
         return Ok(CliChangeRequest::new(
@@ -288,24 +331,4 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         operation.permission,
         json!({"operation":"keendns"}),
     ))
-}
-
-/// Plans one catalog-validated operation.
-fn plan(router: &RouterCtx, path: &str, body: &Value, risk: Risk) -> Result<ChangeOp> {
-    let request = validate(router, path, body)?;
-    Ok(ChangeOp::new(
-        vec![request],
-        Vec::new(),
-        risk,
-        Permission::Write,
-        false,
-    ))
-}
-
-/// Validates one catalog request.
-fn validate(router: &RouterCtx, path: &str, body: &Value) -> Result<ValidatedRequest> {
-    router
-        .catalog
-        .validate(path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })
 }

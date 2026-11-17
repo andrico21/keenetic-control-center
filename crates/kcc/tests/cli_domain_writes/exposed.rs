@@ -1,8 +1,5 @@
-//! Which CLI subcommand runs each write operation of `kcc_domain::registry()`.
-//!
-//! Operations the CLI does not offer are listed, with the reason, in
-//! [`crate::excluded::EXCLUDED`]; a test holds both tables to the registry and to the
-//! clap command tree.
+//! Which CLI subcommand runs each write operation of `kcc_domain::registry()`; a test
+//! holds the table to the registry and to the clap command tree.
 
 use kcc_domain::DomainId::{
     self, Clients, Components, Configuration, Dhcp, Diagnostics, Dns, Firewall, Interfaces,
@@ -110,8 +107,6 @@ pub(crate) const EXPOSED: &[Exposure] = &[
         "components auto-update-schedule",
     ),
     on(Storage, "eject", "storage eject"),
-    on(Storage, "partition_check", "storage check"),
-    on(Storage, "partition_format", "storage format"),
     on(Schedules, "create", "schedules create"),
     on(Schedules, "description", "schedules describe"),
     on(Schedules, "action", "schedules action"),

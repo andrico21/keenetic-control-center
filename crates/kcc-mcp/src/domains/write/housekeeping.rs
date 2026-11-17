@@ -3,7 +3,7 @@
 use kcc_domain::{
     ChangeOp, DomainError, RouterCtx, logging,
     schedules::{self, ActionTime, ScheduleAction},
-    storage::{self, MaintenanceAction, MaintenanceRequest},
+    storage,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -19,7 +19,7 @@ pub(super) const LOGGING_OPS: &[&str] = &["server", "reduction", "suppress", "cl
 pub(super) const SCHEDULE_OPS: &[&str] = &["create", "description", "action"];
 
 /// Storage write operations.
-pub(super) const STORAGE_OPS: &[&str] = &["eject", "partition_check", "partition_format"];
+pub(super) const STORAGE_OPS: &[&str] = &["eject"];
 
 /// The area a housekeeping write belongs to.
 #[derive(Clone, Copy, Debug)]
@@ -43,10 +43,10 @@ pub(super) struct HousekeepingInput {
     /// Confirms a destructive operation.
     #[serde(default)]
     confirm: bool,
-    /// Log server address, suppressed ident, schedule name, media, or partition.
+    /// Log server address, suppressed ident, schedule name, or media.
     #[serde(default)]
     name: Option<String>,
-    /// Schedule description, schedule action (`start` or `stop`), or filesystem.
+    /// Schedule description or schedule action (`start` or `stop`).
     #[serde(default)]
     value: Option<String>,
     /// Log server port.
@@ -110,7 +110,7 @@ fn plan_schedule(
     })
 }
 
-/// Plans one storage operation; every one is destructive and needs confirmation.
+/// Plans the storage eject, which is destructive and needs confirmation.
 ///
 /// # Errors
 ///
@@ -121,29 +121,13 @@ fn plan_storage(
 ) -> Result<Result<ChangeOp, DomainError>, McpFailure> {
     let (identity, router, ctx) = opened;
     let name = text(input.name.as_deref())?;
-    Ok(match input.op.as_str() {
-        "eject" => storage::plan_eject(ctx, router.as_str(), &identity.role, name, input.confirm),
-        operation => {
-            let action = if operation == "partition_check" {
-                MaintenanceAction::Check
-            } else {
-                MaintenanceAction::Format
-            };
-            let filesystem = input
-                .value
-                .as_deref()
-                .map(|value| text(Some(value)))
-                .transpose()?;
-            let request = MaintenanceRequest::new(
-                router.as_str(),
-                &identity.role,
-                name,
-                filesystem,
-                input.confirm,
-            );
-            storage::plan_maintenance(ctx, action, request)
-        }
-    })
+    Ok(storage::plan_eject(
+        ctx,
+        router.as_str(),
+        &identity.role,
+        name,
+        input.confirm,
+    ))
 }
 
 /// Runs one logging, schedule, or storage write.

@@ -167,7 +167,7 @@ async fn interface_description(writer: &mut Writer<'_>) -> Result<WriteResult, B
     let name = ObjectName::try_from(found)?;
     for (value, last) in [(DESCRIPTION, !writer.revert), (original.as_str(), true)] {
         let operation = interfaces::plan_description(writer.ctx, &name, value)?;
-        drop(interfaces::apply(writer.changes, writer.ctx, &name, &operation).await?);
+        drop(interfaces::apply(writer.changes, &name, &operation).await?);
         let fresh = interfaces::read_interface(writer.ctx, &name).await?;
         if fresh.description.as_deref() != Some(value) {
             return Err(format!("interface description read-back failed on {name}").into());

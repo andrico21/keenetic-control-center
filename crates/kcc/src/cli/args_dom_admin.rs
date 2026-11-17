@@ -1,4 +1,4 @@
-//! Write commands of the firewall, service, storage, schedule and KeenDNS domains.
+//! Write commands of the firewall, service, schedule and KeenDNS domains.
 
 use clap::{Subcommand, ValueEnum};
 
@@ -185,25 +185,6 @@ pub enum ServicesWriteCommand {
         /// Port for `port`.
         #[arg(long, required_if_eq("setting", "port"))]
         port: Option<u16>,
-    },
-}
-
-/// More storage commands; all are destructive (`--confirm-destructive <router>`).
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum StorageWriteCommand {
-    /// Check a partition for file-system errors.
-    Check {
-        /// Partition id.
-        partition: String,
-    },
-    /// Format a partition, erasing it.
-    Format {
-        /// Partition id.
-        partition: String,
-        /// File system, e.g. `ext4`.
-        #[arg(long)]
-        filesystem: String,
     },
 }
 

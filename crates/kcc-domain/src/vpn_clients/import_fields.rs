@@ -2,10 +2,18 @@
 
 use core::net::Ipv4Addr;
 
+use kcc_catalog::ValidationIssue;
+
 use super::{VpnClientChange, WireGuardConfig, change};
 use crate::{ChangeOp, DomainError, Result, RouterCtx};
 
 /// Appends every documented non-secret peer field to the aggregate plan.
+///
+/// # Errors
+///
+/// Returns an error when the change workflow fails: dispatch, read-back or audit
+/// ([`DomainError::Workflow`]), or when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 pub(super) fn append(
     router: &RouterCtx,
     name: &str,
@@ -60,14 +68,25 @@ pub(super) fn append(
     Ok(())
 }
 
-/// Converts an imported prefix to the catalog address/mask pair.
+/// Converts an imported IPv4 prefix to the catalog address/mask pair; any other address
+/// (an IPv6 range) is refused as an invalid `address`.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]), or when a reply or a plan does not have the expected
+/// shape ([`DomainError::InvalidResponse`]).
 fn parse_prefix(prefix: &str) -> Result<(String, String)> {
     let (address, prefix_length) = prefix.split_once('/').ok_or(DomainError::InvalidResponse)?;
     let bits = prefix_length
         .parse::<u32>()
         .map_err(|_error| DomainError::InvalidResponse)?;
-    if address.contains(':') {
-        return Ok((address.to_owned(), bits.to_string()));
+    if address.parse::<Ipv4Addr>().is_err() {
+        return Err(DomainError::Validation {
+            issues: vec![ValidationIssue::InvalidValue {
+                field: "address".to_owned(),
+            }],
+        });
     }
     if bits > 32 {
         return Err(DomainError::InvalidResponse);

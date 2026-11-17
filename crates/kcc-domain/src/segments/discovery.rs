@@ -2,10 +2,11 @@
 
 use core::net::Ipv4Addr;
 
+use kcc_config::config_text::{Ast, Token};
 use serde::{Deserialize, Serialize};
 
 use super::{SegmentSpec, ownership, step};
-use crate::{DomainError, Result, RouterCtx};
+use crate::{DomainError, Result, RouterCtx, config_tree};
 
 /// A validated IEEE 802.1Q VLAN identifier.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -14,6 +15,12 @@ pub struct VlanId(u16);
 
 impl VlanId {
     /// Validates the usable VLAN range.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when an argument cannot be one safe router CLI word
+    /// ([`DomainError::InvalidCliToken`]).
+    #[inline]
     pub fn new(value: u16) -> Result<Self> {
         if !(1..=4094).contains(&value) {
             return Err(DomainError::InvalidCliToken);
@@ -22,6 +29,7 @@ impl VlanId {
     }
     /// Returns the VLAN number.
     #[must_use]
+    #[inline]
     pub const fn value(self) -> u16 {
         self.0
     }
@@ -89,6 +97,7 @@ struct Ownership {
 impl SegmentView {
     /// Summarizes only the recorded owned contexts and shared port leaves.
     #[must_use]
+    #[inline]
     pub fn delete_summary(&self) -> DeleteSummary {
         let mut owned_contexts = vec![
             format!("interface Vlan{}", self.id),
@@ -114,7 +123,16 @@ impl SegmentView {
     }
 
     /// Classifies the exact generated deletion plan for this immutable ownership record.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when an identifier cannot be one safe router CLI word
+    /// ([`DomainError::InvalidCliToken`]), when the catalog refuses a planned request
+    /// ([`DomainError::Validation`]), or when the interface topology needed to classify the
+    /// plan cannot be read or does not decode ([`DomainError::Rci`],
+    /// [`DomainError::InvalidResponse`]).
     // cancel-safe: management classification performs read-only topology requests.
+    #[inline]
     pub async fn deletion_plan(&self, router: &RouterCtx) -> Result<crate::ChangeOp> {
         super::plan_delete(router, &self.record.spec).await
     }
@@ -140,12 +158,20 @@ impl SegmentView {
 }
 
 /// Validates ownership before creation and prepares the description marker.
+///
+/// # Errors
+///
+/// Returns an error when an identifier cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the running configuration cannot be read
+/// (a failed router request is reported this way, not as [`DomainError::Rci`]), already
+/// holds the segment's contexts or shared leaves, or the record cannot be serialized
+/// ([`DomainError::InvalidResponse`]).
 pub(super) async fn prepare(router: &RouterCtx, spec: &SegmentSpec) -> Result<String> {
     ownership::validate(spec)?;
-    let text = step::running_config(router)
+    let tree = step::running_config(router)
         .await
         .map_err(|_error| DomainError::InvalidResponse)?;
-    ownership::check_baseline(spec, &text)?;
+    ownership::check_baseline(spec, &tree)?;
     let mut contexts = vec![
         format!("interface Vlan{}", spec.id),
         format!("interface Bridge{}", spec.id),
@@ -156,7 +182,7 @@ pub(super) async fn prepare(router: &RouterCtx, spec: &SegmentSpec) -> Result<St
     }
     if contexts
         .iter()
-        .any(|context| step::context_has_child(&text, context, None))
+        .any(|context| config_tree::context_has_child(&tree, context, None))
     {
         return Err(DomainError::InvalidResponse);
     }
@@ -164,7 +190,7 @@ pub(super) async fn prepare(router: &RouterCtx, spec: &SegmentSpec) -> Result<St
         .switch_ports
         .iter()
         .map(|port| format!("interface {port}"))
-        .filter(|context| !step::context_has_child(&text, context, None))
+        .filter(|context| !config_tree::context_has_child(&tree, context, None))
         .collect();
     serde_json::to_string(&Ownership {
         spec: spec.clone(),
@@ -176,29 +202,30 @@ pub(super) async fn prepare(router: &RouterCtx, spec: &SegmentSpec) -> Result<St
 
 /// Discovers only contexts carrying the domain's persisted ownership marker; a record that
 /// cannot be decoded is skipped and logged by its line number, never by its text.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the running configuration cannot be read or
+/// parsed; a failing router request is reported this way, not as [`DomainError::Rci`].
+/// Ownership records that do not decode are skipped, not reported.
 pub(super) async fn read(router: &RouterCtx) -> Result<Vec<SegmentView>> {
-    let text = step::running_config(router)
+    let tree = step::running_config(router)
         .await
         .map_err(|_error| DomainError::InvalidResponse)?;
-    let mut context = "";
     let mut result = Vec::new();
-    for (index, line) in text.lines().enumerate() {
-        if !line.starts_with(' ') {
-            context = line;
-            continue;
-        }
-        let Some(description) = line.trim().strip_prefix("description ") else {
+    for (context, child) in config_tree::nested(&tree) {
+        let words = config_tree::texts(&child.tokens);
+        let Some((&"description", rest)) = words.split_first() else {
             continue;
         };
-        let decoded: String =
-            serde_json::from_str(description).unwrap_or_else(|_error| description.to_owned());
-        let Some(body) = decoded.strip_prefix("kcc-segment:") else {
+        let description = rest.join(" ");
+        let Some(body) = description.strip_prefix("kcc-segment:") else {
             continue;
         };
-        match decode(context, body, &text) {
+        match decode(&context.tokens, body, &tree) {
             Ok(view) => result.push(view),
             Err(_error) => tracing::warn!(
-                line = index.saturating_add(1),
+                line = child.line_no,
                 "skipped an invalid segment ownership record"
             ),
         }
@@ -207,7 +234,13 @@ pub(super) async fn read(router: &RouterCtx) -> Result<Vec<SegmentView>> {
 }
 
 /// Decodes one ownership record found under `context` into its current view.
-fn decode(context: &str, body: &str, text: &str) -> Result<SegmentView> {
+///
+/// # Errors
+///
+/// Returns an error when the record does not parse, names contexts it does not own, or
+/// does not belong to its VLAN context ([`DomainError::InvalidResponse`]), or when an
+/// identifier in it cannot be one safe router CLI word ([`DomainError::InvalidCliToken`]).
+fn decode(context: &[Token], body: &str, tree: &Ast) -> Result<SegmentView> {
     let record: Ownership =
         serde_json::from_str(body).map_err(|_error| DomainError::InvalidResponse)?;
     ownership::validate(&record.spec)?;
@@ -220,17 +253,22 @@ fn decode(context: &str, body: &str, text: &str) -> Result<SegmentView> {
     }) {
         return Err(DomainError::InvalidResponse);
     }
-    if context != format!("interface Vlan{}", record.spec.id) {
+    if context != config_tree::command(&format!("interface Vlan{}", record.spec.id)) {
         return Err(DomainError::InvalidResponse);
     }
-    project(record, text)
+    project(record, tree)
 }
 
 /// Projects current presence separately from persisted intent so partial segments remain visible.
-fn project(record: Ownership, text: &str) -> Result<SegmentView> {
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when the record's VLAN id is outside 1 to 4094.
+fn project(record: Ownership, tree: &Ast) -> Result<SegmentView> {
     let spec = &record.spec;
     let bridge = format!("Bridge{}", spec.id);
-    let has = |context: &str, child: &str| step::context_has_child(text, context, Some(child));
+    let has =
+        |context: &str, child: &str| config_tree::context_has_child(tree, context, Some(child));
     let addressed = has(
         &format!("interface {bridge}"),
         &format!("ip address {} {}", spec.address, spec.mask),
@@ -239,9 +277,9 @@ fn project(record: Ownership, text: &str) -> Result<SegmentView> {
         &format!("ip dhcp pool Pool{}", spec.id),
         &format!("range {} {}", spec.dhcp_begin, spec.dhcp_end),
     );
-    let nat = step::context_has_child(text, &format!("ip nat {bridge}"), None);
+    let nat = config_tree::context_has_child(tree, &format!("ip nat {bridge}"), None);
     let hotspot_policy =
-        step::context_has_child(text, &format!("ip hotspot policy {bridge} permit"), None);
+        config_tree::context_has_child(tree, &format!("ip hotspot policy {bridge} permit"), None);
     let trunked_ports = spec
         .switch_ports
         .iter()

@@ -1,30 +1,16 @@
 //! DNS proxy, resolver, static-record, and domain-list operations.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::module_name_repetitions,
-    reason = "domain operation names follow the router vocabulary; async reads and planning are not inline candidates"
-)]
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private descriptor inventory and constructors are evident from their names"
-    )
-)]
 
 mod change;
 
 use alloc::collections::BTreeMap;
 
-use kcc_app::{permissions::Permission, workflow::CliChangeRequest};
-use kcc_catalog::Risk;
+use kcc_app::workflow::CliChangeRequest;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    read_show,
+    descriptor, read_show,
 };
 
 /// Tolerant encrypted-upstream collection.
@@ -43,6 +29,10 @@ pub struct UpstreamCollection {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 #[non_exhaustive]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the public name is the vocabulary the Web, MCP and CLI front ends use"
+)]
 pub struct DnsProxyState {
     /// DNS-over-TLS upstreams.
     pub tls: Option<UpstreamCollection>,
@@ -67,6 +57,10 @@ pub struct DnsProxyState {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 #[non_exhaustive]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the public name is the vocabulary the Web, MCP and CLI front ends use"
+)]
 pub struct DnsConfiguration {
     /// DNS proxy configuration.
     #[serde(rename = "dns-proxy")]
@@ -193,6 +187,10 @@ impl HttpsUpstream {
 /// DNS-based route settings.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the public name is the vocabulary the Web, MCP and CLI front ends use"
+)]
 pub struct DnsRoute {
     /// FQDN object-group name.
     pub group: String,
@@ -219,6 +217,10 @@ impl DnsRoute {
 /// One typed DNS configuration mutation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the public name is the vocabulary the Web, MCP and CLI front ends use"
+)]
 pub enum DnsChange {
     /// Add a DNS-over-TLS upstream.
     TlsUpstream(TlsUpstream),
@@ -331,25 +333,27 @@ pub enum DnsChange {
     },
 }
 
+/// DNS reads.
 const READS: &[OperationDescriptor] = &[
-    read_operation("dns_proxy", "show dns-proxy"),
-    read_operation("running_configuration", "dns-proxy"),
-    read_operation("nextdns", "nextdns"),
+    descriptor::read("dns_proxy", "show dns-proxy"),
+    descriptor::read("running_configuration", "dns-proxy"),
+    descriptor::read("nextdns", "nextdns"),
 ];
 
+/// DNS writes.
 const WRITES: &[OperationDescriptor] = &[
-    write_operation("tls_upstream", "dns-proxy tls upstream"),
-    write_operation("https_upstream", "dns-proxy https upstream"),
-    write_operation("filter_engine", "dns-proxy filter engine"),
-    write_operation("filter_profile", "dns-proxy filter profile"),
-    write_operation("intercept", "dns-proxy intercept enable"),
-    write_operation("rebind_protect", "dns-proxy rebind-protect"),
-    write_operation("max_ttl", "dns-proxy max-ttl"),
-    write_operation("route", "dns-proxy route object-group"),
-    write_operation("name_server", "ip name-server"),
-    write_operation("static_host", "ip host"),
-    write_operation("fqdn_group", "object-group fqdn"),
-    write_operation("nextdns_assign", "nextdns assign"),
+    descriptor::write("tls_upstream", "dns-proxy tls upstream"),
+    descriptor::write("https_upstream", "dns-proxy https upstream"),
+    descriptor::write("filter_engine", "dns-proxy filter engine"),
+    descriptor::write("filter_profile", "dns-proxy filter profile"),
+    descriptor::write("intercept", "dns-proxy intercept enable"),
+    descriptor::write("rebind_protect", "dns-proxy rebind-protect"),
+    descriptor::write("max_ttl", "dns-proxy max-ttl"),
+    descriptor::write("route", "dns-proxy route object-group"),
+    descriptor::write("name_server", "ip name-server"),
+    descriptor::write("static_host", "ip host"),
+    descriptor::write("fqdn_group", "object-group fqdn"),
+    descriptor::write("nextdns_assign", "nextdns assign"),
 ];
 
 /// DNS domain metadata.
@@ -361,13 +365,26 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads `show dns-proxy`.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_dns_proxy(router: &RouterCtx) -> Result<DnsProxyState> {
     read_show(&router.client, &["show", "dns-proxy"]).await
 }
 
 /// Reads the DNS-related running configuration.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_configuration(router: &RouterCtx) -> Result<DnsConfiguration> {
     let tree = serde_json::json!({
         "dns-proxy": {},
@@ -381,31 +398,26 @@ pub async fn read_configuration(router: &RouterCtx) -> Result<DnsConfiguration> 
 }
 
 /// Plans one catalog-validated DNS mutation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_change(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
     change::plan(router, change)
 }
 
 /// Converts a DNS plan into the only supported protected execution request.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`] when a request field is not one safe CLI word,
+/// [`DomainError::InvalidResponse`] when a request is not a DNS command, lacks a field, or a
+/// command cannot be given a read-back of its own (a secret-bearing command, or a line that is not
+/// exactly one configuration row), and [`DomainError::Workflow`] when a rendered line does not
+/// match its request.
+#[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     change::request(operation)
-}
-
-const fn read_operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk: Risk::Read,
-        permission: Permission::Read,
-        persists_immediately: false,
-    }
-}
-
-const fn write_operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk: Risk::Write,
-        permission: Permission::Write,
-        persists_immediately: false,
-    }
 }

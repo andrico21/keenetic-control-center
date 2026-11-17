@@ -15,6 +15,12 @@ use serde_json::{Value, json};
 use crate::{DomainError, Result, RouterCtx};
 
 /// Union of every reported include and inherit edge, indexed by bridge.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: configuration reads do not change router state.
 pub(crate) async fn read(router: &RouterCtx) -> Result<BTreeMap<String, BTreeSet<String>>> {
     let lines = configuration_lines(router).await?;
@@ -27,6 +33,11 @@ pub(crate) async fn read(router: &RouterCtx) -> Result<BTreeMap<String, BTreeSet
 }
 
 /// Parses and unions the two independently reported membership representations.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn merge(lines: Vec<Vec<String>>, tree: &Value) -> Result<BTreeMap<String, BTreeSet<String>>> {
     let interfaces: BTreeMap<String, Members> =
         serde_json::from_value(tree.clone()).map_err(|_error| DomainError::InvalidResponse)?;
@@ -55,6 +66,12 @@ fn merge(lines: Vec<Vec<String>>, tree: &Value) -> Result<BTreeMap<String, BTree
 }
 
 /// Reads redacted topology and binding lines from a running-configuration snapshot.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read changes nothing on the router.
 pub(crate) async fn configuration_lines(router: &RouterCtx) -> Result<Vec<Vec<String>>> {
     let bytes = router.client.download_config(ConfigKind::Running).await?;

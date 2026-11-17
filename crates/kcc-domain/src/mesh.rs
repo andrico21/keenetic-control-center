@@ -1,9 +1,4 @@
 //! Mesh member inventory and maintenance actions.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "domain async actions are not useful inline candidates"
-)]
 
 use alloc::{collections::BTreeMap, vec};
 use core::result::Result as CoreResult;
@@ -15,13 +10,13 @@ use kcc_app::{
         VerificationSpec, WorkflowError,
     },
 };
-use kcc_catalog::{HttpMethod, Risk};
+use kcc_catalog::Risk;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token, read_show,
+    cli_token, descriptor, planning::validate, read_show,
 };
 
 /// Tolerant mesh member.
@@ -75,26 +70,26 @@ pub enum RebootError {
 
 /// Mesh read inventory.
 const READS: &[OperationDescriptor] = &[
-    read_operation("members", "show mws member"),
-    read_operation("associations", "show mws associations"),
+    descriptor::read("members", "show mws member"),
+    descriptor::read("associations", "show mws associations"),
 ];
 
 /// Mesh write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    write_operation("acquire", "mws acquire", Risk::Write, Permission::Write),
-    write_operation(
+    descriptor::operation("acquire", "mws acquire", Risk::Write, Permission::Write),
+    descriptor::operation(
         "member_reboot",
         "mws member reboot",
         Risk::Destructive,
         Permission::Destructive,
     ),
-    write_operation(
+    descriptor::operation(
         "update_check",
         "mws member update check",
         Risk::Write,
         Permission::Write,
     ),
-    write_operation(
+    descriptor::operation(
         "update_start",
         "mws member update start",
         Risk::Write,
@@ -111,23 +106,47 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads mesh members.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_members(router: &RouterCtx) -> Result<Vec<Member>> {
     read_show(&router.client, &["show", "mws", "member"]).await
 }
 
 /// Reads mesh associations.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_associations(router: &RouterCtx) -> Result<Vec<Association>> {
     read_show(&router.client, &["show", "mws", "associations"]).await
 }
 
 /// Plans acquisition of a mesh candidate.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_acquire(router: &RouterCtx, candidate: &str) -> Result<ChangeOp> {
     plan(router, "mws acquire", &json!({"candidate": candidate}))
 }
 
 /// Plans a member update check.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_update_check(router: &RouterCtx, member: &str) -> Result<ChangeOp> {
     plan(
         router,
@@ -137,6 +156,12 @@ pub fn plan_update_check(router: &RouterCtx, member: &str) -> Result<ChangeOp> {
 }
 
 /// Plans a member update start.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_update_start(router: &RouterCtx, member: &str) -> Result<ChangeOp> {
     plan(
         router,
@@ -146,6 +171,13 @@ pub fn plan_update_start(router: &RouterCtx, member: &str) -> Result<ChangeOp> {
 }
 
 /// Converts an ordinary mesh plan into a protected parser request.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when a reply or a plan does not have the
+/// expected shape ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let validated = operation
         .requests
@@ -172,8 +204,17 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 }
 
 /// Reboots a mesh member only after exact confirmation, using terminal CLI execution.
+///
+/// # Errors
+///
+/// Returns an error when the confirmation does not match the router name
+/// ([`DomainError::ConfirmationMismatch`]), when an argument cannot be one safe router CLI
+/// word ([`DomainError::InvalidCliToken`]), when the catalog refuses a planned request
+/// ([`DomainError::Validation`]), or when the change workflow fails: dispatch, read-back
+/// or audit ([`DomainError::Workflow`]).
 // NOT cancel-safe: cancelled after the CLI request is sent, the member may already be rebooting
 // and the reboot is unaudited.
+#[inline]
 pub async fn reboot_member(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -184,10 +225,7 @@ pub async fn reboot_member(
         return Err(RebootError::ConfirmationMismatch);
     }
     let body = json!({"member": member});
-    let validated = router
-        .catalog
-        .validate("mws member reboot", HttpMethod::Post, &body)
-        .map_err(|issues| DomainError::Validation { issues })?;
+    let validated = validate(router, "mws member reboot", &body)?;
     let request = CliChangeRequest::terminal(
         vec![
             ValidatedCli::new(
@@ -206,39 +244,15 @@ pub async fn reboot_member(
         .map_err(RebootError::Workflow)
 }
 
-/// Builds a read descriptor.
-const fn read_operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk: Risk::Read,
-        permission: Permission::Read,
-        persists_immediately: false,
-    }
-}
-
-/// Builds a write descriptor.
-const fn write_operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-    permission: Permission,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission,
-        persists_immediately: false,
-    }
-}
-
 /// Validates an ordinary mesh action.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]), or when a reply or a plan does not have the expected
+/// shape ([`DomainError::InvalidResponse`]).
 fn plan(router: &RouterCtx, path: &str, body: &Value) -> Result<ChangeOp> {
-    let validated = router
-        .catalog
-        .validate(path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })?;
+    let validated = validate(router, path, body)?;
     Ok(ChangeOp::new(
         vec![validated],
         if path == "mws acquire" {
@@ -258,6 +272,12 @@ fn plan(router: &RouterCtx, path: &str, body: &Value) -> Result<ChangeOp> {
 }
 
 /// Quotes one string field for the CLI parser.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when a reply or a plan does not have the
+/// expected shape ([`DomainError::InvalidResponse`]).
 fn quoted(value: &Value, field: &str) -> Result<String> {
     let text = value
         .get(field)

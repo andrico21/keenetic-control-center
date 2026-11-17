@@ -1,36 +1,32 @@
 //! Catalog-validated route mutation and wipe recovery.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "protected route mutations are not inline candidates"
-)]
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private route rendering and validation helpers are named after their safety role"
-    )
-)]
 
-use alloc::{format, vec};
+use alloc::vec;
 
-use kcc_app::{
-    permissions::Permission,
-    workflow::{
-        ChangeSet, CliChangeRequest, CliChangeResult, CliCommand as ValidatedCli, WorkflowError,
-    },
+use kcc_app::workflow::{
+    ChangeSet, CliChangeRequest, CliChangeResult, CliCommand as ValidatedCli, WorkflowError,
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{Risk, ValidatedRequest};
 use kcc_rci::RciBody;
 use serde_json::{Value, json};
 
 use super::model::{Ipv4Route, Ipv6Route};
-use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
+use crate::{
+    ChangeOp, DomainError, Result, RouterCtx,
+    planning::plan_one,
+    request_words::{field_word, negated, optional_text},
+    verification,
+};
 
 mod ipv6;
 mod restore;
 
 /// Plans adding one catalog-validated IPv4 route.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_add_ipv4(router: &RouterCtx, route: &Ipv4Route) -> Result<ChangeOp> {
     plan_ipv4(router, route, false)
 }
@@ -39,11 +35,23 @@ pub fn plan_add_ipv4(router: &RouterCtx, route: &Ipv4Route) -> Result<ChangeOp> 
 ///
 /// Execute removals through [`remove_ipv4`] so broad clears are restored and the
 /// removal is verified.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_remove_ipv4(router: &RouterCtx, route: &Ipv4Route) -> Result<ChangeOp> {
     plan_ipv4(router, route, true)
 }
 
 /// Plans adding one catalog-validated IPv6 route.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_add_ipv6(router: &RouterCtx, route: &Ipv6Route) -> Result<ChangeOp> {
     plan_ipv6(router, route, false)
 }
@@ -52,11 +60,24 @@ pub fn plan_add_ipv6(router: &RouterCtx, route: &Ipv6Route) -> Result<ChangeOp> 
 ///
 /// Execute removals through [`remove_ipv6`] so broad clears are restored and the
 /// removal is verified.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_remove_ipv6(router: &RouterCtx, route: &Ipv6Route) -> Result<ChangeOp> {
     plan_ipv6(router, route, true)
 }
 
 /// Converts a route plan into protected CLI workflow input.
+///
+/// # Errors
+///
+/// Returns an error when the plan holds no request or its read-back cannot be built
+/// ([`DomainError::InvalidResponse`]), or when the rendered line does not bind to its
+/// request ([`DomainError::Workflow`]).
+#[inline]
 pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let validated = operation
         .requests
@@ -72,8 +93,21 @@ pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 
 /// Removes one IPv4 route and verifies the exact command is gone from the running
 /// configuration; a broad-clear status restores every saved static route and aborts.
+///
+/// # Errors
+///
+/// Returns an error when reading the saved routes fails or does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), when the catalog refuses a
+/// planned request ([`DomainError::Validation`]), when the removal cannot be rendered or
+/// given a read-back ([`DomainError::InvalidResponse`]), when the change workflow fails in
+/// dispatch or audit, or a rendered line does not bind to its request
+/// ([`DomainError::Workflow`]), or when the read-back still finds the route
+/// ([`DomainError::RouteCountMismatch`]). When the router reports a broad clear, the first
+/// failure of restoring the saved routes is returned, or [`DomainError::SafetyAbort`] when
+/// it succeeded.
 // NOT cancel-safe: cancelled after the removal is sent, the route (or, on a broad clear,
 // every static route not yet restored) stays removed and unverified.
+#[inline]
 pub async fn remove_ipv4(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -96,8 +130,19 @@ pub async fn remove_ipv4(
 
 /// Removes one IPv6 route, restoring every saved static route and aborting on a broad-clear
 /// status.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Rci`] or [`DomainError::InvalidResponse`] when reading the saved routes
+/// fails, [`DomainError::Validation`] when the catalog refuses the removal,
+/// [`DomainError::InvalidResponse`] when the removal cannot be rendered or given a read-back,
+/// [`DomainError::Workflow`] when the change workflow fails in dispatch or audit, and
+/// [`DomainError::RouteCountMismatch`] when the read-back still finds the route. When the router
+/// reports a broad clear, every saved route is re-added and the first failure of that restore is
+/// returned, or [`DomainError::SafetyAbort`] when it succeeded.
 // NOT cancel-safe: cancelled after the removal is sent, the route (or, on a broad clear,
 // every static route not yet restored) stays removed and unverified.
+#[inline]
 pub async fn remove_ipv6(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -106,6 +151,11 @@ pub async fn remove_ipv6(
     ipv6::remove(changes, router, route).await
 }
 
+/// Plans adding or removing one IPv4 static route.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Validation`] when the catalog refuses the request.
 fn plan_ipv4(router: &RouterCtx, route: &Ipv4Route, remove: bool) -> Result<ChangeOp> {
     let mut body = if route.destination == "default" {
         json!({})
@@ -123,9 +173,14 @@ fn plan_ipv4(router: &RouterCtx, route: &Ipv4Route, remove: bool) -> Result<Chan
     if remove {
         drop(fields.insert("no".to_owned(), json!(true)));
     }
-    plan(router, "ip route", &body)
+    plan_one(router, "ip route", &body, Risk::Write)
 }
 
+/// Plans adding or removing one IPv6 static route.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Validation`] when the catalog refuses the request.
 fn plan_ipv6(router: &RouterCtx, route: &Ipv6Route, remove: bool) -> Result<ChangeOp> {
     let mut body = if route.prefix == "default" {
         json!({})
@@ -138,9 +193,10 @@ fn plan_ipv6(router: &RouterCtx, route: &Ipv6Route, remove: bool) -> Result<Chan
     if remove {
         drop(fields.insert("no".to_owned(), json!(true)));
     }
-    plan(router, "ipv6 route", &body)
+    plan_one(router, "ipv6 route", &body, Risk::Write)
 }
 
+/// Inserts `value` as `name` when it is given.
 fn insert_optional(
     fields: &mut serde_json::Map<String, Value>,
     name: &str,
@@ -151,32 +207,22 @@ fn insert_optional(
     }
 }
 
-fn plan(router: &RouterCtx, path: &str, body: &Value) -> Result<ChangeOp> {
-    let validated = router
-        .catalog
-        .validate(path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })?;
-    Ok(ChangeOp::new(
-        vec![validated],
-        Vec::new(),
-        Risk::Write,
-        Permission::Write,
-        false,
-    ))
-}
-
+/// The CLI line of one validated route request.
 fn render(request: &ValidatedRequest) -> String {
     let value = request.value();
     let mut parts = vec![request.path.clone()];
     if request.path == "ip route" {
-        if let (Some(network), Some(mask)) = (text(value, "network"), text(value, "mask")) {
+        if let (Some(network), Some(mask)) = (
+            optional_text(request, "network"),
+            optional_text(request, "mask"),
+        ) {
             parts.extend([network.to_owned(), mask.to_owned()]);
-        } else if let Some(host) = text(value, "host") {
+        } else if let Some(host) = optional_text(request, "host") {
             parts.push(host.to_owned());
         } else {
             parts.push("default".to_owned());
         }
-    } else if let Some(prefix) = text(value, "prefix") {
+    } else if let Some(prefix) = optional_text(request, "prefix") {
         parts.push(prefix.to_owned());
     } else {
         parts.push("default".to_owned());
@@ -188,21 +234,12 @@ fn render(request: &ValidatedRequest) -> String {
         ["interface", "gateway", "metric"]
     };
     for field in fields {
-        if let Some(item) = value.get(field) {
-            parts.push(
-                item.as_str()
-                    .map_or_else(|| item.to_string(), ToOwned::to_owned),
-            );
-        }
+        parts.extend(field_word(value, field));
     }
-    let line = parts.join(" ");
-    if value.get("no").and_then(Value::as_bool) == Some(true) {
-        format!("no {line}")
-    } else {
-        line
-    }
+    negated(value, parts.join(" "))
 }
 
+/// Whether a router reply reports that routes were cleared.
 fn reports_cleared(responses: &[RciBody]) -> bool {
     responses.iter().any(|body| match body {
         RciBody::Json(response) => response
@@ -211,8 +248,4 @@ fn reports_cleared(responses: &[RciBody]) -> bool {
             .any(|(_pointer, item)| item.message.to_ascii_lowercase().contains("cleared")),
         RciBody::Text(_) | _ => false,
     })
-}
-
-fn text<'value>(value: &'value Value, field: &str) -> Option<&'value str> {
-    value.get(field).and_then(Value::as_str)
 }

@@ -1,9 +1,4 @@
 //! System log reading, forwarding, reduction, suppression, and clearing.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "domain planning and asynchronous reads are not useful inline candidates"
-)]
 
 use alloc::vec;
 
@@ -14,39 +9,43 @@ use kcc_app::{
     registry::authorize,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::Risk;
 use serde_json::{Map, Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token::validate as validate_token, diagnostics,
+    cli_token::validate as validate_token, descriptor, diagnostics, planning::validate,
 };
 
 /// Logging read inventory.
-const READS: &[OperationDescriptor] =
-    &[operation("read", "show log", Risk::Read, Permission::Read)];
+const READS: &[OperationDescriptor] = &[descriptor::operation(
+    "read",
+    "show log",
+    Risk::Read,
+    Permission::Read,
+)];
 
 /// Logging write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    operation(
+    descriptor::operation(
         "server",
         "system log server",
         Risk::Write,
         Permission::Write,
     ),
-    operation(
+    descriptor::operation(
         "reduction",
         "system log reduction",
         Risk::Write,
         Permission::Write,
     ),
-    operation(
+    descriptor::operation(
         "suppress",
         "system log suppress",
         Risk::Write,
         Permission::Write,
     ),
-    operation(
+    descriptor::operation(
         "clear",
         "system log clear",
         Risk::Destructive,
@@ -63,13 +62,26 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads router log text through the POST-aware reader.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: only reads the log; a dropped continuation poll leaves
 // just a read-only request behind.
+#[inline]
 pub async fn read_log(router: &RouterCtx, max_lines: u32) -> Result<String> {
     diagnostics::read_log(&router.client, max_lines).await
 }
 
 /// Plans adding or removing a remote log server.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_server(
     router: &RouterCtx,
     address: &str,
@@ -96,6 +108,12 @@ pub fn plan_server(
 }
 
 /// Plans log-reduction state.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_reduction(router: &RouterCtx, enabled: bool) -> Result<ChangeOp> {
     let body = if enabled {
         json!({})
@@ -112,6 +130,13 @@ pub fn plan_reduction(router: &RouterCtx, enabled: bool) -> Result<ChangeOp> {
 }
 
 /// Plans adding or removing one suppressed log identifier.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_suppress(router: &RouterCtx, ident: &str, enabled: bool) -> Result<ChangeOp> {
     validate_token(ident)?;
     let body = if enabled {
@@ -129,6 +154,14 @@ pub fn plan_suppress(router: &RouterCtx, ident: &str, enabled: bool) -> Result<C
 }
 
 /// Plans confirmed destructive log clearing after authorization.
+///
+/// # Errors
+///
+/// Returns an error when the role lacks the permission or the router scope
+/// ([`DomainError::PermissionDenied`]), when the destructive change is not confirmed
+/// ([`DomainError::ConfirmationRequired`]), or when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
+#[inline]
 pub fn plan_clear(
     router: &RouterCtx,
     router_name: &str,
@@ -150,6 +183,12 @@ pub fn plan_clear(
 }
 
 /// Converts a logging plan into a protected workflow request.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let request = operation
         .requests
@@ -195,23 +234,12 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     ))
 }
 
-/// Builds one operation descriptor.
-const fn operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-    permission: Permission,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission,
-        persists_immediately: false,
-    }
-}
-
 /// Plans one catalog-validated logging operation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 fn plan(
     router: &RouterCtx,
     path: &str,
@@ -227,12 +255,4 @@ fn plan(
         permission,
         false,
     ))
-}
-
-/// Validates one catalog request.
-fn validate(router: &RouterCtx, path: &str, body: &Value) -> Result<ValidatedRequest> {
-    router
-        .catalog
-        .validate(path, HttpMethod::Post, body)
-        .map_err(|issues| DomainError::Validation { issues })
 }

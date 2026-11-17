@@ -5,6 +5,11 @@ use serde_json::{Map, Value, json};
 use crate::{ChangeOp, DomainError, Result};
 
 /// Builds the requested row without unrelated schedule defaults.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 pub(super) fn expected(operation: &ChangeOp, name: &str) -> Result<Value> {
     let mut row = Map::new();
     drop(row.insert("name".to_owned(), json!(name)));

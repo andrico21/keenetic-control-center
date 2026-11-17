@@ -7,6 +7,11 @@ use serde_json::{Value, json};
 use crate::{DomainError, Result};
 
 /// Builds expectations without including the stateless log-clear action.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 pub(super) fn specs(request: &ValidatedRequest) -> Result<Vec<VerificationSpec>> {
     let path = vec!["show".to_owned(), "rc".to_owned()];
     let enabled = request.value().get("no") != Some(&Value::Bool(true));

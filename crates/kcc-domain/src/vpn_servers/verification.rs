@@ -4,6 +4,7 @@ use kcc_app::workflow::{PresencePredicate, VerificationSpec};
 use serde_json::{Value, json};
 
 use super::VpnServerChange;
+use crate::pointer;
 
 /// Keeps context names in the read-back identity rather than relying on row order.
 pub(super) fn specs(
@@ -12,7 +13,6 @@ pub(super) fn specs(
     body: &Value,
 ) -> Vec<VerificationSpec> {
     let path = vec!["show".to_owned(), "rc".to_owned()];
-    let escaped = |name: &str| name.replace('~', "~0").replace('/', "~1");
     let spec = match change {
         VpnServerChange::Service {
             service: _,
@@ -31,12 +31,12 @@ pub(super) fn specs(
         ),
         VpnServerChange::IpsecMap { name } => VerificationSpec::presence(
             path,
-            format!("/crypto/map/{}", escaped(name)),
+            format!("/crypto/map/{}", pointer::escape(name)),
             PresencePredicate::Present,
         ),
         VpnServerChange::IpsecVirtualIp { name, enabled } => VerificationSpec::new(
             path,
-            format!("/crypto/map/{}/virtual-ip/enable", escaped(name)),
+            format!("/crypto/map/{}/virtual-ip/enable", pointer::escape(name)),
             json!(enabled),
         ),
         VpnServerChange::IpsecVirtualIpPool {
@@ -46,7 +46,7 @@ pub(super) fn specs(
             size: _,
         } => VerificationSpec::new(
             path,
-            format!("/crypto/map/{}/virtual-ip/range", escaped(name)),
+            format!("/crypto/map/{}/virtual-ip/range", pointer::escape(name)),
             body.clone(),
         ),
         VpnServerChange::IpsecVirtualIpDns {
@@ -55,7 +55,10 @@ pub(super) fn specs(
             secondary: _,
         } => VerificationSpec::new(
             path,
-            format!("/crypto/map/{}/virtual-ip/dns-servers", escaped(name)),
+            format!(
+                "/crypto/map/{}/virtual-ip/dns-servers",
+                pointer::escape(name)
+            ),
             body.clone(),
         ),
         VpnServerChange::OpenConnectRoute {

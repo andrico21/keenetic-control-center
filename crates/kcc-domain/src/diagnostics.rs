@@ -1,9 +1,4 @@
 //! Router logs and background network diagnostics.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "job orchestration uses plan-mandated names; async bodies are not useful inline candidates"
-)]
 
 use alloc::sync::Arc;
 use core::{result::Result as CoreResult, time::Duration};
@@ -18,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
 
-use crate::{DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result};
+use crate::{DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, descriptor};
 
 /// Supported diagnostic process.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -140,11 +135,11 @@ const READS: &[OperationDescriptor] = &[OperationDescriptor {
 
 /// Diagnostics job inventory.
 const WRITES: &[OperationDescriptor] = &[
-    diagnostic_operation("ping", "tools ping"),
-    diagnostic_operation("ping6", "tools ping6"),
-    diagnostic_operation("traceroute", "tools traceroute"),
-    diagnostic_operation("arping", "tools arping"),
-    diagnostic_operation("iperf3", "tools iperf3"),
+    descriptor::read("ping", "tools ping"),
+    descriptor::read("ping6", "tools ping6"),
+    descriptor::read("traceroute", "tools traceroute"),
+    descriptor::read("arping", "tools arping"),
+    descriptor::read("iperf3", "tools iperf3"),
 ];
 
 /// Diagnostics domain metadata.
@@ -156,8 +151,15 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads the system log with the router's POST-only request shape.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: only reads the log; a dropped continuation poll leaves
 // just a read-only request behind.
+#[inline]
 pub async fn read_log(client: &RciClient, max_lines: u32) -> Result<String> {
     let path =
         RciPath::from_segments(["show", "log"]).map_err(|_error| DomainError::InvalidResponse)?;
@@ -193,8 +195,16 @@ pub async fn read_log(client: &RciClient, max_lines: u32) -> Result<String> {
 pub const POLL_INTERVAL: Duration = Duration::from_millis(500);
 
 /// Starts a diagnostic as a persisted non-write job.
+///
+/// # Errors
+///
+/// Returns [`JobError::IdUnavailable`] when no random job id can be drawn,
+/// [`JobError::IdCollision`] when the drawn id is already claimed, and [`JobError::State`] when
+/// the job's lock or its initial record cannot be stored. A failure of the diagnostic itself is
+/// recorded on the job, not returned here.
 // NOT cancel-safe: once spawned, the diagnostic job runs on without its id reaching the caller;
 // cancelled inside job start, its ownership lock can stay held.
+#[inline]
 pub async fn start_job(
     jobs: &Arc<JobRunner>,
     router_name: String,
@@ -232,6 +242,7 @@ pub async fn start_job(
 
 /// Converts a completed process reply into stable typed output lines.
 #[must_use]
+#[inline]
 pub fn typed_progress(kind: DiagnosticKind, reply: &Value) -> Vec<ProgressLine> {
     match kind {
         DiagnosticKind::Ping => reply
@@ -264,20 +275,6 @@ pub fn typed_progress(kind: DiagnosticKind, reply: &Value) -> Vec<ProgressLine> 
             .into_iter()
             .map(ProgressLine::Iperf3)
             .collect(),
-    }
-}
-
-/// Builds a diagnostic operation descriptor.
-const fn diagnostic_operation(
-    name: &'static str,
-    catalog_path: &'static str,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk: Risk::Read,
-        permission: Permission::Read,
-        persists_immediately: false,
     }
 }
 

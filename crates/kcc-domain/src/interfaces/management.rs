@@ -13,6 +13,10 @@ use crate::{DomainError, Result, RouterCtx, interfaces::Interface, read_show};
 /// Result of management-connection detection.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the public name is the vocabulary the Web, MCP and CLI front ends use"
+)]
 pub enum ManagementVerdict {
     /// Evidence identifies this interface as carrying management traffic.
     Management,
@@ -37,6 +41,12 @@ impl ManagementVerdict {
 
 /// Detects direct ownership of the address the client is pinned to, then bridge topology
 /// evidence; a bridge whose evidence cannot decide counts as carrying management.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 // cancel-safe: topology reads do not change router state.
 pub(super) async fn detect(router: &RouterCtx, name: &ObjectName) -> Result<ManagementVerdict> {
     let interfaces: BTreeMap<String, Interface> =
@@ -95,6 +105,11 @@ pub(super) async fn detect(router: &RouterCtx, name: &ObjectName) -> Result<Mana
 }
 
 /// Raises a generated CLI plan to management risk for every interface identity it renders.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 // cancel-safe: classification performs read-only topology requests.
 pub(crate) async fn classify_generated(router: &RouterCtx, lines: &[&str]) -> Result<Risk> {
     let mut names = BTreeSet::new();
@@ -156,6 +171,7 @@ fn classify_bridge(
 }
 
 /// Classifies direct router-origin ownership from already-read interface data.
+#[inline]
 pub fn classify_direct(
     name: &ObjectName,
     hosts: &BTreeSet<IpAddr>,
@@ -272,7 +288,11 @@ impl Network {
 
 #[cfg(test)]
 #[expect(
+    clippy::missing_errors_doc,
     clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(
     clippy::panic_in_result_fn,
     reason = "unit tests use assertions while propagating fixture decoding failures"
 )]

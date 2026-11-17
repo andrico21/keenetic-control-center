@@ -1,9 +1,4 @@
 //! NAT configuration and paginated runtime reads.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "router reads are not inline candidates"
-)]
 
 use kcc_rci::{RciBody, RciPath};
 use serde::Serialize;
@@ -16,25 +11,52 @@ use crate::{DomainError, Result, RouterCtx};
 pub const PAGE_SIZE: usize = 200;
 
 /// Reads running `ip static` forwarding rules.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Rci`] when the request for the running configuration fails, and
+/// [`DomainError::InvalidResponse`] when its `ip static` entries do not decode as forwarding
+/// rules; a configuration without such entries gives an empty list.
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn running_forwards(router: &RouterCtx) -> Result<Vec<ConfiguredRule>> {
     configuration(router, false, "static").await
 }
 
 /// Reads startup `ip static` forwarding rules.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Rci`] when the request for the startup configuration fails, and
+/// [`DomainError::InvalidResponse`] when its `ip static` entries do not decode as forwarding
+/// rules; a configuration without such entries gives an empty list.
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn startup_forwards(router: &RouterCtx) -> Result<Vec<ConfiguredRule>> {
     configuration(router, true, "static").await
 }
 
 /// Reads running `ip nat` interface declarations.
+///
+/// # Errors
+///
+/// Returns [`DomainError::Rci`] when the request for the running configuration fails, and
+/// [`DomainError::InvalidResponse`] when its `ip nat` entries do not decode as interface
+/// declarations; a configuration without such entries gives an empty list.
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn interfaces(router: &RouterCtx) -> Result<Vec<ConfiguredRule>> {
     configuration(router, false, "nat").await
 }
 
 /// Reads one bounded page from `show ip nat`.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn sessions_page(router: &RouterCtx, offset: usize) -> Result<NatPage> {
     #[derive(Serialize)]
     struct Query {
@@ -65,6 +87,12 @@ pub async fn sessions_page(router: &RouterCtx, offset: usize) -> Result<NatPage>
 }
 
 /// Reads one IP configuration collection from running or startup state.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`DomainError::InvalidResponse`]).
 async fn configuration(
     router: &RouterCtx,
     startup: bool,

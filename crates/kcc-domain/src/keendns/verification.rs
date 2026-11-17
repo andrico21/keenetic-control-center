@@ -3,9 +3,14 @@
 use kcc_app::workflow::{PresencePredicate, VerificationSpec};
 use serde_json::{Value, json};
 
-use crate::{ChangeOp, DomainError, Result};
+use crate::{ChangeOp, DomainError, Result, pointer};
 
 /// Builds expectations for the selected registration or proxy context.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 pub(super) fn specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
     let first = operation
         .requests
@@ -39,7 +44,7 @@ pub(super) fn specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
             )
         }
         "ip http proxy" => {
-            let name = text("name")?.replace('~', "~0").replace('/', "~1");
+            let name = pointer::escape(text("name")?);
             VerificationSpec::presence(
                 path,
                 format!("/ip/http/proxy/{name}"),
@@ -59,10 +64,7 @@ pub(super) fn specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
 pub(super) fn upstream(proxy: &str, expected: Value) -> VerificationSpec {
     VerificationSpec::new(
         vec!["show".to_owned(), "rc".to_owned()],
-        format!(
-            "/ip/http/proxy/{}/upstream",
-            proxy.replace('~', "~0").replace('/', "~1")
-        ),
+        format!("/ip/http/proxy/{}/upstream", pointer::escape(proxy)),
         expected,
     )
 }

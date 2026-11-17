@@ -14,9 +14,10 @@ mod support;
 use core::net::IpAddr;
 use std::collections::{BTreeMap, BTreeSet};
 
-use kcc_app::permissions::Permission;
+use kcc_app::{permissions::Permission, workflow::WorkflowError};
 use kcc_catalog::Risk;
 use kcc_domain::{
+    DomainError,
     configuration::{self, SafetyMode, bracket::guarded},
     interfaces,
     interfaces::ManagementVerdict,
@@ -155,7 +156,7 @@ async fn bridge_down_applies_unsaved_without_arming_or_saving() -> TestResult {
             interfaces::plan_down(fixture.context(), &name, ManagementVerdict::Unknown)?;
         let mut changes = fixture.changes().await?;
 
-        let result = interfaces::apply(&mut changes, fixture.context(), &name, &operation).await?;
+        let result = interfaces::apply(&mut changes, &name, &operation).await?;
 
         assert!(result.unsaved);
         assert!(
@@ -204,8 +205,8 @@ async fn unarmed_fail_safe_refuses_the_bracketed_change_unsent() -> TestResult {
             SafetyMode::Router,
             Permission::Write,
             || true,
-            async |bracketed, router| {
-                interfaces::apply(bracketed, router, &name, &operation)
+            async |bracketed, _router| {
+                interfaces::apply(bracketed, &name, &operation)
                     .await
                     .map(|applied| (applied, true))
             },
@@ -218,7 +219,14 @@ async fn unarmed_fail_safe_refuses_the_bracketed_change_unsent() -> TestResult {
             None,
             "the disarm after the failed arm closed it"
         );
-        assert!(failure.into_source().is_fail_safe_unarmed());
+        assert!(
+            matches!(
+                DomainError::from(failure.into_source()),
+                DomainError::Workflow(WorkflowError::VerificationFailed { field })
+                    if field == "/fail-safe/active"
+            ),
+            "the refusal names the unarmed fail-safe"
+        );
         let log = fixture.handle().request_log();
         let arm_attempt = log
             .iter()

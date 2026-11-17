@@ -1,9 +1,4 @@
 //! Configuration persistence and recovery safety operations.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "safety operations follow the plan; async workflow bodies are not useful inline candidates"
-)]
 
 use alloc::{collections::BTreeMap, vec};
 use core::{ops::RangeInclusive, result::Result as CoreResult};
@@ -23,7 +18,8 @@ use self::{
     timer::{Timer, cli_request},
 };
 use crate::{
-    DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx, read_show,
+    DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx, descriptor,
+    read_show,
 };
 
 pub mod apply_needs;
@@ -98,8 +94,8 @@ impl SafetyMode {
     ///
     /// # Errors
     ///
-    /// Returns [`ModeUnknown`] for a mode kcc does not know, or an unreported mode without a
-    /// fail-safe timer.
+    /// Returns [`ModeUnknown`] for a mode kcc does not know, or an unreported mode without
+    /// a fail-safe timer.
     #[inline]
     pub fn decide(
         mode: Option<&SystemMode>,
@@ -138,50 +134,45 @@ impl SafetyMode {
 pub struct SafetyNet;
 
 /// Configuration read inventory.
-const READS: &[OperationDescriptor] = &[OperationDescriptor {
-    name: "last_change",
-    catalog_path: "show last-change",
-    risk: Risk::Read,
-    permission: Permission::Read,
-    persists_immediately: false,
-}];
+const READS: &[OperationDescriptor] = &[descriptor::read("last_change", "show last-change")];
 
 /// Configuration write inventory.
 const WRITES: &[OperationDescriptor] = &[
-    operation(
-        "save",
-        "system configuration save",
-        Risk::Write,
-        Permission::Save,
-        true,
-    ),
-    operation(
+    OperationDescriptor {
+        persists_immediately: true,
+        ..descriptor::operation(
+            "save",
+            "system configuration save",
+            Risk::Write,
+            Permission::Save,
+        )
+    },
+    descriptor::operation(
         "fail_safe_arm",
         "system configuration fail-safe timer",
         Risk::Destructive,
         Permission::Destructive,
-        false,
     ),
-    operation(
+    descriptor::operation(
         "fail_safe_keep_alive",
         "system configuration fail-safe keep-alive",
         Risk::Write,
         Permission::Destructive,
-        false,
     ),
-    operation(
-        "fail_safe_commit",
-        "system configuration fail-safe commit",
-        Risk::Write,
-        Permission::Save,
-        true,
-    ),
-    operation(
+    OperationDescriptor {
+        persists_immediately: true,
+        ..descriptor::operation(
+            "fail_safe_commit",
+            "system configuration fail-safe commit",
+            Risk::Write,
+            Permission::Save,
+        )
+    },
+    descriptor::operation(
         "fail_safe_rollback",
         "system configuration fail-safe rollback",
         Risk::Destructive,
         Permission::Destructive,
-        false,
     ),
 ];
 
@@ -204,6 +195,7 @@ impl SafetyNet {
     /// router: `Read`, `Migrate`, `Write` and `Save` for the run and its keep or save
     /// finish, plus `Destructive` when `needs` names a step that reboots or rolls back.
     #[must_use]
+    #[inline]
     pub fn apply_permissions(needs: ApplyNeeds) -> Vec<Permission> {
         let mut permissions = vec![
             Permission::Read,
@@ -221,6 +213,7 @@ impl SafetyNet {
     /// a destructive risk. The recovery timer kcc arms around a management change needs
     /// nothing more than the change itself.
     #[must_use]
+    #[inline]
     pub fn required(permission: Permission, risk: Risk) -> Vec<Permission> {
         let mut required = vec![permission];
         if risk >= Risk::Destructive && permission != Permission::Destructive {
@@ -231,8 +224,14 @@ impl SafetyNet {
 
     /// Arms native fail-safe in router mode or scheduled reboot otherwise, authorized by
     /// `permission`, the permission of the change it protects.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the change workflow fails: dispatch, read-back or audit (a
+    /// [`WorkflowError`]).
     // NOT cancel-safe: cancelled after the CLI request is sent, the fail-safe or reboot timer
     // is armed and fires while the caller believes nothing was armed.
+    #[inline]
     pub async fn arm(
         changes: &mut ChangeSet,
         router: &RouterCtx,
@@ -248,8 +247,14 @@ impl SafetyNet {
     /// `permission`, the permission of the change it protected. It skips the conflict check
     /// and the backup of a configuration change ([`ChangeSet::apply_recovery`]), so that no
     /// local refusal keeps the timer running.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the change workflow fails: dispatch, read-back or audit (a
+    /// [`WorkflowError`]).
     // NOT cancel-safe: cancelled after the CLI request is sent, the timer may already be disarmed
     // while the caller still treats it as armed.
+    #[inline]
     pub async fn disarm(
         changes: &mut ChangeSet,
         router: &RouterCtx,
@@ -263,8 +268,14 @@ impl SafetyNet {
     /// Restarts the native fail-safe countdown, authorized by `permission`, the permission
     /// of the change it protects; like [`Self::disarm`], without the conflict check and the
     /// backup.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the change workflow fails: dispatch, read-back or audit (a
+    /// [`WorkflowError`]).
     // NOT cancel-safe: cancelled after the CLI request is sent, the countdown may be restarted
     // without the caller knowing.
+    #[inline]
     pub async fn keep_alive(
         changes: &mut ChangeSet,
         router: &RouterCtx,
@@ -273,29 +284,27 @@ impl SafetyNet {
         let request = cli_request(router, Timer::KeepAlive, permission)?;
         changes.apply_recovery(request).await
     }
-
-    /// Explicitly persists all unsaved work after the workflow's last-change re-check.
-    // NOT cancel-safe: cancelled after the commit command is sent, the configuration may be
-    // persisted and the fail-safe resolved while the caller still treats the change as unsaved.
-    pub async fn commit(changes: &mut ChangeSet) -> CoreResult<(), WorkflowError> {
-        changes.commit().await
-    }
 }
 
 /// Reads `show last-change`, including its fail-safe object.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_last_change(router: &RouterCtx) -> Result<LastChangeState> {
     read_show(&router.client, &["show", "last-change"]).await
 }
 
-/// Explicitly saves running configuration.
-// NOT cancel-safe: cancelled after the save command is sent, the running configuration may be
-// persisted while the caller still treats it as unsaved.
-pub async fn save(changes: &mut ChangeSet) -> CoreResult<(), WorkflowError> {
-    changes.save().await
-}
-
 /// Converts the typed last-change model into the workflow identity when complete.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
+#[inline]
 pub fn workflow_last_change(state: &LastChangeState) -> Result<LastChange> {
     Ok(LastChange::new(
         state.checksum.clone().ok_or(DomainError::InvalidResponse)?,
@@ -305,23 +314,6 @@ pub fn workflow_last_change(state: &LastChangeState) -> Result<LastChange> {
         serde_json::to_value(state.fail_safe.as_ref())
             .map_err(|_error| DomainError::InvalidResponse)?,
     ))
-}
-
-/// Builds a configuration operation descriptor.
-const fn operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-    permission: Permission,
-    persists_immediately: bool,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission,
-        persists_immediately,
-    }
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
-//! VPN planner regressions: client delete scope, per-map virtual IP, key-free parse errors
-//! and the ASC value limit.
+//! VPN planner regressions: client delete scope, per-map virtual IP, key-free parse errors,
+//! the ASC value limit, typed pool refusals and IPv4-only allowed ranges.
 
 #![expect(
     clippy::missing_errors_doc,
@@ -12,7 +12,7 @@
 mod support;
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use kcc_catalog::Risk;
+use kcc_catalog::{Risk, ValidationIssue};
 use kcc_domain::{
     DomainError,
     vpn_clients::{self, VpnClientChange, WireGuardAsc, wireguard::WireGuardParseError},
@@ -201,6 +201,67 @@ async fn d17_wireguard_asc_quotes_each_value() -> TestResult {
             .ok_or("command missing")?
             .expose_for_send()?;
         assert_eq!(line.as_str(), expected);
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+/// D-21: a virtual-IP pool with neither or both of `end` and `size` is a typed refusal of
+/// `end`, not a sentinel body the catalog reports as an unknown field.
+#[tokio::test]
+async fn d21_virtual_ip_pool_without_one_bound_is_a_typed_refusal() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        for (end, size) in [(None, None), (Some("192.0.2.20".to_owned()), Some(10))] {
+            let refused = vpn_servers::plan_change(
+                fixture.context(),
+                &VpnServerChange::IpsecVirtualIpPool {
+                    name: "VPN1".to_owned(),
+                    begin: "192.0.2.10".to_owned(),
+                    end,
+                    size,
+                },
+            );
+            let Err(DomainError::Validation { issues }) = refused else {
+                return Err(format!("{firmware:?}: not a validation refusal: {refused:?}").into());
+            };
+            assert_eq!(
+                issues,
+                vec![ValidationIssue::InvalidValue {
+                    field: "end".to_owned()
+                }],
+                "{firmware:?}"
+            );
+        }
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+/// D-22: an IPv6 allowed range is refused as an invalid address before any catalog request
+/// is built; nothing turns it into a prefix-length pair.
+#[tokio::test]
+async fn d22_wireguard_import_refuses_ipv6_allowed_ranges() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let text = format!(
+            "[Interface]\nPrivateKey = {}\n\n[Peer]\nPublicKey = {}\nAllowedIPs = 2001:db8::/32\n",
+            STANDARD.encode([3_u8; 32]),
+            STANDARD.encode([4_u8; 32])
+        );
+        let config = vpn_clients::parse_wireguard_config(&text)?;
+        let refused =
+            vpn_clients::plan_wireguard_import(fixture.context(), "Wireguard7", &config).await;
+        let Err(DomainError::Validation { issues }) = refused else {
+            return Err(format!("{firmware:?}: not a validation refusal: {refused:?}").into());
+        };
+        assert_eq!(
+            issues,
+            vec![ValidationIssue::InvalidValue {
+                field: "address".to_owned()
+            }],
+            "{firmware:?}"
+        );
         fixture.shutdown().await?;
     }
     Ok(())

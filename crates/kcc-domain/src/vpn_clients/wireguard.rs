@@ -25,6 +25,7 @@ pub struct WireGuardInterface {
 }
 
 impl fmt::Debug for WireGuardInterface {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             private_key,
@@ -66,6 +67,7 @@ pub struct WireGuardPeer {
 }
 
 impl fmt::Debug for WireGuardPeer {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             public_key,

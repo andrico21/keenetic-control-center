@@ -3883,22 +3883,8 @@ pub const WEB_SYSTEM_STORAGE_SIZE: MessageKey = MessageKey::new("web-system-stor
 /// `web-system-storage-free` in `web.ftl`.
 pub const WEB_SYSTEM_STORAGE_FREE: MessageKey = MessageKey::new("web-system-storage-free");
 
-/// `web-system-storage-check` in `web.ftl`.
-pub const WEB_SYSTEM_STORAGE_CHECK: MessageKey = MessageKey::new("web-system-storage-check");
-
 /// `web-system-storage-eject` in `web.ftl`.
 pub const WEB_SYSTEM_STORAGE_EJECT: MessageKey = MessageKey::new("web-system-storage-eject");
-
-/// `web-system-storage-format` in `web.ftl`.
-pub const WEB_SYSTEM_STORAGE_FORMAT: MessageKey = MessageKey::new("web-system-storage-format");
-
-/// `web-system-storage-format-title` in `web.ftl`.
-pub const WEB_SYSTEM_STORAGE_FORMAT_TITLE: MessageKey =
-    MessageKey::new("web-system-storage-format-title");
-
-/// `web-system-storage-format-text` in `web.ftl`.
-pub const WEB_SYSTEM_STORAGE_FORMAT_TEXT: MessageKey =
-    MessageKey::new("web-system-storage-format-text");
 
 /// `web-system-storage-usb` in `web.ftl`.
 pub const WEB_SYSTEM_STORAGE_USB: MessageKey = MessageKey::new("web-system-storage-usb");
@@ -6683,7 +6669,7 @@ pub const WEB_DHCP_ERROR_NAME_TAKEN: MessageKey = MessageKey::new("web-dhcp-erro
 pub const WEB_DHCP_ERROR_DNS_ONE: MessageKey = MessageKey::new("web-dhcp-error-dns-one");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2127] = [
+pub static ALL: [MessageKey; 2123] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -7942,11 +7928,7 @@ pub static ALL: [MessageKey; 2127] = [
     WEB_SYSTEM_STORAGE_FILESYSTEM,
     WEB_SYSTEM_STORAGE_SIZE,
     WEB_SYSTEM_STORAGE_FREE,
-    WEB_SYSTEM_STORAGE_CHECK,
     WEB_SYSTEM_STORAGE_EJECT,
-    WEB_SYSTEM_STORAGE_FORMAT,
-    WEB_SYSTEM_STORAGE_FORMAT_TITLE,
-    WEB_SYSTEM_STORAGE_FORMAT_TEXT,
     WEB_SYSTEM_STORAGE_USB,
     WEB_SYSTEM_STORAGE_NO_USB,
     WEB_SYSTEM_STORAGE_DEVICE,

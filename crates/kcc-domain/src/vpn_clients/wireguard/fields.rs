@@ -8,6 +8,11 @@ use secrecy::SecretString;
 use super::wireguard::WireGuardParseError;
 
 /// Parses a fixed-size WireGuard key into protected storage.
+///
+/// # Errors
+///
+/// Returns [`WireGuardParseError::InvalidKey`] when `value` is not Base64 of exactly 32 bytes, and
+/// [`WireGuardParseError::Duplicate`] when `slot` already holds a key.
 pub(super) fn set_secret(
     slot: &mut Option<SecretString>,
     field: &str,
@@ -22,6 +27,12 @@ pub(super) fn set_secret(
 }
 
 /// Parses a printable obfuscation key without imposing a Base64 format.
+///
+/// # Errors
+///
+/// Returns [`WireGuardParseError::Malformed`] when `value` is empty, longer than 256 bytes or
+/// contains a control character, and [`WireGuardParseError::Duplicate`] when `slot` already holds
+/// a key.
 pub(super) fn set_obfuscation(
     slot: &mut Option<SecretString>,
     value: &str,
@@ -37,6 +48,11 @@ pub(super) fn set_obfuscation(
 }
 
 /// Parses a public key and refuses duplicates.
+///
+/// # Errors
+///
+/// Returns [`WireGuardParseError::InvalidKey`] when `value` is not Base64 of exactly 32 bytes, and
+/// [`WireGuardParseError::Duplicate`] when `slot` already holds a key.
 pub(super) fn set_public_key(
     slot: &mut Option<String>,
     field: &str,
@@ -48,6 +64,11 @@ pub(super) fn set_public_key(
 }
 
 /// Checks the decoded WireGuard key length.
+///
+/// # Errors
+///
+/// Returns [`WireGuardParseError::InvalidKey`] when `value` is not valid standard Base64 or does
+/// not decode to exactly 32 bytes.
 fn validate_key(field: &str, value: &str, line: usize) -> Result<(), WireGuardParseError> {
     let decoded = STANDARD
         .decode(value)
@@ -65,6 +86,11 @@ fn validate_key(field: &str, value: &str, line: usize) -> Result<(), WireGuardPa
 }
 
 /// Parses one integer field and refuses duplicates.
+///
+/// # Errors
+///
+/// Returns [`WireGuardParseError::InvalidInteger`] when `value` is not a decimal number from 0 to
+/// 65535, and [`WireGuardParseError::Duplicate`] when `slot` already holds a number.
 pub(super) fn set_integer(
     slot: &mut Option<u16>,
     field: &str,
@@ -84,6 +110,10 @@ pub(super) fn set_integer(
 }
 
 /// Stores one string field and refuses duplicates.
+///
+/// # Errors
+///
+/// Returns [`WireGuardParseError::Duplicate`] when `slot` already holds a value.
 pub(super) fn set_string(
     slot: &mut Option<String>,
     value: &str,
@@ -96,6 +126,10 @@ pub(super) fn set_string(
 }
 
 /// Parses a comma-separated list and refuses duplicates.
+///
+/// # Errors
+///
+/// Returns [`WireGuardParseError::Duplicate`] when `slot` already holds a list.
 pub(super) fn set_list(
     slot: &mut Option<Vec<String>>,
     value: &str,
@@ -111,6 +145,10 @@ pub(super) fn set_list(
 }
 
 /// Stores one ASC field and refuses duplicates.
+///
+/// # Errors
+///
+/// Returns [`WireGuardParseError::Duplicate`] when `fields` already holds `field`.
 pub(super) fn insert_once(
     fields: &mut BTreeMap<String, String>,
     field: &str,

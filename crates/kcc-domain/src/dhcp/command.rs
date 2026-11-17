@@ -4,21 +4,21 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec},
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{Risk, ValidatedRequest};
 use serde_json::{Value, json};
 
-use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, planning::validate, verification};
 
 /// Catalog-validates ordered DHCP command inputs.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`DomainError::Validation`]).
 pub(super) fn plan(router: &RouterCtx, inputs: &[(&str, Value)]) -> Result<ChangeOp> {
     let requests = inputs
         .iter()
-        .map(|(path, body)| {
-            router
-                .catalog
-                .validate(path, HttpMethod::Post, body)
-                .map_err(|issues| DomainError::Validation { issues })
-        })
+        .map(|(path, body)| validate(router, path, body))
         .collect::<Result<Vec<_>>>()?;
     Ok(ChangeOp::new(
         requests,
@@ -31,6 +31,11 @@ pub(super) fn plan(router: &RouterCtx, inputs: &[(&str, Value)]) -> Result<Chang
 
 /// Converts catalog requests to ordered DHCP CLI commands, verified before the workflow
 /// audits them: each line in the running configuration, and each static lease in `show rc`.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let mut pool_name = None;
     let mut commands = Vec::new();
@@ -64,6 +69,11 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 }
 
 /// Renders one validated DHCP request.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn cli_line(request: &ValidatedRequest, pool_name: Option<&str>) -> Result<String> {
     let text = |key: &str| {
         request

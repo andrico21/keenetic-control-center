@@ -1,5 +1,5 @@
-//! The tables of the storage page: the media with the maintenance actions the role may
-//! run, and the USB devices.
+//! The tables of the storage page: the media with the eject action where the role may
+//! run it, and the USB devices.
 
 use kcc_i18n::{keys, locale::Locale};
 
@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-/// The storage media of `table`, with the maintenance actions `controls` allow.
+/// The storage media of `table`, with the eject action where `controls` allow it.
 pub(super) fn media(
     table: &Table<Medium>,
     controls: &Controls,
@@ -32,9 +32,7 @@ pub(super) fn media(
         ("size", keys::WEB_SYSTEM_STORAGE_SIZE),
         ("free", keys::WEB_SYSTEM_STORAGE_FREE),
     ];
-    let allowed =
-        ["partition_check", "eject", "partition_format"].map(|name| controls.allows(name));
-    let actions = allowed.contains(&true);
+    let actions = controls.allows("eject");
     let empty = keys::WEB_SYSTEM_STORAGE_NO_MEDIA;
     let mut view = headed((table, empty), &columns, (actions, locale)).nested();
     for (index, row) in table.rows().iter().enumerate() {
@@ -51,26 +49,12 @@ pub(super) fn media(
             Cell::optional(owned(row.free_text())).class("numeric"),
         ];
         if actions {
-            let url = |action: &str| {
-                with_query(
-                    &format!("/ui/r/{router}/system/storage/{action}"),
-                    &[("media", row.id())],
-                )
-            };
-            let [check, eject, format] = allowed;
-            let mut acts = Vec::new();
-            if check {
-                let label = said(locale, keys::WEB_SYSTEM_STORAGE_CHECK);
-                acts.push(Act::sends(label, url("check")));
-            }
-            if eject {
-                let label = said(locale, keys::WEB_SYSTEM_STORAGE_EJECT);
-                acts.push(Act::sends(label, url("eject")).danger());
-            }
-            if format {
-                let act = Act::open(locale, keys::WEB_SYSTEM_STORAGE_FORMAT, url("format"));
-                acts.push(act.danger());
-            }
+            let url = with_query(
+                &format!("/ui/r/{router}/system/storage/eject"),
+                &[("media", row.id())],
+            );
+            let label = said(locale, keys::WEB_SYSTEM_STORAGE_EJECT);
+            let acts = vec![Act::sends(label, url).danger()];
             cells.push(Cell::acts(Layout::Wrapped("admin-actions"), acts, id));
         }
         view = view.row(cells);

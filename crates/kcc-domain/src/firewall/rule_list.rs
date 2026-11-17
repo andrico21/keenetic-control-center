@@ -4,13 +4,6 @@
 //! [port eq N | port range N M] <destination> <mask> [port ...]`) is read with its full
 //! identity; a rule in any other form is unstructured and keeps only its words and its
 //! position, so one rule the planner does not model never hides the rest of its list.
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private access-list decoders are narrowly named"
-    )
-)]
 
 use serde_json::Value;
 
@@ -116,6 +109,7 @@ pub(crate) fn parse_list(value: &Value) -> Result<Vec<ListedRule>> {
         .collect())
 }
 
+/// The listed rule at `index` with its words and its property lines.
 fn listed_rule(index: usize, words: Vec<String>, properties: &[Vec<String>]) -> ListedRule {
     let number = index.to_string();
     let property = |name: &str| {
@@ -139,6 +133,7 @@ fn listed_rule(index: usize, words: Vec<String>, properties: &[Vec<String>]) -> 
     ListedRule::new(index, words, configured)
 }
 
+/// The structured rule of `words`, when they have a form the planner writes.
 fn parse_rule(words: &[String]) -> Option<Rule> {
     let [action_word, protocol_word, rest @ ..] = words else {
         return None;
@@ -178,6 +173,7 @@ type ParsedSide<'words> = (
     &'words [String],
 );
 
+/// The address, mask and ports of one rule side, and the words after it.
 fn side(words: &[String]) -> Option<ParsedSide<'_>> {
     let [address, mask, rest @ ..] = words else {
         return None;

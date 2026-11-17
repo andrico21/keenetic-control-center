@@ -169,8 +169,8 @@ pub(crate) async fn interfaces(ctx: &Ctx, command: InterfacesCommand) -> Outcome
         }
     };
     session
-        .change(Gate::of(&operation), async |changes, context| {
-            let result = interfaces::apply(changes, context, &name, &operation)
+        .change(Gate::of(&operation), async |changes, _context| {
+            let result = interfaces::apply(changes, &name, &operation)
                 .await
                 .map_err(Failure::from)?;
             Ok(applied(result.unsaved))

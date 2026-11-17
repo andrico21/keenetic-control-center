@@ -68,7 +68,7 @@ pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
             let target = ctx.target(&services, &[Permission::Save]).await?;
             let gate = Gate::new(Risk::Write, Permission::Save, false);
             let document = run_change(ctx, &services, &target, gate, async |changes, _router| {
-                configuration::save(changes).await?;
+                changes.save().await?;
                 Ok(json!({ "saved": true }))
             })
             .await?;

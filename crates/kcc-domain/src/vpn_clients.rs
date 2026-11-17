@@ -1,9 +1,4 @@
 //! VPN client status, non-secret configuration, and WireGuard import.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    reason = "domain vocabulary follows router names; async reads and planners are not inline candidates"
-)]
 
 mod change;
 mod import;
@@ -326,25 +321,56 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads and classifies all supported VPN client interfaces without secret values.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`crate::DomainError::Rci`], [`crate::DomainError::InvalidResponse`]).
 // cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
 pub async fn read_clients(router: &RouterCtx) -> Result<Vec<VpnClientStatus>> {
     let value: Value = read_show(&router.client, &["show", "interface"]).await?;
     Ok(read::decode_clients(&value))
 }
 
 /// Parses a standard WireGuard configuration before any router request.
+///
+/// # Errors
+///
+/// Returns the first parse failure met, reading line by line: [`WireGuardParseError::Malformed`]
+/// for a line that is not `key = value`, that precedes every section, or for an empty, over-long
+/// or control-character `ObfsKey`; [`WireGuardParseError::UnknownSection`] and
+/// [`WireGuardParseError::UnknownField`] for a name the format does not have;
+/// [`WireGuardParseError::Duplicate`] for a repeated `[Interface]` section or field;
+/// [`WireGuardParseError::InvalidKey`] for a key that is not Base64 of 32 bytes;
+/// [`WireGuardParseError::InvalidInteger`] for a port or keepalive that is not a 16-bit number;
+/// and [`WireGuardParseError::Missing`] when `[Interface]`, `[Peer]` or a peer's `PublicKey` is
+/// absent.
+#[inline]
 pub fn parse_wireguard_config(text: &str) -> CoreResult<WireGuardConfig, WireGuardParseError> {
     wireguard_parser::parse(text)
 }
 
 /// Plans a non-secret catalog-validated VPN client mutation.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`crate::DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_change(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
     change::plan(router, change).await
 }
 
 /// Plans imported private and peer keys through protected requests, generating a key when absent.
+///
+/// # Errors
+///
+/// Returns an error when the catalog refuses a planned request
+/// ([`crate::DomainError::Validation`]).
 // cancel-safe: management classification performs read-only topology requests.
+#[inline]
 pub async fn plan_wireguard_import(
     router: &RouterCtx,
     name: &str,
@@ -354,12 +380,26 @@ pub async fn plan_wireguard_import(
 }
 
 /// Converts a VPN client plan to protected workflow input.
+///
+/// # Errors
+///
+/// Returns `DomainError::InvalidResponse` when the plan holds no command, or when a plan without
+/// read-back checks has a command that cannot be given one (a secret-bearing command, or a line
+/// that is not exactly one configuration row).
+#[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     change::request(operation)
 }
 
 /// Plans one WireGuard peer's preshared key through a protected request; the read-back
 /// checks only that the router reports a key, never its value.
+///
+/// # Errors
+///
+/// Returns `DomainError::InvalidCliToken` when the interface name or the peer public key is not
+/// one safe CLI word, `DomainError::Validation` when the catalog refuses the key, and
+/// `DomainError::InvalidResponse` when the secret command cannot be bound to its template.
+#[inline]
 pub fn plan_wireguard_peer_psk(
     router: &RouterCtx,
     name: &str,

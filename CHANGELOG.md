@@ -473,6 +473,29 @@ The first release, `0.1.0`, is in preparation and contains:
   and `other`. A severity word the router sends outside that set becomes `other` instead of
   a new stream label.
 
+- **Two VPN refusals name their field.** An IPsec virtual-IP pool with neither or both of
+  `end` and `size` is refused as an invalid `end` before the catalog is asked (it was an
+  unknown field `invalid`), and a WireGuard import with an IPv6 `AllowedIPs` range is
+  refused as an invalid `address` (it was an invalid `mask`); both stay validation
+  refusals (CLI exit 4, MCP `validation_failed`).
+
+### Removed
+
+- **Storage partition check and format.** The `partition_check` and `partition_format`
+  operations of the MCP tool `kcc_storage_write` (now `eject` only; an old operation is
+  answered `invalid_arguments`), the CLI subcommands `kcc storage check` and
+  `kcc storage format`, the hidden Web routes `POST /ui/r/{router}/system/storage/check`
+  and `GET|POST .../storage/format`, and in `kcc-domain` the public
+  `storage::{MaintenanceAction, MaintenanceRequest, plan_maintenance}`. They named
+  `system partition check|format`, which no catalog has, so every call was refused.
+- **Test-only and pass-through `kcc-domain` items.** `wifi::ns3_presence` and
+  `wifi::Ns3Presence`, `InterfaceChangeError::is_fail_safe_unarmed`, `SafetyNet::commit`
+  and `configuration::save` (callers use `ChangeSet::commit`/`save`), and the unused
+  `router` argument of `interfaces::apply`. A management interface change no longer reads
+  `show last-change` a second time after the workflow's own check, and a VPN credential
+  write no longer downloads the running configuration a second time for the presence
+  check the workflow already ran.
+
 ### Fixed
 
 - **An FQDN group description can be set.** `kcc dns fqdn-group ... --description` and the

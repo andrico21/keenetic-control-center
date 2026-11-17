@@ -6,6 +6,18 @@ use super::{plan_remove_ipv6, reports_cleared, request, restore};
 use crate::{DomainError, Result, RouterCtx, routing::model::Ipv6Route};
 
 /// Removes one IPv6 route through the guarded workflow.
+///
+/// # Errors
+///
+/// Returns an error when reading the saved routes fails or does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), when the catalog refuses a
+/// planned request ([`DomainError::Validation`]), when the removal cannot be rendered or
+/// given a read-back ([`DomainError::InvalidResponse`]), when the change workflow fails in
+/// dispatch or audit, or a rendered line does not bind to its request
+/// ([`DomainError::Workflow`]), or when the read-back still finds the route
+/// ([`DomainError::RouteCountMismatch`]). When the router reports a broad clear, the first
+/// failure of restoring the saved routes is returned, or [`DomainError::SafetyAbort`] when
+/// it succeeded.
 pub(super) async fn remove(
     changes: &mut ChangeSet,
     router: &RouterCtx,

@@ -8,6 +8,14 @@ use super::verification;
 use crate::{ChangeOp, DomainError, Result, cli_token};
 
 /// Converts a named WAN plan into a verified parser request.
+///
+/// # Errors
+///
+/// Returns an error when the plan holds no request, the request is not one this module
+/// renders, a field it needs is missing, or its read-back cannot be built
+/// ([`DomainError::InvalidResponse`]), when an identity cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]), or when a rendered line does not bind to its request
+/// ([`DomainError::Workflow`]).
 pub(super) fn request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChangeRequest> {
     let validated = operation
         .requests
@@ -66,6 +74,11 @@ pub(super) fn request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChan
 }
 
 /// Extracts a string request field.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn string_field<'value>(value: &'value Value, field: &str) -> Result<&'value str> {
     value
         .get(field)
@@ -74,11 +87,21 @@ fn string_field<'value>(value: &'value Value, field: &str) -> Result<&'value str
 }
 
 /// Quotes one string request field for the CLI parser.
+///
+/// # Errors
+///
+/// Returns an error when an argument cannot be one safe router CLI word
+/// ([`DomainError::InvalidCliToken`]).
 fn quoted_field(value: &Value, field: &str) -> Result<String> {
     cli_token::quoted(string_field(value, field)?)
 }
 
 /// Extracts an integer request field.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 fn integer_field(value: &Value, field: &str) -> Result<i64> {
     value
         .get(field)

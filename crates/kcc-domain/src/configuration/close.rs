@@ -51,13 +51,14 @@ pub struct Closed {
 ///
 /// # Errors
 ///
-/// A failure that is still armed and not applied when the step's first command fails; armed
-/// with [`ArmedFate::Saved`](super::bracket::ArmedFate::Saved) when the configuration was
-/// saved but the scheduled reboot could not be cancelled; armed with
+/// A failure that is still armed and not applied when the step's first command fails;
+/// armed with [`ArmedFate::Saved`](super::bracket::ArmedFate::Saved) when the
+/// configuration was saved but the scheduled reboot could not be cancelled; armed with
 /// [`ArmedFate::Applied`](super::bracket::ArmedFate::Applied) and applied when
 /// keep-unsaved could not disarm.
 // NOT cancel-safe: cancelled after a command is sent, the router may have saved, disarmed,
 // rolled back or started rebooting while the caller still treats recovery as armed.
+#[inline]
 pub async fn close(
     changes: &mut ChangeSet,
     router: &RouterCtx,

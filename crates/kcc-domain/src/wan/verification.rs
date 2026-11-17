@@ -5,18 +5,20 @@ use kcc_catalog::ValidatedRequest;
 use kcc_rci::ObjectName;
 use serde_json::{Value, json};
 
-use crate::{DomainError, Result};
+use crate::{DomainError, Result, pointer};
 
 /// Compares the exact requested interface fields after parser execution.
+///
+/// # Errors
+///
+/// Returns an error when a reply or a plan does not have the expected shape
+/// ([`DomainError::InvalidResponse`]).
 pub(super) fn specs(
     name: &ObjectName,
     request: &ValidatedRequest,
 ) -> Result<Vec<VerificationSpec>> {
     let path = vec!["show".to_owned(), "rc".to_owned()];
-    let base = format!(
-        "/interface/{}",
-        name.as_str().replace('~', "~0").replace('/', "~1")
-    );
+    let base = format!("/interface/{}", pointer::escape(name.as_str()));
     let enabled = request.value().get("no") != Some(&Value::Bool(true));
     let field = |key: &str| {
         request

@@ -52,8 +52,8 @@ pub(crate) async fn interfaces(
     let verdict = interfaces::detect_management(router, &object_name).await?;
     let operation = interfaces::plan_security_level(router, &object_name, zone, verdict)?;
     session
-        .change(Gate::of(&operation), async |changes, context| {
-            let result = interfaces::apply(changes, context, &object_name, &operation)
+        .change(Gate::of(&operation), async |changes, _context| {
+            let result = interfaces::apply(changes, &object_name, &operation)
                 .await
                 .map_err(Failure::from)?;
             Ok(applied(result.unsaved))
