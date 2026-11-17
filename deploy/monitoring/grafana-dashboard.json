@@ -566,6 +566,17 @@
           "legendFormat": "",
           "format": "table",
           "instant": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "refId": "D",
+          "expr": "keenetic_interface_info{router=~\"$router\"}",
+          "legendFormat": "",
+          "format": "table",
+          "instant": true
         }
       ],
       "fieldConfig": {
@@ -1041,7 +1052,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "refId": "F",
-          "expr": "kcc_metrics_series_dropped_total{router=~\"$router\"}",
+          "expr": "kcc_metrics_series_dropped{router=~\"$router\"}",
           "legendFormat": "dropped client series {{router}}"
         }
       ],

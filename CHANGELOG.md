@@ -114,6 +114,15 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **Metric changes.** `kcc_metrics_series_dropped_total` (a counter that grew on every
+  scrape) is replaced by the gauge `kcc_metrics_series_dropped`: the number of per-client
+  series left out at the latest scrape, per router. The free-text interface `description`
+  is no longer a label of `keenetic_interface_up` (labels `router`, `interface`, `type`);
+  it moved to the new info family `keenetic_interface_info{router,interface,description}`,
+  always 1. The `kcc_jobs` gauge is exact again after the job event stream lags: every
+  counted job is settled from its record. The Grafana dashboard follows (the dropped-series
+  panel, a new `keenetic_interface_info` query in the interface table).
+
 - **The catalog itself classifies every raw DELETE as destructive.** `kcc_catalog`'s
   validation used to return the risk of the removed command (often `Write`) and each front
   end raised a DELETE to destructive on its own; `ValidatedRequest::risk` is now

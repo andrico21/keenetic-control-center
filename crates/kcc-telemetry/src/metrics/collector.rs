@@ -41,8 +41,6 @@ pub(super) struct Shared {
     pub routers: Mutex<BTreeMap<String, Cached>>,
     /// Router families.
     pub sink: Sink,
-    /// Dropped per-client series per router, summed over scrapes.
-    pub dropped: Mutex<BTreeMap<String, u64>>,
     /// Serializes scrapes (the sink is refilled per scrape).
     pub scrape: Mutex<()>,
     /// Self-metrics fed by the watchers.
@@ -93,18 +91,15 @@ impl Collector for SnapshotCollector {
         shared.sink.reset();
         let now = Instant::now();
         let routers = lock(&shared.routers);
-        let mut dropped = lock(&shared.dropped);
         for (router, cached) in routers.iter() {
             let newly = shared.render(router, cached, now);
-            let total = dropped.entry(router.clone()).or_default();
-            *total = total.saturating_add(newly);
             if shared.per_client.enabled {
                 shared
                     .sink
-                    .put("kcc_metrics_series_dropped_total", &[router], count(*total));
+                    .put("kcc_metrics_series_dropped", &[router], count(newly));
             }
         }
-        drop((routers, dropped));
+        drop(routers);
         shared.sink.collect()
     }
 }

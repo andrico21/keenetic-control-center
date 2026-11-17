@@ -32,17 +32,13 @@ pub(super) fn light(sink: &Sink, router: &str, snapshot: &Snapshot) {
         };
         let kind = text(entry, "type").unwrap_or_default();
         if let Some(up) = flag(entry, "state") {
-            sink.put(
-                "keenetic_interface_up",
-                &[
-                    router,
-                    id,
-                    kind,
-                    text(entry, "description").unwrap_or_default(),
-                ],
-                gauge(up),
-            );
+            sink.put("keenetic_interface_up", &[router, id, kind], gauge(up));
         }
+        sink.put(
+            "keenetic_interface_info",
+            &[router, id, text(entry, "description").unwrap_or_default()],
+            1.0,
+        );
         if let Some(link) = flag(entry, "link") {
             sink.put("keenetic_interface_link_up", &[router, id], gauge(link));
         }

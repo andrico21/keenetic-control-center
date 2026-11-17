@@ -187,7 +187,14 @@ pub const FAMILIES: &[Family] = &[
         "keenetic_interface_up",
         Gauge,
         "1 when the interface state is up.",
-        &["router", "interface", "type", "description"],
+        &["router", "interface", "type"],
+        Always,
+    ),
+    family(
+        "keenetic_interface_info",
+        Gauge,
+        "Interface description; always 1.",
+        &["router", "interface", "description"],
         Always,
     ),
     family(
@@ -352,9 +359,9 @@ pub const FAMILIES: &[Family] = &[
         PerClient,
     ),
     family(
-        "kcc_metrics_series_dropped_total",
-        Counter,
-        "Per-client series not exported because of per_client_max, summed over scrapes.",
+        "kcc_metrics_series_dropped",
+        Gauge,
+        "Per-client series not exported at the latest scrape because of per_client_max.",
         ROUTER,
         PerClient,
     ),

@@ -20,7 +20,8 @@ The `/metrics` listener is plaintext and unauthenticated, so it stays on loopbac
 `allow_non_loopback = true`. Scrapes never contact a router: they render the shared
 poller's cache, refreshed every `interval` (light items) and `heavy_interval` (heavy
 items). Data older than three intervals is dropped and `keenetic_up` becomes 0.
-Per-client series are off by default and capped by `per_client_max`. A pseudonym label is
+Per-client series are off by default and capped by `per_client_max`; the gauge
+`kcc_metrics_series_dropped` is the number of clients left out at the latest scrape. A pseudonym label is
 a keyed hash of the MAC and the router that stays the same only while one kcc process
 runs.
 

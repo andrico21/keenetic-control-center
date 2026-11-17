@@ -1043,7 +1043,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(telemetry): reliable, bounded log forwarding
   Recommended task executor category: deep-low - correctness reasoning across files, settled by reading the code
 
-- [ ] 46. Metrics: dropped-series counter per event, no free-text labels, accurate job gauge
+- [x] 46. Metrics: dropped-series counter per event, no free-text labels, accurate job gauge
   What to do / Must NOT do: Per the findings. Regenerate `docs/METRICS.md` with `cargo xtask gen-metric-docs` and update `deploy/monitoring/grafana-dashboard.json` (not generated) for any changed metric or label; `crates/kcc-telemetry/tests/monitoring.rs` must stay green. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `G-16` (low; critic confirmed) `kcc_metrics_series_dropped_total` grows per scrape, not per event. Evidence: `metrics/collector.rs:106-108`, `catalogue.rs:357`. Fix: export the current drop count as a gauge (`kcc_metrics_series_dropped`).
   - `G-18` (low; critic confirmed) `keenetic_interface_up` carries the free-text interface description as a label. Evidence: `metrics/interfaces.rs:35-43`. Fix: move `description` to an info-style family.

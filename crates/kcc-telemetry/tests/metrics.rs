@@ -314,10 +314,10 @@ async fn stale_cache_drops_series_and_reports_down() -> TestResult {
     Ok(())
 }
 
-/// `per_client = true, per_client_max = 3` exports 3 pseudonymous clients of 6 and counts
-/// the 3 dropped series on every scrape.
+/// `per_client = true, per_client_max = 3` exports 3 pseudonymous clients of 6, stable
+/// across scrapes.
 #[tokio::test(start_paused = true)]
-async fn per_client_series_are_capped_and_counted() -> TestResult {
+async fn per_client_series_are_capped() -> TestResult {
     let rig = rig(Firmware::V5_1, "per_client = true\nper_client_max = 3\n").await?;
     let first = scrape(&rig.registry)?;
     let clients = client_labels(&first, "fake");
@@ -327,20 +327,62 @@ async fn per_client_series_are_capped_and_counted() -> TestResult {
         "{clients:?}"
     );
     assert!(!first.contains("02:00:00:00:10:"), "pseudonyms, not MACs");
-    assert_eq!(
-        samples(&first, "kcc_metrics_series_dropped_total"),
-        ["kcc_metrics_series_dropped_total{router=\"fake\"} 3"]
-    );
     let second = scrape(&rig.registry)?;
-    assert_eq!(
-        samples(&second, "kcc_metrics_series_dropped_total"),
-        ["kcc_metrics_series_dropped_total{router=\"fake\"} 6"]
-    );
     assert_eq!(
         client_labels(&second, "fake"),
         clients,
         "stable across scrapes"
     );
+    rig.handle.shutdown().await?;
+    Ok(())
+}
+
+/// G-16: the dropped-series metric is a gauge of the series dropped at the latest scrape,
+/// so scraping twice reports the same value and the old counter is gone.
+#[tokio::test(start_paused = true)]
+async fn dropped_series_gauge_does_not_grow_per_scrape() -> TestResult {
+    let rig = rig(Firmware::V5_1, "per_client = true\nper_client_max = 3\n").await?;
+    for scrape_number in 1_u8..=3_u8 {
+        let text = scrape(&rig.registry)?;
+        assert_eq!(
+            samples(&text, "kcc_metrics_series_dropped"),
+            ["kcc_metrics_series_dropped{router=\"fake\"} 3"],
+            "scrape {scrape_number}"
+        );
+        assert!(
+            samples(&text, "kcc_metrics_series_dropped_total").is_empty(),
+            "the counter name is gone:\n{text}"
+        );
+    }
+    rig.handle.shutdown().await?;
+    Ok(())
+}
+
+/// G-18: the interface status series carries no free-text label; the description lives on
+/// the info family.
+#[tokio::test(start_paused = true)]
+async fn interface_description_is_an_info_label_not_a_status_label() -> TestResult {
+    let rig = rig(Firmware::V5_1, "").await?;
+    let text = scrape(&rig.registry)?;
+    let up = samples(&text, "keenetic_interface_up");
+    assert!(!up.is_empty(), "{text}");
+    let status_labels: BTreeSet<String> = ["router", "interface", "type"]
+        .map(str::to_owned)
+        .into_iter()
+        .collect();
+    for line in up {
+        assert_eq!(label_names(line), status_labels, "{line}");
+    }
+    let info = samples(&text, "keenetic_interface_info");
+    assert!(!info.is_empty(), "{text}");
+    let info_labels: BTreeSet<String> = ["router", "interface", "description"]
+        .map(str::to_owned)
+        .into_iter()
+        .collect();
+    for line in info {
+        assert_eq!(label_names(line), info_labels, "{line}");
+        assert!(line.ends_with(" 1"), "{line}");
+    }
     rig.handle.shutdown().await?;
     Ok(())
 }

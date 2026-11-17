@@ -8,9 +8,12 @@ use kcc_rci::observe::{LoginScheme, RciObserver, RequestOutcome};
 use prometheus::{
     HistogramOpts, HistogramVec, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry,
 };
-use tokio::{sync::broadcast::error::RecvError, task::JoinHandle};
+use tokio::task::JoinHandle;
 
+use self::job_follow::JobFollower;
 use super::{catalogue::find, failure::MetricsError};
+
+mod job_follow;
 
 /// RCI request-duration buckets (seconds): LAN round trips up to slow background reads.
 const DURATION_BUCKETS: &[f64] = &[
@@ -188,27 +191,8 @@ impl SelfMetrics {
     #[must_use]
     pub fn track_jobs(self: &Arc<Self>, jobs: Arc<JobRunner>) -> JoinHandle<()> {
         let metrics = Arc::clone(self);
-        let mut events = jobs.subscribe();
-        tokio::spawn(async move {
-            let mut known: BTreeMap<String, (String, String)> = BTreeMap::new();
-            loop {
-                let event = match events.recv().await {
-                    Ok(event) => event,
-                    Err(RecvError::Lagged(_)) => continue,
-                    Err(RecvError::Closed) => return,
-                };
-                let Ok(record) = jobs.get(&event.id) else {
-                    continue;
-                };
-                let Some(state) = serde_json::to_value(event.status)
-                    .ok()
-                    .and_then(|value| value.as_str().map(str::to_owned))
-                else {
-                    continue;
-                };
-                metrics.job_transition(&mut known, (event.id, record.kind), state);
-            }
-        })
+        let mut follower = JobFollower::new(jobs);
+        tokio::spawn(async move { while follower.next(&metrics).await {} })
     }
 
     /// Applies one job state change to `kcc_jobs`.

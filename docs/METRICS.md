@@ -15,8 +15,8 @@ ports below 1024 are refused.
 - Data older than 3 of its intervals is omitted and `keenetic_up` becomes 0.
 - Every router family carries `router`, the profile id.
 - Per-client families exist only with `per_client = true`, for at most `per_client_max`
-  clients per router (lowest MAC first; the rest are counted in
-  `kcc_metrics_series_dropped_total`). Clients are labelled with a `client-<16 hex>` pseudonym
+  clients per router (lowest MAC first; the number of the rest at the latest
+  scrape is the gauge `kcc_metrics_series_dropped`). Clients are labelled with a `client-<16 hex>` pseudonym
   (a keyed hash of the MAC and the router, stable only while one kcc process runs)
   unless `per_client_label` is `name` or `mac`.
 - The rmcp-server-kit families (`rmcp_server_kit_*`) are listed in the kit documentation.
@@ -37,7 +37,8 @@ ports below 1024 are refused.
 | `keenetic_conntrack_entries` | gauge | `router` | always | Connection-tracking entries in use. |
 | `keenetic_conntrack_max` | gauge | `router` | always | Connection-tracking table size. |
 | `keenetic_internet_reachable` | gauge | `router`, `check` | always | 1 when the router's Internet check passes. |
-| `keenetic_interface_up` | gauge | `router`, `interface`, `type`, `description` | always | 1 when the interface state is up. |
+| `keenetic_interface_up` | gauge | `router`, `interface`, `type` | always | 1 when the interface state is up. |
+| `keenetic_interface_info` | gauge | `router`, `interface`, `description` | always | Interface description; always 1. |
 | `keenetic_interface_link_up` | gauge | `router`, `interface` | always | 1 when the interface link is up. |
 | `keenetic_interface_receive_bytes_total` | counter | `router`, `interface` | always | Bytes received by an up interface. |
 | `keenetic_interface_transmit_bytes_total` | counter | `router`, `interface` | always | Bytes transmitted by an up interface. |
@@ -61,7 +62,7 @@ ports below 1024 are refused.
 | `keenetic_client_transmit_bytes_total` | counter | `router`, `client` | `per_client = true` | Bytes transmitted to one client. |
 | `keenetic_client_signal_dbm` | gauge | `router`, `client` | `per_client = true` | Wi-Fi signal strength of one client. |
 | `keenetic_client_link_speed_mbps` | gauge | `router`, `client` | `per_client = true` | Wi-Fi link speed of one client. |
-| `kcc_metrics_series_dropped_total` | counter | `router` | `per_client = true` | Per-client series not exported because of per_client_max, summed over scrapes. |
+| `kcc_metrics_series_dropped` | gauge | `router` | `per_client = true` | Per-client series not exported at the latest scrape because of per_client_max. |
 | `kcc_build_info` | gauge | `version` | self-metric | kcc build; always 1. |
 | `kcc_router_requests_total` | counter | `router`, `outcome` | self-metric | RCI requests by outcome. |
 | `kcc_router_request_duration_seconds` | histogram | `router` | self-metric | RCI request duration. |
