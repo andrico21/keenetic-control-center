@@ -7,9 +7,12 @@ use kcc_domain::routing::model::{Ipv4Route, Ipv6Route, RouteTableEntry};
 use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_rci::ObjectName;
 
-use crate::table::{
-    Direction, Sort,
-    rows::{Row, SortKey},
+use crate::{
+    page_kit::values,
+    table::{
+        Direction, Sort,
+        rows::{Row, SortKey},
+    },
 };
 
 /// The address family of a route.
@@ -242,8 +245,11 @@ impl StaticRoute {
             Family::V6 => text.parse::<Ipv6Addr>().is_ok(),
         };
         let destination = match self.family {
-            Family::V4 => address(&self.destination) && self.mask.as_deref().is_some_and(mask),
-            Family::V6 => prefix(&self.destination) && self.mask.is_none(),
+            Family::V4 => {
+                address(&self.destination)
+                    && self.mask.as_deref().and_then(values::netmask).is_some()
+            }
+            Family::V6 => prefix(&self.destination).is_some() && self.mask.is_none(),
         };
         destination
             && self.gateway.as_deref().is_none_or(address)
@@ -256,19 +262,11 @@ impl StaticRoute {
     }
 }
 
-/// Whether `text` is a contiguous dotted IPv4 mask.
-pub(crate) fn mask(text: &str) -> bool {
-    text.parse::<Ipv4Addr>().is_ok_and(|parsed| {
-        let bits = u32::from(parsed);
-        bits.leading_ones().saturating_add(bits.trailing_zeros()) == 32
-    })
-}
-
-/// Whether `text` is an IPv6 prefix such as `2001:db8::/32`.
-pub(crate) fn prefix(text: &str) -> bool {
-    text.split_once('/').is_some_and(|(address, length)| {
-        address.parse::<Ipv6Addr>().is_ok() && length.parse::<u8>().is_ok_and(|bits| bits <= 128)
-    })
+/// The IPv6 prefix `text`, such as `2001:db8::/32`: its address and length.
+pub(crate) fn prefix(text: &str) -> Option<(Ipv6Addr, u8)> {
+    let (address, length) = text.split_once('/')?;
+    let bits = length.parse::<u8>().ok().filter(|bits| *bits <= 128)?;
+    Some((address.parse::<Ipv6Addr>().ok()?, bits))
 }
 
 /// The sort key of an address: IPv4 by number, anything else as text.

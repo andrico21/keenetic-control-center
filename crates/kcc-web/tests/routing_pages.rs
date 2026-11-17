@@ -145,3 +145,23 @@ mod refusals;
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 #[path = "routing_pages/access.rs"]
 mod access;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "routing_pages/unread.rs"]
+mod unread;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "routing_pages/route_spelling.rs"]
+mod route_spelling;

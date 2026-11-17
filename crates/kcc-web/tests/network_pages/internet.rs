@@ -125,7 +125,7 @@ async fn a_new_connection_is_created_in_one_change() -> TestResult {
             .any(|entry| entry.action == "web.wan_create" && entry.outcome == "success"),
         "audited"
     );
-    let taken = fixture
+    let misnamed = fixture
         .post(
             &format!("{PAGE}/create"),
             &operator,
@@ -133,15 +133,44 @@ async fn a_new_connection_is_created_in_one_change() -> TestResult {
         )
         .await?;
     assert_eq!(
-        taken.status(),
+        misnamed.status(),
         StatusCode::UNPROCESSABLE_ENTITY,
         "a tunnel name must start with its type"
     );
     assert!(
-        text(taken)
+        text(misnamed)
             .await?
             .contains(&said(Locale::En, keys::WEB_INTERNET_NAME_ERROR)),
         "the rule"
+    );
+    Ok(())
+}
+
+/// W3-16: Add connection refuses the name of a connection the router already has.
+#[tokio::test]
+async fn an_existing_connection_name_is_refused() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let operator = fixture.login("operator").await?;
+    let pppoe = form(&[("kind", "pppoe"), ("name", "PPPoE0")]);
+    let created = fixture
+        .post(&format!("{PAGE}/create"), &operator, &pppoe)
+        .await?;
+    assert_eq!(created.status(), StatusCode::OK, "created");
+    let before = fixture.handle().running_config_text();
+    let taken = fixture
+        .post(&format!("{PAGE}/create"), &operator, &pppoe)
+        .await?;
+    assert_eq!(taken.status(), StatusCode::UNPROCESSABLE_ENTITY, "refused");
+    assert!(
+        text(taken)
+            .await?
+            .contains(&said(Locale::En, keys::WEB_INTERNET_NAME_EXISTS)),
+        "the name is taken"
+    );
+    assert_eq!(
+        fixture.handle().running_config_text(),
+        before,
+        "nothing sent"
     );
     Ok(())
 }

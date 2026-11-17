@@ -229,12 +229,15 @@ impl Setting {
     }
 
     /// The schedules or channel widths the dialog offers, from the router of `domain`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the router's error when its schedules cannot be read.
     // cancel-safe: reads only.
-    pub(crate) async fn choices(self, domain: &RouterCtx) -> Vec<String> {
-        match self {
+    pub(crate) async fn choices(self, domain: &RouterCtx) -> Result<Vec<String>, DomainError> {
+        Ok(match self {
             Self::Schedule => schedules::read_schedules(domain)
-                .await
-                .unwrap_or_default()
+                .await?
                 .into_iter()
                 .filter_map(|schedule| schedule.name)
                 .collect(),
@@ -244,35 +247,61 @@ impl Setting {
                 .and_then(|command| command.arguments.get("width"))
                 .map_or_default(|argument| argument.values.clone()),
             Self::Ssid | Self::Security | Self::Channel | Self::Power | Self::Country => Vec::new(),
-        }
+        })
     }
 
-    /// The current value of the setting of `name`, for the dialog.
+    /// The current value of the setting of `name`, for the dialog; none when the router
+    /// has no such radio or access point, or no value for it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the router's error when its radios or access points cannot be read.
     // cancel-safe: reads only.
-    pub(crate) async fn current(self, domain: &RouterCtx, name: &ObjectName) -> Option<String> {
-        let radio = async || {
-            radios(domain)
-                .await
-                .ok()?
-                .into_iter()
-                .find(|found| found.id() == name.as_str())
-        };
+    pub(crate) async fn current(
+        self,
+        domain: &RouterCtx,
+        name: &ObjectName,
+    ) -> Result<Option<String>, DomainError> {
+        let named = |id: &str| id == name.as_str();
         let point = async || {
-            access_points(domain)
-                .await
-                .ok()?
-                .into_iter()
-                .find(|found| found.id() == name.as_str())
+            Ok::<_, DomainError>(
+                access_points(domain)
+                    .await?
+                    .into_iter()
+                    .find(|found| named(found.id())),
+            )
         };
-        match self {
-            Self::Ssid => point().await?.ssid().map(str::to_owned),
-            Self::Security => point().await?.security().map(str::to_owned),
-            Self::Schedule => point().await?.schedule().map(str::to_owned),
-            Self::Channel => radio().await?.channel().map(str::to_owned),
-            Self::Width => radio().await?.width().map(str::to_owned),
-            Self::Power => radio().await?.power().map(str::to_owned),
-            Self::Country => radio().await?.country().map(str::to_owned),
-        }
+        let radio = async || {
+            Ok::<_, DomainError>(
+                radios(domain)
+                    .await?
+                    .into_iter()
+                    .find(|found| named(found.id())),
+            )
+        };
+        Ok(match self {
+            Self::Ssid => point()
+                .await?
+                .and_then(|found| found.ssid().map(str::to_owned)),
+            Self::Security => point()
+                .await?
+                .and_then(|found| found.security().map(str::to_owned)),
+            Self::Schedule => point()
+                .await?
+                .and_then(|found| found.schedule().map(str::to_owned)),
+            Self::Channel => radio()
+                .await?
+                .and_then(|found| found.channel().map(str::to_owned)),
+            Self::Width => radio()
+                .await?
+                .and_then(|found| found.width().map(str::to_owned)),
+            Self::Power => radio()
+                .await?
+                .and_then(|found| found.power().map(str::to_owned)),
+            Self::Country => radio()
+                .await?
+                .and_then(|found| found.country().map(str::to_owned)),
+        })
     }
 }
 

@@ -28,6 +28,8 @@
 //! - [`request`]: what a page reads from a request: its parameters (the last value of a
 //!   name counts), the page the browser shows, and the addresses of its actions.
 //! - [`secret`]: write-only secret fields, and secret members masked in raw answers.
+//! - [`values`]: typed values several page families read from their forms, such as a
+//!   port or a netmask.
 
 pub(crate) mod action;
 pub(crate) mod audit;
@@ -44,3 +46,4 @@ pub(crate) mod request;
 pub(crate) mod respond;
 pub(crate) mod secret;
 pub(crate) mod submit;
+pub(crate) mod values;

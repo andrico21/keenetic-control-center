@@ -16,7 +16,7 @@ use kcc_rci::ObjectName;
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Subject, refreshed},
+    net_change::{Subject, refreshed, unread, unread_change},
     net_pages::{Call, Tab},
     net_wan::{Kind, Link, links},
     page_kit::{
@@ -40,7 +40,8 @@ const VIA: Operation = Operation::write(&wan::DESCRIPTOR, "connect_via", "web.wa
 const MTU: Operation = Operation::write(&wan::DESCRIPTOR, "mtu", "web.wan_mtu");
 
 /// The priority, audited as `web.wan_priority`.
-const PRIORITY: Operation = Operation::write(&wan::DESCRIPTOR, "priority", "web.wan_priority");
+pub(crate) const PRIORITY: Operation =
+    Operation::write(&wan::DESCRIPTOR, "priority", "web.wan_priority");
 
 /// Longest user name accepted, in characters.
 const IDENTITY_CHARS: usize = 64;
@@ -220,7 +221,9 @@ pub(crate) async fn field_dialog(
     let name = Params::new(query, Vec::new()).object("name")?;
     let action = setting.operation().open(&state, &user, &router).await?;
     let domain = action.context().await?;
-    let found = links(&domain).await.unwrap_or_default();
+    let found = links(&domain)
+        .await
+        .map_err(|error| unread(action.locale(), &error))?;
     let link = found.iter().find(|link| link.id() == name.as_str());
     let current = match setting {
         Setting::Identity => None,
@@ -259,7 +262,10 @@ pub(crate) async fn field(
     let subject = Subject::new(&router, &name, action.locale());
     let typed = params.text("value");
     let found = if setting == Setting::Via {
-        links(&action.context().await?).await.unwrap_or_default()
+        match links(&action.context().await?).await {
+            Ok(found) => found,
+            Err(error) => return Err(unread_change(action, &error).await),
+        }
     } else {
         Vec::new()
     };

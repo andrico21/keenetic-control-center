@@ -9,10 +9,11 @@ use kcc_i18n::{
     locale::Locale,
 };
 
-use super::route_rows::{Family, StaticRoute, mask, prefix};
+use super::route_rows::{Family, StaticRoute, prefix};
 use crate::page_kit::{
     form::{Choice, FormDialog, Input},
     request::Params,
+    values,
 };
 
 /// The field naming the destination of `family`.
@@ -23,7 +24,9 @@ pub(crate) const fn destination_field(family: Family) -> &'static str {
     }
 }
 
-/// The route the dialog describes.
+/// The route the dialog describes, its addresses in the canonical form the router stores:
+/// the network or prefix without host bits, every address as `Ipv4Addr` or `Ipv6Addr`
+/// prints it.
 ///
 /// # Errors
 ///
@@ -35,38 +38,20 @@ pub(crate) fn check(
 ) -> Result<StaticRoute, (&'static str, MessageKey)> {
     let text = |name: &str| values.text(name).trim().to_owned();
     let optional = |name: &str| Some(text(name)).filter(|value| !value.is_empty());
-    let (destination, mask_text) = match family {
-        Family::V4 => {
-            let network = text("network");
-            if network.parse::<Ipv4Addr>().is_err() {
-                return Err(("network", keys::WEB_ROUTING_ERROR_IPV4));
-            }
-            let given = text("mask");
-            if !mask(&given) {
-                return Err(("mask", keys::WEB_ROUTING_ERROR_MASK));
-            }
-            (network, Some(given))
-        }
-        Family::V6 => {
-            let given = text("prefix");
-            if !prefix(&given) {
-                return Err(("prefix", keys::WEB_ROUTING_ERROR_PREFIX));
-            }
-            (given, None)
-        }
-    };
-    let gateway = optional("gateway");
-    let valid_gateway = gateway.as_deref().is_none_or(|address| match family {
-        Family::V4 => address.parse::<Ipv4Addr>().is_ok(),
-        Family::V6 => address.parse::<Ipv6Addr>().is_ok(),
-    });
-    if !valid_gateway {
-        let message = match family {
-            Family::V4 => keys::WEB_ROUTING_ERROR_IPV4,
-            Family::V6 => keys::WEB_ROUTING_ERROR_IPV6,
-        };
-        return Err(("gateway", message));
-    }
+    let (destination, mask_text) = destination(family, &text)?;
+    let gateway = optional("gateway")
+        .map(|address| match family {
+            Family::V4 => address.parse::<Ipv4Addr>().map(|parsed| parsed.to_string()),
+            Family::V6 => address.parse::<Ipv6Addr>().map(|parsed| parsed.to_string()),
+        })
+        .transpose()
+        .map_err(|_error| {
+            let message = match family {
+                Family::V4 => keys::WEB_ROUTING_ERROR_IPV4,
+                Family::V6 => keys::WEB_ROUTING_ERROR_IPV6,
+            };
+            ("gateway", message)
+        })?;
     let interface = optional("interface");
     if interface.as_ref().is_some_and(|name| !names.contains(name)) {
         return Err(("interface", keys::WEB_ROUTING_ERROR_CHOICE));
@@ -89,6 +74,37 @@ pub(crate) fn check(
         (gateway, interface),
         metric,
     ))
+}
+
+/// The destination typed for `family` (read by `text`), without host bits: the IPv4
+/// network and its mask, or the IPv6 prefix.
+///
+/// # Errors
+///
+/// Returns the field to correct and why.
+fn destination(
+    family: Family,
+    text: &dyn Fn(&str) -> String,
+) -> Result<(String, Option<String>), (&'static str, MessageKey)> {
+    match family {
+        Family::V4 => {
+            let network = text("network")
+                .parse::<Ipv4Addr>()
+                .map_err(|_error| ("network", keys::WEB_ROUTING_ERROR_IPV4))?;
+            let mask =
+                values::netmask(&text("mask")).ok_or(("mask", keys::WEB_ROUTING_ERROR_MASK))?;
+            let masked = Ipv4Addr::from(u32::from(network) & u32::from(mask));
+            Ok((masked.to_string(), Some(mask.to_string())))
+        }
+        Family::V6 => {
+            let (address, length) =
+                prefix(&text("prefix")).ok_or(("prefix", keys::WEB_ROUTING_ERROR_PREFIX))?;
+            let host_bits = u32::from(128_u8.saturating_sub(length));
+            let network_bits = u128::MAX.checked_shl(host_bits).unwrap_or(0);
+            let masked = Ipv6Addr::from(u128::from(address) & network_bits);
+            Ok((format!("{masked}/{length}"), None))
+        }
+    }
 }
 
 /// The Add route dialog of `family` on `router` with `values` and the router's interface

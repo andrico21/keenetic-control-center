@@ -20,6 +20,7 @@ use crate::{
     net_pages::{Call, Tab},
     net_wifi,
     page_kit::{
+        action::Action,
         context,
         facts::RouterFacts,
         family::Family,
@@ -102,6 +103,23 @@ pub(crate) async fn reader(
 pub(crate) fn unusable(locale: Locale, message: MessageKey) -> Answer {
     let failure = Failure::new(tr(locale, message, None), "unreachable");
     respond::retarget(Outcome::failed(failure).render(locale), "#page-outcome").into()
+}
+
+/// A dialog whose router read failed with `error`: the failure in the page's outcome
+/// region instead of a form filled in from nothing.
+pub(crate) fn unread(locale: Locale, error: &DomainError) -> Answer {
+    tracing::warn!(%error, "network page: router read failed");
+    unusable(locale, Family::Changes.unreachable())
+}
+
+/// Ends `action` because the router read its change is checked against failed with
+/// `error`: audited `unreachable`, the failure shown in the page's outcome region, nothing
+/// planned.
+// NOT cancel-safe: an abandoned append may still be written.
+pub(crate) async fn unread_change(action: Action<'_>, error: &DomainError) -> Answer {
+    let locale = action.locale();
+    action.abandon("unreachable").await;
+    unread(locale, error)
 }
 
 /// The region of the page of `call`, read back from the router of `domain` after a

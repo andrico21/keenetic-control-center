@@ -19,7 +19,7 @@ use kcc_i18n::keys;
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Subject, refreshed},
+    net_change::{Subject, refreshed, unread},
     net_interface_line::{Level, Line},
     net_pages::Call,
     page_kit::{
@@ -99,8 +99,8 @@ pub(crate) async fn description_dialog(
     let domain = action.context().await?;
     let current = interfaces::read_interface(&domain, &name)
         .await
-        .ok()
-        .and_then(|interface| interface.description)
+        .map_err(|error| unread(action.locale(), &error))?
+        .description
         .unwrap_or_default();
     let subject = Subject::new(&router, &name, action.locale());
     Ok(description_form(subject, current).show())
@@ -163,10 +163,11 @@ pub(crate) async fn security_dialog(
     let name = Params::new(query, Vec::new()).object("name")?;
     let action = SECURITY.open(&state, &user, &router).await?;
     let domain = action.context().await?;
-    let current = interfaces::read_interface(&domain, &name)
+    let interface = interfaces::read_interface(&domain, &name)
         .await
-        .ok()
-        .and_then(|interface| Line::new(name.as_str().to_owned(), &interface).level())
+        .map_err(|error| unread(action.locale(), &error))?;
+    let current = Line::new(name.as_str().to_owned(), &interface)
+        .level()
         .unwrap_or(Level::Private);
     let subject = Subject::new(&router, &name, action.locale());
     Ok(security_form(subject, current).show())

@@ -237,14 +237,18 @@ pub(crate) fn protocol_text(locale: Locale, name: &str) -> String {
     tr(locale, key, None)
 }
 
-/// The names of the router's interfaces, sorted; none when the router does not say.
+/// The names of the router's interfaces, sorted.
+///
+/// # Errors
+///
+/// Returns the message saying the router could not be read.
 // cancel-safe: reads only.
-pub(crate) async fn interface_names(domain: &RouterCtx) -> Vec<String> {
+pub(crate) async fn interface_names(domain: &RouterCtx) -> Result<Vec<String>, MessageKey> {
     interfaces::read_interfaces(domain).await.map_or_else(
         |error| {
             tracing::warn!(%error, "routing page: interfaces unavailable");
-            Vec::new()
+            Err(keys::WEB_KIT_UNREACHABLE)
         },
-        |found| found.into_keys().collect(),
+        |found| Ok(found.into_keys().collect()),
     )
 }

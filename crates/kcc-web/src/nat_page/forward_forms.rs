@@ -31,6 +31,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    net_change::unusable,
     page_kit::{
         action::Operation,
         change::Applied,
@@ -39,10 +40,11 @@ use crate::{
         request::{Params, rendered, shown_query},
         respond::Answer,
         submit::{Invalid, Planned, Submission},
+        values,
     },
     routing_page::{
         frame::interface_names,
-        reply::{Replying, unread},
+        reply::{Replying, refused, unread},
     },
 };
 
@@ -61,7 +63,9 @@ pub(crate) async fn dialog(
 ) -> Result<Response, Answer> {
     let action = ADD.open(&state, &user, &router).await?;
     let domain = action.context().await?;
-    let names = interface_names(&domain).await;
+    let names = interface_names(&domain)
+        .await
+        .map_err(|message| unusable(action.locale(), message))?;
     Ok(form(action.locale(), &router, &Params::default(), &names).show())
 }
 
@@ -80,7 +84,10 @@ pub(crate) async fn add(
 ) -> Result<Response, Answer> {
     let action = ADD.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let names = interface_names(&action.context().await?).await;
+    let names = match interface_names(&action.context().await?).await {
+        Ok(found) => found,
+        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+    };
     let values = Params::new(Vec::new(), pairs);
     let dialog = Replying::new(form(locale, &router, &values, &names));
     let resubmit = Resubmit::new(format!("/ui/r/{router}/nat/forward/new"), "#page-outcome");
@@ -155,9 +162,9 @@ fn check(values: &Params, names: &[String]) -> Result<Forward, (&'static str, Me
     if !names.contains(&interface) {
         return Err(("interface", keys::WEB_ROUTING_ERROR_CHOICE));
     }
-    let port = number(&text("port")).map_err(|key| ("port", key))?;
-    let end_port = number(&text("end_port")).map_err(|key| ("end_port", key))?;
-    let to_port = number(&text("to_port")).map_err(|key| ("to_port", key))?;
+    let port = values::port(&text("port")).map_err(|key| ("port", key))?;
+    let end_port = values::port(&text("end_port")).map_err(|key| ("end_port", key))?;
+    let to_port = values::port(&text("to_port")).map_err(|key| ("to_port", key))?;
     let given = port.is_some() || end_port.is_some() || to_port.is_some();
     if given && !has_ports(protocol.as_deref()) {
         return Err(("port", keys::WEB_NAT_ERROR_PORTS));
@@ -180,21 +187,6 @@ fn check(values: &Params, names: &[String]) -> Result<Forward, (&'static str, Me
         (port, end_port),
         (target, to_port),
     ))
-}
-
-/// An optional port from 1 to 65535.
-///
-/// # Errors
-///
-/// Returns the port rule.
-fn number(text: &str) -> Result<Option<u16>, MessageKey> {
-    if text.is_empty() {
-        return Ok(None);
-    }
-    match text.parse::<u16>() {
-        Ok(port) if port > 0 => Ok(Some(port)),
-        Ok(_) | Err(_) => Err(keys::WEB_ROUTING_ERROR_PORT),
-    }
 }
 
 /// The Forward a port dialog on `router` with `values` and the router's interface `names`.

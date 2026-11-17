@@ -21,7 +21,7 @@ use kcc_i18n::{
 };
 
 use super::{
-    checks::{address, list_name, port},
+    checks::{address, list_name},
     expect::Expect,
     lines,
     rule::PROTOCOLS,
@@ -39,8 +39,9 @@ use crate::{
         request::Params,
         respond::Answer,
         submit::Invalid,
+        values,
     },
-    routing_page::{reply::unread, route_rows::mask},
+    routing_page::reply::unread,
     system_pages::shared::merged,
 };
 
@@ -147,10 +148,10 @@ fn check(values: &Params) -> Result<(String, RuleForm), (&'static str, MessageKe
         if !address(&text(host)) {
             return Err((host, keys::WEB_ROUTING_ERROR_IPV4));
         }
-        if !mask(&text(netmask)) {
+        if values::netmask(&text(netmask)).is_none() {
             return Err((netmask, keys::WEB_ROUTING_ERROR_MASK));
         }
-        let found = port(&text(number)).map_err(|key| (number, key))?;
+        let found = values::port(&text(number)).map_err(|key| (number, key))?;
         if found.is_some() && !matches!(protocol, Protocol::Tcp | Protocol::Udp) {
             return Err((number, keys::WEB_NAT_ERROR_PORTS));
         }

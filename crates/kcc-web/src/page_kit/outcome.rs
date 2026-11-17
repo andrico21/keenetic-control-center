@@ -12,7 +12,7 @@ use kcc_i18n::{
     locale::Locale,
 };
 
-use super::{context::fragment_shell, failure::FailureKind, family::Family};
+use super::{context::fragment_shell, failure::FailureKind, family::Family, submit::work::Report};
 use crate::{
     errors,
     page::{Localize as _, Shell},
@@ -207,6 +207,8 @@ pub(crate) struct Outcome {
     /// Whether the change's audit entries are still queued behind another process's
     /// append lock.
     audit_pending: bool,
+    /// What the page's work said beyond the outcome.
+    report: Option<Report>,
 }
 
 /// The outcome fragment of a page's outcome region.
@@ -235,6 +237,7 @@ impl Outcome {
             audit,
             fail_safe_armed: false,
             audit_pending: false,
+            report: None,
         }
     }
 
@@ -281,6 +284,16 @@ impl Outcome {
             audit_pending: true,
             ..self
         }
+    }
+
+    /// The same outcome with `report`, what the page's work said beyond it.
+    pub(crate) fn with_report(self, report: Option<Report>) -> Self {
+        Self { report, ..self }
+    }
+
+    /// What the page's work said beyond the outcome, taken out of it.
+    pub(crate) const fn take_report(&mut self) -> Option<Report> {
+        self.report.take()
     }
 
     /// The same outcome, saying whether the router now has unsaved changes, such as after

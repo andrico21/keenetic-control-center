@@ -15,7 +15,7 @@ use kcc_i18n::{
 use super::segment_known::Known;
 use crate::{
     page::{Localize as _, Shell},
-    page_kit::context::fragment_shell,
+    page_kit::{context::fragment_shell, values},
 };
 
 /// A segment as typed into the wizard.
@@ -146,10 +146,7 @@ impl SegmentForm {
             problems.vlan = say(keys::WEB_SEGMENTS_ERROR_VLAN, None);
         }
         let address = Ipv4Addr::from_str(&self.address).ok();
-        let mask = Ipv4Addr::from_str(&self.mask).ok().filter(|bits| {
-            let value = u32::from(*bits);
-            value != 0 && value.leading_ones().saturating_add(value.trailing_zeros()) == 32
-        });
+        let mask = values::netmask(&self.mask).filter(|bits| u32::from(*bits) != 0);
         if mask.is_none() {
             problems.mask = say(keys::WEB_SEGMENTS_ERROR_MASK, None);
         }

@@ -6,7 +6,7 @@
 //!
 //! Interface, connection and member names never appear in a path segment: they travel in
 //! the query string (`?name=`) or the form body, are parsed as `ObjectName` at the boundary
-//! (`net_change::Params`) and reach the router only inside request bodies.
+//! (`page_kit::request::Params`) and reach the router only inside request bodies.
 //!
 //! Routes (route table: `Read` and the router scope; every change re-checks the
 //! permissions of its operation):
@@ -36,6 +36,7 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use crate::{
     WebState,
     authz::CurrentUser,
+    clients_pages::TabLink,
     nav::Section,
     net_interface_actions, net_interface_detail, net_interface_edits, net_interface_traffic,
     net_interfaces, net_internet, net_internet_address, net_internet_create, net_internet_delete,
@@ -199,40 +200,14 @@ impl Tabs {
     pub(crate) fn links(&self) -> Vec<TabLink> {
         Tab::ALL
             .into_iter()
-            .map(|tab| TabLink {
-                href: format!("/ui/r/{}/{}", self.router, tab.slug()),
-                label: tab.label(),
-                current: tab == self.current,
+            .map(|tab| {
+                TabLink::new(
+                    format!("/ui/r/{}/{}", self.router, tab.slug()),
+                    tab.label(),
+                    tab == self.current,
+                )
             })
             .collect()
-    }
-}
-
-/// One link of the tab bar.
-#[derive(Debug, Clone)]
-pub(crate) struct TabLink {
-    /// The page's address.
-    href: String,
-    /// The label.
-    label: MessageKey,
-    /// Whether it is the page shown.
-    current: bool,
-}
-
-impl TabLink {
-    /// The page's address.
-    pub(crate) fn href(&self) -> &str {
-        &self.href
-    }
-
-    /// The label.
-    pub(crate) const fn label(&self) -> MessageKey {
-        self.label
-    }
-
-    /// Whether it is the page shown.
-    pub(crate) const fn current(&self) -> bool {
-        self.current
     }
 }
 

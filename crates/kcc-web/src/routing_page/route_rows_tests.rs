@@ -12,7 +12,7 @@ use core::error::Error;
 use kcc_domain::routing::model::RouteTableEntry;
 use serde_json::{Value, json};
 
-use super::{Family, StaticRoute, mask, prefix};
+use super::{Family, StaticRoute, prefix};
 
 /// A routing-table row from its JSON.
 fn entry(value: Value) -> Result<RouteTableEntry, Box<dyn Error>> {
@@ -75,12 +75,8 @@ fn runtime_rows_and_unknown_shapes_are_not_static_routes() -> Result<(), Box<dyn
 }
 
 #[test]
-fn masks_and_prefixes_must_be_well_formed() {
-    assert!(mask("255.255.255.0"), "contiguous");
-    assert!(mask("0.0.0.0"), "default");
-    assert!(!mask("255.0.255.0"), "holes");
-    assert!(!mask("24"), "a prefix length is not a dotted mask");
-    assert!(prefix("2001:db8:7::/64"), "prefix");
-    assert!(!prefix("2001:db8:7::"), "no length");
-    assert!(!prefix("2001:db8:7::/129"), "too long");
+fn prefixes_must_be_well_formed() {
+    assert!(prefix("2001:db8:7::/64").is_some(), "prefix");
+    assert!(prefix("2001:db8:7::").is_none(), "no length");
+    assert!(prefix("2001:db8:7::/129").is_none(), "too long");
 }

@@ -17,6 +17,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     net_change::{merged, refreshed},
+    net_internet_edit::PRIORITY,
     net_pages::{Call, Tab},
     net_wan::{Link, links},
     page_kit::{
@@ -28,9 +29,6 @@ use crate::{
         submit::{Formless, Invalid, Planned, Submission},
     },
 };
-
-/// The priority order, audited as `web.wan_priority`.
-const PRIORITY: Operation = Operation::write(&wan::DESCRIPTOR, "priority", "web.wan_priority");
 
 /// PPP's default route, audited as `web.wan_default_route`.
 const DEFAULT_ROUTE: Operation =

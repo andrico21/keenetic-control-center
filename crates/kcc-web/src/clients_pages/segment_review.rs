@@ -4,7 +4,7 @@
 
 use askama::Template;
 use fluent_bundle::FluentArgs;
-use kcc_domain::segments::SegmentSpec;
+use kcc_domain::segments::{SegmentNames, SegmentSpec};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -48,11 +48,11 @@ impl Review {
             }
             tr(locale, key, Some(&args))
         };
-        let (vlan, bridge) = (format!("Vlan{}", spec.id), format!("Bridge{}", spec.id));
+        let names = SegmentNames::of(spec.id);
         let prefix = u32::from(spec.mask).leading_ones();
         let mut steps = vec![say(
             keys::WEB_SEGMENTS_REVIEW_VLAN,
-            &[("name", vlan), ("value", spec.vlan_id.to_string())],
+            &[("name", names.vlan), ("value", spec.vlan_id.to_string())],
         )];
         steps.extend(spec.switch_ports.iter().map(|port| {
             say(
@@ -63,23 +63,26 @@ impl Review {
         steps.push(say(
             keys::WEB_SEGMENTS_REVIEW_BRIDGE,
             &[
-                ("name", bridge.clone()),
+                ("name", names.bridge.clone()),
                 ("value", format!("{}/{prefix}", spec.address)),
             ],
         ));
         steps.push(say(
             keys::WEB_SEGMENTS_REVIEW_POOL,
             &[
-                ("name", format!("Pool{}", spec.id)),
+                ("name", names.pool),
                 ("first", spec.dhcp_begin.to_string()),
                 ("last", spec.dhcp_end.to_string()),
             ],
         ));
         steps.push(say(
             keys::WEB_SEGMENTS_REVIEW_NAT,
-            &[("name", bridge.clone())],
+            &[("name", names.bridge.clone())],
         ));
-        steps.push(say(keys::WEB_SEGMENTS_REVIEW_HOTSPOT, &[("name", bridge)]));
+        steps.push(say(
+            keys::WEB_SEGMENTS_REVIEW_HOTSPOT,
+            &[("name", names.bridge)],
+        ));
         if let Some(access_point) = &spec.access_point {
             steps.push(say(
                 keys::WEB_SEGMENTS_REVIEW_WIFI,

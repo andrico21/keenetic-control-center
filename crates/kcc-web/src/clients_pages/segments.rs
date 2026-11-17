@@ -45,6 +45,7 @@ use crate::{
         gate::Controls,
         outcome::Outcome,
         respond::{self, Answer},
+        submit::work::{Report, Stopped},
     },
 };
 
@@ -209,8 +210,8 @@ pub(super) fn refuse(details: Details, problems: Problems, problem: String) -> A
     respond::in_dialog(respond::unprocessable(&refused)).into()
 }
 
-/// The sentence naming the failed step, and the workflow error the kit words.
-pub(super) fn step_failure(error: SegmentError, locale: Locale) -> (Option<String>, WorkflowError) {
+/// The workflow error the kit words, reported with the sentence naming the failed step.
+pub(super) fn step_failure(error: SegmentError, locale: Locale) -> Stopped {
     let mut args = FluentArgs::new();
     let said = match &error {
         SegmentError::StepFailed { step, source: _ } => {
@@ -229,5 +230,5 @@ pub(super) fn step_failure(error: SegmentError, locale: Locale) -> (Option<Strin
         // A planning failure names no step; the domain's enum is not exhaustive here.
         SegmentError::Domain(_) | _ => None,
     };
-    (said, WorkflowError::from(error))
+    Stopped::reporting(WorkflowError::from(error), said.map(Report::Note))
 }

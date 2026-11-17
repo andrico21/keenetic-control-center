@@ -62,7 +62,9 @@ pub(crate) async fn bind_dialog(
     let firewall = snapshot::read(&domain)
         .await
         .map_err(|message| unusable(locale, message))?;
-    let names = interface_names(&domain).await;
+    let names = interface_names(&domain)
+        .await
+        .map_err(|message| unusable(locale, message))?;
     let values = Params::new(merged(query.as_deref(), Vec::new()), Vec::new());
     let mut dialog = form(locale, &router, &values, (&firewall, &names));
     if firewall.lists().is_empty() {
@@ -93,7 +95,10 @@ pub(crate) async fn bind(
         Ok(found) => found,
         Err(message) => return Ok(refused(action, unread(locale, message)).await),
     };
-    let names = interface_names(&domain).await;
+    let names = match interface_names(&domain).await {
+        Ok(found) => found,
+        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+    };
     let values = Params::of(pairs.clone());
     let dialog = form(locale, &router, &values, (&firewall, &names));
     let path = format!("/ui/r/{router}/firewall/bind");

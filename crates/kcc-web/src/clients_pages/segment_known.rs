@@ -4,7 +4,7 @@
 use alloc::collections::BTreeSet;
 use core::{net::Ipv4Addr, str::FromStr as _};
 
-use kcc_domain::{Result as DomainResult, RouterCtx, dhcp, interfaces};
+use kcc_domain::{Result as DomainResult, RouterCtx, dhcp, interfaces, segments::SegmentNames};
 use serde_json::Value;
 
 /// The router's objects a new segment must fit.
@@ -78,13 +78,10 @@ impl Known {
 
     /// The first object name of segment `id` that already exists.
     pub(crate) fn taken(&self, id: u16) -> Option<String> {
-        [
-            format!("Bridge{id}"),
-            format!("Vlan{id}"),
-            format!("Pool{id}"),
-        ]
-        .into_iter()
-        .find(|name| self.names.contains(name))
+        let names = SegmentNames::of(id);
+        [names.bridge, names.vlan, names.pool]
+            .into_iter()
+            .find(|name| self.names.contains(name))
     }
 
     /// The interface whose subnet overlaps `address`/`mask`, if any.

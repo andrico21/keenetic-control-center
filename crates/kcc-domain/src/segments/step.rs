@@ -14,7 +14,7 @@ use kcc_rci::ConfigKind;
 use secrecy::ExposeSecret as _;
 use serde_json::{Value, json};
 
-use super::SegmentSpec;
+use super::{SegmentNames, SegmentSpec};
 use crate::{ChangeOp, Result, RouterCtx, config_tree, planning, verification};
 
 /// Direction in which a segment definition is executed.
@@ -127,9 +127,7 @@ fn step(name: String, create: StepLine, delete: StepLine, verification: StepVeri
 
 /// Builds the single ordered definition shared by create, delete, and rollback.
 pub(super) fn steps(segment: &SegmentSpec) -> Vec<Step> {
-    let vlan = format!("Vlan{}", segment.id);
-    let bridge = format!("Bridge{}", segment.id);
-    let pool = format!("Pool{}", segment.id);
+    let SegmentNames { vlan, bridge, pool } = SegmentNames::of(segment.id);
     let mut definitions = vec![step(
         "vlan-subinterface".to_owned(),
         cli(

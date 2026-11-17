@@ -22,7 +22,7 @@ use kcc_i18n::{bundle::MessageKey, keys};
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Subject, refreshed},
+    net_change::{Subject, refreshed, unread},
     net_pages::{Call, Tab},
     net_wan::{Link, links},
     page_kit::{
@@ -33,6 +33,7 @@ use crate::{
         request::Params,
         respond::Answer,
         submit::{Invalid, Planned, Submission},
+        values,
     },
 };
 
@@ -82,10 +83,7 @@ impl Addressing {
             return Ok(None);
         }
         let address = self.address.parse::<Ipv4Addr>().ok();
-        let mask = self.mask.parse::<Ipv4Addr>().ok().filter(|mask| {
-            let bits = u32::from(*mask);
-            bits.leading_ones().saturating_add(bits.trailing_zeros()) == 32
-        });
+        let mask = values::netmask(&self.mask);
         match (self.is_static(), address, mask) {
             (true, Some(found), Some(netmask)) => Ok(Some(StaticAddress::new(found, netmask))),
             (true | false, _, _) => Err(keys::WEB_INTERNET_STATIC_ERROR),
@@ -138,7 +136,9 @@ pub(crate) async fn address_dialog(
     let name = Params::new(query, Vec::new()).object("name")?;
     let action = DHCP.open(&state, &user, &router).await?;
     let domain = action.context().await?;
-    let found = links(&domain).await.unwrap_or_default();
+    let found = links(&domain)
+        .await
+        .map_err(|error| unread(action.locale(), &error))?;
     let link = found.iter().find(|link| link.id() == name.as_str());
     let typed = Addressing {
         mode: if link.is_some_and(|found_link| found_link.ip().is_some() && !found_link.dhcp()) {

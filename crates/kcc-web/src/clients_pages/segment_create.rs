@@ -4,9 +4,7 @@
 //! segment step by step, removing what it created when a step fails; the list is read
 //! back after it, whether or not the creation went through.
 
-use alloc::sync::Arc;
 use core::slice;
-use std::sync::Mutex;
 
 use axum::{
     Form,
@@ -31,13 +29,10 @@ use crate::{
         outcome::{Failure, Outcome},
         request::Params,
         respond::Answer,
-        submit::{self, Invalid, Planned, Submission},
+        submit::{self, Invalid, Planned, Submission, work::Stopped},
     },
     system_pages::shared::merged,
 };
-
-/// The sentence naming the step a failed creation stopped at, once it ran.
-type Note = Arc<Mutex<Option<String>>>;
 
 /// `POST /ui/r/{router}/segments/create`: checks the details again, creates the segment
 /// step by step and answers with its outcome; a failed step names itself.
@@ -62,13 +57,11 @@ pub(crate) async fn create(
     let mut creating = Creating {
         details: Details::new(locale, router.clone(), form, known),
         problems: Problems::default(),
-        note: Note::default(),
     };
     let typed = checked.map_err(|problems| {
         creating.problems = *problems;
         Invalid::from(Vec::new())
     });
-    let note = Arc::clone(&creating.note);
     let params = Params::of(pairs);
     let resubmit = Resubmit::new(
         params.again(&format!("/ui/r/{router}/segments/create")),
@@ -80,26 +73,19 @@ pub(crate) async fn create(
             |_params| typed,
             async |spec, domain| {
                 let operation = segments::plan_create(domain, &spec).await?;
-                Ok(Planned::working(
+                Ok(Planned::reporting(
                     slice::from_ref(&operation),
                     move |changes, context| {
                         Box::pin(async move {
                             match segments::create(changes, context, &spec).await {
-                                Ok(_created) => {
-                                    changes
-                                        .current_last_change()
-                                        .await
-                                        .map(|last| Applied::Done {
-                                            unsaved: last.unsaved,
-                                        })
-                                }
-                                Err(error) => {
-                                    let (said, source) = step_failure(error, locale);
-                                    if let Ok(mut slot) = note.lock() {
-                                        *slot = said;
-                                    }
-                                    Err(source)
-                                }
+                                Ok(_created) => changes
+                                    .current_last_change()
+                                    .await
+                                    .map(|last| Applied::Done {
+                                        unsaved: last.unsaved,
+                                    })
+                                    .map_err(Stopped::from),
+                                Err(error) => Err(step_failure(error, locale)),
                             }
                         })
                     },
@@ -110,14 +96,12 @@ pub(crate) async fn create(
         .await)
 }
 
-/// The details of the segment being created, and what a failed creation says.
+/// The details of the segment being created.
 struct Creating {
     /// The details, shown again when refused.
     details: Details,
     /// Why each refused field is refused.
     problems: Problems,
-    /// The step a failed creation names.
-    note: Note,
 }
 
 impl submit::Form for Creating {
@@ -140,7 +124,6 @@ impl submit::Form for Creating {
         refreshed: Option<String>,
         locale: Locale,
     ) -> Response {
-        let said = self.note.lock().ok().and_then(|mut slot| slot.take());
-        answer(outcome, refreshed, said, locale)
+        answer(outcome, refreshed, locale)
     }
 }

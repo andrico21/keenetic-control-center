@@ -11,7 +11,7 @@ use axum::{
     response::Response,
 };
 use kcc_domain::{RouterCtx, firewall::descriptor::DESCRIPTOR, schedules};
-use kcc_i18n::{keys, locale::Locale};
+use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use super::{
     checks::description,
@@ -24,6 +24,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    net_change::unusable,
     page_kit::{
         action::Operation,
         form::{Choice, FormDialog, Input},
@@ -31,6 +32,7 @@ use crate::{
         respond::Answer,
         submit::{Invalid, rejected::Rejected},
     },
+    routing_page::reply::{refused, unread},
     system_pages::shared::{merged, value},
 };
 
@@ -132,7 +134,9 @@ pub(crate) async fn schedule_dialog(
     let opened = SCHEDULE.open(&state, &user, &router).await?;
     let domain = opened.context().await?;
     let (action, _firewall, entry) = located(opened, &domain, &named).await?;
-    let schedules = schedule_names(&domain).await;
+    let schedules = schedule_names(&domain)
+        .await
+        .map_err(|message| unusable(action.locale(), message))?;
     let current = entry.schedule().unwrap_or_default().to_owned();
     let values = Params::new(vec![("schedule".to_owned(), current)], Vec::new());
     let form = schedule_form(
@@ -163,7 +167,10 @@ pub(crate) async fn schedule(
     let named = Named::from_pairs(&pairs)?;
     let action = SCHEDULE.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let schedules = schedule_names(&action.context().await?).await;
+    let schedules = match schedule_names(&action.context().await?).await {
+        Ok(found) => found,
+        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+    };
     let values = Params::of(pairs.clone());
     let dialog = schedule_form(locale, (&router, &named, &pairs), &values, &schedules);
     let path = format!("/ui/r/{router}/firewall/rule/schedule");
@@ -199,12 +206,20 @@ pub(crate) async fn schedule(
         .await)
 }
 
-/// The router's schedule names; none when it does not say.
+/// The router's schedule names.
+///
+/// # Errors
+///
+/// Returns the message saying the router could not be read.
 // cancel-safe: reads only.
-async fn schedule_names(domain: &RouterCtx) -> Vec<String> {
-    schedules::read_schedules(domain)
-        .await
-        .map_or_default(|found| found.into_iter().filter_map(|item| item.name).collect())
+async fn schedule_names(domain: &RouterCtx) -> Result<Vec<String>, MessageKey> {
+    schedules::read_schedules(domain).await.map_or_else(
+        |error| {
+            tracing::warn!(%error, "firewall page: schedules unavailable");
+            Err(keys::WEB_KIT_UNREACHABLE)
+        },
+        |found| Ok(found.into_iter().filter_map(|item| item.name).collect()),
+    )
 }
 
 /// The address of the rule action `action` that `pairs` name on `router`.

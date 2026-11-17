@@ -23,7 +23,9 @@ pub(crate) struct TableRoute {
     interface: Option<String>,
     /// Route metric.
     metric: Option<String>,
-    /// Where the route comes from; `None` for a static route.
+    /// Whether the route is a static route.
+    is_static: bool,
+    /// Where the router says the route comes from, for a route that is not static.
     source: Option<String>,
 }
 
@@ -36,6 +38,7 @@ impl TableRoute {
                 gateway: route.gateway().map(str::to_owned),
                 interface: route.interface().map(str::to_owned),
                 metric: route.metric().map(|value| value.to_string()),
+                is_static: true,
                 source: None,
             });
         }
@@ -46,9 +49,8 @@ impl TableRoute {
             gateway: field("gateway"),
             interface: field("interface"),
             metric: field("metric"),
-            source: field("proto")
-                .or_else(|| field("flags"))
-                .or_else(|| Some(String::new())),
+            is_static: false,
+            source: field("proto").or_else(|| field("flags")),
         })
     }
 
@@ -72,14 +74,14 @@ impl TableRoute {
         self.metric.as_deref()
     }
 
-    /// Where the route comes from as the router names it; `None` for a static route.
+    /// Where the router says the route comes from, for a route that is not static.
     pub(crate) fn source(&self) -> Option<&str> {
         self.source.as_deref()
     }
 
     /// Whether the route is a static route.
     pub(crate) const fn is_static(&self) -> bool {
-        self.source.is_none()
+        self.is_static
     }
 }
 

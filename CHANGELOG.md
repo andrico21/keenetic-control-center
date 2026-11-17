@@ -903,6 +903,21 @@ The first release, `0.1.0`, is in preparation and contains:
   interval (5 s) or a poll interval (30 s) per router.
 - **Batch selection for a log sink measures each record once** and outside the queue lock,
   instead of re-encoding the growing batch for every record while relays wait on the lock.
+- **Web dialogs show an error when the router read fails** instead of a form filled in
+  from nothing: the security level no longer opens on Private, the address dialog no
+  longer opens on DHCP, and the internet, Wi-Fi, route, policy, firewall and port
+  forwarding dialogs no longer offer empty choices. Changes checked against the router
+  (Add connection, Add route, the policy actions and the dialogs that read their
+  choices) stop with the same error, audited `unreachable`, and send nothing; a policy
+  change whose policies cannot be read is audited `unreachable`, no longer `gone`.
+- **Add connection no longer creates over an existing interface** when the router's
+  interface list cannot be read; with the list read, an existing name is refused as
+  before.
+- **Add route sends the canonical route the router stores**: the IPv4 network without
+  host bits (`198.51.100.7` with `255.255.255.0` is `198.51.100.0`), the IPv6 prefix and
+  every gateway in canonical form (`2001:DB8:7::1/64` is `2001:db8:7::/64`). The read-back
+  compares the route the router stores, and a route it already has is refused as a
+  duplicate whatever its spelling.
 
 ### Security
 

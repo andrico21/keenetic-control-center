@@ -4,9 +4,7 @@
 //! domain puts back each route the router had just before and stops; the page reads the
 //! routes back and says so prominently, naming what came back or what did not.
 
-use alloc::sync::Arc;
 use core::slice;
-use std::sync::Mutex;
 
 use axum::{
     extract::{Path, Query, State},
@@ -37,7 +35,10 @@ use crate::{
         outcome::{Failure, Outcome},
         request::{missing, rendered, shown_query, with_query},
         respond::Answer,
-        submit::Planned,
+        submit::{
+            Planned,
+            work::{Report, Stopped},
+        },
     },
 };
 
@@ -124,32 +125,17 @@ pub(crate) async fn dialog(
     Ok(ConfirmDialog::new(locale, title, keys::WEB_ROUTING_REMOVE_TEXT, url).show())
 }
 
-/// How the guarded removal ended beyond the kit's outcome.
-#[derive(Debug, Clone, Copy, Default)]
-enum Ending {
-    /// As the kit says.
-    #[default]
-    Plain,
-    /// The router cleared every route; whether it has unsaved changes now.
-    Wiped(bool),
-    /// The routing table did not lose exactly one route.
-    Miscounted,
-}
-
-/// `operation`, the removal of `route` through the route-wipe guard; how it ended beyond
-/// the kit's outcome goes to `ending`.
-fn removal(operation: &ChangeOp, route: StaticRoute, ending: Arc<Mutex<Ending>>) -> Planned {
+/// `operation`, the removal of `route` through the route-wipe guard; a removal the guard
+/// stopped reports how it ended beyond the kit's outcome.
+fn removal(operation: &ChangeOp, route: StaticRoute) -> Planned {
     let family = route.family();
-    Planned::working(slice::from_ref(operation), move |changes, context| {
+    Planned::reporting(slice::from_ref(operation), move |changes, context| {
         Box::pin(async move {
             let removed = match family {
                 Family::V4 => change::remove_ipv4(changes, context, &route.ipv4()).await,
                 Family::V6 => change::remove_ipv6(changes, context, &route.ipv6()).await,
             };
-            let failed = |field: &str| WorkflowError::VerificationFailed {
-                field: field.to_owned(),
-            };
-            let ended = match removed {
+            let report = match removed {
                 Ok(result) => {
                     return Ok(Applied::Cli {
                         unsaved: result.unsaved,
@@ -158,15 +144,17 @@ fn removal(operation: &ChangeOp, route: StaticRoute, ending: Arc<Mutex<Ending>>)
                 }
                 Err(DomainError::SafetyAbort) => {
                     let last = changes.current_last_change().await;
-                    Ending::Wiped(last.map_or(true, |found| found.unsaved))
+                    Report::RoutesWiped {
+                        unsaved: last.map_or(true, |found| found.unsaved),
+                    }
                 }
-                Err(DomainError::RouteCountMismatch) => Ending::Miscounted,
-                Err(other) => return Err(WorkflowError::from(other)),
+                Err(DomainError::RouteCountMismatch) => Report::RouteCountMismatch,
+                Err(other) => return Err(Stopped::from(WorkflowError::from(other))),
             };
-            if let Ok(mut slot) = ending.lock() {
-                *slot = ended;
-            }
-            Err(failed(family.command()))
+            let failed = WorkflowError::VerificationFailed {
+                field: family.command().to_owned(),
+            };
+            Err(Stopped::reporting(failed, Some(report)))
         })
     })
 }
@@ -211,11 +199,8 @@ pub(crate) async fn remove(
             return Ok(refused(action, failure).await);
         }
     };
-    let slot = Arc::new(Mutex::new(Ending::Plain));
-    let outcome = action
-        .run_planned(removal(&operation, route, Arc::clone(&slot)))
-        .await;
-    let ending = slot.lock().map_or(Ending::Plain, |found| *found);
+    let mut outcome = action.run_planned(removal(&operation, route)).await;
+    let report = outcome.take_report();
     let refreshed = static_region(
         &domain,
         (&router, family),
@@ -225,15 +210,15 @@ pub(crate) async fn remove(
     .await
     .ok()
     .and_then(|region| rendered(&region.out_of_band()));
-    match ending {
-        Ending::Plain => Ok(answer(outcome, refreshed, locale)),
-        Ending::Miscounted => {
+    match report {
+        None | Some(Report::Note(_)) => Ok(answer(outcome, refreshed, locale)),
+        Some(Report::RouteCountMismatch) => {
             let message = tr(locale, keys::WEB_ROUTING_COUNT_MISMATCH, None);
             let shown = Outcome::failed(Failure::new(message, "route_count_mismatch"));
             Ok(answer(shown, refreshed, locale))
         }
-        Ending::Wiped(unsaved) => {
-            let after = read_static(&domain, family).await;
+        Some(Report::RoutesWiped { unsaved }) => {
+            let after = read_static(&domain, family).await.unwrap_or_default();
             let guard = Guard::new(&before, &after, unsaved);
             Record::on_router(
                 "web.routing_route_wipe",

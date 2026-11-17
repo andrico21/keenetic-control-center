@@ -25,7 +25,7 @@ use kcc_rci::ObjectName;
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{merged, refreshed},
+    net_change::{merged, refreshed, unread, unread_change},
     net_pages::{Call, Tab},
     net_wan::{Kind, Link, links},
     page_kit::{
@@ -243,7 +243,10 @@ pub(crate) async fn create_dialog(
 ) -> Result<Response, Answer> {
     let action = CREATE.open(&state, &user, &router).await?;
     let domain = action.context().await?;
-    let vias = ipoe(&links(&domain).await.unwrap_or_default());
+    let found = links(&domain)
+        .await
+        .map_err(|error| unread(action.locale(), &error))?;
+    let vias = ipoe(&found);
     let draft = Draft {
         kind: Kind::Pppoe.slug().to_owned(),
         ..Draft::default()
@@ -270,10 +273,13 @@ pub(crate) async fn create(
     let action = CREATE.open(&state, &user, &router).await?;
     let locale = action.locale();
     let domain = action.context().await?;
-    let vias = ipoe(&links(&domain).await.unwrap_or_default());
-    let taken: Vec<String> = interfaces::read_interfaces(&domain)
-        .await
-        .map_or_default(|found| found.into_keys().collect());
+    let (vias, taken) = match (
+        links(&domain).await,
+        interfaces::read_interfaces(&domain).await,
+    ) {
+        (Ok(found), Ok(named)) => (ipoe(&found), named.into_keys().collect::<Vec<_>>()),
+        (Err(error), _) | (Ok(_), Err(error)) => return Err(unread_change(action, &error).await),
+    };
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
     let resubmit = Resubmit::new(format!("/ui/r/{router}/internet/create"), "#page-outcome");
     Ok(Submission::new(

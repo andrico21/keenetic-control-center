@@ -7,12 +7,12 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_domain::wifi;
+use kcc_domain::{DomainError, wifi};
 
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Subject, refreshed},
+    net_change::{Subject, refreshed, unread, unread_change},
     net_pages::{Call, Tab},
     net_wifi_fields::Setting,
     page_kit::{
@@ -40,8 +40,13 @@ pub(crate) async fn field_dialog(
     let name = Params::new(query, Vec::new()).object("name")?;
     let action = setting.operation("").open(&state, &user, &router).await?;
     let domain = action.context().await?;
-    let current = setting.current(&domain, &name).await.unwrap_or_default();
-    let choices = setting.choices(&domain).await;
+    let unusable = |error: DomainError| unread(action.locale(), &error);
+    let current = setting
+        .current(&domain, &name)
+        .await
+        .map_err(unusable)?
+        .unwrap_or_default();
+    let choices = setting.choices(&domain).await.map_err(unusable)?;
     let subject = Subject::new(&router, &name, action.locale());
     Ok(setting.form(subject, current, &choices).show())
 }
@@ -72,7 +77,12 @@ pub(crate) async fn field(
         .await?;
     let subject = Subject::new(&router, &name, action.locale());
     let choices = match setting {
-        Setting::Schedule | Setting::Width => setting.choices(&action.context().await?).await,
+        Setting::Schedule | Setting::Width => {
+            match setting.choices(&action.context().await?).await {
+                Ok(found) => found,
+                Err(error) => return Err(unread_change(action, &error).await),
+            }
+        }
         Setting::Ssid
         | Setting::Security
         | Setting::Channel

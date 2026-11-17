@@ -7,13 +7,13 @@ use kcc_domain::{
     ChangeOp, RouterCtx,
     policies::{change::apply, descriptor::DESCRIPTOR},
 };
-use kcc_i18n::locale::Locale;
+use kcc_i18n::{bundle::MessageKey, locale::Locale};
 use serde::Deserialize;
 
 use super::{
     policy_rows::{Policy, read_policies},
     policy_view::policies_region,
-    reply::{Replying, gone},
+    reply::{Replying, gone, unread},
 };
 use crate::{
     authz::CurrentUser,
@@ -44,27 +44,34 @@ impl NameQuery {
 }
 
 /// The policy `name` of the router, when it has it.
+///
+/// # Errors
+///
+/// Returns the message saying the router's policies could not be read.
 // cancel-safe: reads only.
-pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Option<Policy> {
-    read_policies(domain)
-        .await
-        .ok()?
+pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Result<Option<Policy>, MessageKey> {
+    Ok(read_policies(domain)
+        .await?
         .into_iter()
-        .find(|policy| policy.name() == name)
+        .find(|policy| policy.name() == name))
 }
 
 /// The policy `name` of the router.
 ///
 /// # Errors
 ///
-/// Returns the failure, in `locale`, of a policy the router no longer has.
+/// Returns the failure, in `locale`, of a policy the router no longer has, or of policies
+/// that could not be read.
 // cancel-safe: reads only.
 pub(crate) async fn known(
     domain: &RouterCtx,
     name: &str,
     locale: Locale,
 ) -> Result<Policy, Failure> {
-    find(domain, name).await.ok_or_else(|| gone(locale))
+    find(domain, name)
+        .await
+        .map_err(|message| unread(locale, message))?
+        .ok_or_else(|| gone(locale))
 }
 
 /// The policy changes `ops`, applied in order, each read back by the policies domain.

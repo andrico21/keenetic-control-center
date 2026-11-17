@@ -23,6 +23,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    net_change::unusable,
     page_kit::{
         action::Operation,
         confirm::Resubmit,
@@ -33,7 +34,7 @@ use crate::{
     },
     routing_page::{
         frame::interface_names,
-        reply::{ConfirmDialog, Replying, gone, unread},
+        reply::{ConfirmDialog, Replying, gone, refused, unread},
     },
 };
 
@@ -166,7 +167,9 @@ pub(crate) async fn translate_dialog(
 ) -> Result<Response, Answer> {
     let action = TRANSLATE.open(&state, &user, &router).await?;
     let domain = action.context().await?;
-    let names = interface_names(&domain).await;
+    let names = interface_names(&domain)
+        .await
+        .map_err(|message| unusable(action.locale(), message))?;
     Ok(translate_form(action.locale(), &router, "", &names).show())
 }
 
@@ -185,7 +188,10 @@ pub(crate) async fn translate(
 ) -> Result<Response, Answer> {
     let action = TRANSLATE.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let names = interface_names(&action.context().await?).await;
+    let names = match interface_names(&action.context().await?).await {
+        Ok(found) => found,
+        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+    };
     let values = Params::new(Vec::new(), pairs);
     let interface = values.text("interface").trim().to_owned();
     let dialog = Replying::new(translate_form(locale, &router, &interface, &names));

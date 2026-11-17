@@ -46,7 +46,7 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use crate::{
     WebState,
-    page_kit::{outcome::Outcome, request::rendered, respond::changed},
+    page_kit::{outcome::Outcome, request::rendered, respond::changed, submit::work::Report},
 };
 
 /// The local network routes.
@@ -174,14 +174,13 @@ struct Note<'text> {
     text: &'text str,
 }
 
-/// The answer to a change: `outcome` with `refreshed` out of band and `note` beside it,
-/// the dialog closed.
-pub(crate) fn answer(
-    outcome: Outcome,
-    refreshed: Option<String>,
-    note: Option<String>,
-    locale: Locale,
-) -> Response {
+/// The answer to a change: `outcome` with `refreshed` out of band and the note its work
+/// reported beside it, the dialog closed.
+pub(crate) fn answer(mut outcome: Outcome, refreshed: Option<String>, locale: Locale) -> Response {
+    let note = match outcome.take_report() {
+        Some(Report::Note(text)) => Some(text),
+        Some(Report::RoutesWiped { unsaved: _ } | Report::RouteCountMismatch) | None => None,
+    };
     let extra = note.and_then(|text| rendered(&Note { text: &text }));
     changed(outcome, refreshed, extra, locale)
 }

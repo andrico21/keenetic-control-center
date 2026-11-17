@@ -14,7 +14,7 @@ use kcc_config::{config_text::Ast, quoting::quote_cli_text};
 use serde_json::json;
 
 use super::{
-    SegmentSpec,
+    SegmentNames, SegmentSpec,
     discovery::{SegmentView, VlanId},
     step,
 };
@@ -96,7 +96,7 @@ pub(super) fn validate(spec: &SegmentSpec) -> Result<()> {
 /// Returns an error when a reply or a plan does not have the expected shape
 /// ([`DomainError::InvalidResponse`]).
 pub(super) fn check_baseline(spec: &SegmentSpec, tree: &Ast) -> Result<()> {
-    let bridge = format!("Bridge{}", spec.id);
+    let bridge = SegmentNames::of(spec.id).bridge;
     if config_tree::context_has_child(tree, &format!("ip nat {bridge}"), None)
         || config_tree::context_has_child(tree, &format!("ip hotspot policy {bridge} permit"), None)
         || spec.switch_ports.iter().any(|port| {

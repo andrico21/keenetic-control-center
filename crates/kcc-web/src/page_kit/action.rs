@@ -213,17 +213,21 @@ impl<'call> Action<'call> {
     }
 
     /// Runs `planned` at the risk the domain planned it at, through the change workflow,
-    /// and audits how it ended.
+    /// and audits how it ended; the outcome carries what the work reported beyond it.
     // NOT cancel-safe: see `change::apply_with`.
     pub(crate) async fn run_planned(self, planned: Planned) -> Outcome {
         let (stakes, job) = planned.into_parts();
         match job {
             Job::Change(change) => self.run(stakes, change).await,
             Job::Work(work) => {
-                self.run_with(stakes, async move |changes, context| {
-                    work(changes, context).await
-                })
-                .await
+                let mut report = None;
+                let outcome = self
+                    .run_with(stakes, async |changes, context| {
+                        let worked = work(changes, context).await;
+                        worked.map_err(|stopped| stopped.into_error(&mut report))
+                    })
+                    .await;
+                outcome.with_report(report)
             }
         }
     }

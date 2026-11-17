@@ -95,6 +95,28 @@ pub async fn read_access_point(router: &RouterCtx, name: &ObjectName) -> Result<
     serde_json::from_value(value).map_err(|_error| DomainError::InvalidResponse)
 }
 
+/// Reads every access point from `show interface`, each with whether it stores a WPA
+/// pre-shared key; the key itself is discarded at the read boundary.
+///
+/// # Errors
+///
+/// Returns an error when the router request fails or its reply, an access point included,
+/// does not decode ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
+// cancel-safe: a single read request; cancellation changes nothing on the router.
+#[inline]
+pub async fn read_access_points(router: &RouterCtx) -> Result<BTreeMap<String, AccessPoint>> {
+    let values: BTreeMap<String, Value> = read_show(&router.client, &["show", "interface"]).await?;
+    values
+        .into_iter()
+        .filter(|(_, value)| value.get("type").and_then(Value::as_str) == Some("AccessPoint"))
+        .map(|(name, value)| {
+            serde_json::from_value::<AccessPoint>(value)
+                .map(|point| (name, point))
+                .map_err(|_error| DomainError::InvalidResponse)
+        })
+        .collect()
+}
+
 /// Reads radios and derives their bands from `show interface`.
 ///
 /// # Errors

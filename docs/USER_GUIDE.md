@@ -159,11 +159,20 @@ the stored value did not change. When the stored value cannot be read before the
 nothing is sent. A first password, where none was stored, is checked for presence only.
 - **Mesh** (`/mesh`): mesh members with check, update and restart actions.
 
+A dialog or a change that needs a value from the router (the current setting, the
+interfaces or schedules to choose from, the names already taken) shows "The router did
+not answer" when that read fails; nothing is preselected and nothing is sent. This holds
+on the network, routing, NAT and firewall pages alike.
+
 ## Routing
 
 The Routing section has tabs for static routes (IPv4 and IPv6, add and remove), the
 routing table, and connection policies (create, description, permitted interfaces and
-their order, multipath, delete; an empty description clears it). Removing a route runs
+their order, multipath, delete; an empty description clears it). Add route sends the
+route in the form the router stores it: the IPv4 network without host bits and every
+address in canonical form, so `198.51.100.7` with mask `255.255.255.0` is added as
+`198.51.100.0`, and a route the router already has is refused whatever its spelling.
+Removing a route runs
 a guard: kcc checks that the exact route line is gone from the running configuration, and
 if the router clears more than the one route, it puts every static route back from the
 running configuration and says so.

@@ -5,9 +5,7 @@
 //! one the dialog showed: the dialog carries a fingerprint of its summary, compared with a
 //! fresh read; the segments domain then checks the router again inside the change set.
 
-use alloc::sync::Arc;
 use core::slice;
-use std::sync::Mutex;
 
 use axum::{
     Form,
@@ -42,7 +40,7 @@ use crate::{
         outcome::{Failure, Outcome},
         request::{Params, missing},
         respond::{self, Answer},
-        submit::{self, Invalid, Planned, Submission},
+        submit::{self, Invalid, Planned, Submission, work::Stopped},
     },
 };
 
@@ -108,7 +106,7 @@ pub(crate) async fn delete(
             "not_found",
         );
         let listed = Region::read_back(&domain, &router, locale).await;
-        let answered = answer(Outcome::failed(gone), listed, None, locale);
+        let answered = answer(Outcome::failed(gone), listed, locale);
         return Ok(respond::retarget(answered, "#page-outcome"));
     };
     if !(form.confirmed() && form.name() == router) {
@@ -127,11 +125,9 @@ pub(crate) async fn delete(
             tr(locale, keys::WEB_SEGMENTS_DELETE_CHANGED, None),
         ));
     }
-    let deleting = Deleting::default();
-    let note = Arc::clone(&deleting.0);
     let params = Params::default();
     let resubmit = Resubmit::new(format!("/ui/r/{router}/segments/delete"), "#page-outcome");
-    Ok(Submission::new(action, &params, deleting, resubmit)
+    Ok(Submission::new(action, &params, Deleting, resubmit)
         .confirmed_by_page(Risk::Destructive)
         .landing_in("#page-outcome")
         .refreshing_after_failure()
@@ -139,26 +135,19 @@ pub(crate) async fn delete(
             |_params| Ok(()),
             async |(), ctx| {
                 let operation = view.deletion_plan(ctx).await?;
-                Ok(Planned::working(
+                Ok(Planned::reporting(
                     slice::from_ref(&operation),
                     move |changes, context| {
                         Box::pin(async move {
                             match segments::delete_discovered(changes, context, &view).await {
-                                Ok(_summary) => {
-                                    changes
-                                        .current_last_change()
-                                        .await
-                                        .map(|last| Applied::Done {
-                                            unsaved: last.unsaved,
-                                        })
-                                }
-                                Err(error) => {
-                                    let (said, source) = step_failure(error, locale);
-                                    if let Ok(mut slot) = note.lock() {
-                                        *slot = said;
-                                    }
-                                    Err(source)
-                                }
+                                Ok(_summary) => changes
+                                    .current_last_change()
+                                    .await
+                                    .map(|last| Applied::Done {
+                                        unsaved: last.unsaved,
+                                    })
+                                    .map_err(Stopped::from),
+                                Err(error) => Err(step_failure(error, locale)),
                             }
                         })
                     },
@@ -170,9 +159,8 @@ pub(crate) async fn delete(
 }
 
 /// A delete as the form of its change: a refused plan and the outcome in the page's
-/// outcome region, the outcome with the step a failed delete stopped at, kept here.
-#[derive(Default)]
-struct Deleting(Arc<Mutex<Option<String>>>);
+/// outcome region, the outcome with the step a failed delete stopped at.
+struct Deleting;
 
 impl submit::Form for Deleting {
     fn answer_invalid(self, _invalid: Invalid, _locale: Locale) -> Response {
@@ -189,8 +177,7 @@ impl submit::Form for Deleting {
         refreshed: Option<String>,
         locale: Locale,
     ) -> Response {
-        let said = self.0.lock().ok().and_then(|mut slot| slot.take());
-        answer(outcome, refreshed, said, locale)
+        answer(outcome, refreshed, locale)
     }
 }
 

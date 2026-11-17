@@ -92,6 +92,31 @@ impl SegmentSpec {
     }
 }
 
+/// The router objects a segment is made of, named after its number.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct SegmentNames {
+    /// VLAN subinterface, such as `Vlan2`.
+    pub vlan: String,
+    /// Bridge interface, such as `Bridge2`.
+    pub bridge: String,
+    /// DHCP pool, such as `Pool2`.
+    pub pool: String,
+}
+
+impl SegmentNames {
+    /// The object names of segment `id`.
+    #[inline]
+    #[must_use]
+    pub fn of(id: u16) -> Self {
+        Self {
+            vlan: format!("Vlan{id}"),
+            bridge: format!("Bridge{id}"),
+            pool: format!("Pool{id}"),
+        }
+    }
+}
+
 /// Segment lifecycle failure with the exact failed step.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]

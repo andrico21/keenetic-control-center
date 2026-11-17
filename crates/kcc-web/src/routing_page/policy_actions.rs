@@ -28,6 +28,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
+    net_change::unusable,
     page_kit::{
         action::Operation,
         change::Applied,
@@ -191,7 +192,10 @@ pub(crate) async fn delete_dialog(
 ) -> Result<Response, Answer> {
     let action = DELETE.open(&state, &user, &router).await?;
     let domain = action.context().await?;
-    let policy = find(&domain, query.name()).await.ok_or_else(missing)?;
+    let policy = find(&domain, query.name())
+        .await
+        .map_err(|message| unusable(action.locale(), message))?
+        .ok_or_else(missing)?;
     let dialog = confirmation(action.locale(), &router, policy.name());
     Ok(respond::in_dialog(errors::render(&dialog)))
 }

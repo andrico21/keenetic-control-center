@@ -98,20 +98,16 @@ pub(crate) fn route_table_view(table: &Table<TableRoute>, locale: Locale) -> Tab
     }
     for route in table.rows() {
         let source = if route.is_static() {
-            vec![Piece::text(said(locale, keys::WEB_ROUTING_SOURCE_STATIC))]
+            Piece::text(said(locale, keys::WEB_ROUTING_SOURCE_STATIC))
         } else {
-            route
-                .source()
-                .map(|source| Piece::span("mono", source.to_owned()))
-                .into_iter()
-                .collect()
+            Piece::span("mono", route.source().unwrap_or_default().to_owned())
         };
         view = view.row(vec![
             Cell::code(route.destination().to_owned()).head(),
             Cell::optional(route.gateway().map(str::to_owned)).class("mono"),
             Cell::optional(route.interface().map(str::to_owned)).class("mono"),
             Cell::optional(route.metric().map(str::to_owned)),
-            Cell::of(source),
+            Cell::of(vec![source]),
         ]);
     }
     view

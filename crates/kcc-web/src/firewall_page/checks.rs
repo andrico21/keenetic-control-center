@@ -1,6 +1,7 @@
-//! The checks of the firewall dialogs' values, at the boundary: list names and schedule
-//! names are one CLI word, addresses and masks IPv4, ports from 1 to 65535, descriptions
-//! printable and free of quotes.
+//! The checks of the firewall dialogs' values, at the boundary.
+//!
+//! List names and schedule names are one CLI word, addresses IPv4, descriptions printable
+//! and free of quotes. Ports and masks use the shared [`crate::page_kit::values`] checks.
 
 use core::net::Ipv4Addr;
 
@@ -19,21 +20,6 @@ pub(crate) fn list_name(text: &str) -> bool {
 /// Whether `text` is an IPv4 address.
 pub(crate) fn address(text: &str) -> bool {
     text.parse::<Ipv4Addr>().is_ok()
-}
-
-/// An optional port from 1 to 65535.
-///
-/// # Errors
-///
-/// Returns the port rule.
-pub(crate) fn port(text: &str) -> Result<Option<u16>, MessageKey> {
-    if text.is_empty() {
-        return Ok(None);
-    }
-    match text.parse::<u16>() {
-        Ok(found) if found > 0 => Ok(Some(found)),
-        Ok(_) | Err(_) => Err(keys::WEB_ROUTING_ERROR_PORT),
-    }
 }
 
 /// An optional description: printable, without quotes or backslashes, at most 64

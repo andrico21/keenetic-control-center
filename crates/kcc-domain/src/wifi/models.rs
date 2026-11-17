@@ -20,6 +20,9 @@ pub struct AccessPoint {
     pub hide_ssid: Option<bool>,
     /// Assigned schedule.
     pub schedule: Option<String>,
+    /// Whether a WPA pre-shared key is stored, by presence only; never serialized.
+    #[serde(skip_serializing)]
+    pub psk_present: bool,
     /// Unmodelled non-secret fields.
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
@@ -60,6 +63,11 @@ impl<'de> Deserialize<'de> for AccessPoint {
             state: wire.state,
             hide_ssid: wire.hide_ssid,
             schedule: wire.schedule,
+            psk_present: wire
+                .authentication
+                .as_ref()
+                .and_then(|authentication| authentication.get("wpa-psk"))
+                .is_some(),
             extra: wire.extra,
         })
     }

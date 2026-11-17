@@ -5,7 +5,7 @@ use core::net::Ipv4Addr;
 use kcc_config::config_text::{Ast, Token};
 use serde::{Deserialize, Serialize};
 
-use super::{SegmentSpec, ownership, step};
+use super::{SegmentNames, SegmentSpec, ownership, step};
 use crate::{DomainError, Result, RouterCtx, config_tree};
 
 /// A validated IEEE 802.1Q VLAN identifier.
@@ -266,7 +266,7 @@ fn decode(context: &[Token], body: &str, tree: &Ast) -> Result<SegmentView> {
 /// Returns [`DomainError::InvalidCliToken`] when the record's VLAN id is outside 1 to 4094.
 fn project(record: Ownership, tree: &Ast) -> Result<SegmentView> {
     let spec = &record.spec;
-    let bridge = format!("Bridge{}", spec.id);
+    let bridge = SegmentNames::of(spec.id).bridge;
     let has =
         |context: &str, child: &str| config_tree::context_has_child(tree, context, Some(child));
     let addressed = has(

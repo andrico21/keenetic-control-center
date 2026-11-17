@@ -16,12 +16,12 @@ use kcc_domain::{
     ChangeOp, RouterCtx,
     routing::{change, descriptor::DESCRIPTOR, read},
 };
-use kcc_i18n::keys;
+use kcc_i18n::{bundle::MessageKey, keys};
 use serde::Deserialize;
 
 use super::{
     frame::interface_names,
-    reply::Replying,
+    reply::{Replying, refused, unread},
     route_form::{check, destination_field, form},
     route_rows::{Family, StaticRoute, static_routes},
     route_views::{read_table, static_region},
@@ -29,6 +29,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    net_change::unusable,
     page_kit::{
         action::Operation,
         change::Applied,
@@ -80,7 +81,9 @@ pub(crate) async fn dialog(
         .open(&state, &user, &router)
         .await?;
     let domain = action.context().await?;
-    let names = interface_names(&domain).await;
+    let names = interface_names(&domain)
+        .await
+        .map_err(|message| unusable(action.locale(), message))?;
     Ok(form(
         action.locale(),
         (&router, family),
@@ -111,7 +114,10 @@ pub(crate) async fn add(
         .await?;
     let locale = action.locale();
     let values = Params::new(Vec::new(), pairs);
-    let names = interface_names(&action.context().await?).await;
+    let names = match interface_names(&action.context().await?).await {
+        Ok(found) => found,
+        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+    };
     let dialog = Replying::new(form(locale, (&router, family), &values, &names));
     let resubmit = Resubmit::new(format!("/ui/r/{router}/routing/route/new"), "#page-outcome");
     Ok(Submission::new(action, &values, dialog, resubmit)
@@ -119,7 +125,10 @@ pub(crate) async fn add(
             async |submitted, domain| {
                 let route = check(family, submitted, &names)
                     .map_err(|(field, rule)| Invalid::at(field, rule))?;
-                if read_static(domain, family).await.contains(&route) {
+                let stored = read_static(domain, family)
+                    .await
+                    .map_err(|message| unread(locale, message))?;
+                if stored.contains(&route) {
                     let field = destination_field(family);
                     return Err(Invalid::at(field, keys::WEB_ROUTING_ERROR_DUPLICATE).into());
                 }
@@ -173,10 +182,17 @@ fn added(operation: &ChangeOp, route: StaticRoute, request: CliChangeRequest) ->
     })
 }
 
-/// The static routes of `family` the router has now; none when it does not answer.
+/// The static routes of `family` the router has now.
+///
+/// # Errors
+///
+/// Returns the message saying the router could not be read.
 // cancel-safe: reads only.
-pub(crate) async fn read_static(domain: &RouterCtx, family: Family) -> Vec<StaticRoute> {
+pub(crate) async fn read_static(
+    domain: &RouterCtx,
+    family: Family,
+) -> Result<Vec<StaticRoute>, MessageKey> {
     read_table(domain, family)
         .await
-        .map_or_default(|entries| static_routes(family, &entries))
+        .map(|entries| static_routes(family, &entries))
 }
