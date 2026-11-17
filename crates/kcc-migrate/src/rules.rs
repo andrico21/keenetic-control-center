@@ -16,6 +16,7 @@ use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use self::reason::{NeededInput, Reason};
 use crate::{
     interface_names,
     inventory::TargetInventory,
@@ -24,6 +25,8 @@ use crate::{
 
 /// Embedded migration rules parsed once per process.
 const RULES_TOML: &str = include_str!("../rules/rules.toml");
+
+pub mod reason;
 
 /// Resulting treatment of one flattened source command.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -58,18 +61,29 @@ pub struct ClassifiedItem {
     pub disposition: Disposition,
     /// Embedded rule id or engine fallback id.
     pub rule_id: String,
-    /// Localization key explaining the disposition.
-    pub reason_key: String,
+    /// Why the item has its disposition.
+    pub reason: Reason,
     /// Redacted original command.
     pub before: String,
     /// Redacted resulting command, when the item can produce output.
     pub after: Option<String>,
-    /// Required operator action, when blocked.
+    /// The operator input the item depends on: still missing while its disposition is
+    /// [`Disposition::NeedsInput`], supplied otherwise.
+    pub input: Option<NeededInput>,
+    /// Required operator action in words ([`ClassifiedItem::input`]), when blocked.
     pub needed_input: Option<String>,
     /// Catalog path of a conflicting scalar, without its value.
     pub conflict: Option<String>,
     /// Resulting command protected from accidental debug output.
     pub output: Option<SecretString>,
+}
+
+impl ClassifiedItem {
+    /// Blocks the item until the operator supplies `input`.
+    pub(crate) fn block(&mut self, input: NeededInput) {
+        self.needed_input = Some(input.to_string());
+        self.input = Some(input);
+    }
 }
 
 impl fmt::Debug for ClassifiedItem {
@@ -80,9 +94,10 @@ impl fmt::Debug for ClassifiedItem {
             line_no,
             disposition,
             rule_id,
-            reason_key,
+            reason,
             before,
             after,
+            input,
             needed_input,
             conflict,
             output: _,
@@ -92,9 +107,10 @@ impl fmt::Debug for ClassifiedItem {
             .field("line_no", line_no)
             .field("disposition", disposition)
             .field("rule_id", rule_id)
-            .field("reason_key", reason_key)
+            .field("reason", reason)
             .field("before", before)
             .field("after", after)
+            .field("input", input)
             .field("needed_input", needed_input)
             .field("conflict", conflict)
             .field("output", &"<redacted>")
@@ -319,8 +335,9 @@ struct Rule {
     pattern: String,
     /// Rule outcome.
     disposition: Disposition,
-    /// Localization key.
-    reason_key: String,
+    /// Why the rule decides as it does.
+    #[serde(rename = "reason_key")]
+    reason: Reason,
     /// Component required before this rule can produce output.
     requires_component: Option<String>,
     /// Optional predicate evaluated after the glob.
@@ -350,11 +367,11 @@ fn embedded_rules() -> Result<&'static [Rule], RuleError> {
     static RULES: LazyLock<Result<Vec<Rule>, RuleError>> = LazyLock::new(|| {
         let document: RuleDocument =
             toml::from_str(RULES_TOML).map_err(|_error| RuleError::InvalidToml)?;
-        if document.rule.iter().any(|rule| {
-            rule.id.trim().is_empty()
-                || rule.pattern.trim().is_empty()
-                || rule.reason_key.trim().is_empty()
-        }) {
+        if document
+            .rule
+            .iter()
+            .any(|rule| rule.id.trim().is_empty() || rule.pattern.trim().is_empty())
+        {
             return Err(RuleError::IncompleteRule);
         }
         Ok(document.rule)
@@ -396,7 +413,7 @@ fn classify_line(
             redacted_line.to_string(),
             Disposition::SkipHardware,
             "hardware-missing-bridge-member",
-            "migration-reason-hardware-interface",
+            Reason::HardwareInterface,
             None,
             None,
         );
@@ -434,7 +451,7 @@ fn classify_line(
             redacted_line.to_string(),
             Disposition::Unsupported,
             "catalog-unsupported",
-            "migration-reason-unsupported-command",
+            Reason::UnsupportedCommand,
             None,
             None,
         );
@@ -445,7 +462,7 @@ fn classify_line(
         redacted_line.to_string(),
         Disposition::Copy,
         "default-copy",
-        "migration-reason-default-copy",
+        Reason::DefaultCopy,
         Some(redacted_line.to_string()),
         Some(SecretString::from(line.to_string())),
     )
@@ -501,11 +518,13 @@ fn explicit_item(
             redacted_line.to_string(),
             Disposition::NeedsInput,
             &rule.id,
-            "migration-reason-install-component",
+            Reason::InstallComponent,
             None,
             None,
         );
-        blocked.needed_input = Some(format!("install {component}"));
+        blocked.block(NeededInput::Install {
+            component: component.to_owned(),
+        });
         return blocked;
     }
     if matches!(rule.condition, Some(Condition::RealmDiffers)) {
@@ -539,7 +558,7 @@ fn explicit_item(
         redacted_line.to_string(),
         disposition,
         &rule.id,
-        &rule.reason_key,
+        rule.reason,
         after,
         output,
     );
@@ -569,27 +588,35 @@ fn password_item(
             redacted_line.to_string(),
             Disposition::NeedsInput,
             &rule.id,
-            &rule.reason_key,
+            rule.reason,
             None,
             None,
         );
-        blocked.needed_input = user.map(|name| format!("new password for {name}"));
+        if let Some(name) = user {
+            blocked.block(NeededInput::Password {
+                user: name.to_owned(),
+            });
+        }
         return blocked;
     };
     let mut replaced = line.clone();
     let mut redacted_replaced = redacted_line.clone();
     replace_password(&mut replaced.tokens, password.expose_secret());
     replace_password(&mut redacted_replaced.tokens, "<redacted>");
-    item(
+    let mut supplied = item(
         source_index,
         line,
         redacted_line.to_string(),
         Disposition::Remap,
         &rule.id,
-        &rule.reason_key,
+        rule.reason,
         Some(redacted_replaced.to_string()),
         Some(SecretString::from(replaced.to_string())),
-    )
+    );
+    supplied.input = user.map(|name| NeededInput::Password {
+        user: name.to_owned(),
+    });
+    supplied
 }
 
 /// Constructs a classification item without exposing its output command.
@@ -603,7 +630,7 @@ fn item(
     before: String,
     disposition: Disposition,
     rule_id: &str,
-    reason_key: &str,
+    reason: Reason,
     after: Option<String>,
     output: Option<SecretString>,
 ) -> ClassifiedItem {
@@ -612,9 +639,10 @@ fn item(
         line_no: line.line_no,
         disposition,
         rule_id: rule_id.to_owned(),
-        reason_key: reason_key.to_owned(),
+        reason,
         before,
         after,
+        input: None,
         needed_input: None,
         conflict: None,
         output,

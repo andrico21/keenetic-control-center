@@ -118,7 +118,7 @@ fn report_item(preset: &Preset, item: &PresetPlanItem) -> PlanItem {
         disposition: item.disposition,
         before,
         after: item.expose_result().map(redact_text),
-        reason_key: item.reason.clone(),
+        reason_key: item.reason.key().to_owned(),
     }
 }
 

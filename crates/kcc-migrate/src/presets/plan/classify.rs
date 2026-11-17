@@ -5,7 +5,7 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use kcc_config::config_text::{CliLine, Token};
 use secrecy::{ExposeSecret as _, SecretString};
 
-use super::{PresetInput, PresetPlanItem};
+use super::{PresetInput, PresetPlanItem, reason::PresetReason};
 use crate::{
     apply,
     inventory::TargetInventory,
@@ -73,7 +73,7 @@ pub(super) fn source_item(
             command: None,
             result: Some(SecretString::from(command)),
             needed_input: None,
-            reason: "preset-already-present".to_owned(),
+            reason: PresetReason::AlreadyPresent,
         };
     }
     let buildable = apply::supports_line(&target.catalog, &command);
@@ -93,11 +93,10 @@ pub(super) fn source_item(
         result: protected,
         needed_input: None,
         reason: if buildable {
-            "preset-add"
+            PresetReason::Add
         } else {
-            "preset-unsupported"
-        }
-        .to_owned(),
+            PresetReason::Unsupported
+        },
     }
 }
 
@@ -144,13 +143,13 @@ fn realm_password_user<'line>(
 }
 
 /// Builds a non-executable item carrying one required operator input.
-fn input_item(index: usize, needed_input: PresetInput) -> PresetPlanItem {
+const fn input_item(index: usize, needed_input: PresetInput) -> PresetPlanItem {
     PresetPlanItem {
         index,
         disposition: Disposition::NeedsInput,
         command: None,
         result: None,
         needed_input: Some(needed_input),
-        reason: "preset-needs-input".to_owned(),
+        reason: PresetReason::NeedsInput,
     }
 }

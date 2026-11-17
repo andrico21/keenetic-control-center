@@ -524,6 +524,19 @@ The first release, `0.1.0`, is in preparation and contains:
   longer be broken out of by backticks in a command. The report JSON shape and
   `schema_version` 1 are unchanged.
 
+- **Typed classification reasons and inputs in `kcc_migrate`.** A classified line carries
+  `ClassifiedItem::reason`, a `rules::reason::Reason`, instead of the string
+  `reason_key`, and `ClassifiedItem::input`, a `rules::reason::NeededInput` (a component to
+  install, a user's new password, the reconnect URL); `needed_input` stays as its words.
+  A preset item's `reason` is a `presets::plan::reason::PresetReason`, and `PresetInput`
+  can be matched exhaustively. The names in plans, reports, the plan JSON, the report JSON
+  and the MCP `reason` fields are unchanged; a rule file naming an unknown reason fails
+  to load. The engine's three maps collect from `MapEntry`s (`FromIterator`).
+- **`UpdateCheck` keeps the firmware-update results.** The Web UI's second cache on top
+  of the check is gone: `UpdateCheck::cached` returns the latest result and whether a
+  check is due, and the dashboard starts a check only then. A check that reached the
+  router but got no answer is not repeated until the six hours pass.
+
 ### Removed
 
 - **Copy numbers on backups made in the same second.** The configuration page probed the
@@ -974,6 +987,18 @@ The first release, `0.1.0`, is in preparation and contains:
   every gateway in canonical form (`2001:DB8:7::1/64` is `2001:db8:7::/64`). The read-back
   compares the route the router stores, and a route it already has is refused as a
   duplicate whatever its spelling.
+
+- **Wizard errors are no longer mistaken for something else.** A migration whose typed
+  passwords cannot be opened answered its inputs and preview as if no password had been
+  typed, and its apply was audited `refused`; these now answer an internal error, and
+  the apply is audited `web.migrate_apply` `failed`. A preset whose settings cannot be
+  read when they are revealed was audited `forbidden` with a 403; it is now audited
+  `failed` with an internal error (a preset deleted meanwhile answers 404). An apply whose
+  files cannot be written, or whose job cannot be admitted for another reason than a busy
+  router, is audited `failed` (it was not audited, or read as busy).
+- **A bridge member the target lacks reads as target hardware.** The migration review
+  showed "the target does not support this setting" for it; it now says it belongs to
+  the source's hardware, as the report does.
 
 ### Security
 

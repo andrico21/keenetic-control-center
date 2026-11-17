@@ -7,7 +7,7 @@
 <nav class="wizard-filters" aria-label="{{ t(keys::WEB_MIGRATE_REVIEW_FILTERS) }}">
   <ul class="wizard-filters__list">
     {%- for filter in filters %}
-    <li><a class="wizard-filters__link" href="{{ filter.href }}"{% if filter.current %} aria-current="page"{% endif %}>{{ filter.label }}</a></li>
+    <li><a class="wizard-filters__link" href="{{ filter.href() }}"{% if filter.current() %} aria-current="page"{% endif %}>{{ filter.label() }}</a></li>
     {%- endfor %}
   </ul>
 </nav>

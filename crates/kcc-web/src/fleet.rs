@@ -6,12 +6,10 @@
 
 extern crate alloc;
 
-use alloc::{collections::BTreeMap, sync::Arc};
+use alloc::sync::Arc;
 use core::{error::Error, fmt, pin::Pin, time::Duration};
-use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use kcc_app::{
-    accounts::Clock,
     backups::BackupStore,
     credentials::CredentialStore,
     permissions::{Permission, Role},
@@ -42,16 +40,21 @@ pub enum UpdateStatus {
     Unknown,
 }
 
-/// Checks a router for newer firmware, such as through its components check.
+/// Checks a router for newer firmware, such as through its components check, and keeps
+/// the results.
 ///
-/// The fleet services call it at most once per router every [`UPDATE_CHECK_TTL`], in the
-/// background, and show [`UpdateStatus::Unknown`] until a check completes.
+/// The check owns the cache: the fleet services show [`UpdateCheck::cached`] and start
+/// [`UpdateCheck::check`] in the background whenever it says a check is due.
 pub trait UpdateCheck: Send + Sync {
-    /// Checks `router` for newer firmware.
+    /// Checks `router` for newer firmware, unless a check of it is not due.
     fn check<'call>(
         &'call self,
         router: &'call str,
     ) -> Pin<Box<dyn Future<Output = UpdateStatus> + Send + 'call>>;
+
+    /// The latest result for `router` without asking it ([`UpdateStatus::Unknown`]
+    /// before a check completed), and whether a check of it is due.
+    fn cached(&self, router: &str) -> (UpdateStatus, bool);
 }
 
 /// The application services the fleet pages need.
@@ -130,22 +133,18 @@ pub(crate) struct Fleet {
     credentials: Arc<CredentialStore>,
     /// Per-router live feeds over the shared poller.
     telemetry: Telemetry,
-    /// Cached firmware-update checks.
-    updates: UpdateCache,
+    /// The firmware-update check, which keeps the results.
+    updates: Option<Arc<dyn UpdateCheck>>,
     /// Encrypted configuration backups.
     backups: Option<BackupServices>,
 }
 
 impl Fleet {
-    /// Builds the live state around `services`, timing update checks with `clock`.
-    pub(crate) fn new(services: FleetServices, clock: Arc<dyn Clock>) -> Self {
+    /// Builds the live state around `services`.
+    pub(crate) fn new(services: FleetServices) -> Self {
         Self {
             telemetry: Telemetry::new(services.poller),
-            updates: UpdateCache {
-                check: services.update_check,
-                clock,
-                entries: Arc::new(Mutex::new(BTreeMap::new())),
-            },
+            updates: services.update_check,
             registry: services.registry,
             workflow: services.workflow,
             credentials: services.credentials,
@@ -178,9 +177,20 @@ impl Fleet {
         &self.telemetry
     }
 
-    /// The cached update status of `router`, starting a background check when due.
+    /// The latest update status of `router`, starting a background check when due.
     pub(crate) fn update_status(&self, router: &str) -> UpdateStatus {
-        self.updates.status(router)
+        let Some(check) = self.updates.as_ref() else {
+            return UpdateStatus::Unknown;
+        };
+        let (status, due) = check.cached(router);
+        if due {
+            let checker = Arc::clone(check);
+            let id = router.to_owned();
+            drop(tokio::spawn(async move {
+                drop(checker.check(&id).await);
+            }));
+        }
+        status
     }
 
     /// Every profile `role` may read, in id order.
@@ -200,75 +210,4 @@ impl Fleet {
             .filter(|entry| registry::authorize(role, Permission::Read, &entry.profile.id).is_ok())
             .collect())
     }
-}
-
-/// Firmware-update results per router, refreshed in the background.
-struct UpdateCache {
-    /// The supplied check, if any.
-    check: Option<Arc<dyn UpdateCheck>>,
-    /// Clock deciding when a result expires.
-    clock: Arc<dyn Clock>,
-    /// The latest result and check start of every router.
-    entries: Arc<Mutex<BTreeMap<String, CachedUpdate>>>,
-}
-
-/// One router's cached update result.
-#[derive(Debug, Clone)]
-struct CachedUpdate {
-    /// The latest completed result.
-    status: UpdateStatus,
-    /// Unix time the latest check started; `None` after a check that returned
-    /// [`UpdateStatus::Unknown`], so the next page load asks again.
-    checked_at: Option<u64>,
-}
-
-impl UpdateCache {
-    /// The cached status of `router`; starts a check when none ran in the last
-    /// [`UPDATE_CHECK_TTL`].
-    fn status(&self, router: &str) -> UpdateStatus {
-        let Some(check) = self.check.as_ref() else {
-            return UpdateStatus::Unknown;
-        };
-        let now = self.clock.unix_seconds();
-        let mut entries = lock(&self.entries);
-        let due = entries
-            .get(router)
-            .and_then(|cached| cached.checked_at)
-            .is_none_or(|checked_at| now.saturating_sub(checked_at) >= UPDATE_CHECK_TTL.as_secs());
-        let status = entries
-            .get(router)
-            .map_or(UpdateStatus::Unknown, |cached| cached.status.clone());
-        if due {
-            drop(entries.insert(
-                router.to_owned(),
-                CachedUpdate {
-                    status: status.clone(),
-                    checked_at: Some(now),
-                },
-            ));
-            drop(entries);
-            let checker = Arc::clone(check);
-            let shared = Arc::clone(&self.entries);
-            let id = router.to_owned();
-            drop(tokio::spawn(async move {
-                let result = checker.check(&id).await;
-                if let Some(cached) = lock(&shared).get_mut(&id) {
-                    if result == UpdateStatus::Unknown {
-                        cached.checked_at = None;
-                    } else {
-                        cached.status = result;
-                    }
-                }
-            }));
-        }
-        status
-    }
-}
-
-/// The cache map; a panic while holding it cannot leave an entry half-written, so a
-/// poisoned lock is used as is.
-fn lock(
-    entries: &Mutex<BTreeMap<String, CachedUpdate>>,
-) -> MutexGuard<'_, BTreeMap<String, CachedUpdate>> {
-    entries.lock().unwrap_or_else(PoisonError::into_inner)
 }

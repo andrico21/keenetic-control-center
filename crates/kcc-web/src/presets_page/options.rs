@@ -32,7 +32,6 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    migrate_wizard::names::{interface_kind, is_switch_port, valid_name},
     page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
@@ -40,7 +39,13 @@ use crate::{
         request::last,
         respond::{self, Answer},
     },
-    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
+    wizard::{
+        flow::Flow as _,
+        names::{interface_kind, is_switch_port, valid_name},
+        screen,
+        service::Wizards,
+        services::Services,
+    },
 };
 
 /// The step's panel.

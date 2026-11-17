@@ -38,11 +38,8 @@ use crate::{
         request::last,
         respond::{self, Answer},
     },
-    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
+    wizard::{flow::Flow as _, passwords, screen, service::Wizards, services::Services},
 };
-
-/// The longest password kcc passes to a router, in characters.
-const PASSWORD_MAX: usize = 256;
 
 /// `POST /ui/migrate/{id}/inputs`: checks the inputs, seals the passwords, builds the plan
 /// and opens its preview.
@@ -72,7 +69,10 @@ pub(super) async fn submit(
     let internal =
         |error: &dyn Display| Answer::from(errors::internal(error, fragment_shell(locale)));
     let Ok(analysis) = visit.analysis().await else {
-        return Err(respond::unprocessable(&Panel::new(&visit, Shown::default()).await).into());
+        let panel = Panel::new(&visit, Shown::default())
+            .await
+            .map_err(|error| internal(&error))?;
+        return Err(respond::unprocessable(&panel).into());
     };
     let mut passwords = visit.passwords().await.map_err(|error| internal(&error))?;
     let classified =
@@ -80,7 +80,10 @@ pub(super) async fn submit(
     let needs = Needs::of(&analysis, &classified, visit.record());
     let (checked_inputs, shown) = checked(&needs, &form, &mut passwords, locale);
     let Some(inputs) = checked_inputs else {
-        return Err(respond::unprocessable(&Panel::new(&visit, shown).await).into());
+        let panel = Panel::new(&visit, shown)
+            .await
+            .map_err(|error| internal(&error))?;
+        return Err(respond::unprocessable(&panel).into());
     };
     visit
         .seal_passwords(&passwords)
@@ -121,7 +124,9 @@ pub(super) async fn submit(
                     tr(locale, keys::WEB_MIGRATE_INPUTS_BLOCKED_ITEM, Some(&args))
                 })
                 .collect();
-            let panel = Panel::new(&visit, Shown::default().blocked(blocked)).await;
+            let panel = Panel::new(&visit, Shown::default().blocked(blocked))
+                .await
+                .map_err(|error| internal(&error))?;
             Err(respond::unprocessable(&panel).into())
         }
         Err(error) => Err(internal(&error)),
@@ -147,15 +152,17 @@ fn checked(
     let mut failed = false;
     for (index, user) in needs.users().iter().enumerate() {
         let typed = value(&format!("password-{index}")).unwrap_or_default();
-        let error = if value(&format!("user-{index}")) != Some(user.as_str()) {
-            Some(keys::WEB_MIGRATE_INPUTS_PASSWORD_USER)
-        } else if typed.is_empty() {
-            (!passwords.contains_key(user)).then_some(keys::WEB_MIGRATE_INPUTS_PASSWORD_MISSING)
-        } else if typed.chars().count() > PASSWORD_MAX || typed.chars().any(char::is_control) {
-            Some(keys::WEB_MIGRATE_INPUTS_PASSWORD_INVALID)
+        let error = if value(&format!("user-{index}")) == Some(user.as_str()) {
+            match passwords::typed(typed, passwords.contains_key(user)) {
+                Ok(Some(password)) => {
+                    drop(passwords.insert(user.clone(), password));
+                    None
+                }
+                Ok(None) => None,
+                Err(key) => Some(key),
+            }
         } else {
-            drop(passwords.insert(user.clone(), SecretString::from(typed.to_owned())));
-            None
+            Some(keys::WEB_MIGRATE_INPUTS_PASSWORD_USER)
         };
         if let Some(key) = error {
             failed = true;

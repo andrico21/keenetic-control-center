@@ -18,12 +18,12 @@ use axum::{
 use tower_http::limit::RequestBodyLimitLayer;
 
 use super::{
-    apply, downloads, inputs_submit, landing, mapping_submit, record::Record, review_submit,
-    source, source_read, target, target_confirm,
+    downloads, inputs_submit, landing, mapping_submit, record::Record, review_submit, source,
+    target, target_confirm,
 };
 use crate::{
     BODY_LIMIT, WebState, brackets, protect,
-    wizard::{events, finish, resume, running, service::Wizards, settle},
+    wizard::{apply, events, finish, resume, running, service::Wizards, settle, source_read},
 };
 
 /// Every wizard route.
@@ -46,7 +46,7 @@ pub(crate) fn router(state: &WebState) -> Router<WebState> {
         )
         .route("/ui/migrate/{id}/inputs", post(inputs_submit::submit))
         .route("/ui/migrate/{id}/download/{file}", get(downloads::download))
-        .route("/ui/migrate/{id}/apply", post(apply::apply))
+        .route("/ui/migrate/{id}/apply", post(apply::apply::<Record>))
         .route("/ui/migrate/{id}/stop", post(running::stop::<Record>))
         .route("/ui/migrate/{id}/results", post(resume::results::<Record>))
         .route("/ui/migrate/{id}/commit", post(finish::commit::<Record>))

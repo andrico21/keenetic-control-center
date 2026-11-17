@@ -1,121 +1,107 @@
-//! Step 6 to 7: Apply asks first, then reserves the target (one apply per router at a
-//! time) and starts the apply.
+//! A migration's apply, for the engine's `crate::wizard::apply`.
+//!
+//! Its words, the permissions it needs, the engine's request built again from a fresh
+//! read with the report and plan kept, and the preview with a reason.
 
-use alloc::sync::Arc;
-
-use axum::{
-    Extension, Form,
-    extract::{Path, State},
-    response::Response,
-};
-use fluent_bundle::FluentArgs;
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-    locale::Locale,
-};
-use kcc_migrate::apply::ApplyOptions;
-use serde_json::json;
+use kcc_app::permissions::Permission;
+use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::{
     access::Visit,
-    kinds::Step,
-    launch::{Failure, launch},
+    apply_request::{Prepared, Refused},
     preview::{Panel, apply_permissions},
     record::Record,
 };
 use crate::{
-    WebState,
-    authz::CurrentUser,
-    errors::{self, Kind},
-    page_kit::{
-        audit::Record as Audit,
-        confirm::{Confirmation, Dialog, Resubmit, Words},
-        context::{Refusal, fragment_shell},
-        respond::Answer,
+    WebState, errors,
+    page_kit::{context::fragment_shell, respond::Answer},
+    wizard::{
+        applying::{Applying, Failure, Starting},
+        flow::Flow as _,
+        screen,
+        store::Kept,
     },
-    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
-/// `POST /ui/migrate/{id}/apply`: asks first, then starts the apply.
+impl Applying for Record {
+    const APPLY_AUDIT: &'static str = "web.migrate_apply";
+    const APPLY_END_AUDIT: &'static str = "web.migrate_apply_end";
+    const CONFIRM: (MessageKey, MessageKey, MessageKey) = (
+        keys::WEB_MIGRATE_APPLY_CONFIRM_TITLE,
+        keys::WEB_MIGRATE_APPLY_CONFIRM_TEXT,
+        keys::WEB_MIGRATE_APPLY,
+    );
+    const BUSY: MessageKey = keys::WEB_MIGRATE_APPLY_BUSY;
+
+    fn apply_permissions(&self) -> Vec<Permission> {
+        apply_permissions(self)
+    }
+
+    fn prepare(
+        visit: &mut Visit<'_>,
+        state: &WebState,
+    ) -> impl Future<Output = Result<Starting, Failure>> + Send {
+        prepare(visit, state)
+    }
+
+    fn refusal(
+        visit: &Visit<'_>,
+        _state: &WebState,
+        reason: String,
+    ) -> impl Future<Output = Answer> + Send {
+        refusal(visit, reason)
+    }
+}
+
+/// The apply of `visit`, with its report and plan kept for the run's downloads.
 ///
 /// # Errors
 ///
-/// Answers the refusal of the migration, the audited 403 without the permissions the
-/// apply needs, and the preview with the reason (422) when it cannot start.
-pub(super) async fn apply(
-    State(state): State<WebState>,
-    Path(id): Path<String>,
-    Extension(wizards): Extension<Arc<Wizards<Record>>>,
-    user: CurrentUser,
-    Form(form): Form<Confirmation>,
-) -> Result<Response, Answer> {
-    let services = Services::of(&state, &user).map_err(Refusal::status)?;
-    let mut visit = Visit::open(services, &wizards, &id)
-        .await
-        .map_err(Refusal::status)?;
-    if visit.record().step() != Step::Preview {
-        return Ok(screen::moved(visit.record()));
-    }
-    let locale = user.locale();
-    let target = visit.record().target().unwrap_or_default().to_owned();
-    let audit = Audit::on_router("web.migrate_apply", &target, id.clone());
-    let needed = apply_permissions(visit.record());
-    let missing = errors::refusal::missing(&user, &target, &needed);
-    if !missing.is_empty() {
-        audit.append(&state, &user, "forbidden").await;
-        return Err(errors::refusal::refused(locale, &missing, "#wizard-step").into());
-    }
-    let Some(jobs) = state.advanced().jobs().cloned() else {
-        return Err(refusal(&visit, keys::WEB_MIGRATE_APPLY_NO_JOBS).await);
+/// Returns why it cannot start: the preview's plan changed (the preview moves on to the
+/// new one), the routers cannot be read, the plan cannot be built, or the run's files
+/// cannot be read or written.
+// NOT cancel-safe: dropped, a kept file or the record may still be written.
+async fn prepare(visit: &mut Visit<'_>, state: &WebState) -> Result<Starting, Failure> {
+    let prepared = match Prepared::new(visit, state).await {
+        Ok(found) => found,
+        Err(Refused::Changed(plan)) => {
+            visit.record_mut().preview_ready(plan);
+            visit.save().await.map_err(Failure::Broken)?;
+            return Err(Failure::Refused(keys::WEB_MIGRATE_APPLY_CHANGED, "changed"));
+        }
+        Err(Refused::Unreadable) => {
+            return Err(Failure::Refused(
+                keys::WEB_MIGRATE_PROBLEM_UNREACHABLE,
+                "unreachable",
+            ));
+        }
+        Err(Refused::Broken) => {
+            return Err(Failure::Refused(keys::WEB_MIGRATE_PROBLEM_PLAN, "refused"));
+        }
+        Err(Refused::Store(error)) => return Err(Failure::Broken(error)),
     };
-    if !form.confirmed() {
-        return Ok(ask(locale, &id, &target));
-    }
-    if wizards.held_by_other(&target, &id) {
-        audit.append(&state, &user, "busy").await;
-        return Err(refusal(&visit, keys::WEB_MIGRATE_APPLY_BUSY).await);
-    }
-    match launch(&mut visit, &state, &jobs, &wizards).await {
-        Ok((job, commands)) => {
-            audit
-                .with_params(json!({ "job": job, "commands": commands }))
-                .append(&state, &user, "started")
-                .await;
-            Ok(screen::moved(visit.record()))
-        }
-        Err(Failure::Refused(key, outcome)) => {
-            audit.append(&state, &user, outcome).await;
-            Err(refusal(&visit, key).await)
-        }
-        Err(Failure::Broken(error)) => Err(errors::internal(&error, fragment_shell(locale)).into()),
-        Err(Failure::Unowned) => {
-            tracing::warn!("apply refused: its request has no server owner");
-            audit.append(&state, &user, "failed").await;
-            Err(errors::response(Kind::Internal, fragment_shell(locale)).into())
-        }
-    }
+    let id = visit.record().id().to_owned();
+    let (request, texts, report, plan) = prepared.into_parts();
+    let store = visit.services().store();
+    store
+        .keep(&id, Kept::Report, &report)
+        .await
+        .map_err(Failure::Broken)?;
+    store
+        .keep(&id, Kept::Plan, &plan)
+        .await
+        .map_err(Failure::Broken)?;
+    Ok(Starting::new(request, texts))
 }
 
-/// The dialog asking before the apply of migration `id` to `target` starts.
-fn ask(locale: Locale, id: &str, target: &str) -> Response {
-    let mut args = FluentArgs::new();
-    args.set("router", target.to_owned());
-    let minutes = ApplyOptions::default().safety_seconds.div_ceil(60);
-    args.set("minutes", u32::try_from(minutes).unwrap_or(u32::MAX));
-    let words = Words::new(
-        tr(locale, keys::WEB_MIGRATE_APPLY_CONFIRM_TITLE, Some(&args)),
-        tr(locale, keys::WEB_MIGRATE_APPLY_CONFIRM_TEXT, Some(&args)),
-        tr(locale, keys::WEB_MIGRATE_APPLY, None),
-    );
-    let resubmit = Resubmit::new(format!("/ui/migrate/{id}/apply"), "#wizard-step");
-    Dialog::new(locale, words, resubmit).show()
-}
-
-/// The preview again with `key` as its reason, as 422 in the step.
+/// The preview again with `reason`, as 422 in the step.
 // cancel-safe: reads only.
-async fn refusal(visit: &Visit<'_>, key: MessageKey) -> Answer {
-    let locale = visit.services().user().locale();
-    let panel = Panel::new(visit).await.refusing(tr(locale, key, None));
-    screen::refused(&panel).into()
+async fn refusal(visit: &Visit<'_>, reason: String) -> Answer {
+    match Panel::new(visit).await {
+        Ok(panel) => screen::refused(&panel.refusing(reason)).into(),
+        Err(error) => {
+            let shell = fragment_shell(visit.services().user().locale());
+            errors::internal(&error, shell).into()
+        }
+    }
 }

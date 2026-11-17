@@ -1,7 +1,9 @@
-//! What every wizard's analysis shares: why a source or a target cannot be used, and the
-//! parsed source configuration.
+//! What every wizard's analysis shares: why a source or a target cannot be used, the
+//! parsed source configuration, and how the target's model and mode read.
 
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_migrate::{inventory::InventoryError, source::SourceConfig};
+use kcc_rci::capabilities::{RouterInfo, SystemMode};
 use secrecy::{ExposeSecret as _, SecretString};
 
 /// Why the analysis could not be made.
@@ -52,5 +54,27 @@ pub(crate) fn inventory_problem(error: &InventoryError) -> Problem {
             tracing::warn!(error = %other, "migration target inventory failed");
             Problem::Unreachable
         }
+    }
+}
+
+/// The model name and hardware id `info` reports, as far as it does.
+pub(crate) fn model_text(info: &RouterInfo) -> String {
+    match (info.version.model.as_deref(), info.hw_id()) {
+        (Some(name), Some(id)) if name != id => format!("{name} ({id})"),
+        (Some(name), _) => name.to_owned(),
+        (None, Some(id)) => id.to_owned(),
+        (None, None) => String::new(),
+    }
+}
+
+/// The localized operating mode.
+pub(crate) fn mode_text(mode: &SystemMode, locale: Locale) -> String {
+    match mode {
+        SystemMode::Router => tr(locale, keys::WEB_MIGRATE_MODE_ROUTER, None),
+        SystemMode::Extender => tr(locale, keys::WEB_MIGRATE_MODE_EXTENDER, None),
+        SystemMode::Ap => tr(locale, keys::WEB_MIGRATE_MODE_AP, None),
+        SystemMode::Repeater => tr(locale, keys::WEB_MIGRATE_MODE_REPEATER, None),
+        SystemMode::Other(name) => name.clone(),
+        _ => tr(locale, keys::WEB_KIT_NOT_REPORTED, None),
     }
 }

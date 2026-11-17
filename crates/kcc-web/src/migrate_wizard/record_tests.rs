@@ -5,8 +5,8 @@
 )]
 use super::Record;
 use crate::{
-    migrate_wizard::kinds::{Source, Step},
-    wizard::flow::Flow as _,
+    migrate_wizard::kinds::Step,
+    wizard::{flow::Flow as _, source::Source},
 };
 
 #[test]

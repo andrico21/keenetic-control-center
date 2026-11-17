@@ -6,15 +6,12 @@ use kcc_i18n::{
     keys,
     locale::Locale,
 };
-use kcc_migrate::rules::{ClassifiedItem, Disposition};
+use kcc_migrate::rules::{
+    ClassifiedItem, Disposition,
+    reason::{NeededInput, Reason},
+};
 
-use super::warnings::INSTALL_REASON;
-
-/// The reason of a router-user password hash bound to another realm.
-pub(super) const PASSWORD_REASON: &str = "migration-reason-password-realm";
-
-/// The reason of a value that differs from the router's.
-const CONFLICT_REASON: &str = "migration-reason-scalar-conflict";
+use super::warnings::component;
 
 /// What the review says happens to a setting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -110,63 +107,112 @@ pub(super) fn reason(
     locale: Locale,
 ) -> String {
     let mut args = FluentArgs::new();
-    let key = match (conflict, item.reason_key.as_str()) {
+    let key = match (conflict, item.reason) {
         (Some(Resolution::Source), _) => keys::WEB_MIGRATE_REASON_CONFLICT_SOURCE,
         (Some(Resolution::Router), _) => keys::WEB_MIGRATE_REASON_CONFLICT_ROUTER,
-        (Some(Resolution::Undecided), _) | (None, CONFLICT_REASON) => {
+        (Some(Resolution::Undecided), _) | (None, Reason::ScalarConflict) => {
             keys::WEB_MIGRATE_REASON_CONFLICT
         }
-        (None, PASSWORD_REASON) => {
-            args.set("name", word(&item.before, 1));
+        (None, Reason::PasswordRealm) => {
+            args.set("name", password_user(item).to_owned());
             if item.disposition == Disposition::NeedsInput {
                 keys::WEB_MIGRATE_REASON_PASSWORD
             } else {
                 keys::WEB_MIGRATE_REASON_PASSWORD_SET
             }
         }
-        (None, INSTALL_REASON) => {
-            let component = item
-                .needed_input
-                .as_deref()
-                .and_then(|needed| needed.strip_prefix("install "))
-                .unwrap_or_default();
-            args.set("name", component.to_owned());
+        (None, Reason::InstallComponent) => {
+            args.set("name", component(item).unwrap_or_default().to_owned());
             keys::WEB_MIGRATE_REASON_COMPONENT
         }
+        (None, Reason::DefaultCopy | Reason::CopySecret | Reason::NonCriticalDescription) => {
+            keys::MIGRATE_REASON_COPY
+        }
+        (None, Reason::RemapReference) => keys::MIGRATE_REASON_REMAP,
         (
             None,
-            "migration-reason-default-copy"
-            | "migration-reason-copy-secret"
-            | "migration-reason-non-critical-description",
-        ) => keys::MIGRATE_REASON_COPY,
-        (None, "migration-reason-remap-reference") => keys::MIGRATE_REASON_REMAP,
-        (
-            None,
-            "migration-reason-hardware-led"
-            | "migration-reason-hardware-button"
-            | "migration-reason-hardware-usb"
-            | "migration-reason-hardware-radio"
-            | "migration-reason-hardware-printer",
+            Reason::HardwareLed
+            | Reason::HardwareButton
+            | Reason::HardwareUsb
+            | Reason::HardwareRadio
+            | Reason::HardwarePrinter
+            | Reason::HardwareInterface,
         ) => keys::MIGRATE_REASON_SKIP_HARDWARE,
         (
             None,
-            "migration-reason-identity-ndns"
-            | "migration-reason-identity-cloud"
-            | "migration-reason-identity-certificate"
-            | "migration-reason-identity-mws"
-            | "migration-reason-preflight-agreement"
-            | "migration-reason-kernel-tunable"
-            | "migration-reason-identity-mac",
+            Reason::IdentityNdns
+            | Reason::IdentityCloud
+            | Reason::IdentityCertificate
+            | Reason::IdentityMws
+            | Reason::PreflightAgreement
+            | Reason::KernelTunable
+            | Reason::IdentityMac,
         ) => keys::MIGRATE_REASON_SKIP_IDENTITY,
-        (None, _) => keys::MIGRATE_REASON_UNSUPPORTED,
+        (None, Reason::ManagementReconnect) => keys::MIGRATE_REASON_NEEDS_INPUT,
+        (None, Reason::UnsupportedCommand) => keys::MIGRATE_REASON_UNSUPPORTED,
     };
     tr(locale, key, Some(&args))
 }
 
-/// The `index`-th word of `line`, or nothing.
-fn word(line: &str, index: usize) -> String {
-    line.split_whitespace()
-        .nth(index)
-        .unwrap_or_default()
-        .to_owned()
+/// The router user whose password `item` depends on, or nothing.
+pub(super) fn password_user(item: &ClassifiedItem) -> &str {
+    match &item.input {
+        Some(NeededInput::Password { user }) => user,
+        Some(NeededInput::Install { component: _ } | NeededInput::ReconnectUrl) | None => "",
+    }
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+mod tests {
+    use alloc::collections::{BTreeMap, BTreeSet};
+    use core::error::Error;
+
+    use kcc_config::config_text::parse;
+    use kcc_i18n::{bundle::tr, keys, locale::Locale};
+    use kcc_migrate::{
+        maps::{InterfaceMap, PortMap, RadioMap},
+        rules::{ClassificationChoices, ClassificationTarget, InterfaceInventory, classify},
+    };
+
+    use super::reason;
+
+    /// W5-08: a bridge member the target lacks reads as skipped hardware.
+    ///
+    /// The wizard did not list this engine reason, so it read as "unsupported" through a
+    /// wildcard arm.
+    #[test]
+    fn a_missing_bridge_member_reads_as_skipped_hardware() -> Result<(), Box<dyn Error>> {
+        let source = parse("interface Bridge0 include GigabitEthernet0/4\n")?;
+        let target = parse("")?;
+        let (installed, overwrites) = (BTreeSet::new(), BTreeSet::new());
+        let interfaces = BTreeSet::from(["GigabitEthernet0/3".to_owned()]);
+        let (ports, radios, names) = (
+            PortMap::default(),
+            RadioMap::default(),
+            InterfaceMap::default(),
+        );
+        let passwords = BTreeMap::new();
+        let choices = ClassificationChoices::new(&ports, &radios, &names, &passwords, &overwrites);
+        let view = ClassificationTarget::new(
+            None,
+            &target,
+            &installed,
+            None,
+            InterfaceInventory::Available(&interfaces),
+        );
+        let items = classify(&source, view, &choices)?;
+        let member = items.last().ok_or("no item")?;
+
+        assert_eq!(
+            reason(member, None, Locale::En),
+            tr(Locale::En, keys::MIGRATE_REASON_SKIP_HARDWARE, None)
+        );
+        Ok(())
+    }
 }

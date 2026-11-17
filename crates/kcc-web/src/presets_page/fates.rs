@@ -7,7 +7,7 @@ use kcc_i18n::{
     locale::Locale,
 };
 use kcc_migrate::{
-    presets::plan::{PresetInput, PresetPlanItem},
+    presets::plan::{PresetInput, PresetPlanItem, reason::PresetReason},
     rules::Disposition,
 };
 
@@ -45,17 +45,19 @@ impl Fate {
     ];
 
     /// The fate of `item`, given whether the user left it out.
-    pub(super) fn of(item: &PresetPlanItem, excluded: bool) -> Self {
+    pub(super) const fn of(item: &PresetPlanItem, excluded: bool) -> Self {
         if excluded {
             return Self::Excluded;
         }
         match item.disposition {
             Disposition::NeedsInput => Self::Input,
             Disposition::Conflict => Self::Conflict,
-            Disposition::Copy | Disposition::Remap => match item.reason.as_str() {
-                "preset-already-present" => Self::Present,
-                "preset-mirror-remove" => Self::Remove,
-                _ => Self::Send,
+            Disposition::Copy | Disposition::Remap => match item.reason {
+                PresetReason::AlreadyPresent => Self::Present,
+                PresetReason::MirrorRemove => Self::Remove,
+                PresetReason::Add | PresetReason::Unsupported | PresetReason::NeedsInput => {
+                    Self::Send
+                }
             },
             Disposition::Unsupported
             | Disposition::SkipHardware
@@ -128,7 +130,7 @@ pub(super) fn reason(item: &PresetPlanItem, fate: Fate, record: &Record, locale:
                 args.set("name", source.clone());
                 keys::WEB_PRESETS_REASON_MAPPING
             }
-            Some(_) | None => keys::MIGRATE_REASON_NEEDS_INPUT,
+            None => keys::MIGRATE_REASON_NEEDS_INPUT,
         },
         Fate::Conflict => keys::WEB_PRESETS_REASON_CONFLICT,
         Fate::Unsupported => keys::WEB_PRESETS_REASON_UNSUPPORTED,

@@ -21,10 +21,12 @@ use super::{
     steps::Origin,
 };
 use crate::{
-    migrate_wizard::warnings::mode_text,
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
-    wizard::{analysis::Problem, flow::Flow as _},
+    wizard::{
+        analysis::{Problem, mode_text, model_text},
+        flow::Flow as _,
+    },
 };
 
 /// The step's panel.
@@ -82,12 +84,7 @@ impl Report {
         .filter(|(shown, _, _)| *shown)
         .map(|(_, tone, key)| (tone, tr(locale, key, None)))
         .collect();
-        let model = match (info.version.model.as_deref(), info.hw_id()) {
-            (Some(name), Some(id)) if name != id => format!("{name} ({id})"),
-            (Some(name), _) => name.to_owned(),
-            (None, Some(id)) => id.to_owned(),
-            (None, None) => String::new(),
-        };
+        let model = model_text(info);
         let mode = target.system_mode.as_ref().map_or_else(
             || tr(locale, keys::WEB_KIT_NOT_REPORTED, None),
             |found| mode_text(found, locale),

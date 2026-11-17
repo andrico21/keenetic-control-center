@@ -7,9 +7,12 @@
 use alloc::collections::{BTreeMap, BTreeSet};
 
 use kcc_config::config_text::flatten;
-use kcc_migrate::{inventory::TargetInventory, rules::ClassifiedItem};
+use kcc_migrate::{
+    inventory::TargetInventory,
+    rules::{ClassifiedItem, reason::Reason},
+};
 
-use super::{analysis::Analysis, plan::Classified, reasons::PASSWORD_REASON, record::Record};
+use super::{analysis::Analysis, plan::Classified, reasons::password_user, record::Record};
 
 /// The inputs a migration needs.
 pub(super) struct Needs {
@@ -33,8 +36,9 @@ impl Needs {
             .collect::<Vec<_>>();
         let mut users = kept
             .iter()
-            .filter(|item| item.reason_key == PASSWORD_REASON)
-            .filter_map(|item| item.before.split_whitespace().nth(1).map(str::to_owned))
+            .map(|item| password_user(item))
+            .filter(|user| !user.is_empty())
+            .map(str::to_owned)
             .collect::<Vec<_>>();
         users.sort();
         users.dedup();
@@ -44,7 +48,7 @@ impl Needs {
             .map(ToString::to_string)
             .collect::<BTreeSet<_>>();
         let reconnect = kept.iter().any(|item| {
-            item.reason_key == PASSWORD_REASON
+            item.reason == Reason::PasswordRealm
                 || (manages(item, target)
                     && item
                         .after

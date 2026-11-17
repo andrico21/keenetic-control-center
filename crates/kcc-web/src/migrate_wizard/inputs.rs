@@ -16,7 +16,7 @@ use super::{
 use crate::{
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
-    wizard::flow::Flow as _,
+    wizard::{flow::Flow as _, store::StoreError},
 };
 
 /// The step's panel.
@@ -142,8 +142,12 @@ impl Shown {
 
 impl Panel {
     /// The inputs of `visit`, with what the form sent in `shown`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the read and opening failures of the typed passwords.
     // cancel-safe: reads only.
-    pub(super) async fn new(visit: &Visit<'_>, shown: Shown) -> Self {
+    pub(super) async fn new(visit: &Visit<'_>, shown: Shown) -> Result<Self, StoreError> {
         let locale = visit.services().user().locale();
         let record = visit.record();
         let mut panel = Self {
@@ -163,13 +167,13 @@ impl Panel {
             Ok(found) => found,
             Err(problem) => {
                 panel.problem = problem_text(&problem, locale);
-                return panel;
+                return Ok(panel);
             }
         };
-        let passwords = visit.passwords().await.unwrap_or_default();
+        let passwords = visit.passwords().await?;
         let Ok(classified) = Classified::new(&analysis, record, &passwords) else {
             panel.problem = tr(locale, keys::WEB_MIGRATE_PROBLEM_SOURCE, None);
-            return panel;
+            return Ok(panel);
         };
         let needs = Needs::of(&analysis, &classified, record);
         panel.nothing = needs.none();
@@ -236,6 +240,6 @@ impl Panel {
                 }
             })
             .collect();
-        panel
+        Ok(panel)
     }
 }

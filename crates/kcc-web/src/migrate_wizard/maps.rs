@@ -17,12 +17,10 @@ use kcc_migrate::{
     maps::{InterfaceMap, MapEntry, PortMap, RadioMap},
     source::SourceConfig,
 };
-use serde::de::DeserializeOwned;
-use serde_json::json;
 
-use super::{
-    kinds::Maps,
-    names::{configured_interfaces, interface_kind, is_port, is_radio, is_switch_port, valid_name},
+use super::kinds::Maps;
+use crate::wizard::names::{
+    configured_interfaces, interface_kind, is_port, is_radio, is_switch_port, map_of, valid_name,
 };
 
 /// Which map a row belongs to.
@@ -164,7 +162,7 @@ impl<'call> Sides<'call> {
             .map(|entry| entry.source.as_str())
             .collect::<BTreeSet<_>>();
         let target_kinds = self.target_kinds();
-        let interfaces: InterfaceMap = map_from(
+        let interfaces: InterfaceMap = map_of(
             named
                 .iter()
                 .filter(|name| !mapped.contains(name.as_str()))
@@ -252,34 +250,13 @@ pub(super) fn pairs(entries: &[MapEntry]) -> Vec<(String, Option<String>)> {
         .collect()
 }
 
-/// One of the engine's maps from `(source, target)` pairs.
-pub(crate) fn map_of<M>(pairs: Vec<(String, Option<String>)>) -> M
-where
-    M: DeserializeOwned + Default,
-{
-    map_from(pairs.into_iter())
-}
-
-/// A map of the engine's serialized form from `(source, target)` pairs: map entries are
-/// built by the engine's own deserializer, as the stored record is.
-fn map_from<M, I>(pairs: I) -> M
-where
-    M: DeserializeOwned + Default,
-    I: Iterator<Item = (String, Option<String>)>,
-{
-    let entries = pairs
-        .map(|(source, target)| json!({ "source": source, "target": target }))
-        .collect::<Vec<_>>();
-    serde_json::from_value(json!({ "entries": entries })).unwrap_or_default()
-}
-
 /// Entries keeping each of `names` under its own name where `targets` has it.
 fn entries<'name, M, N>(names: N, targets: &[String]) -> M
 where
-    M: DeserializeOwned + Default,
+    M: FromIterator<MapEntry>,
     N: Iterator<Item = &'name String>,
 {
-    map_from(names.map(|name| {
+    map_of(names.map(|name| {
         let kept = targets.contains(name);
         (name.clone(), kept.then(|| name.clone()))
     }))

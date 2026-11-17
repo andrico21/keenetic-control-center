@@ -7,6 +7,8 @@ mod apply_abandoned;
 mod apply_failure;
 #[path = "migration_wizard/apply_flow.rs"]
 mod apply_flow;
+#[path = "migration_wizard/broken_store.rs"]
+mod broken_store;
 #[path = "migration_wizard/finish_audit.rs"]
 mod finish_audit;
 #[path = "migration_wizard/flow.rs"]
@@ -39,6 +41,8 @@ mod sessions;
 mod setup;
 #[path = "migration_wizard/steps.rs"]
 mod steps;
+#[path = "migration_wizard/strangers.rs"]
+mod strangers;
 #[expect(
     dead_code,
     reason = "the shared Web UI test support; this suite needs part of it"

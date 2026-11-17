@@ -14,9 +14,9 @@ use super::{
     lines::{count, group_words, selected, shown},
 };
 use crate::{
-    migrate_wizard::summary::source_text,
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, request::last},
+    wizard::source::source_text,
 };
 
 /// The longest name, in characters.

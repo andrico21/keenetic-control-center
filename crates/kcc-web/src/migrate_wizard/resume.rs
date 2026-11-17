@@ -10,11 +10,12 @@ use super::{
     kinds::Step,
     mapping, preview,
     review::{self, View},
-    source, target,
+    target,
 };
 use crate::{
+    errors,
     page::Shell,
-    wizard::{flow::Flow as _, report::Panel, results, running, screen, store::Kept},
+    wizard::{flow::Flow as _, report::Panel, results, running, screen, source, store::Kept},
 };
 
 /// The report's files to download, once the report was kept.
@@ -32,17 +33,21 @@ pub(super) async fn show(visit: &Visit<'_>, shell: Shell, view: &View) -> Respon
     match record.step() {
         Step::Source => {
             let services = visit.services();
-            let panel = source::Panel::new(services, record.id(), record.source()).await;
+            let action = format!("/ui/migrate/{}/source", record.id());
+            let panel = source::Panel::posting(services, action, record.source()).await;
             screen::page(shell, record, &panel)
         }
         Step::Target => screen::page(shell, record, &target::Panel::new(visit).await),
         Step::Mapping => screen::page(shell, record, &mapping::Panel::new(visit).await),
         Step::Review => screen::page(shell, record, &review::Panel::new(visit, view).await),
-        Step::Inputs => {
-            let panel = inputs::Panel::new(visit, Shown::default()).await;
-            screen::page(shell, record, &panel)
-        }
-        Step::Preview => screen::page(shell, record, &preview::Panel::new(visit).await),
+        Step::Inputs => match inputs::Panel::new(visit, Shown::default()).await {
+            Ok(panel) => screen::page(shell, record, &panel),
+            Err(error) => errors::internal(&error, shell),
+        },
+        Step::Preview => match preview::Panel::new(visit).await {
+            Ok(panel) => screen::page(shell, record, &panel),
+            Err(error) => errors::internal(&error, shell),
+        },
         Step::Apply => {
             let words = (keys::WEB_MIGRATE_RUN_TITLE, keys::WEB_MIGRATE_RUN_TEXT);
             screen::page(shell, record, &running::Panel::new(visit, words))

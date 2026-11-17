@@ -19,7 +19,7 @@ mod tests {
         setup,
         support::{
             outcome::TestResult,
-            page::{assert_native_post, text},
+            page::{assert_native_post, row_headers, text},
             web::{Browser, Fixture},
         },
     };
@@ -137,7 +137,7 @@ mod tests {
         finish(fixture, browser, &run, ("keep", &[])).await?;
         let report = page(fixture, browser, &run).await?;
         assert!(
-            report.contains("<th scope=\"row\" class=\"mono\">Wireguard0</th>"),
+            row_headers(&report).contains(&"Wireguard0".to_owned()),
             "the report lists the tunnel's new public key: {report}"
         );
         served.push(report);

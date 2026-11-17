@@ -17,13 +17,11 @@ use kcc_i18n::{
     keys,
     locale::Locale,
 };
-use kcc_migrate::rules::ClassifiedItem;
+use kcc_migrate::rules::{ClassifiedItem, reason::NeededInput};
 use kcc_rci::capabilities::{SupportTier, SystemMode};
 
 use super::{analysis::Analysis, kinds::Maps};
-
-/// The classification reason of an item that needs a component.
-pub(super) const INSTALL_REASON: &str = "migration-reason-install-component";
+use crate::wizard::analysis::{mode_text, model_text};
 
 /// One label and value.
 pub(super) struct Fact {
@@ -139,7 +137,11 @@ impl Report {
             |found| mode_text(found, locale),
         );
         let facts = vec![
-            fact(locale, keys::DOMAINS_MODEL, model(analysis)),
+            fact(
+                locale,
+                keys::DOMAINS_MODEL,
+                model_text(&analysis.target().info),
+            ),
             fact(
                 locale,
                 keys::DOMAINS_FIRMWARE,
@@ -216,17 +218,19 @@ pub(super) fn missing_components(analysis: &Analysis, maps: &Maps) -> Vec<String
 }
 
 /// The component each blocked item of `items` needs.
-pub(super) fn component_names(items: &[ClassifiedItem]) -> Vec<String> {
+fn component_names(items: &[ClassifiedItem]) -> Vec<String> {
     items
         .iter()
-        .filter(|item| item.reason_key == INSTALL_REASON)
-        .filter_map(|item| {
-            item.needed_input
-                .as_deref()
-                .and_then(|needed| needed.strip_prefix("install "))
-                .map(str::to_owned)
-        })
+        .filter_map(|item| component(item).map(str::to_owned))
         .collect()
+}
+
+/// The component `item` waits for, if any.
+pub(super) fn component(item: &ClassifiedItem) -> Option<&str> {
+    match &item.input {
+        Some(NeededInput::Install { component }) => Some(component),
+        Some(NeededInput::Password { user: _ } | NeededInput::ReconnectUrl) | None => None,
+    }
 }
 
 /// The localized name of agreement `name` (`dpn` or `eula`).
@@ -237,29 +241,6 @@ pub(super) fn agreement_name(name: &str, locale: Locale) -> String {
         keys::WEB_MIGRATE_AGREEMENT_EULA
     };
     tr(locale, key, None)
-}
-
-/// The target's model name and hardware id, as far as reported.
-fn model(analysis: &Analysis) -> String {
-    let info = &analysis.target().info;
-    match (info.version.model.as_deref(), info.hw_id()) {
-        (Some(name), Some(id)) if name != id => format!("{name} ({id})"),
-        (Some(name), _) => name.to_owned(),
-        (None, Some(id)) => id.to_owned(),
-        (None, None) => String::new(),
-    }
-}
-
-/// The localized operating mode.
-pub(crate) fn mode_text(mode: &SystemMode, locale: Locale) -> String {
-    match mode {
-        SystemMode::Router => tr(locale, keys::WEB_MIGRATE_MODE_ROUTER, None),
-        SystemMode::Extender => tr(locale, keys::WEB_MIGRATE_MODE_EXTENDER, None),
-        SystemMode::Ap => tr(locale, keys::WEB_MIGRATE_MODE_AP, None),
-        SystemMode::Repeater => tr(locale, keys::WEB_MIGRATE_MODE_REPEATER, None),
-        SystemMode::Other(name) => name.clone(),
-        _ => tr(locale, keys::WEB_KIT_NOT_REPORTED, None),
-    }
 }
 
 /// A fact labelled `key`.

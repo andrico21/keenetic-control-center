@@ -6,8 +6,8 @@
 {%- else %}
 <nav class="wizard-filters" aria-label="{{ t(keys::WEB_MIGRATE_REVIEW_FILTERS) }}">
   <ul class="wizard-filters__list">
-    {%- for (href, label, current) in filters %}
-    <li><a class="wizard-filters__link" href="{{ href }}"{% if *current %} aria-current="page"{% endif %}>{{ label }}</a></li>
+    {%- for filter in filters %}
+    <li><a class="wizard-filters__link" href="{{ filter.href() }}"{% if filter.current() %} aria-current="page"{% endif %}>{{ filter.label() }}</a></li>
     {%- endfor %}
   </ul>
 </nav>

@@ -1,7 +1,13 @@
-//! Step 9: how the run finished, what it sent, and the report to download; a preset run
-//! also lists the new WireGuard public keys to register on the VPN servers.
+//! Step 9: how the run finished, what it sent, and the report to download.
+//!
+//! Each wizard's files are answered as an [`attachment`]; a preset run also lists the new
+//! WireGuard public keys to register on the VPN servers.
 
 use askama::Template;
+use axum::{
+    http::{HeaderValue, header},
+    response::{IntoResponse as _, Response},
+};
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{
     bundle::{MessageKey, tr},
@@ -140,4 +146,15 @@ impl Panel {
             .collect();
         self
     }
+}
+
+/// `body`, the report as `content_type`, as a downloaded file named `name`.
+pub(crate) fn attachment(body: String, content_type: &'static str, name: &str) -> Response {
+    let mut response = body.into_response();
+    let headers = response.headers_mut();
+    drop(headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type)));
+    if let Ok(value) = HeaderValue::from_str(&format!("attachment; filename=\"{name}\"")) {
+        drop(headers.insert(header::CONTENT_DISPOSITION, value));
+    }
+    response
 }

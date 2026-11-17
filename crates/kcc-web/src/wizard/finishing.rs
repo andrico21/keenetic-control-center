@@ -86,8 +86,9 @@ pub(crate) trait Finishing: Flow {
     /// Deletes what run `id` sealed once it finished: its source, its copied settings
     /// and its typed passwords.
     // NOT cancel-safe: dropped, the deletions still run to their end.
-    async fn discard(services: Services<'_>, id: &str) {
-        retention::forget_secrets(&services.store(), id).await;
+    fn discard(services: Services<'_>, id: &str) -> impl Future<Output = ()> + Send {
+        let store = services.store();
+        async move { retention::forget_secrets(&store, id).await }
     }
 
     /// The sentence explaining the failure a record names `name`; a name this kcc does

@@ -4,23 +4,26 @@
 //! settings whose value differs from the router's have the choice of value. Choices save
 //! as they change.
 
-use core::iter;
-
 use askama::Template;
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{bundle::tr, keys};
 use serde::Deserialize;
 
 use super::{
     access::{Migration as _, Visit},
     plan::Classified,
     reasons::{Fate, Resolution, reason},
+    record::Record,
     target::problem_text,
 };
 use crate::{
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
     table::pager::Pager,
-    wizard::flow::Flow as _,
+    wizard::{
+        filters::{Filter, filters},
+        flow::Flow as _,
+        screen,
+    },
 };
 
 /// The review's filter and page.
@@ -55,16 +58,6 @@ pub(super) struct Panel {
 }
 
 localized!(Panel);
-
-/// One filter link.
-struct Filter {
-    /// The link.
-    href: String,
-    /// "Conflicts (2)".
-    label: String,
-    /// Whether it is shown.
-    current: bool,
-}
 
 /// The control of a row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -193,7 +186,9 @@ impl Panel {
                 }
             })
             .collect::<Vec<_>>();
-        panel.filters = filters(&all, shown, &panel.id, locale);
+        let fates = all.iter().map(|row| row.fate).collect::<Vec<_>>();
+        let links = Fate::ALL.map(|fate| (fate.slug(), fate.label(), shown == Some(fate)));
+        panel.filters = filters(&fates, links, (&screen::href::<Record>(&panel.id), locale));
         let picked = all
             .into_iter()
             .filter(|row| shown.is_none_or(|fate| row.fate == fate.slug()))
@@ -217,26 +212,4 @@ impl Panel {
         self.error = error;
         self
     }
-}
-
-/// The filter links over `rows`, `shown` marked.
-fn filters(rows: &[Row], shown: Option<Fate>, id: &str, locale: Locale) -> Vec<Filter> {
-    let all = Filter {
-        href: format!("/ui/migrate/{id}"),
-        label: format!(
-            "{} ({})",
-            tr(locale, keys::WEB_MIGRATE_FATE_ALL, None),
-            rows.len()
-        ),
-        current: shown.is_none(),
-    };
-    let each = Fate::ALL.into_iter().filter_map(|fate| {
-        let count = rows.iter().filter(|row| row.fate == fate.slug()).count();
-        (count > 0).then(|| Filter {
-            href: format!("/ui/migrate/{id}?show={}", fate.slug()),
-            label: format!("{} ({count})", tr(locale, fate.label(), None)),
-            current: shown == Some(fate),
-        })
-    });
-    iter::once(all).chain(each).collect()
 }

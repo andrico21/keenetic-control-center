@@ -14,7 +14,7 @@ mod tests {
         planner::{Choices, MigrationMaps, Planner},
         rules::{
             ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition,
-            InterfaceInventory, classify,
+            InterfaceInventory, classify, reason::Reason,
         },
         source::SourceConfig,
     };
@@ -327,7 +327,7 @@ mod tests {
 
         assert_eq!(item.disposition, Disposition::SkipHardware);
         assert_eq!(item.rule_id, "hardware-missing-bridge-member");
-        assert_eq!(item.reason_key, "migration-reason-hardware-interface");
+        assert_eq!(item.reason, Reason::HardwareInterface);
         assert!(item.output.is_none());
         Ok(())
     }

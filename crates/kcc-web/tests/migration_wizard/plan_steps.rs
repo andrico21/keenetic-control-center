@@ -20,7 +20,7 @@ mod tests {
         setup,
         support::{
             outcome::TestResult,
-            page::{en, header_text, text},
+            page::{current_step, en, header_text, text},
         },
     };
 
@@ -186,12 +186,11 @@ mod tests {
         let admin = fixture.login("admin").await?;
         let page = to_review(&fixture, &admin).await?;
         to_preview(&fixture, &admin, &page).await?;
-        let current = "data-state=\"current\" aria-current=\"step\"><span class=\"wizard-steps__number\">6</span>";
         let first = text(fixture.get(&page, &admin).await?).await?;
-        assert!(first.contains(current), "at the preview: {first}");
+        assert_eq!(current_step(&first), Some(6), "at the preview");
         let again = fixture.login("admin").await?;
         let resumed = text(fixture.get(&page, &again).await?).await?;
-        assert!(resumed.contains(current), "a new session resumes it");
+        assert_eq!(current_step(&resumed), Some(6), "a new session resumes it");
         assert!(
             resumed.contains(&en(keys::WEB_MIGRATE_PREVIEW_TITLE)),
             "with the preview"

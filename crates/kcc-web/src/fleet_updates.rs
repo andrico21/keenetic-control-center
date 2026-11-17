@@ -55,6 +55,14 @@ struct Checked {
     started: Option<u64>,
 }
 
+impl Checked {
+    /// Whether a check started within [`UPDATE_CHECK_TTL`] before `now`.
+    fn fresh(&self, now: u64) -> bool {
+        self.started
+            .is_some_and(|started| now.saturating_sub(started) < UPDATE_CHECK_TTL.as_secs())
+    }
+}
+
 /// Whether asking a router sent a request and produced a usable answer.
 enum CheckOutcome {
     /// No request was sent, so the router remains due.
@@ -121,9 +129,7 @@ impl ComponentsUpdateCheck {
             status: UpdateStatus::Unknown,
             started: None,
         });
-        let fresh = entry
-            .started
-            .is_some_and(|started| now.saturating_sub(started) < UPDATE_CHECK_TTL.as_secs());
+        let fresh = entry.fresh(now);
         if !fresh {
             entry.started = Some(now);
         }
@@ -216,6 +222,16 @@ impl UpdateCheck for ComponentsUpdateCheck {
         router: &'call str,
     ) -> Pin<Box<dyn Future<Output = UpdateStatus> + Send + 'call>> {
         Box::pin(self.status(router))
+    }
+
+    #[inline]
+    fn cached(&self, router: &str) -> (UpdateStatus, bool) {
+        let now = self.clock.unix_seconds();
+        lock(&self.results)
+            .get(router)
+            .map_or((UpdateStatus::Unknown, true), |entry| {
+                (entry.status.clone(), !entry.fresh(now))
+            })
     }
 }
 

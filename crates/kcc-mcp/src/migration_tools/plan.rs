@@ -209,7 +209,7 @@ pub(crate) async fn plan(server: &KccMcp, arguments: Value) -> Result<Value, Mcp
                     json!({
                         "source_index": kept.get(item.source_index).copied(),
                         "disposition": item.disposition,
-                        "reason": item.reason_key,
+                        "reason": item.reason.key(),
                         "needed_input": item.needed_input
                     })
                 })

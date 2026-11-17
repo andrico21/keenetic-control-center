@@ -70,13 +70,7 @@ mod tests {
 
         let shown = classified
             .iter()
-            .map(|item| {
-                (
-                    item.source_index,
-                    item.disposition,
-                    item.reason_key.as_str(),
-                )
-            })
+            .map(|item| (item.source_index, item.disposition, item.reason.key()))
             .collect::<Vec<_>>();
         let planned = plan
             .items

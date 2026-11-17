@@ -1,4 +1,4 @@
-//! Reading step 1's form.
+//! Reading step 1's form, for both wizards.
 //!
 //! The multipart fields, the 1 MiB size limit, and the source each kind reads (the
 //! uploaded file, a stored backup, a router's startup configuration), checked to parse as
@@ -19,14 +19,12 @@ use kcc_i18n::{
 use kcc_rci::ConfigKind;
 use secrecy::{ExposeSecret as _, SecretString};
 
-use super::{kinds::Source, source::Field};
-use crate::{
-    authz::CurrentUser,
-    errors,
-    page::Shell,
-    page_kit::context::fragment_shell,
-    wizard::{analysis::parse_source, services::Services},
+use super::{
+    analysis::parse_source,
+    services::Services,
+    source::{Field, Source},
 };
+use crate::{authz::CurrentUser, errors, page::Shell, page_kit::context::fragment_shell};
 
 /// What the form sent.
 #[derive(Default)]

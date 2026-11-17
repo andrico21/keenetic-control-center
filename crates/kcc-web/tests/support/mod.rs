@@ -12,5 +12,6 @@ pub(crate) mod build;
 pub(crate) mod outcome;
 pub(crate) mod page;
 pub(crate) mod refusal;
+pub(crate) mod stranger;
 pub(crate) mod typed_name;
 pub(crate) mod web;

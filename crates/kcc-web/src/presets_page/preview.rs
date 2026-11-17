@@ -5,12 +5,8 @@ use askama::Template;
 use fluent_bundle::FluentArgs;
 use kcc_app::permissions::Permission;
 use kcc_domain::configuration::{SafetyNet, apply_needs::ApplyNeeds};
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    format, keys,
-    locale::Locale,
-};
-use kcc_migrate::planner::PlannedLine;
+use kcc_i18n::{bundle::tr, keys};
+use kcc_migrate::{planner::PlannedLine, presets::plan::reason::PresetReason};
 
 use super::{
     access::Visit,
@@ -24,7 +20,7 @@ use crate::{
     errors,
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::allowed},
-    wizard::flow::Flow as _,
+    wizard::{flow::Flow as _, screen::fact},
 };
 
 /// What applying a preset needs; a preset never installs components.
@@ -139,7 +135,7 @@ impl Panel {
         let present = all
             .items
             .iter()
-            .filter(|item| kept(item.index) && item.reason == "preset-already-present")
+            .filter(|item| kept(item.index) && item.reason == PresetReason::AlreadyPresent)
             .count();
         let unsent = all
             .items
@@ -165,10 +161,4 @@ impl Panel {
         self.error = error;
         self
     }
-}
-
-/// A count labelled `key`.
-fn fact(locale: Locale, key: MessageKey, count: usize) -> (String, String) {
-    let value = u64::try_from(count).unwrap_or(u64::MAX);
-    (tr(locale, key, None), format::integer(locale, value))
 }

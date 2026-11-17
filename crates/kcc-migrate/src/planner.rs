@@ -29,6 +29,7 @@ use crate::{
     rules::{
         ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition, RuleError,
         classify_settled,
+        reason::{NeededInput, Reason},
     },
     source::SourceConfig,
 };
@@ -201,7 +202,7 @@ fn execution_phases(
             command: output.clone(),
             display: "<redacted>".to_owned(),
             disposition: item.disposition,
-            reason_key: item.reason_key.clone(),
+            reason_key: item.reason.key().to_owned(),
         };
         if target_normalized.contains(planned.expose_command()) {
             continue;
@@ -226,10 +227,11 @@ fn blocked_management(line: &PlannedLine) -> ClassifiedItem {
         line_no: 0,
         disposition: Disposition::NeedsInput,
         rule_id: "management-reconnect".to_owned(),
-        reason_key: "migration-reason-management-reconnect".to_owned(),
+        reason: Reason::ManagementReconnect,
         before: line.display.clone(),
         after: Some(line.display.clone()),
-        needed_input: Some("confirm reconnect URL".to_owned()),
+        input: Some(NeededInput::ReconnectUrl),
+        needed_input: Some(NeededInput::ReconnectUrl.to_string()),
         conflict: None,
         output: None,
     }

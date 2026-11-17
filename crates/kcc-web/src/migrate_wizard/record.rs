@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     analysis::Analysis,
-    kinds::{Finish, Inputs, Maps, Mode, Source, Step},
+    kinds::{Finish, Inputs, Maps, Mode, Step},
     resume,
     review::View,
     summary,
@@ -25,6 +25,7 @@ use crate::{
     wizard::{
         flow::{Flow, Moves, SCHEMA},
         run::Run,
+        source::Source,
         visit::Visit,
     },
 };

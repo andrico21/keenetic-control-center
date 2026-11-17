@@ -10,7 +10,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use kcc_migrate::presets::model::{PresetSource, PresetSourceKind};
 use secrecy::SecretString;
 
-use crate::migrate_wizard::kinds::Source;
+use crate::wizard::source::Source;
 
 /// Drafts kept in memory; the oldest one is forgotten first.
 const KEPT: usize = 32;

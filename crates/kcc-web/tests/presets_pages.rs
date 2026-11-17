@@ -31,6 +31,8 @@ mod secret_retention;
 mod secrets;
 #[path = "presets_pages/setup.rs"]
 mod setup;
+#[path = "presets_pages/strangers.rs"]
+mod strangers;
 #[expect(
     dead_code,
     reason = "the shared Web UI test support; this suite needs part of it"

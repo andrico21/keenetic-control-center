@@ -9,7 +9,7 @@ use alloc::sync::Arc;
 use axum::{
     Extension,
     extract::{Path, State},
-    http::{HeaderValue, StatusCode, header},
+    http::StatusCode,
     response::{IntoResponse as _, Response},
 };
 use kcc_migrate::report::MigrationReport;
@@ -27,7 +27,7 @@ use crate::{
         context::{Refusal, fragment_shell},
         respond::Answer,
     },
-    wizard::{service::Wizards, services::Services, store::Kept},
+    wizard::{report::attachment, service::Wizards, services::Services, store::Kept},
 };
 
 /// `GET /ui/migrate/{id}/download/{file}`: one of the plan's files, as an attachment.
@@ -96,15 +96,4 @@ pub(super) async fn download(
         content_type,
         &format!("migration-{id}-{file}"),
     ))
-}
-
-/// `body` as a downloaded file named `name`.
-fn attachment(body: String, content_type: &'static str, name: &str) -> Response {
-    let mut response = body.into_response();
-    let headers = response.headers_mut();
-    drop(headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type)));
-    if let Ok(value) = HeaderValue::from_str(&format!("attachment; filename=\"{name}\"")) {
-        drop(headers.insert(header::CONTENT_DISPOSITION, value));
-    }
-    response
 }

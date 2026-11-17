@@ -5,7 +5,7 @@ use secrecy::ExposeSecret as _;
 
 use crate::{
     apply::command,
-    rules::{ClassifiedItem, Disposition},
+    rules::{ClassifiedItem, Disposition, reason::Reason},
 };
 
 /// Applies the same builder as preflight to every replayable classification output.
@@ -25,7 +25,7 @@ pub(super) fn retain_supported_item(item: &mut ClassifiedItem, catalog: &Catalog
     {
         item.disposition = Disposition::Unsupported;
         "catalog-unsupported".clone_into(&mut item.rule_id);
-        "migration-reason-unsupported-command".clone_into(&mut item.reason_key);
+        item.reason = Reason::UnsupportedCommand;
         item.after = None;
         item.output = None;
     }

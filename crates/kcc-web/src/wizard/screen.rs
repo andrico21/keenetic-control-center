@@ -10,7 +10,11 @@ use core::cmp::Ordering;
 use askama::Template;
 use axum::response::Response;
 use fluent_bundle::FluentArgs;
-use kcc_i18n::{bundle::tr, keys};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    format, keys,
+    locale::Locale,
+};
 
 use super::flow::{Flow, Stage};
 use crate::{
@@ -133,4 +137,10 @@ where
         respond::unprocessable(panel),
         "#wizard-step",
     ))
+}
+
+/// A count labelled `key`, as a step's facts list it.
+pub(crate) fn fact(locale: Locale, key: MessageKey, count: usize) -> (String, String) {
+    let value = u64::try_from(count).unwrap_or(u64::MAX);
+    (tr(locale, key, None), format::integer(locale, value))
 }

@@ -376,7 +376,7 @@ impl WebState {
     #[inline]
     #[must_use]
     pub fn with_fleet(mut self, services: FleetServices) -> Self {
-        self.fleet = Some(Arc::new(Fleet::new(services, Arc::clone(&self.clock))));
+        self.fleet = Some(Arc::new(Fleet::new(services)));
         self
     }
 

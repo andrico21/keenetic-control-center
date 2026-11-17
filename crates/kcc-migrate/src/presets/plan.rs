@@ -1,6 +1,7 @@
 //! Pure preset planning against an already collected target inventory.
 
 mod classify;
+pub mod reason;
 
 use alloc::collections::BTreeSet;
 use core::{fmt, str::FromStr as _};
@@ -11,6 +12,7 @@ use secrecy::{ExposeSecret as _, SecretString};
 use serde::Serialize;
 use thiserror::Error;
 
+use self::reason::PresetReason;
 use super::model::Preset;
 use crate::{
     apply,
@@ -31,7 +33,10 @@ pub enum PresetMode {
 
 /// Operator input that still blocks one preset item.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[non_exhaustive]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "callers must match every input; a new one has to break their build"
+)]
 pub enum PresetInput {
     /// A source object has no target mapping.
     Mapping {
@@ -61,8 +66,8 @@ pub struct PresetPlanItem {
     pub result: Option<SecretString>,
     /// Operator input required before execution.
     pub needed_input: Option<PresetInput>,
-    /// Stable machine-readable reason.
-    pub reason: String,
+    /// Why the item has its disposition.
+    pub reason: PresetReason,
 }
 
 impl fmt::Debug for PresetPlanItem {
@@ -234,11 +239,10 @@ pub fn plan(
                 result: None,
                 needed_input: None,
                 reason: if buildable {
-                    "preset-mirror-remove"
+                    PresetReason::MirrorRemove
                 } else {
-                    "preset-unsupported"
-                }
-                .to_owned(),
+                    PresetReason::Unsupported
+                },
             });
         }
     }

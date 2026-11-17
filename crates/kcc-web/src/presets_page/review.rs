@@ -3,8 +3,6 @@
 //! Filtered by fate and paged by 50; Apply leaves a setting in or out, and choices save
 //! as they change (`review_submit`).
 
-use core::iter;
-
 use askama::Template;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde::Deserialize;
@@ -21,7 +19,11 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
     table::pager::Pager,
-    wizard::{flow::Flow as _, screen},
+    wizard::{
+        filters::{Filter, filters},
+        flow::Flow as _,
+        screen,
+    },
 };
 
 /// The review's filter and page.
@@ -44,7 +46,7 @@ pub(super) struct Panel {
     /// Run id.
     id: String,
     /// The filter links: link, label, whether shown.
-    filters: Vec<(String, String, bool)>,
+    filters: Vec<Filter>,
     /// The shown page of settings.
     rows: Vec<Row>,
     /// The page links.
@@ -100,7 +102,9 @@ impl Panel {
                 return panel;
             }
         };
-        panel.filters = filters(&all, shown_fate, &panel.id, locale);
+        let fates = all.iter().map(|row| row.fate).collect::<Vec<_>>();
+        let links = Fate::ALL.map(|fate| (fate.slug(), fate.label(), shown_fate == Some(fate)));
+        panel.filters = filters(&fates, links, (&screen::href::<Record>(&panel.id), locale));
         let picked = all
             .into_iter()
             .filter(|row| shown_fate.is_none_or(|fate| row.fate == fate.slug()))
@@ -160,34 +164,4 @@ async fn rows(visit: &Visit<'_>, locale: Locale) -> Result<Vec<Row>, String> {
             }
         })
         .collect())
-}
-
-/// The filter links over `rows`, `shown` marked.
-fn filters(
-    rows: &[Row],
-    shown: Option<Fate>,
-    id: &str,
-    locale: Locale,
-) -> Vec<(String, String, bool)> {
-    let base = screen::href::<Record>(id);
-    let all = (
-        base.clone(),
-        format!(
-            "{} ({})",
-            tr(locale, keys::WEB_MIGRATE_FATE_ALL, None),
-            rows.len()
-        ),
-        shown.is_none(),
-    );
-    let each = Fate::ALL.into_iter().filter_map(|fate| {
-        let count = rows.iter().filter(|row| row.fate == fate.slug()).count();
-        (count > 0).then(|| {
-            (
-                format!("{base}?show={}", fate.slug()),
-                format!("{} ({count})", tr(locale, fate.label(), None)),
-                shown == Some(fate),
-            )
-        })
-    });
-    iter::once(all).chain(each).collect()
 }

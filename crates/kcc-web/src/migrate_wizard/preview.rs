@@ -8,15 +8,12 @@ use askama::Template;
 use fluent_bundle::FluentArgs;
 use kcc_app::permissions::Permission;
 use kcc_domain::configuration::{SafetyNet, apply_needs::ApplyNeeds};
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    format, keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::tr, keys};
 use kcc_migrate::planner::PlannedLine;
 
 use super::{
     access::{Migration as _, Visit},
+    apply_request::text,
     plan::{Built, Classified},
     reasons::Fate,
     record::Record,
@@ -27,7 +24,7 @@ use crate::{
     errors,
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
-    wizard::flow::Flow as _,
+    wizard::{flow::Flow as _, screen::fact, store::StoreError},
 };
 
 /// What applying `record`'s plan needs: installing components first also needs
@@ -88,8 +85,12 @@ impl Panel {
     }
 
     /// The preview of `visit`'s plan.
+    ///
+    /// # Errors
+    ///
+    /// Returns the read and opening failures of the typed passwords.
     // cancel-safe: reads only.
-    pub(super) async fn new(visit: &Visit<'_>) -> Self {
+    pub(super) async fn new(visit: &Visit<'_>) -> Result<Self, StoreError> {
         let services = visit.services();
         let locale = services.user().locale();
         let record = visit.record();
@@ -116,32 +117,19 @@ impl Panel {
             Ok(found) => found,
             Err(problem) => {
                 panel.problem = problem_text(&problem, locale);
-                return panel;
+                return Ok(panel);
             }
         };
-        let passwords = visit.passwords().await.unwrap_or_default();
+        let passwords = visit.passwords().await?;
         let (Ok(classified), Ok(built)) = (
             Classified::new(&analysis, record, &passwords),
             Built::new(&analysis, record, &passwords),
         ) else {
             panel.problem = tr(locale, keys::WEB_MIGRATE_PROBLEM_PLAN, None);
-            return panel;
+            return Ok(panel);
         };
         let plan = built.plan();
-        let text = |line: &PlannedLine| {
-            built
-                .original(line.source_index)
-                .and_then(|index| classified.items().get(index))
-                .map_or_else(
-                    || (0, line.display.clone()),
-                    |item| {
-                        (
-                            item.line_no,
-                            item.after.clone().unwrap_or_else(|| item.before.clone()),
-                        )
-                    },
-                )
-        };
+        let text = |line: &PlannedLine| text(&built, &classified, line);
         for (title, lines) in [
             (keys::WEB_MIGRATE_PHASE_ADDITIVE, &plan.phases.additive),
             (keys::WEB_MIGRATE_PHASE_PRUNE, &plan.phases.prune),
@@ -179,7 +167,7 @@ impl Panel {
         .into_iter()
         .map(|(key, count)| fact(locale, key, count))
         .collect();
-        panel
+        Ok(panel)
     }
 }
 
@@ -197,10 +185,4 @@ fn migrated(classified: &Classified, record: &Record) -> usize {
             )
         })
         .count()
-}
-
-/// A count labelled `key`.
-fn fact(locale: Locale, key: MessageKey, count: usize) -> (String, String) {
-    let value = u64::try_from(count).unwrap_or(u64::MAX);
-    (tr(locale, key, None), format::integer(locale, value))
 }

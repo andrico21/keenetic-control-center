@@ -21,7 +21,7 @@ use std::{io, path::Path};
 
 use kcc_app::secrets::{CryptoError, MasterKey, binding::Binding};
 use secrecy::SecretString;
-use serde::{Serialize, de::DeserializeOwned};
+use serde::Serialize;
 use thiserror::Error;
 
 use self::files::Files;
@@ -208,44 +208,6 @@ impl Store {
     ) -> Result<Option<SecretString>, StoreError> {
         let (opening, run) = (key.duplicate(), id.to_owned());
         self.run(move |files| files.open(&opening, &run, part))
-            .await
-    }
-
-    /// Writes `value` as JSON to `file` of run `id`, creating its directory.
-    ///
-    /// # Errors
-    ///
-    /// Returns serialization and write failures.
-    // NOT cancel-safe: dropped, the file is still written.
-    pub(crate) async fn save_named<T>(
-        &self,
-        id: &str,
-        file: &'static str,
-        value: &T,
-    ) -> Result<(), StoreError>
-    where
-        T: Serialize + Sync,
-    {
-        let (bytes, run) = (json(value)?, id.to_owned());
-        self.run(move |files| files.write(&run, file, &bytes)).await
-    }
-
-    /// The JSON `file` of run `id`, when it exists.
-    ///
-    /// # Errors
-    ///
-    /// Returns read failures and a file that does not parse as `T`.
-    // cancel-safe: reads only.
-    pub(crate) async fn load_named<T>(
-        &self,
-        id: &str,
-        file: &'static str,
-    ) -> Result<Option<T>, StoreError>
-    where
-        T: DeserializeOwned + Send + 'static,
-    {
-        let run = id.to_owned();
-        self.run(move |files| files.load_named::<T>(&run, file))
             .await
     }
 

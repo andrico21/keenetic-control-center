@@ -26,8 +26,7 @@ use super::{
 };
 use crate::{
     WebState,
-    migrate_wizard::maps::map_of,
-    wizard::{analysis::Problem, flow::Flow as _, services::Services},
+    wizard::{analysis::Problem, flow::Flow as _, names::map_of, services::Services},
 };
 
 /// Why a run's plan cannot become an apply request.
@@ -94,7 +93,7 @@ impl Basis {
             .filter(|item| !record.excluded().contains(&item.index))
             .filter_map(|item| match &item.needed_input {
                 Some(PresetInput::RouterUserPassword { user }) => Some(user.clone()),
-                Some(_) | None => None,
+                Some(PresetInput::Mapping { source: _ }) | None => None,
             })
             .collect::<Vec<_>>();
         users.sort();
@@ -122,12 +121,11 @@ impl Basis {
         passwords: &BTreeMap<String, SecretString>,
     ) -> Result<PresetPlan, PresetPlanError> {
         let mut maps = MigrationMaps::default();
-        maps.interfaces = map_of::<InterfaceMap>(
+        maps.interfaces = map_of::<InterfaceMap, _>(
             record
                 .interfaces()
                 .iter()
-                .map(|(source, target)| (source.clone(), Some(target.clone())))
-                .collect(),
+                .map(|(source, target)| (source.clone(), Some(target.clone()))),
         );
         maps.policies = record.policies().clone();
         let mut choices = Choices::default();

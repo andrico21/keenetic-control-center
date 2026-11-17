@@ -17,7 +17,6 @@ use kcc_migrate::{
     presets::{apply::PresetApplyError, plan::PresetPlanItem},
     rules::Disposition,
 };
-use secrecy::SecretString;
 use serde_json::json;
 
 use super::{
@@ -39,11 +38,8 @@ use crate::{
         request::last,
         respond::{self, Answer},
     },
-    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
+    wizard::{flow::Flow as _, passwords, screen, service::Wizards, services::Services},
 };
-
-/// The longest password kcc passes to a router, in characters.
-const PASSWORD_MAX: usize = 256;
 
 /// The step's panel.
 #[derive(Template)]
@@ -141,16 +137,10 @@ pub(super) async fn submit(
     for (index, name) in users.iter().enumerate() {
         let field = format!("password-{index}");
         let typed = last(&form, &field).unwrap_or_default();
-        let error = if typed.is_empty() {
-            (!passwords.contains_key(name)).then_some(keys::WEB_MIGRATE_INPUTS_PASSWORD_MISSING)
-        } else if typed.chars().count() > PASSWORD_MAX || typed.chars().any(char::is_control) {
-            Some(keys::WEB_MIGRATE_INPUTS_PASSWORD_INVALID)
-        } else {
-            drop(passwords.insert(name.clone(), SecretString::from(typed.to_owned())));
-            None
-        };
-        if let Some(key) = error {
-            refused.push((name.clone(), tr(locale, key, None)));
+        match passwords::typed(typed, passwords.contains_key(name)) {
+            Ok(Some(password)) => drop(passwords.insert(name.clone(), password)),
+            Ok(None) => {}
+            Err(key) => refused.push((name.clone(), tr(locale, key, None))),
         }
     }
     if !refused.is_empty() {

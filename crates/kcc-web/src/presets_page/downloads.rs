@@ -9,7 +9,7 @@ use alloc::sync::Arc;
 use axum::{
     Extension,
     extract::{Path, State},
-    http::{HeaderValue, StatusCode, header},
+    http::StatusCode,
     response::{IntoResponse as _, Response},
 };
 use fluent_bundle::FluentArgs;
@@ -31,7 +31,9 @@ use crate::{
         context::{Refusal, fragment_shell},
         respond::Answer,
     },
-    wizard::{flow::Flow as _, run::Ended, service::Wizards, services::Services},
+    wizard::{
+        flow::Flow as _, report::attachment, run::Ended, service::Wizards, services::Services,
+    },
 };
 
 /// `GET /ui/presets/runs/{run}/download/{file}`: the report, as an attachment.
@@ -177,15 +179,4 @@ fn markdown(record: &Record, locale: Locale) -> String {
     }
     lines.push(String::new());
     lines.join("\n")
-}
-
-/// `body` as a downloaded file named `name`.
-fn attachment(body: String, content_type: &'static str, name: &str) -> Response {
-    let mut response = body.into_response();
-    let headers = response.headers_mut();
-    drop(headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type)));
-    if let Ok(value) = HeaderValue::from_str(&format!("attachment; filename=\"{name}\"")) {
-        drop(headers.insert(header::CONTENT_DISPOSITION, value));
-    }
-    response
 }

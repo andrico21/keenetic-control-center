@@ -17,14 +17,12 @@ use axum::{
 use tower_http::limit::RequestBodyLimitLayer;
 
 use super::{
-    apply, capture, compose, delete, detail, downloads, drafts::Drafts, inputs, landing, list,
-    options, record::Record, reveal, review_submit, source, target_submit,
+    capture, compose, delete, detail, downloads, drafts::Drafts, inputs, landing, list, options,
+    record::Record, reveal, review_submit, source, target_submit,
 };
 use crate::{
-    BODY_LIMIT, WebState, brackets,
-    migrate_wizard::source_read,
-    protect,
-    wizard::{events, finish, resume, running, service::Wizards},
+    BODY_LIMIT, WebState, brackets, protect,
+    wizard::{apply, events, finish, resume, running, service::Wizards, source_read},
 };
 
 /// Every preset route.
@@ -68,7 +66,7 @@ pub(crate) fn router(state: &WebState) -> Router<WebState> {
         )
         .route("/ui/presets/runs/{run}/inputs", post(inputs::submit))
         .route("/ui/presets/runs/{run}/reveal", post(reveal::commands))
-        .route("/ui/presets/runs/{run}/apply", post(apply::apply))
+        .route("/ui/presets/runs/{run}/apply", post(apply::apply::<Record>))
         .route("/ui/presets/runs/{run}/stop", post(running::stop::<Record>))
         .route(
             "/ui/presets/runs/{run}/results",

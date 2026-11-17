@@ -18,23 +18,28 @@ use secrecy::ExposeSecret as _;
 
 use super::{
     access::{Migration as _, Visit},
-    kinds::Source,
     plan::{Built, Classified},
 };
 use crate::{
     WebState,
-    wizard::{flow::Flow as _, store::Sealed},
+    wizard::{
+        flow::Flow as _,
+        source::Source,
+        store::{Sealed, StoreError},
+    },
 };
 
 /// Why the apply cannot start.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub(super) enum Refused {
     /// The source or the target cannot be read now.
     Unreadable,
     /// The plan built now (its id given) differs from the one the preview showed.
     Changed(String),
-    /// The migration's state cannot be read or the plan's files written.
+    /// The plan or its report cannot be built from the migration's state.
     Broken,
+    /// The migration's sealed passwords or source cannot be read or opened.
+    Store(StoreError),
 }
 
 /// An apply ready to start.
@@ -47,8 +52,6 @@ pub(super) struct Prepared {
     report: String,
     /// The plan's redacted form.
     plan: String,
-    /// The commands the plan sends.
-    commands: usize,
 }
 
 impl Prepared {
@@ -68,7 +71,7 @@ impl Prepared {
             .analysis()
             .await
             .map_err(|_problem| Refused::Unreadable)?;
-        let passwords = visit.passwords().await.map_err(|_error| Refused::Broken)?;
+        let passwords = visit.passwords().await.map_err(Refused::Store)?;
         let classified =
             Classified::new(&analysis, record, &passwords).map_err(|_error| Refused::Broken)?;
         let built = Built::new(&analysis, record, &passwords).map_err(|_error| Refused::Broken)?;
@@ -109,7 +112,7 @@ impl Prepared {
                     .store()
                     .open(services.key(), record.id(), Sealed::Source)
                     .await
-                    .map_err(|_error| Refused::Broken)?
+                    .map_err(Refused::Store)?
                     .ok_or(Refused::Broken)?;
                 ApplySource::File(SecretBytes::from(text.expose_secret().as_bytes().to_vec()))
             }
@@ -120,7 +123,6 @@ impl Prepared {
             .map_err(|_error| Refused::Unreadable)?
             .profile
             .login;
-        let commands = texts.len();
         let actor = Actor::new(ActorKind::Web, user.username().to_owned());
         let mut request = ApplyRequest::new(
             Arc::clone(fleet.workflow()),
@@ -144,18 +146,7 @@ impl Prepared {
             texts,
             report,
             plan,
-            commands,
         })
-    }
-
-    /// The fail-safe timer's length, in seconds.
-    pub(super) const fn safety_seconds(&self) -> u64 {
-        self.request.options.safety_seconds
-    }
-
-    /// The commands the plan sends.
-    pub(super) const fn commands(&self) -> usize {
-        self.commands
     }
 
     /// The request, the texts, the report and the plan.
@@ -172,7 +163,7 @@ impl Prepared {
 }
 
 /// The source line and redacted text of planned `line`.
-fn text(built: &Built, classified: &Classified, line: &PlannedLine) -> (usize, String) {
+pub(super) fn text(built: &Built, classified: &Classified, line: &PlannedLine) -> (usize, String) {
     built
         .original(line.source_index)
         .and_then(|index| classified.items().get(index))

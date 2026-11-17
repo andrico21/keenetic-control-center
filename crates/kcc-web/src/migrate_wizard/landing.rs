@@ -21,7 +21,7 @@ use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::json;
 
-use super::{kinds::Mode, record::Record, summary::source_text};
+use super::{kinds::Mode, record::Record};
 use crate::{
     WebState,
     admin_shared::Timestamp,
@@ -43,6 +43,7 @@ use crate::{
         retention, runs, screen,
         service::Wizards,
         services::Services,
+        source::source_text,
         store::Sealed,
     },
 };

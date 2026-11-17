@@ -120,3 +120,70 @@ pub(crate) fn assert_native_post(html: &str) -> TestResult {
     }
     Ok(())
 }
+
+/// The text of `html` without its tags.
+fn inner_text(html: &str) -> String {
+    let mut text = String::new();
+    let mut in_tag = false;
+    for character in html.chars() {
+        match character {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => text.push(character),
+            _ => {}
+        }
+    }
+    text.trim().to_owned()
+}
+
+/// The elements of `html` whose opening tag starts with `open` (such as `<dd`), as their
+/// opening tags and inner text, in order; `close` ends each (such as `</dd>`).
+fn elements(html: &str, (open, close): (&str, &str)) -> Vec<(String, String)> {
+    html.split(open)
+        .skip(1)
+        .filter_map(|rest| {
+            let (tag, after) = rest.split_once('>')?;
+            let (inner, _) = after.split_once(close)?;
+            Some((tag.to_owned(), inner_text(inner)))
+        })
+        .collect()
+}
+
+/// The number of the wizard step the step list marks current (`aria-current="step"`).
+pub(crate) fn current_step(html: &str) -> Option<u32> {
+    let (_, text) = elements(html, ("<li class=\"wizard-steps__item\"", "</li>"))
+        .into_iter()
+        .find(|(tag, _)| tag.contains("aria-current=\"step\""))?;
+    text.split_whitespace().next()?.parse().ok()
+}
+
+/// The `(term, value)` pairs of the description lists of `html`, as text without tags.
+pub(crate) fn facts(html: &str) -> Vec<(String, String)> {
+    let terms = elements(html, ("<dt", "</dt>"));
+    let values = elements(html, ("<dd", "</dd>"));
+    terms
+        .into_iter()
+        .zip(values)
+        .map(|((_, term), (_, value))| (term, value))
+        .collect()
+}
+
+/// The tone of every notice of `html` (`<div class="notice" data-tone="...">`).
+pub(crate) fn notice_tones(html: &str) -> Vec<String> {
+    elements(html, ("<div class=\"notice\"", "</div>"))
+        .into_iter()
+        .filter_map(|(tag, _)| {
+            tag.split_once("data-tone=\"")
+                .and_then(|(_, tail)| tail.split_once('"'))
+                .map(|(tone, _)| tone.to_owned())
+        })
+        .collect()
+}
+
+/// The text of every row header (`<th scope="row" ...>`) of `html`'s tables.
+pub(crate) fn row_headers(html: &str) -> Vec<String> {
+    elements(html, ("<th scope=\"row\"", "</th>"))
+        .into_iter()
+        .map(|(_, text)| text)
+        .collect()
+}

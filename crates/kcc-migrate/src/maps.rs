@@ -28,6 +28,25 @@ impl MapEntry {
     }
 }
 
+/// Map types collect their entries in order: `entries.into_iter().collect::<PortMap>()`.
+macro_rules! from_entries {
+    ($($map:ty),+) => {$(
+        impl FromIterator<MapEntry> for $map {
+            #[inline]
+            fn from_iter<I>(entries: I) -> Self
+            where
+                I: IntoIterator<Item = MapEntry>,
+            {
+                Self {
+                    entries: entries.into_iter().collect(),
+                }
+            }
+        }
+    )+};
+}
+
+from_entries!(PortMap, RadioMap, InterfaceMap);
+
 /// Physical-port mapping proposal.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]

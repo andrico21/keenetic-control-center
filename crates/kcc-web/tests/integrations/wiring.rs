@@ -75,6 +75,10 @@ impl UpdateCheck for Reporting {
             status
         })
     }
+
+    fn cached(&self, router: &str) -> (UpdateStatus, bool) {
+        self.inner.cached(router)
+    }
 }
 
 /// What the fixture wires around the Web UI.

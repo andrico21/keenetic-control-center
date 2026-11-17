@@ -146,7 +146,7 @@ impl From<&ClassifiedItem> for PlanItem {
             disposition: item.disposition,
             before: item.before.clone(),
             after: item.after.clone(),
-            reason_key: item.reason_key.clone(),
+            reason_key: item.reason.key().to_owned(),
         }
     }
 }

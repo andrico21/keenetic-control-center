@@ -17,7 +17,7 @@ use super::{
     access::{Migration as _, Visit},
     kinds::{Maps, Step},
     mapping::Panel,
-    maps::{Kind, Refusal as MapRefusal, Sides, map_of, pairs},
+    maps::{Kind, Refusal as MapRefusal, Sides, pairs},
     record::Record,
 };
 use crate::{
@@ -30,7 +30,7 @@ use crate::{
         request::last,
         respond::{self, Answer},
     },
-    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
+    wizard::{flow::Flow as _, names::map_of, screen, service::Wizards, services::Services},
 };
 
 /// `POST /ui/migrate/{id}/mapping`: checks the maps and moves on to the review.
@@ -138,9 +138,9 @@ fn checked(
     }
     let mut kinds = decided.into_iter();
     let maps = Maps::new(
-        map_of::<PortMap>(kinds.next().unwrap_or_default()),
-        map_of::<RadioMap>(kinds.next().unwrap_or_default()),
-        map_of::<InterfaceMap>(kinds.next().unwrap_or_default()),
+        map_of::<PortMap, _>(kinds.next().unwrap_or_default()),
+        map_of::<RadioMap, _>(kinds.next().unwrap_or_default()),
+        map_of::<InterfaceMap, _>(kinds.next().unwrap_or_default()),
     );
     (maps, failed.then_some(errors))
 }

@@ -8,10 +8,11 @@ use alloc::sync::Arc;
 use kcc_migrate::inventory::{InventoryClient, TargetInventory};
 use secrecy::SecretString;
 
-use super::{analysis::Analysis, kinds::Source, record::Record};
+use super::{analysis::Analysis, record::Record};
 use crate::wizard::{
     analysis::Problem,
     flow::Flow as _,
+    source::Source,
     store::{Sealed, StoreError},
     visit,
 };

@@ -17,7 +17,7 @@ use axum::{
 use fluent_bundle::FluentArgs;
 use kcc_app::permissions::Permission;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
-use kcc_migrate::planner::PlannedLine;
+use kcc_migrate::{planner::PlannedLine, presets::store::PresetError};
 use secrecy::{ExposeSecret, SecretString};
 use serde_json::json;
 
@@ -75,8 +75,9 @@ impl Revealed {
 ///
 /// # Errors
 ///
-/// Answers 404 for a preset the user does not see and the audited 403 without
-/// `RevealSecrets` and `Migrate` on its source router.
+/// Answers 404 for a preset the user does not see, the audited 403 without
+/// `RevealSecrets` and `Migrate` on its source router, and an audited internal error when
+/// the preset cannot be read.
 // NOT cancel-safe: an abandoned append may still be written.
 pub(super) async fn preset(
     State(state): State<WebState>,
@@ -95,15 +96,22 @@ pub(super) async fn preset(
         || Audit::new("web.preset_reveal", id.clone()),
         |router| Audit::on_router("web.preset_reveal", router, id.clone()),
     );
-    let revealed = if user.role().grants(Permission::RevealSecrets) && may_change(services, &shown)
-    {
-        saved::get(services.fleet(), user.role(), &id).await.ok()
-    } else {
-        None
-    };
-    let Some(full) = revealed else {
+    let forbidden = || Answer::from(errors::response(Kind::Forbidden, fragment_shell(locale)));
+    if !(user.role().grants(Permission::RevealSecrets) && may_change(services, &shown)) {
         audit.append(&state, &user, "forbidden").await;
-        return Err(errors::response(Kind::Forbidden, fragment_shell(locale)).into());
+        return Err(forbidden());
+    }
+    let full = match saved::get(services.fleet(), user.role(), &id).await {
+        Ok(found) => found,
+        Err(PresetError::NotFound) => return Err(StatusCode::NOT_FOUND.into_response().into()),
+        Err(PresetError::Forbidden) => {
+            audit.append(&state, &user, "forbidden").await;
+            return Err(forbidden());
+        }
+        Err(error) => {
+            audit.append(&state, &user, "failed").await;
+            return Err(errors::internal(&error, fragment_shell(locale)).into());
+        }
     };
     let lines = full
         .lines

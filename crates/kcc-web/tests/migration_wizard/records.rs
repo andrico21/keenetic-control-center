@@ -11,10 +11,15 @@ mod tests {
     use std::{fs, path::PathBuf};
 
     use axum::http::StatusCode;
+    use kcc_i18n::keys;
 
     use crate::{
         setup,
-        support::{outcome::TestResult, page::text, web::Fixture},
+        support::{
+            outcome::TestResult,
+            page::{current_step, en, facts, notice_tones, text},
+            web::Fixture,
+        },
     };
 
     /// The id of the stored record.
@@ -52,12 +57,10 @@ mod tests {
         let report = fixture.get(&page, &admin).await?;
         assert_eq!(report.status(), StatusCode::OK, "the report opens");
         let html = text(report).await?;
-        assert!(
-            html.contains("aria-current=\"step\"><span class=\"wizard-steps__number\">9</span>"),
-            "at step 9"
-        );
-        assert!(html.contains("data-tone=\"success\""), "a committed finish");
-        assert!(html.contains("<dd>3</dd>"), "the applied count");
+        assert_eq!(current_step(&html), Some(9), "at step 9");
+        assert_eq!(notice_tones(&html), ["success"], "a committed finish");
+        let applied = (en(keys::WEB_MIGRATE_COUNT_APPLIED), "3".to_owned());
+        assert!(facts(&html).contains(&applied), "the applied count");
         let list = text(fixture.get("/ui/migrate", &admin).await?).await?;
         assert!(list.contains(&page), "listed for its owner");
 

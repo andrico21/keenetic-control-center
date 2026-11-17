@@ -6,7 +6,6 @@
 //! install first: the apply installs the components, and the plan is reviewed again.
 
 use alloc::collections::{BTreeMap, BTreeSet};
-use core::slice;
 
 use kcc_config::config_text::{CliLine, Node, Token, flatten};
 use kcc_migrate::{
@@ -16,12 +15,7 @@ use kcc_migrate::{
 };
 use secrecy::SecretString;
 
-use super::{
-    analysis::Analysis,
-    kinds::Maps,
-    record::Record,
-    warnings::{INSTALL_REASON, component_names},
-};
+use super::{analysis::Analysis, kinds::Maps, record::Record, warnings::component};
 
 /// The classification of every source setting under the current choices.
 pub(super) struct Classified {
@@ -103,11 +97,14 @@ impl Classified {
     pub(super) fn components(&self, record: &Record) -> BTreeMap<String, Vec<usize>> {
         let mut needed: BTreeMap<String, Vec<usize>> = BTreeMap::new();
         for item in &self.items {
-            if item.reason_key != INSTALL_REASON || record.excluded().contains(&item.source_index) {
+            if record.excluded().contains(&item.source_index) {
                 continue;
             }
-            if let Some(name) = component_names(slice::from_ref(item)).pop() {
-                needed.entry(name).or_default().push(item.source_index);
+            if let Some(name) = component(item) {
+                needed
+                    .entry(name.to_owned())
+                    .or_default()
+                    .push(item.source_index);
             }
         }
         needed

@@ -85,39 +85,6 @@ pub(super) enum Mode {
     Restore,
 }
 
-/// Where the source configuration came from; its text is sealed beside the record.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
-pub(crate) enum Source {
-    /// A router of the fleet, read when the step was submitted.
-    Router {
-        /// Router profile id.
-        router: String,
-    },
-    /// An uploaded startup-config file.
-    File {
-        /// The file name the browser sent, cleaned for display.
-        name: String,
-    },
-    /// A stored backup of a router.
-    Backup {
-        /// Router profile id the backup belongs to.
-        router: String,
-        /// Backup file name.
-        name: String,
-    },
-}
-
-impl Source {
-    /// The router whose scope the source needs, when it has one.
-    pub(crate) fn router(&self) -> Option<&str> {
-        match self {
-            Self::Router { router } | Self::Backup { router, name: _ } => Some(router),
-            Self::File { name: _ } => None,
-        }
-    }
-}
-
 /// The three edited maps, applied to the source's object names.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

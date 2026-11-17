@@ -35,7 +35,6 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    migrate_wizard::kinds::Source,
     page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
@@ -45,6 +44,7 @@ use crate::{
     },
     wizard::{
         analysis::parse_source, flow::Flow as _, screen, service::Wizards, services::Services,
+        source::Source,
     },
 };
 
