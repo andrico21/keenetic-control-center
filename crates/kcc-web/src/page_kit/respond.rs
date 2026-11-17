@@ -14,6 +14,7 @@ use super::{
 };
 use crate::{
     errors,
+    markup::Rendered,
     page::{Localize, Shell},
 };
 
@@ -130,21 +131,22 @@ pub(crate) struct Changed {
     outcome: Outcome,
     /// The page's own report of what the change did, shown in place of the outcome's
     /// notice.
-    report: Option<String>,
+    report: Option<Rendered>,
     /// What the page says beyond the outcome, rendered.
-    extra: Option<String>,
+    extra: Option<Rendered>,
     /// The region read back, rendered for sending out of band.
-    refreshed: Option<String>,
+    refreshed: Option<Rendered>,
 }
 
 localized!(Changed);
+fragment!(Changed);
 
 impl Changed {
     /// The answer showing `outcome` in `locale`, then `extra`, then `refreshed`.
     pub(crate) const fn new(
         outcome: Outcome,
-        refreshed: Option<String>,
-        extra: Option<String>,
+        refreshed: Option<Rendered>,
+        extra: Option<Rendered>,
         locale: Locale,
     ) -> Self {
         Self {
@@ -158,7 +160,7 @@ impl Changed {
 
     /// Shows `report` in place of the outcome's notice; the outcome's toasts and the
     /// unsaved badge still go out of band.
-    pub(crate) fn with_report(mut self, report: String) -> Self {
+    pub(crate) fn with_report(mut self, report: Rendered) -> Self {
         self.report = Some(report);
         self
     }
@@ -173,8 +175,8 @@ impl Changed {
 /// the `refreshed` region out of band, the shared dialog closed.
 pub(crate) fn changed(
     outcome: Outcome,
-    refreshed: Option<String>,
-    extra: Option<String>,
+    refreshed: Option<Rendered>,
+    extra: Option<Rendered>,
     locale: Locale,
 ) -> Response {
     let view = Changed::new(outcome, refreshed, extra, locale);

@@ -17,6 +17,7 @@ use super::{
 };
 use crate::{
     authz::CurrentUser,
+    markup::Rendered,
     page_kit::{
         action::Action,
         change::Applied,
@@ -116,7 +117,7 @@ pub(crate) async fn refreshed(
     (router, user): (&str, &CurrentUser),
     headers: &HeaderMap,
     locale: Locale,
-) -> Option<String> {
+) -> Option<Rendered> {
     let controls = Controls::new(user.role(), router)
         .with_operations(DESCRIPTOR.write_ops, Some(&domain.catalog));
     policies_region(domain, (router, &shown_query(headers)), (controls, locale))

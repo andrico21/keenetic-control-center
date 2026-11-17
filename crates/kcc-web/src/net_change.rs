@@ -16,6 +16,7 @@ use serde_json::Value;
 use crate::{
     WebState,
     authz::CurrentUser,
+    markup::Rendered,
     net_interfaces, net_internet, net_mesh,
     net_pages::{Call, Tab},
     net_wifi,
@@ -125,7 +126,7 @@ pub(crate) async fn unread_change(action: Action<'_>, error: &DomainError) -> An
 /// The region of the page of `call`, read back from the router of `domain` after a
 /// change.
 // cancel-safe: reads only.
-pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<String> {
+pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<Rendered> {
     match call.tab() {
         Tab::Interfaces => net_interfaces::refreshed(call, domain).await,
         Tab::Internet => net_internet::refreshed(call, domain).await,

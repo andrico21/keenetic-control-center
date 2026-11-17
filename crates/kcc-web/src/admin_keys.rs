@@ -97,6 +97,7 @@ struct KeysRegion {
 }
 
 localized!(KeysRegion);
+fragment!(KeysRegion);
 
 /// The API keys page.
 #[derive(Template)]

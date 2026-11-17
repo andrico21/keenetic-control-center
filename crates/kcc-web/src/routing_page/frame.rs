@@ -17,6 +17,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     clients_pages::TabLink,
     errors,
+    markup::Rendered,
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::{
@@ -173,7 +174,7 @@ pub(crate) struct Frame {
     /// Why the router could not be read.
     problem: Option<MessageKey>,
     /// The view's region, rendered.
-    region: Option<String>,
+    region: Option<Rendered>,
 }
 
 localized!(Frame);
@@ -208,7 +209,7 @@ impl Frame {
     }
 
     /// The page with the view's `region`, or why the router could not be read.
-    pub(crate) fn show(mut self, region: Result<Option<String>, MessageKey>) -> Response {
+    pub(crate) fn show(mut self, region: Result<Option<Rendered>, MessageKey>) -> Response {
         match region {
             Ok(shown) => self.region = shown,
             Err(problem) => self.problem = Some(problem),

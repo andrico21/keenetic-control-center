@@ -23,6 +23,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    markup::Rendered,
     page_kit::{
         change::Applied,
         confirm::Resubmit,
@@ -121,7 +122,7 @@ impl submit::Form for Creating {
     fn answer_changed(
         self,
         outcome: Outcome,
-        refreshed: Option<String>,
+        refreshed: Option<Rendered>,
         locale: Locale,
     ) -> Response {
         answer(outcome, refreshed, locale)

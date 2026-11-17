@@ -31,6 +31,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    markup::Rendered,
     net_change::unusable,
     page_kit::{
         action::Operation,
@@ -136,7 +137,7 @@ pub(crate) async fn rules(
     router: &str,
     headers: &HeaderMap,
     locale: Locale,
-) -> Option<String> {
+) -> Option<Rendered> {
     rules_region(domain, (router, &shown_query(headers)), (true, locale))
         .await
         .ok()

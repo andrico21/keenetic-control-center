@@ -151,6 +151,7 @@ struct UsersRegion {
 }
 
 localized!(UsersRegion);
+fragment!(UsersRegion);
 
 /// The users page.
 #[derive(Template)]

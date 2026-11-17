@@ -11,6 +11,7 @@ use kcc_i18n::{
 
 use super::region::Region;
 use crate::{
+    markup::Rendered,
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, outcome::Outcome, request::rendered, respond::changed},
@@ -222,7 +223,7 @@ localized!(Notes);
 
 /// The `region` and the page `actions` read back after a change, rendered to go out of
 /// band.
-pub(crate) fn read_back((region, actions): (Region, Vec<Act>)) -> Option<String> {
+pub(crate) fn read_back((region, actions): (Region, Vec<Act>)) -> Option<Rendered> {
     rendered(&Refreshed {
         region: region.out_of_band(),
         actions,
@@ -239,7 +240,7 @@ pub(crate) struct Answered {
     /// Localized notes shown with a success: what the change could not include.
     notes: Vec<String>,
     /// The region and the page actions read back, rendered.
-    refreshed: Option<String>,
+    refreshed: Option<Rendered>,
 }
 
 impl Answered {
@@ -255,7 +256,7 @@ impl Answered {
 
     /// Sends `refreshed`, the region and the page actions read back and rendered, out of
     /// band.
-    pub(crate) fn read_back(mut self, refreshed: Option<String>) -> Self {
+    pub(crate) fn read_back(mut self, refreshed: Option<Rendered>) -> Self {
         self.refreshed = refreshed;
         self
     }

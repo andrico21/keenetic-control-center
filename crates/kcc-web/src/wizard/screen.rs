@@ -19,6 +19,7 @@ use kcc_i18n::{
 use super::flow::{Flow, Stage};
 use crate::{
     errors,
+    markup::Rendered,
     page::{Localize, Shell},
     page_kit::respond,
 };
@@ -44,7 +45,7 @@ struct Screen {
     /// What the run works on, as far as chosen: label and value.
     summary: Vec<(String, String)>,
     /// The current step's rendered panel.
-    panel: String,
+    panel: Rendered,
     /// Where the wizard's run pages are.
     prefix: &'static str,
     /// Run id.
@@ -74,7 +75,7 @@ where
     T: Template,
 {
     let locale = shell.locale();
-    let rendered = match panel.render() {
+    let rendered = match Rendered::of(panel) {
         Ok(html) => html,
         Err(error) => return errors::internal(&error, shell),
     };

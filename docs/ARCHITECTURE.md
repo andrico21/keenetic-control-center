@@ -169,6 +169,16 @@ adds facts the manuals lack (background and destructive commands). The JSON is e
 catalog line not newer than its firmware (5.2 uses 5.1) and its exact model, or the
 union of all models when the model is unknown. See [catalog/README.md](../catalog/README.md).
 
+## Web UI HTML
+
+Templates escape every value they write. HTML is never passed around as a `String`:
+a fragment one template embeds in another is either a child template, marked with
+`fragment!` (`crates/kcc-web/src/lib.rs`), or a `markup::Rendered`, which only rendering
+a template makes. Both are written as they are, because askama already escaped them;
+text of any other type, router text included, is escaped. `cargo xtask assets-check`
+fails on every other way to skip the escape: the `safe` filter, the `none` escaper, and
+a safe-HTML marker outside those two files.
+
 ## Generated documents
 
 - `docs/MCP_TOOLS.md`: `cargo xtask gen-tool-docs`.

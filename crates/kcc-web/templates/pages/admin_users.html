@@ -7,6 +7,6 @@
     <h1 class="page__title">{{ t(keys::WEB_ADMIN_TAB_USERS) }}</h1>
     <button class="button button--primary" type="button" hx-get="/ui/admin/users/new" hx-target="#dialog-content">{{ t(keys::WEB_ADMIN_USER_ADD) }}</button>
   </div>
-  {{ region|safe }}
+  {{ region }}
 </div>
 {%- endblock %}

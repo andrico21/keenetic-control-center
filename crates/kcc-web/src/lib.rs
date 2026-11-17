@@ -50,6 +50,20 @@ macro_rules! localized {
     };
 }
 
+/// Macro to let templates embed the rendered output of child templates as it is.
+///
+/// Usage: `fragment!(Type1, Type2, ...);` for askama templates only: askama escaped every
+/// value they write, so their output is HTML that needs no second escape.
+///
+/// Generates: `impl askama::filters::HtmlSafe for Type where Type: askama::Template {}`.
+macro_rules! fragment {
+    ($($ty:ty),+ $(,)?) => {
+        $(
+            impl ::askama::filters::HtmlSafe for $ty where $ty: ::askama::Template {}
+        )+
+    };
+}
+
 /// Macro to generate the record accessors of a wizard's `Flow` impl.
 ///
 /// Usage: `record_fields!();` inside `impl Flow for Record`, where the record has the
@@ -137,6 +151,7 @@ mod dns_vpn;
 mod firewall_page;
 mod gauge;
 mod job_status;
+mod markup;
 mod migrate_wizard;
 mod nat_page;
 mod net_change;

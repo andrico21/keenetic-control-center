@@ -24,7 +24,7 @@
   {%- endif %}
   {{ kit::outcome_region() }}
   <section class="wizard-step" id="wizard-step" aria-labelledby="wizard-step-title">
-    {{ panel|safe }}
+    {{ panel }}
   </section>
   {%- if let Some(step) = back %}
       <form class="wizard-back" method="post" action="{{ prefix }}/{{ id }}/back" hx-post="{{ prefix }}/{{ id }}/back">

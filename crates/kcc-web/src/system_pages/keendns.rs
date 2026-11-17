@@ -24,6 +24,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
+    markup::Rendered,
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls, request::rendered},
 };
@@ -80,6 +81,7 @@ enum Offer {
 }
 
 localized!(StatusPanel);
+fragment!(StatusPanel);
 
 /// What the role may change on the KeenDNS page of `router`.
 pub(crate) fn controls(user: &CurrentUser, router: &str, domain: &RouterCtx) -> Controls {
@@ -155,7 +157,7 @@ impl<'call> Viewer<'call> {
 
     /// The name panel read again through `domain` after a change, out of band.
     // cancel-safe: reads only.
-    pub(crate) async fn refreshed(&self, domain: &RouterCtx) -> Option<String> {
+    pub(crate) async fn refreshed(&self, domain: &RouterCtx) -> Option<Rendered> {
         let panel = self.panel(domain).await.ok()?;
         rendered(&StatusPanel { oob: true, ..panel })
     }

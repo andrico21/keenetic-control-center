@@ -31,6 +31,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
+    markup::Rendered,
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls, request::rendered},
     table::{
@@ -76,6 +77,7 @@ pub(crate) struct Region {
 }
 
 localized!(Region);
+fragment!(Region);
 
 /// One router account as the table shows it; its password never leaves the domain.
 #[derive(Debug, Clone)]
@@ -230,7 +232,7 @@ impl<'call> Viewer<'call> {
 
     /// The accounts region read again through `domain` after a change, out of band.
     // cancel-safe: reads only.
-    pub(crate) async fn refreshed(&self, state: &WebState, domain: &RouterCtx) -> Option<String> {
+    pub(crate) async fn refreshed(&self, state: &WebState, domain: &RouterCtx) -> Option<Rendered> {
         let own = profile_login(state, self.user, self.router).await;
         let rows = accounts(domain, own.as_ref().ok()).await.ok()?;
         rendered(&Region {

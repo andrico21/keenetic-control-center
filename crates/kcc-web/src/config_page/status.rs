@@ -98,6 +98,7 @@ pub(crate) struct StatusRegion {
 }
 
 localized!(StatusRegion);
+fragment!(StatusRegion);
 
 impl StatusRegion {
     /// The region of `target` for `user`, read from the router now.

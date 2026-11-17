@@ -23,6 +23,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    markup::Rendered,
     net_change::unusable,
     page_kit::{
         action::Operation,
@@ -286,7 +287,7 @@ async fn interfaces(
     router: &str,
     headers: &HeaderMap,
     locale: Locale,
-) -> Option<String> {
+) -> Option<Rendered> {
     interfaces_region(domain, (router, &shown_query(headers)), (true, locale))
         .await
         .ok()

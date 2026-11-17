@@ -22,6 +22,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     clients_pages::TabLink,
+    markup::Rendered,
     page_kit::{
         context::fragment_shell,
         gate::Controls,
@@ -233,7 +234,7 @@ pub(crate) async fn refreshed(
     (router, user): (&str, &CurrentUser),
     (spot, headers): (Spot, &HeaderMap),
     locale: Locale,
-) -> Option<String> {
+) -> Option<Rendered> {
     let allowed = controls(user, router, &domain.catalog);
     match spot {
         Spot::Lists => lists_region(domain, router, allowed, locale)

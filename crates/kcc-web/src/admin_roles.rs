@@ -109,6 +109,7 @@ struct RolesRegion {
 }
 
 localized!(RolesRegion);
+fragment!(RolesRegion);
 
 /// The roles page.
 #[derive(Template)]

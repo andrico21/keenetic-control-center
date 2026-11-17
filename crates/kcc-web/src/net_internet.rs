@@ -24,6 +24,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
+    markup::Rendered,
     net_change::scalar,
     net_pages::{Call, Tab, Tabs, Viewer},
     net_tables::connections_view,
@@ -111,7 +112,7 @@ pub(crate) async fn page(
 /// The connections read back after a change, out of band, keeping the page's filter,
 /// order and page.
 // cancel-safe: reads only.
-pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<String> {
+pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<Rendered> {
     let controls = Controls::new(call.user().role(), call.router())
         .with_operations(wan::DESCRIPTOR.write_ops, Some(&domain.catalog));
     let listing = Listing::read(domain, call.viewer(controls), &call.shown_query())
@@ -139,6 +140,7 @@ struct Listing {
 }
 
 localized!(Listing);
+fragment!(Listing);
 
 impl Listing {
     /// Reads the router of `domain` and cuts the page `query` asks for.

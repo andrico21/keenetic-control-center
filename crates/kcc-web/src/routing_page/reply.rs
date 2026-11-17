@@ -14,6 +14,7 @@ use kcc_i18n::{
 use super::guard::Guard;
 use crate::{
     errors,
+    markup::Rendered,
     page::{Localize as _, Shell},
     page_kit::{
         action::Action,
@@ -61,7 +62,7 @@ struct GuardView {
 
 /// The answer of these pages: the kit's answer to a change, after a blank line.
 #[derive(Template)]
-#[template(ext = "html", source = "\n{{ changed|safe }}")]
+#[template(ext = "html", source = "\n{{ changed }}")]
 struct Answered {
     /// Locale carrier.
     shell: Shell,
@@ -73,7 +74,7 @@ localized!(GuardView, Answered);
 
 /// The answer to a change: `outcome` in the page's outcome region, `refreshed` out of
 /// band, the shared dialog closed.
-pub(crate) fn answer(outcome: Outcome, refreshed: Option<String>, locale: Locale) -> Response {
+pub(crate) fn answer(outcome: Outcome, refreshed: Option<Rendered>, locale: Locale) -> Response {
     guarded(outcome, None, refreshed, locale)
 }
 
@@ -82,7 +83,7 @@ pub(crate) fn answer(outcome: Outcome, refreshed: Option<String>, locale: Locale
 pub(crate) fn guarded(
     outcome: Outcome,
     guard: Option<Guard>,
-    refreshed: Option<String>,
+    refreshed: Option<Rendered>,
     locale: Locale,
 ) -> Response {
     let changed = match guard {
@@ -131,7 +132,7 @@ impl<F: Form> Form for Replying<F> {
     fn answer_changed(
         self,
         outcome: Outcome,
-        refreshed: Option<String>,
+        refreshed: Option<Rendered>,
         locale: Locale,
     ) -> Response {
         answer(outcome, refreshed, locale)

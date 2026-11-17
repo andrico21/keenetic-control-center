@@ -25,7 +25,7 @@
   <p class="notice" data-tone="error">{{ t(**message) }}</p>
   {%- endif %}
   {%- if let Some(shown) = region %}
-  {{ shown|safe }}
+  {{ shown }}
   {%- endif %}
 </div>
 {%- endblock %}

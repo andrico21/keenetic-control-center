@@ -33,7 +33,10 @@ mod tests {
         },
         unplanned::Unplanned,
     };
-    use crate::page_kit::outcome::{Failure, Outcome};
+    use crate::{
+        markup::Rendered,
+        page_kit::outcome::{Failure, Outcome},
+    };
 
     /// What the test form answers a change that ran with.
     const RAN: StatusCode = StatusCode::ACCEPTED;
@@ -62,7 +65,7 @@ mod tests {
         fn answer_changed(
             self,
             outcome: Outcome,
-            _refreshed: Option<String>,
+            _refreshed: Option<Rendered>,
             _locale: Locale,
         ) -> Response {
             (RAN, outcome.audit()).into_response()

@@ -16,7 +16,7 @@
   <p class="notice" data-tone="error">{{ t(**message) }}</p>
   {%- endif %}
   {%- if let Some(list) = region %}
-  {{ list|safe }}
+  {{ list }}
   {%- endif %}
 </div>
 {%- endblock %}

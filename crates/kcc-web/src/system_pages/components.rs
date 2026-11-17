@@ -29,6 +29,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
+    markup::Rendered,
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls, request::rendered},
     table::{
@@ -79,6 +80,7 @@ pub(crate) struct Region {
 }
 
 localized!(Region);
+fragment!(Region);
 
 /// Where a component stands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -256,7 +258,7 @@ impl<'call> Viewer<'call> {
 
     /// The region read again through `domain` after a change, out of band.
     // cancel-safe: reads only.
-    pub(crate) async fn refreshed(&self, domain: &RouterCtx) -> Option<String> {
+    pub(crate) async fn refreshed(&self, domain: &RouterCtx) -> Option<Rendered> {
         let rows = read(domain).await.ok()?;
         let controls = self.controls(domain);
         rendered(&Region {

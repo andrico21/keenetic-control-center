@@ -13,7 +13,7 @@
   <p class="notice" data-tone="error">{{ t(**message) }}</p>
   {%- endif %}
   {%- if let Some(region) = facts %}
-  {{ region|safe }}
+  {{ region }}
   {%- endif %}
   {%- if restart || reset %}
   <div class="panels">

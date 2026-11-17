@@ -18,6 +18,7 @@ use serde_json::{Map, Value};
 use url::{Url, form_urlencoded};
 
 use crate::{
+    markup::Rendered,
     page_kit::{confirm::Confirmation, respond::Answer},
     table::rows::TableQuery,
 };
@@ -124,12 +125,11 @@ pub(crate) fn shown_query(headers: &HeaderMap) -> TableQuery {
 
 /// `region` rendered for sending out of band; a failed render is logged and leaves the
 /// page as it is.
-pub(crate) fn rendered<T>(region: &T) -> Option<String>
+pub(crate) fn rendered<T>(region: &T) -> Option<Rendered>
 where
     T: Template,
 {
-    region
-        .render()
+    Rendered::of(region)
         .inspect_err(|error| tracing::error!(%error, "page region failed to render"))
         .ok()
 }

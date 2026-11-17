@@ -10,6 +10,7 @@ use kcc_domain::{
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use crate::{
+    markup::Rendered,
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, request::rendered},
 };
@@ -112,6 +113,7 @@ pub(crate) struct Region {
 }
 
 localized!(Region);
+fragment!(Region);
 
 impl Region {
     /// The segments kcc created on `domain`'s router, as the list of `router` in `locale`.
@@ -146,7 +148,7 @@ impl Region {
         domain: &RouterCtx,
         router: &str,
         locale: Locale,
-    ) -> Option<String> {
+    ) -> Option<Rendered> {
         match Self::read(domain, router, locale).await {
             Ok(mut region) => {
                 region.delete = true;

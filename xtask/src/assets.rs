@@ -11,8 +11,10 @@
 //! - no template loads anything from another origin (`src` or `href` starting with
 //!   `http:`, `https:` or `//`);
 //! - every toast pair and every notice rule of `css/app.css` reaches 4.5:1 in both themes
-//!   on an opaque surface (notices: [`notice_contrast`]).
+//!   on an opaque surface (notices: [`notice_contrast`]);
+//! - no template or web source writes text past askama's HTML escaping ([`escaping`]).
 
+mod escaping;
 mod notice_contrast;
 
 use alloc::collections::BTreeSet;
@@ -127,7 +129,8 @@ where
         }
     }
     let mut references = 0_usize;
-    for (path, text) in templates(&root.join(TEMPLATES_DIR))? {
+    escaping::check(root, &mut problems)?;
+    for (path, text) in text_files(&root.join(TEMPLATES_DIR), "html")? {
         let template = path.strip_prefix(root).unwrap_or(&path).display();
         for reference in asset_references(&text) {
             references = references.saturating_add(1);
@@ -353,12 +356,12 @@ fn files_under(assets: &Path, dir: &str) -> Result<Vec<String>, GateError> {
     Ok(found)
 }
 
-/// Every `.html` template below `dir`, as `(path, text)`, sorted by path.
+/// Every file with `extension` below `dir`, as `(path, text)`, sorted by path.
 ///
 /// # Errors
 ///
-/// Returns [`GateError::Read`] when a directory or template cannot be read.
-fn templates(dir: &Path) -> Result<Vec<(PathBuf, String)>, GateError> {
+/// Returns [`GateError::Read`] when a directory or file cannot be read.
+fn text_files(dir: &Path, extension: &str) -> Result<Vec<(PathBuf, String)>, GateError> {
     let mut found = Vec::new();
     let mut pending = vec![dir.to_path_buf()];
     while let Some(path) = pending.pop() {
@@ -372,10 +375,7 @@ fn templates(dir: &Path) -> Result<Vec<(PathBuf, String)>, GateError> {
                 pending.push(child);
                 continue;
             }
-            if child
-                .extension()
-                .is_some_and(|extension| extension == "html")
-            {
+            if child.extension().is_some_and(|name| name == extension) {
                 let text = fs::read_to_string(&child).map_err(|source| GateError::Read {
                     path: child.clone(),
                     source,
@@ -473,6 +473,7 @@ mod tests {
             fs::create_dir_all(assets.join(sub))?;
         }
         fs::create_dir_all(&templates)?;
+        fs::create_dir_all(dir.path().join("crates/kcc-web/src"))?;
         fs::write(assets.join("vendor/lib.min.js"), VENDORED)?;
         fs::write(assets.join("LICENSES/lib-MIT.txt"), "MIT License\n")?;
         fs::write(
@@ -659,5 +660,39 @@ mod tests {
         ] {
             assert!(!is_inside(bad, "vendor"), "{bad}");
         }
+    }
+
+    /// SEC1-10, W3-17: a template or a web source that writes text unescaped fails the gate;
+    /// a plain `{{ region }}` and the marker in the markup module pass.
+    #[test]
+    fn escape_bypasses_fail_the_gate() -> TestResult {
+        let sound = [
+            ("crates/kcc-web/templates/pages/sound.html", "{{ region }}"),
+            (
+                "crates/kcc-web/src/markup.rs",
+                "impl askama::filters::HtmlSafe for Rendered {}",
+            ),
+        ];
+        let (_dir, verdict, report) = gate(&sha256_hex(VENDORED), &sound)?;
+        assert_eq!(verdict, Verdict::Pass, "{report}");
+        let bypasses = [
+            (
+                "crates/kcc-web/templates/pages/page.html",
+                "{{ note|safe }}",
+            ),
+            (
+                "crates/kcc-web/src/page.rs",
+                "impl askama::filters::HtmlSafe for Note {}",
+            ),
+        ];
+        let (_failing_dir, failing, failures) = gate(&sha256_hex(VENDORED), &bypasses)?;
+        assert_eq!(failing, Verdict::Fail, "{failures}");
+        for expected in [
+            "crates/kcc-web/templates/pages/page.html: line 1 writes text unescaped",
+            "crates/kcc-web/src/page.rs: line 1 writes text unescaped",
+        ] {
+            assert!(failures.contains(expected), "{expected} in {failures}");
+        }
+        Ok(())
     }
 }

@@ -23,7 +23,7 @@
   <p class="notice" data-tone="error">{{ t(**message) }}</p>
   {%- endif %}
   {%- if let Some(table) = region %}
-  {{ table|safe }}
+  {{ table }}
   {%- endif %}
 </div>
 {%- endblock %}

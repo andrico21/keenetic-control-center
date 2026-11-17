@@ -24,6 +24,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
+    markup::Rendered,
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::{
@@ -41,7 +42,7 @@ struct Page {
     /// Page shell.
     shell: Shell,
     /// The rendered panel.
-    panel: String,
+    panel: Rendered,
 }
 
 localized!(Page);
@@ -64,7 +65,7 @@ pub(super) async fn page(
     }
     let draft = drafts.get(&id, user.username(), state.unix_seconds());
     let panel = Panel::new(user.locale(), &id, draft.as_deref(), None);
-    match panel.render() {
+    match Rendered::of(&panel) {
         Ok(html) => errors::render(&Page { shell, panel: html }),
         Err(error) => errors::internal(&error, shell),
     }

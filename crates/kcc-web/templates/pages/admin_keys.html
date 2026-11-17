@@ -8,6 +8,6 @@
     <button class="button button--primary" type="button" hx-get="/ui/admin/api-keys/new" hx-target="#dialog-content">{{ t(keys::WEB_ADMIN_KEY_ADD) }}</button>
   </div>
   <p class="page__text">{{ t(keys::WEB_ADMIN_KEYS_TEXT) }}</p>
-  {{ region|safe }}
+  {{ region }}
 </div>
 {%- endblock %}

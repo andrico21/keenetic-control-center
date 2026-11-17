@@ -174,6 +174,7 @@ pub(crate) struct Region {
 }
 
 localized!(Region);
+fragment!(Region);
 
 impl Region {
     /// Shows the row actions `controls` allow.

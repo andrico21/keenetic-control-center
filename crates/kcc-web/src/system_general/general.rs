@@ -156,6 +156,7 @@ pub(crate) struct Facts {
 }
 
 localized!(Facts);
+fragment!(Facts);
 
 impl Facts {
     /// The region of `general` on `router` in `locale`, with no Edit buttons.

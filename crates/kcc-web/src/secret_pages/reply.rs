@@ -17,11 +17,14 @@ use super::{
     dialog::{Entry, REPEAT, SECRET, SecretDialog},
     user_password::protected,
 };
-use crate::page_kit::{
-    action::Action,
-    outcome::{Failure, Outcome},
-    respond::changed,
-    submit::{self, Invalid, unplanned::Unplanned},
+use crate::{
+    markup::Rendered,
+    page_kit::{
+        action::Action,
+        outcome::{Failure, Outcome},
+        respond::changed,
+        submit::{self, Invalid, unplanned::Unplanned},
+    },
 };
 
 /// A secret dialog as the form of a write.
@@ -97,7 +100,7 @@ impl submit::Form for Secret {
     fn answer_changed(
         self,
         outcome: Outcome,
-        refreshed: Option<String>,
+        refreshed: Option<Rendered>,
         locale: Locale,
     ) -> Response {
         changed(

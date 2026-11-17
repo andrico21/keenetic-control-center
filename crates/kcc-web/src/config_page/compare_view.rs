@@ -56,6 +56,7 @@ pub(crate) struct CompareForm {
 }
 
 localized!(CompareForm);
+fragment!(CompareForm);
 
 impl CompareForm {
     /// The form over `rows`, comparing the newest backup with the running configuration.

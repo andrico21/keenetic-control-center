@@ -8,6 +8,6 @@
     <button class="button button--primary" type="button" hx-get="/ui/admin/roles/new" hx-target="#dialog-content">{{ t(keys::WEB_ADMIN_ROLE_ADD) }}</button>
   </div>
   <p class="page__text">{{ t(keys::WEB_ADMIN_ROLES_TEXT) }}</p>
-  {{ region|safe }}
+  {{ region }}
 </div>
 {%- endblock %}

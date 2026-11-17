@@ -103,6 +103,7 @@ pub(crate) struct Region {
 }
 
 localized!(Region);
+fragment!(Region);
 
 impl Region {
     /// An empty region in `locale`.

@@ -39,7 +39,7 @@ use super::{
     request::{Params, missing},
     respond::{Answer, changed},
 };
-use crate::system_pages::shared::forbidden as forbidden_answer;
+use crate::{markup::Rendered, system_pages::shared::forbidden as forbidden_answer};
 
 #[cfg(test)]
 mod answer_tests;
@@ -97,7 +97,7 @@ pub(crate) trait Form: Sized {
     fn answer_changed(
         self,
         outcome: Outcome,
-        refreshed: Option<String>,
+        refreshed: Option<Rendered>,
         locale: Locale,
     ) -> Response {
         changed(outcome, refreshed, None, locale)
@@ -210,7 +210,7 @@ impl<'call, F: Form> Submission<'call, F> {
     where
         C: FnOnce(&Params) -> Result<T, Invalid>,
         P: AsyncFnOnce(T, &RouterCtx) -> Result<Planned, DomainError>,
-        R: AsyncFnOnce(&RouterCtx) -> Option<String>,
+        R: AsyncFnOnce(&RouterCtx) -> Option<Rendered>,
     {
         let checked = match check(self.params) {
             Ok(checked) => checked,
@@ -233,7 +233,7 @@ impl<'call, F: Form> Submission<'call, F> {
     where
         C: AsyncFnOnce(&Params, &RouterCtx) -> Result<T, Rejected>,
         P: AsyncFnOnce(T, &RouterCtx) -> Result<Planned, DomainError>,
-        R: AsyncFnOnce(&RouterCtx) -> Option<String>,
+        R: AsyncFnOnce(&RouterCtx) -> Option<Rendered>,
     {
         let domain = match self.action.context().await {
             Ok(domain) => domain,
@@ -337,7 +337,7 @@ impl<'call, F: Form> Submission<'call, F> {
     ) -> Response
     where
         P: AsyncFnOnce(T, &RouterCtx) -> Result<Planned, DomainError>,
-        R: AsyncFnOnce(&RouterCtx) -> Option<String>,
+        R: AsyncFnOnce(&RouterCtx) -> Option<Rendered>,
     {
         let planned = match plan(checked, domain).await {
             Ok(planned) => planned,

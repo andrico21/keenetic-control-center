@@ -15,6 +15,6 @@
 </form>
 {% endcall %}
 {%- if let Some(region) = region %}
-{{ region|safe }}
+{{ region }}
 {%- endif %}
 {{ kit::toasts(toasts) }}

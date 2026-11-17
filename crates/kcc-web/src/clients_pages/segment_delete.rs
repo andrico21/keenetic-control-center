@@ -31,6 +31,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
+    markup::Rendered,
     page_kit::{
         action::Operation,
         change::Applied,
@@ -174,7 +175,7 @@ impl submit::Form for Deleting {
     fn answer_changed(
         self,
         outcome: Outcome,
-        refreshed: Option<String>,
+        refreshed: Option<Rendered>,
         locale: Locale,
     ) -> Response {
         answer(outcome, refreshed, locale)

@@ -17,6 +17,7 @@ use super::{
 };
 use crate::{
     authz::CurrentUser,
+    markup::Rendered,
     page::{Localize as _, Shell},
     page_kit::{
         context::fragment_shell,
@@ -110,6 +111,7 @@ pub(crate) struct Region {
 }
 
 localized!(Region);
+fragment!(Region);
 
 /// A DHCP view as the browser asked for it: the view and its filter, sort and page.
 #[derive(Debug, Default)]
@@ -196,7 +198,7 @@ impl Shown {
         domain: &RouterCtx,
         user: &CurrentUser,
         router: &str,
-    ) -> Option<String> {
+    ) -> Option<Rendered> {
         let controls = Controls::new(user.role(), router)
             .with_operations(dhcp::DESCRIPTOR.write_ops, Some(&domain.catalog));
         let region = self

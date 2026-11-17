@@ -21,6 +21,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
+    markup::Rendered,
     net_pages::{Call, Tab, Tabs, Viewer},
     net_tables::mesh_view,
     page::{Localize as _, Shell},
@@ -113,7 +114,7 @@ pub(crate) async fn page(
 
 /// The members read back after a change, out of band.
 // cancel-safe: reads only.
-pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<String> {
+pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<Rendered> {
     let controls = Controls::new(call.user().role(), call.router())
         .with_operations(mesh::DESCRIPTOR.write_ops, Some(&domain.catalog));
     let listing = Listing::read(domain, call.viewer(controls))
@@ -136,6 +137,7 @@ struct Listing {
 }
 
 localized!(Listing);
+fragment!(Listing);
 
 impl Listing {
     /// Reads the members of the router of `domain`.

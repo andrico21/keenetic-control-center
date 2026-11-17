@@ -61,6 +61,7 @@ pub(crate) struct BackupsRegion {
 }
 
 localized!(BackupsRegion);
+fragment!(BackupsRegion);
 
 impl BackupsRegion {
     /// The region of `visit`, the table as `query` asks.

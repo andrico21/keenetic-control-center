@@ -23,6 +23,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
+    markup::Rendered,
     page::{Localize as _, Shell},
     page_kit::{
         confirm::Resubmit,
@@ -224,7 +225,7 @@ async fn read_back(
     user: &CurrentUser,
     router: &str,
     headers: &HeaderMap,
-) -> Option<String> {
+) -> Option<Rendered> {
     let list = clients::read_clients(domain)
         .await
         .inspect_err(|error| tracing::warn!(%error, "clients read-back failed"))

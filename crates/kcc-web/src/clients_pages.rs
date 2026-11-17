@@ -46,6 +46,7 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use crate::{
     WebState,
+    markup::Rendered,
     page_kit::{outcome::Outcome, request::rendered, respond::changed, submit::work::Report},
 };
 
@@ -176,7 +177,11 @@ struct Note<'text> {
 
 /// The answer to a change: `outcome` with `refreshed` out of band and the note its work
 /// reported beside it, the dialog closed.
-pub(crate) fn answer(mut outcome: Outcome, refreshed: Option<String>, locale: Locale) -> Response {
+pub(crate) fn answer(
+    mut outcome: Outcome,
+    refreshed: Option<Rendered>,
+    locale: Locale,
+) -> Response {
     let note = match outcome.take_report() {
         Some(Report::Note(text)) => Some(text),
         Some(Report::RoutesWiped { unsaved: _ } | Report::RouteCountMismatch) | None => None,

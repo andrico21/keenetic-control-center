@@ -13,7 +13,7 @@
   <p class="notice" data-tone="error">{{ t(**message) }}</p>
   {%- endif %}
   {%- if let Some(panel) = status %}
-  {{ panel|safe }}
+  {{ panel }}
   {%- endif %}
   {%- if controls.allows("cloud_security_level") || controls.allows("proxy_upstream") %}
   <div class="panels">

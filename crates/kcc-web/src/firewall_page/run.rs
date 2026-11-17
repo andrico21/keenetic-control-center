@@ -27,6 +27,7 @@ use super::{
 };
 use crate::{
     authz::CurrentUser,
+    markup::Rendered,
     page_kit::{
         action::Action,
         change::Applied,
@@ -169,7 +170,7 @@ impl<'request> Sender<'request> {
         domain: &RouterCtx,
         spot: Spot,
         locale: Locale,
-    ) -> Option<String> {
+    ) -> Option<Rendered> {
         refreshed(
             domain,
             (self.router, self.user),
@@ -198,7 +199,7 @@ impl<F: Form> Form for Firewall<F> {
     fn answer_changed(
         self,
         outcome: Outcome,
-        refreshed: Option<String>,
+        refreshed: Option<Rendered>,
         locale: Locale,
     ) -> Response {
         self.0.answer_changed(outcome, refreshed, locale)
