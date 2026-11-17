@@ -258,16 +258,16 @@ pub(super) async fn submit(
         Ok(found) => found.into_parts(),
         Err((field, message)) => return Err(refuse(panel, kind, field, message, locale)),
     };
-    if let Err(error) = visit.seal_source(&text) {
+    if let Err(error) = visit.seal_source(&text).await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     let router = source.router().map(str::to_owned);
     visit.record_mut().choose_source(source);
     session.forget();
-    if let Err(error) = visit.forget_passwords() {
+    if let Err(error) = visit.forget_passwords().await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
-    if let Err(error) = visit.save() {
+    if let Err(error) = visit.save().await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     let audit = match router {

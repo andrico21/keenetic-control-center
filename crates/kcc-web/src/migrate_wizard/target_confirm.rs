@@ -73,7 +73,7 @@ pub(super) async fn confirm(
         return Err(respond::unprocessable(&refused).into());
     }
     visit.record_mut().confirm_target(needs_ack);
-    if let Err(error) = visit.save() {
+    if let Err(error) = visit.save().await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     if needs_ack {

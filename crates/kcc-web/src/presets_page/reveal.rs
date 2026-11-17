@@ -85,9 +85,8 @@ pub(super) async fn preset(
 ) -> Result<Response, Answer> {
     let services = Services::of(&state, &user).map_err(Refusal::status)?;
     let locale = user.locale();
-    let store = saved::store(services.fleet());
-    let shown = store
-        .list(user.role())
+    let shown = saved::list(services.fleet(), user.role())
+        .await
         .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(locale))))?
         .into_iter()
         .find(|preset| preset.id == id)
@@ -96,9 +95,12 @@ pub(super) async fn preset(
         || Audit::new("web.preset_reveal", id.clone()),
         |router| Audit::on_router("web.preset_reveal", router, id.clone()),
     );
-    let revealed = (user.role().grants(Permission::RevealSecrets) && may_change(services, &shown))
-        .then(|| store.get(user.role(), &id).ok())
-        .flatten();
+    let revealed = if user.role().grants(Permission::RevealSecrets) && may_change(services, &shown)
+    {
+        saved::get(services.fleet(), user.role(), &id).await.ok()
+    } else {
+        None
+    };
     let Some(full) = revealed else {
         audit.append(&state, &user, "forbidden").await;
         return Err(errors::response(Kind::Forbidden, fragment_shell(locale)).into());

@@ -99,28 +99,35 @@ where
         target,
         "apply not finished in the recovery window; released"
     );
-    end::<F>(&state, &user, &id);
+    end::<F>(&state, &user, &id).await;
 }
 
 /// Ends run `id`, started by `user`, as rolled back by the router, and deletes what it
 /// sealed for its apply.
-fn end<F>(state: &WebState, user: &CurrentUser, id: &str)
+// NOT cancel-safe: dropped, a record write or deletion in flight still completes.
+async fn end<F>(state: &WebState, user: &CurrentUser, id: &str)
 where
     F: Finishing,
 {
     let Ok(services) = Services::of(state, user) else {
         return;
     };
-    let store = services.store();
-    match store.load::<F>(id) {
-        Ok(Some(mut record)) => {
-            record.finish(F::ROLLED_BACK_BY_ROUTER, state.unix_seconds());
-            if let Err(error) = store.save(&record) {
-                tracing::error!(%error, "expired apply could not be recorded");
-            }
-            F::discard(services, id);
-        }
+    match services.store().load::<F>(id).await {
+        Ok(Some(record)) => close(services, record).await,
         Ok(None) => tracing::error!(id, "run record missing at its apply's expiry"),
         Err(error) => tracing::error!(%error, "run record unreadable at its apply's expiry"),
     }
+}
+
+/// Saves `record` ended as rolled back by the router and deletes what its run sealed.
+// NOT cancel-safe: dropped, a record write or deletion in flight still completes.
+async fn close<F>(services: Services<'_>, mut record: F)
+where
+    F: Finishing,
+{
+    record.finish(F::ROLLED_BACK_BY_ROUTER, services.state().unix_seconds());
+    if let Err(error) = services.store().save(&record).await {
+        tracing::error!(%error, "expired apply could not be recorded");
+    }
+    F::discard(services, record.id()).await;
 }

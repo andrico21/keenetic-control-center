@@ -166,7 +166,7 @@ impl Panel {
                 return panel;
             }
         };
-        let passwords = visit.passwords().unwrap_or_default();
+        let passwords = visit.passwords().await.unwrap_or_default();
         let Ok(classified) = Classified::new(&analysis, record, &passwords) else {
             panel.problem = tr(locale, keys::WEB_MIGRATE_PROBLEM_SOURCE, None);
             return panel;

@@ -72,7 +72,7 @@ pub(super) async fn proceed(
     }
     decide(&mut visit, &form).await?;
     visit.record_mut().review_done();
-    if let Err(error) = visit.save() {
+    if let Err(error) = visit.save().await {
         return Err(errors::internal(&error, fragment_shell(user.locale())).into());
     }
     let record = visit.record();
@@ -119,5 +119,6 @@ async fn decide(visit: &mut Visit<'_>, form: &[(String, String)]) -> Result<(), 
     }
     visit
         .save()
+        .await
         .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(locale))))
 }

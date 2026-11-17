@@ -240,7 +240,7 @@ where
         };
         audit.append_attempt(state, user, failed).await;
         if error == ApplyError::RollbackRestarting {
-            end(state, wizards, &mut visit, (id, F::ROLLBACK_RESTARTING))?;
+            end(state, wizards, &mut visit, (id, F::ROLLBACK_RESTARTING)).await?;
             return Ok(screen::moved(visit.record()));
         }
         let reason = tr(locale, F::failure_text(error), None);
@@ -255,7 +255,7 @@ where
         None => audit,
     };
     audited.append(state, user, "done").await;
-    end(state, wizards, &mut visit, (id, finished))?;
+    end(state, wizards, &mut visit, (id, finished)).await?;
     Ok(screen::moved(visit.record()))
 }
 
@@ -273,7 +273,8 @@ async fn conflict(state: &WebState, user: &CurrentUser, audit: Audit) -> Answer 
 /// # Errors
 ///
 /// Answers 500 when the record cannot be saved.
-fn end<F>(
+// NOT cancel-safe: dropped, the record write and the deletions still complete.
+async fn end<F>(
     state: &WebState,
     wizards: &Wizards<F>,
     visit: &mut Visit<'_, F>,
@@ -287,12 +288,12 @@ where
     wizards.release(&target, id);
     visit.record_mut().finish(how, state.unix_seconds());
     let services = visit.services();
-    visit.save().map_err(|error| {
+    visit.save().await.map_err(|error| {
         Answer::from(errors::internal(
             &error,
             fragment_shell(services.user().locale()),
         ))
     })?;
-    F::discard(services, id);
+    F::discard(services, id).await;
     Ok(())
 }

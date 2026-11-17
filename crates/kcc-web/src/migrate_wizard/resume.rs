@@ -48,16 +48,18 @@ pub(super) async fn show(visit: &Visit<'_>, shell: Shell, view: &View) -> Respon
             screen::page(shell, record, &running::Panel::new(visit, words))
         }
         Step::Results => screen::page(shell, record, &results::Panel::new(visit).await),
-        Step::Report => screen::page(shell, record, &report(visit)),
+        Step::Report => screen::page(shell, record, &report(visit).await),
     }
 }
 
 /// Step 9 of `visit`: the report, with its files once they were kept.
-fn report(visit: &Visit<'_>) -> Panel {
+// cancel-safe: reads only.
+async fn report(visit: &Visit<'_>) -> Panel {
     let kept = visit
         .services()
         .store()
         .kept(visit.record().id(), Kept::Report)
+        .await
         .is_ok_and(|kept| kept.is_some());
     let panel = Panel::new(visit);
     if kept {

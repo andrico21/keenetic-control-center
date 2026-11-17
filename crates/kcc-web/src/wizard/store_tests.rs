@@ -16,23 +16,23 @@ use tempfile::TempDir;
 use super::{Sealed, Store};
 use crate::{migrate_wizard::record::Record, wizard::flow::Flow as _};
 
-#[test]
-fn records_round_trip_and_sealed_parts_stay_bound_to_their_migration() -> Result<(), Box<dyn Error>>
-{
+#[tokio::test]
+async fn records_round_trip_and_sealed_parts_stay_bound_to_their_migration()
+-> Result<(), Box<dyn Error>> {
     let directory = TempDir::new()?;
     let store = Store::new(directory.path());
     let key = MasterKey::from_bytes([9_u8; 32]);
     let id = "1700000000-0001020304050607";
     let record = Record::new(id.to_owned(), "admin".to_owned(), 5);
-    store.save(&record)?;
-    let loaded = store.load::<Record>(id)?.ok_or("record")?;
+    store.save(&record).await?;
+    let loaded = store.load::<Record>(id).await?.ok_or("record")?;
     assert_eq!(loaded.owner(), "admin", "round trip");
     assert!(
-        store.load::<Record>("../escape")?.is_none(),
+        store.load::<Record>("../escape").await?.is_none(),
         "ids are checked"
     );
     let secret = SecretString::from("interface Bridge0\n".to_owned());
-    store.seal(&key, id, Sealed::Source, &secret)?;
+    store.seal(&key, id, Sealed::Source, &secret).await?;
     let written = fs::read_to_string(
         directory
             .path()
@@ -41,7 +41,10 @@ fn records_round_trip_and_sealed_parts_stay_bound_to_their_migration() -> Result
             .join("source.sealed"),
     )?;
     assert!(!written.contains("Bridge0"), "sealed on disk");
-    let opened = store.open(&key, id, Sealed::Source)?.ok_or("sealed")?;
+    let opened = store
+        .open(&key, id, Sealed::Source)
+        .await?
+        .ok_or("sealed")?;
     assert_eq!(opened.expose_secret(), secret.expose_secret(), "opens");
     let other = "1700000000-0001020304050608";
     fs::create_dir_all(directory.path().join("migrations").join(other))?;
@@ -59,12 +62,16 @@ fn records_round_trip_and_sealed_parts_stay_bound_to_their_migration() -> Result
     )?;
     assert!(copied > 0, "the sealed part was copied");
     assert!(
-        store.open(&key, other, Sealed::Source).is_err(),
+        store.open(&key, other, Sealed::Source).await.is_err(),
         "a copied part does not open under another migration"
     );
-    assert_eq!(store.list::<Record>("admin")?.len(), 1, "listed by owner");
+    assert_eq!(
+        store.list::<Record>("admin").await?.len(),
+        1,
+        "listed by owner"
+    );
     assert!(
-        store.list::<Record>("someone")?.is_empty(),
+        store.list::<Record>("someone").await?.is_empty(),
         "never another owner's"
     );
     Ok(())

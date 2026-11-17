@@ -169,8 +169,8 @@ impl PresetStore {
     ///
     /// # Errors
     ///
-    /// Returns permission or directory I/O errors. A record that cannot be read,
-    /// parsed or decrypted is skipped and its file name logged.
+    /// Returns permission or directory I/O errors. A record that cannot be read (I/O errors
+    /// included), parsed or decrypted is skipped and its file name logged.
     #[inline]
     pub fn list(&self, role: &Role) -> Result<Vec<Preset>, PresetError> {
         require_permission(role, Permission::Read)?;
@@ -198,14 +198,9 @@ impl PresetStore {
             match visible {
                 Ok(Some(preset)) => presets.push(preset.redacted()),
                 Ok(None) => {}
-                Err(
-                    error @ (PresetError::Malformed
-                    | PresetError::Crypto(_)
-                    | PresetError::NotFound),
-                ) => {
+                Err(error) => {
                     tracing::warn!(file = name, %error, "preset record skipped: unreadable");
                 }
-                Err(error) => return Err(error),
             }
         }
         presets.sort_by(|left, right| left.id.cmp(&right.id));
@@ -260,22 +255,6 @@ impl PresetStore {
         let _lock = self.state.lock("presets")?;
         let _authorized = self.read_authorized(role, id)?;
         fs::remove_file(self.path(id)).map_err(map_io)
-    }
-
-    /// Gets one preset with its command secrets to plan and apply it, never to show it.
-    ///
-    /// Needs `Migrate` and the preset's source scope, like [`delete`](Self::delete); the
-    /// secrets travel only to the target router through the protected applier.
-    ///
-    /// # Errors
-    ///
-    /// Returns permission, missing-record (also for a preset outside the caller's scope),
-    /// decryption, malformed-record, or I/O errors.
-    #[inline]
-    pub fn get_for_apply(&self, role: &Role, id: &str) -> Result<Preset, PresetError> {
-        validate_id(id)?;
-        let record = self.read_authorized(role, id)?;
-        self.open(id, &record)
     }
 
     /// Reads the record of `id` for a caller holding `Migrate` on its source router.

@@ -57,9 +57,9 @@ impl Basis {
     /// Returns why the settings or the target cannot be used.
     // cancel-safe: reads only.
     pub(super) async fn of(visit: &Visit<'_>) -> Result<Self, Problem> {
-        let preset = visit.preset()?;
+        let preset = visit.preset().await?;
         let inventory = visit.inventory(&preset).await?;
-        let passwords = visit.passwords().map_err(|error| {
+        let passwords = visit.passwords().await.map_err(|error| {
             tracing::error!(%error, "preset run passwords could not be opened");
             Problem::Source
         })?;

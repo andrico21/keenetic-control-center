@@ -115,9 +115,10 @@ where
     wizards.release(&target, id);
     visit
         .save()
+        .await
         .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(user.locale()))))?;
     if how == Some(Settle::Close) {
-        F::discard(services, id);
+        F::discard(services, id).await;
     }
     Ok(screen::moved(visit.record()))
 }

@@ -1,5 +1,6 @@
 //! `kcc_preset_capture`: capture settings groups from a router or one of its backups.
 
+use alloc::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use kcc_app::permissions::Permission;
@@ -19,7 +20,7 @@ use serde_json::{Value, json};
 use super::state::{map_preset, view};
 use crate::{
     KccMcp, McpFailure, RouterId, authorize_routers,
-    support::{audit::Success, errors::map_rci, route::parse, validate::valid_text},
+    support::{audit::Success, blocking, errors::map_rci, route::parse, validate::valid_text},
 };
 
 /// Most settings groups in one capture.
@@ -113,17 +114,22 @@ async fn read(server: &KccMcp, origin: &Origin) -> Result<SourceConfig, McpFailu
                 .map_err(|error| map_rci(&error))?;
             bytes.expose_secret().to_vec()
         }
-        Origin::Backup(router, name) => server
-            .workflow
-            .backups()
-            .get(router.as_str(), name)
-            .map_err(|error| {
-                tracing::warn!(error = ?error, "MCP preset backup source unavailable");
-                McpFailure::InvalidArguments
-            })?
-            .expose_secret()
-            .as_bytes()
-            .to_vec(),
+        Origin::Backup(router, name) => {
+            let (backups, router, name) = (
+                Arc::clone(server.workflow.backups()),
+                router.as_str().to_owned(),
+                name.clone(),
+            );
+            blocking::run(move || backups.get(&router, &name))
+                .await?
+                .map_err(|error| {
+                    tracing::warn!(error = ?error, "MCP preset backup source unavailable");
+                    McpFailure::InvalidArguments
+                })?
+                .expose_secret()
+                .as_bytes()
+                .to_vec()
+        }
     };
     SourceConfig::from_bytes(&bytes).map_err(|_error| McpFailure::ValidationFailed)
 }
@@ -149,10 +155,10 @@ pub(crate) async fn capture(server: &KccMcp, arguments: Value) -> Result<Value, 
         core::slice::from_ref(origin.router()),
     )?;
     let presets = &server.presets;
-    let (id, store) = if input.transient {
-        (presets.transient_id(), None)
+    let (id, persistent) = if input.transient {
+        (presets.transient_id(), false)
     } else {
-        (slug(&input.name)?, Some(presets.store()?))
+        (slug(&input.name)?, presets.store().map(|_store| true)?)
     };
     let config = read(server, &origin).await?;
     let firmware = config
@@ -190,9 +196,11 @@ pub(crate) async fn capture(server: &KccMcp, arguments: Value) -> Result<Value, 
     let done = Success::new("kcc_preset_capture")
         .on_router(origin.router().as_str())
         .with_target(request.id.clone());
-    if let Some(store) = store {
-        let stored = store
-            .capture(&identity.role, &config.ast, request)
+    if persistent {
+        let (role, ast) = (identity.role.clone(), config.ast);
+        let stored = presets
+            .stored(move |store| store.capture(&role, &ast, request))
+            .await?
             .map_err(|error| map_preset(&error))?;
         let params = json!({ "id": stored.id, "groups": stored.groups });
         return Ok(done

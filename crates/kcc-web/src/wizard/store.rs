@@ -17,18 +17,18 @@
 //! Each wizard reads only records under its own file name, so neither opens the other's
 //! runs; a preset run seals a copied (transient) preset as [`Sealed::Preset`].
 
-use std::{
-    fs::{self, DirBuilder, OpenOptions},
-    io::{self, Write as _},
-    path::{Path, PathBuf},
-};
+use std::{io, path::Path};
 
-use kcc_app::secrets::{CryptoError, MasterKey, SealedSecret, binding::Binding};
+use kcc_app::secrets::{CryptoError, MasterKey, binding::Binding};
 use secrecy::SecretString;
 use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
-use super::{flow::Flow, ids::is_id, index};
+use self::files::Files;
+use super::{flow::Flow, index};
+use crate::blocking;
+
+pub(super) mod files;
 
 /// A sealed part of a migration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,18 +95,37 @@ pub(crate) enum StoreError {
 }
 
 /// The migrations directory of one state directory.
+///
+/// Every method does its file work (reads, writes with fsync, sealing) on the blocking
+/// pool; a method that writes still completes its write when the caller is dropped, and a
+/// read is simply abandoned.
 #[derive(Debug, Clone)]
 pub(crate) struct Store {
-    /// `<state>/migrations`.
-    root: PathBuf,
+    /// The files, used on the blocking pool only.
+    files: Files,
 }
 
 impl Store {
     /// The migrations directory below `state_dir`.
     pub(crate) fn new(state_dir: &Path) -> Self {
         Self {
-            root: state_dir.join("migrations"),
+            files: Files::new(state_dir),
         }
+    }
+
+    /// Runs `work` over the files on the blocking pool.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of `work`, or an I/O error when the task did not finish.
+    // NOT cancel-safe: dropped, `work` still runs to its end on the blocking pool.
+    pub(crate) async fn run<T, W>(&self, work: W) -> Result<T, StoreError>
+    where
+        W: FnOnce(&Files) -> Result<T, StoreError> + Send + 'static,
+        T: Send + 'static,
+    {
+        let files = self.files.clone();
+        blocking::run(move || work(&files), StoreError::Io).await
     }
 
     /// The record `id`, when it exists and is in the current format.
@@ -114,14 +133,13 @@ impl Store {
     /// # Errors
     ///
     /// Returns read failures and malformed records.
-    pub(crate) fn load<F>(&self, id: &str) -> Result<Option<F>, StoreError>
+    // cancel-safe: reads only.
+    pub(crate) async fn load<F>(&self, id: &str) -> Result<Option<F>, StoreError>
     where
         F: Flow,
     {
-        let Some(record) = self.load_named::<F>(id, F::FILE)? else {
-            return Ok(None);
-        };
-        Ok((record.current() && record.id() == id).then_some(record))
+        let run = id.to_owned();
+        self.run(move |files| files.load::<F>(&run)).await
     }
 
     /// Writes `record`, creating its directory.
@@ -129,12 +147,18 @@ impl Store {
     /// # Errors
     ///
     /// Returns write failures.
-    pub(crate) fn save<F>(&self, record: &F) -> Result<(), StoreError>
+    // NOT cancel-safe: dropped, the index entry and the record are still written.
+    pub(crate) async fn save<F>(&self, record: &F) -> Result<(), StoreError>
     where
         F: Flow,
     {
-        index::enter::<F>(self, record.id(), record.owner())?;
-        self.save_named(record.id(), F::FILE, record)
+        let bytes = json(record)?;
+        let (run, user) = (record.id().to_owned(), record.owner().to_owned());
+        self.run(move |files| {
+            index::enter::<F>(files, &run, &user)?;
+            files.write(&run, F::FILE, &bytes)
+        })
+        .await
     }
 
     /// Every readable record of `owner`, newest first: only the runs the index names
@@ -143,54 +167,13 @@ impl Store {
     /// # Errors
     ///
     /// Returns read failures of the index.
-    pub(crate) fn list<F>(&self, owner: &str) -> Result<Vec<F>, StoreError>
+    // NOT cancel-safe: dropped, the index is still corrected.
+    pub(crate) async fn list<F>(&self, owner: &str) -> Result<Vec<F>, StoreError>
     where
         F: Flow,
     {
-        let mut records = Vec::new();
-        let mut gone = Vec::new();
-        for (id, indexed) in index::runs::<F>(self)? {
-            if indexed != owner {
-                continue;
-            }
-            match self.load::<F>(&id) {
-                Ok(Some(record)) if record.owner() == owner => records.push(record),
-                Ok(Some(record)) => index::enter::<F>(self, &id, record.owner())?,
-                Ok(None) => gone.push(id),
-                Err(error) => tracing::warn!(%error, id, "a run record could not be read"),
-            }
-        }
-        if let Err(error) = index::forget::<F>(self, &gone) {
-            tracing::warn!(%error, "missing runs could not be dropped from the index");
-        }
-        records.sort_by(|left, right| {
-            right
-                .created_at()
-                .cmp(&left.created_at())
-                .then_with(|| right.id().cmp(left.id()))
-        });
-        Ok(records)
-    }
-
-    /// The runs' directory.
-    pub(crate) fn root(&self) -> &Path {
-        &self.root
-    }
-
-    /// Deletes run `id` with every file kcc kept for it.
-    ///
-    /// # Errors
-    ///
-    /// Returns removal failures other than a missing directory.
-    pub(crate) fn delete(&self, id: &str) -> Result<(), StoreError> {
-        if !is_id(id) {
-            return Err(StoreError::Malformed);
-        }
-        match fs::remove_dir_all(self.root.join(id)) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(error.into()),
-        }
+        let user = owner.to_owned();
+        self.run(move |files| files.list::<F>(&user)).await
     }
 
     /// Seals `text` as `part` of migration `id` with `key`.
@@ -198,17 +181,17 @@ impl Store {
     /// # Errors
     ///
     /// Returns sealing and write failures.
-    pub(crate) fn seal(
+    // NOT cancel-safe: dropped, the sealed part is still written.
+    pub(crate) async fn seal(
         &self,
         key: &MasterKey,
         id: &str,
         part: Sealed,
         text: &SecretString,
     ) -> Result<(), StoreError> {
-        let sealed = key.seal(&part.binding(id), text)?;
-        let mut bytes = serde_json::to_vec(&sealed).map_err(|_error| StoreError::Malformed)?;
-        bytes.push(b'\n');
-        self.write(id, part.file(), &bytes)
+        let (sealing, run, secret) = (key.duplicate(), id.to_owned(), text.clone());
+        self.run(move |files| files.seal(&sealing, &run, part, &secret))
+            .await
     }
 
     /// Opens `part` of migration `id` with `key`, when it was sealed.
@@ -216,18 +199,16 @@ impl Store {
     /// # Errors
     ///
     /// Returns read, format and opening failures.
-    pub(crate) fn open(
+    // cancel-safe: reads only.
+    pub(crate) async fn open(
         &self,
         key: &MasterKey,
         id: &str,
         part: Sealed,
     ) -> Result<Option<SecretString>, StoreError> {
-        let Some(bytes) = read(&self.root.join(id).join(part.file()))? else {
-            return Ok(None);
-        };
-        let sealed: SealedSecret =
-            serde_json::from_slice(&bytes).map_err(|_error| StoreError::Malformed)?;
-        Ok(Some(key.open(&part.binding(id), &sealed)?))
+        let (opening, run) = (key.duplicate(), id.to_owned());
+        self.run(move |files| files.open(&opening, &run, part))
+            .await
     }
 
     /// Writes `value` as JSON to `file` of run `id`, creating its directory.
@@ -235,13 +216,18 @@ impl Store {
     /// # Errors
     ///
     /// Returns serialization and write failures.
-    pub(crate) fn save_named<T>(&self, id: &str, file: &str, value: &T) -> Result<(), StoreError>
+    // NOT cancel-safe: dropped, the file is still written.
+    pub(crate) async fn save_named<T>(
+        &self,
+        id: &str,
+        file: &'static str,
+        value: &T,
+    ) -> Result<(), StoreError>
     where
-        T: Serialize,
+        T: Serialize + Sync,
     {
-        let mut bytes = serde_json::to_vec_pretty(value).map_err(|_error| StoreError::Malformed)?;
-        bytes.push(b'\n');
-        self.write(id, file, &bytes)
+        let (bytes, run) = (json(value)?, id.to_owned());
+        self.run(move |files| files.write(&run, file, &bytes)).await
     }
 
     /// The JSON `file` of run `id`, when it exists.
@@ -249,16 +235,18 @@ impl Store {
     /// # Errors
     ///
     /// Returns read failures and a file that does not parse as `T`.
-    pub(crate) fn load_named<T>(&self, id: &str, file: &str) -> Result<Option<T>, StoreError>
+    // cancel-safe: reads only.
+    pub(crate) async fn load_named<T>(
+        &self,
+        id: &str,
+        file: &'static str,
+    ) -> Result<Option<T>, StoreError>
     where
-        T: DeserializeOwned,
+        T: DeserializeOwned + Send + 'static,
     {
-        if !is_id(id) {
-            return Ok(None);
-        }
-        read(&self.root.join(id).join(file))?
-            .map(|bytes| serde_json::from_slice(&bytes).map_err(|_error| StoreError::Malformed))
-            .transpose()
+        let run = id.to_owned();
+        self.run(move |files| files.load_named::<T>(&run, file))
+            .await
     }
 
     /// Deletes `part` of run `id`, when it was sealed.
@@ -266,15 +254,10 @@ impl Store {
     /// # Errors
     ///
     /// Returns removal failures other than a missing file.
-    pub(crate) fn discard(&self, id: &str, part: Sealed) -> Result<(), StoreError> {
-        if !is_id(id) {
-            return Err(StoreError::Malformed);
-        }
-        match fs::remove_file(self.root.join(id).join(part.file())) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(error.into()),
-        }
+    // NOT cancel-safe: dropped, the part is still deleted.
+    pub(crate) async fn discard(&self, id: &str, part: Sealed) -> Result<(), StoreError> {
+        let run = id.to_owned();
+        self.run(move |files| files.discard(&run, part)).await
     }
 
     /// Keeps the redacted `text` as `file` of migration `id`.
@@ -282,8 +265,11 @@ impl Store {
     /// # Errors
     ///
     /// Returns write failures.
-    pub(crate) fn keep(&self, id: &str, file: Kept, text: &str) -> Result<(), StoreError> {
-        self.write(id, file.file(), text.as_bytes())
+    // NOT cancel-safe: dropped, the file is still written.
+    pub(crate) async fn keep(&self, id: &str, file: Kept, text: &str) -> Result<(), StoreError> {
+        let (run, redacted) = (id.to_owned(), text.to_owned());
+        self.run(move |files| files.keep(&run, file, &redacted))
+            .await
     }
 
     /// The kept `file` of migration `id`, when it was kept.
@@ -291,61 +277,25 @@ impl Store {
     /// # Errors
     ///
     /// Returns read failures and a file that is not UTF-8.
-    pub(crate) fn kept(&self, id: &str, file: Kept) -> Result<Option<String>, StoreError> {
-        if !is_id(id) {
-            return Ok(None);
-        }
-        read(&self.root.join(id).join(file.file()))?
-            .map(|bytes| String::from_utf8(bytes).map_err(|_error| StoreError::Malformed))
-            .transpose()
-    }
-
-    /// Writes `bytes` to `name` in migration `id`'s directory, owner-only.
-    ///
-    /// # Errors
-    ///
-    /// Returns directory, file, sync or rename failures.
-    fn write(&self, id: &str, name: &str, bytes: &[u8]) -> Result<(), StoreError> {
-        if !is_id(id) {
-            return Err(StoreError::Malformed);
-        }
-        let directory = self.root.join(id);
-        let mut builder = DirBuilder::new();
-        let _: &mut DirBuilder = builder.recursive(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::DirBuilderExt as _;
-            let _: &mut DirBuilder = builder.mode(0o700);
-        }
-        builder.create(&directory)?;
-        let temporary = directory.join(format!("{name}.tmp"));
-        let mut options = OpenOptions::new();
-        let _: &mut OpenOptions = options.write(true).create(true).truncate(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt as _;
-            let _: &mut OpenOptions = options.mode(0o600);
-        }
-        let mut file = options.open(&temporary)?;
-        file.write_all(bytes)?;
-        file.sync_all()?;
-        drop(file);
-        fs::rename(&temporary, directory.join(name))?;
-        Ok(())
+    // cancel-safe: reads only.
+    pub(crate) async fn kept(&self, id: &str, file: Kept) -> Result<Option<String>, StoreError> {
+        let run = id.to_owned();
+        self.run(move |files| files.kept(&run, file)).await
     }
 }
 
-/// The bytes of `path`, or `None` when it does not exist.
+/// `value` as pretty JSON with a final newline.
 ///
 /// # Errors
 ///
-/// Returns read failures other than a missing file.
-fn read(path: &Path) -> Result<Option<Vec<u8>>, StoreError> {
-    match fs::read(path) {
-        Ok(bytes) => Ok(Some(bytes)),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(error.into()),
-    }
+/// Returns [`StoreError::Malformed`] when it does not serialize.
+fn json<T>(value: &T) -> Result<Vec<u8>, StoreError>
+where
+    T: Serialize,
+{
+    let mut bytes = serde_json::to_vec_pretty(value).map_err(|_error| StoreError::Malformed)?;
+    bytes.push(b'\n');
+    Ok(bytes)
 }
 
 #[cfg(test)]

@@ -134,8 +134,8 @@ pub(super) async fn page(
         None
     };
     let store = services.store();
-    retention::sweep::<Record>(&store, state.unix_seconds());
-    let rows = match store.list(user.username()) {
+    retention::sweep::<Record>(&store, state.unix_seconds()).await;
+    let rows = match store.list(user.username()).await {
         Ok(records) => records.iter().map(|record| row(record, locale)).collect(),
         Err(error) => return Refusal::Failed(Box::new(error)).page(shell),
     };
@@ -223,11 +223,12 @@ pub(super) async fn start(
         _ => (Record::new(id, owner, now), None),
     };
     let store = services.store();
-    let saved = store.save(&record).and_then(|()| {
-        sealed.as_ref().map_or(Ok(()), |text| {
-            store.seal(services.key(), record.id(), Sealed::Source, text)
-        })
-    });
+    let mut saved = store.save(&record).await;
+    if let (Ok(()), Some(text)) = (&saved, &sealed) {
+        saved = store
+            .seal(services.key(), record.id(), Sealed::Source, text)
+            .await;
+    }
     if let Err(error) = saved {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }

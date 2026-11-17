@@ -37,7 +37,7 @@ pub(super) async fn dialog(
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let services = Services::of(&state, &user).map_err(Refusal::status)?;
-    let preset = deletable(services, &id)?;
+    let preset = deletable(services, &id).await?;
     Ok(errors::render(&confirmation(user.locale(), &preset)))
 }
 
@@ -56,7 +56,7 @@ pub(super) async fn delete(
 ) -> Result<Response, Answer> {
     let services = Services::of(&state, &user).map_err(Refusal::status)?;
     let locale = user.locale();
-    let preset = match deletable(services, &id) {
+    let preset = match deletable(services, &id).await {
         Ok(found) => found,
         Err(answer) => {
             Audit::new("web.preset_delete", id)
@@ -77,7 +77,7 @@ pub(super) async fn delete(
         asked.set_error(tr(locale, keys::WEB_ADMIN_ERROR_CONFIRM, None));
         return Err(respond::unprocessable(&asked).into());
     }
-    match saved::store(services.fleet()).delete(user.role(), &id) {
+    match saved::delete(services.fleet(), user.role(), &id).await {
         Ok(()) => {
             audit.append(&state, &user, "deleted").await;
             Ok(respond::open("/ui/presets"))
@@ -96,10 +96,11 @@ pub(super) async fn delete(
 /// # Errors
 ///
 /// Answers 404 or the localized 403.
-fn deletable(services: Services<'_>, id: &str) -> Result<Preset, Answer> {
+// cancel-safe: reads only.
+async fn deletable(services: Services<'_>, id: &str) -> Result<Preset, Answer> {
     let user = services.user();
-    let presets = saved::store(services.fleet())
-        .list(user.role())
+    let presets = saved::list(services.fleet(), user.role())
+        .await
         .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(user.locale()))))?;
     let preset = presets
         .into_iter()

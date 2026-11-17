@@ -19,8 +19,8 @@ use axum::{
     response::{IntoResponse as _, Response, sse::Event},
 };
 use futures_util::{
-    StreamExt as _,
-    future::{self, Either},
+    FutureExt as _, StreamExt as _,
+    future::{self, BoxFuture, Either},
     stream::{self, BoxStream},
 };
 use kcc_i18n::locale::Locale;
@@ -63,8 +63,8 @@ impl View {
     }
 }
 
-/// The `end` and `done` events from a wizard's recorded end.
-pub(crate) type Ending = Box<dyn Fn() -> [Event; 2] + Send>;
+/// The `end` and `done` events from a wizard's recorded end, read when awaited.
+pub(crate) type Ending = Box<dyn Fn() -> BoxFuture<'static, [Event; 2]> + Send>;
 
 /// What a stream knows of the apply it follows.
 pub(crate) struct Feed {
@@ -135,16 +135,21 @@ where
     let store = services.store();
     let locale = user.locale();
     let ending: Ending = Box::new(move || {
-        let ended = store
-            .load::<F>(&id)
-            .ok()
-            .flatten()
-            .and_then(|record| record.run()?.ended().cloned());
-        beats::closing(
-            locale,
-            format!("{}/{id}/results", F::PREFIX),
-            F::ended_words(ended.as_ref(), locale),
-        )
+        let (runs, run_id) = (store.clone(), id.clone());
+        async move {
+            let ended = runs
+                .load::<F>(&run_id)
+                .await
+                .ok()
+                .flatten()
+                .and_then(|record| record.run()?.ended().cloned());
+            beats::closing(
+                locale,
+                format!("{}/{run_id}/results", F::PREFIX),
+                F::ended_words(ended.as_ref(), locale),
+            )
+        }
+        .boxed()
     });
     let apply = (
         visit.session().live(),
@@ -188,7 +193,7 @@ impl Cursor {
         stream::unfold(Some(self), async |held| {
             let mut cursor = held?;
             let beat = cursor.wait().await;
-            let (out, open) = cursor.round(beat);
+            let (out, open) = cursor.round(beat).await;
             Some((stream::iter(out), open.then_some(cursor)))
         })
         .flatten()
@@ -220,7 +225,8 @@ impl Cursor {
 
     /// The events of one round, with the heartbeat when `beat`, and whether the stream
     /// stays open.
-    fn round(&mut self, beat: bool) -> (Vec<Event>, bool) {
+    // cancel-safe: only the recorded end is read.
+    async fn round(&mut self, beat: bool) -> (Vec<Event>, bool) {
         let source = &self.source;
         let locale = source.locale;
         let snapshot = self
@@ -243,7 +249,7 @@ impl Cursor {
             return (out, ticking);
         }
         let Some(progress) = snapshot else {
-            out.extend((source.ending)());
+            out.extend((source.ending)().await);
             return (out, false);
         };
         for sent in progress.sent().iter().skip(self.sent) {
@@ -257,7 +263,7 @@ impl Cursor {
         self.sent = progress.sent().len();
         out.push(beats::bar(locale, progress.percent()));
         if progress.finished() {
-            out.extend((source.ending)());
+            out.extend((source.ending)().await);
             return (out, false);
         }
         (out, true)

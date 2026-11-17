@@ -150,7 +150,7 @@ mod tests {
         Ok(())
     }
 
-    /// E-02, G-02: `get`, `delete` and both apply reads answer a preset of another scope
+    /// E-02, G-02: `get`, `delete` and the apply read answer a preset of another scope
     /// exactly like a missing id, `list` hides it, and nothing is removed.
     #[test]
     fn a_preset_of_another_scope_answers_like_a_missing_one() -> Result<(), Box<dyn Error>> {
@@ -163,7 +163,6 @@ mod tests {
             let answers = [
                 store.get(&role, id).map(drop),
                 store.delete(&role, id),
-                store.get_for_apply(&role, id).map(drop),
                 store.load_for_apply(&role, id).map(drop),
             ];
             for answer in answers {

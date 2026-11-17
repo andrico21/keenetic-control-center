@@ -111,6 +111,41 @@ mod tests {
         Ok(())
     }
 
+    /// G-22: a record that cannot even be read (here a directory in its place) does not
+    /// make `list` fail either; it is skipped and its file name is logged.
+    #[test]
+    fn unreadable_record_is_skipped_and_logged() -> Result<(), Box<dyn Error>> {
+        let temporary = TempDir::new()?;
+        let (store, administrator) = saved(&temporary, "intact")?;
+        fs::create_dir_all(temporary.path().join("presets/stuck.json"))?;
+        let capture = Capture(Arc::new(Mutex::new(Vec::new())));
+        let sink = capture.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(Level::WARN)
+            .with_ansi(false)
+            .with_writer(move || sink.clone())
+            .finish();
+        let guard = set_default(subscriber);
+
+        let listed = store.list(&administrator);
+
+        drop(guard);
+        let ids = listed?
+            .iter()
+            .map(|preset| preset.id.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(ids, ["intact"]);
+        let logged = String::from_utf8(
+            capture
+                .0
+                .lock()
+                .map_err(|_error| "capture poisoned")?
+                .clone(),
+        )?;
+        assert!(logged.contains("stuck.json"), "{logged}");
+        Ok(())
+    }
+
     /// A store in `temporary` holding one captured preset `id`, and its administrator.
     fn saved(temporary: &TempDir, id: &str) -> Result<(PresetStore, Role), Box<dyn Error>> {
         let store = PresetStore::new(

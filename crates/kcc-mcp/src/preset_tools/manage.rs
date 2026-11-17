@@ -41,15 +41,17 @@ pub(crate) async fn list(server: &KccMcp, arguments: Value) -> Result<Value, Mcp
         if let Some(preset) = presets.transient(&identity.name, &id).await? {
             return Ok(view(&preset, true));
         }
+        let role = identity.role.clone();
         let stored = presets
-            .store()?
-            .get(&identity.role, &id)
+            .stored(move |store| store.get(&role, &id))
+            .await?
             .map_err(|error| map_preset(&error))?;
         return Ok(view(&stored, false));
     }
+    let role = identity.role.clone();
     let mut views = presets
-        .store()?
-        .list(&identity.role)
+        .stored(move |store| store.list(&role))
+        .await?
         .map_err(|error| map_preset(&error))?
         .iter()
         .map(|preset| view(preset, false))
@@ -68,9 +70,10 @@ pub(crate) async fn delete(server: &KccMcp, arguments: Value) -> Result<Value, M
     }
     let presets = &server.presets;
     if !presets.forget(&identity.name, &input.id).await? {
+        let (role, id) = (identity.role.clone(), input.id.clone());
         presets
-            .store()?
-            .delete(&identity.role, &input.id)
+            .stored(move |store| store.delete(&role, &id))
+            .await?
             .map_err(|error| map_preset(&error))?;
     }
     Ok(Success::new("kcc_preset_delete")

@@ -74,7 +74,7 @@ pub(super) async fn submit(
     let Ok(analysis) = visit.analysis().await else {
         return Err(respond::unprocessable(&Panel::new(&visit, Shown::default()).await).into());
     };
-    let mut passwords = visit.passwords().map_err(|error| internal(&error))?;
+    let mut passwords = visit.passwords().await.map_err(|error| internal(&error))?;
     let classified =
         Classified::new(&analysis, visit.record(), &passwords).map_err(|error| internal(&error))?;
     let needs = Needs::of(&analysis, &classified, visit.record());
@@ -84,16 +84,17 @@ pub(super) async fn submit(
     };
     visit
         .seal_passwords(&passwords)
+        .await
         .map_err(|error| internal(&error))?;
     visit.record_mut().set_inputs(inputs);
     let built = Built::new(&analysis, visit.record(), &passwords);
-    visit.save().map_err(|error| internal(&error))?;
+    visit.save().await.map_err(|error| internal(&error))?;
     match built {
         Ok(found) => {
             visit
                 .record_mut()
                 .preview_ready(found.plan().plan_id.clone());
-            visit.save().map_err(|error| internal(&error))?;
+            visit.save().await.map_err(|error| internal(&error))?;
             let record = visit.record();
             Audit::on_router(
                 "web.migrate_inputs",

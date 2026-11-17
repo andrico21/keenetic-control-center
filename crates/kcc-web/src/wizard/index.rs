@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     flow::Flow,
     ids::is_id,
-    store::{Store, StoreError},
+    store::{StoreError, files::Files},
 };
 
 /// Run directories a rebuild reads at most.
@@ -53,7 +53,7 @@ where
 /// # Errors
 ///
 /// Returns read and write failures of the index.
-pub(crate) fn enter<F>(store: &Store, id: &str, owner: &str) -> Result<(), StoreError>
+pub(crate) fn enter<F>(store: &Files, id: &str, owner: &str) -> Result<(), StoreError>
 where
     F: Flow,
 {
@@ -71,7 +71,7 @@ where
 /// # Errors
 ///
 /// Returns read and write failures of the index.
-pub(crate) fn runs<F>(store: &Store) -> Result<BTreeMap<String, String>, StoreError>
+pub(crate) fn runs<F>(store: &Files) -> Result<BTreeMap<String, String>, StoreError>
 where
     F: Flow,
 {
@@ -84,7 +84,7 @@ where
 /// # Errors
 ///
 /// Returns read and write failures of the index.
-pub(crate) fn forget<F>(store: &Store, gone: &[String]) -> Result<(), StoreError>
+pub(crate) fn forget<F>(store: &Files, gone: &[String]) -> Result<(), StoreError>
 where
     F: Flow,
 {
@@ -105,7 +105,7 @@ where
 /// # Errors
 ///
 /// Returns read and write failures.
-fn read<F>(store: &Store) -> Result<Index, StoreError>
+fn read<F>(store: &Files) -> Result<Index, StoreError>
 where
     F: Flow,
 {
@@ -133,7 +133,7 @@ where
 /// # Errors
 ///
 /// Returns directory read failures.
-fn rebuild<F>(store: &Store) -> Result<Index, StoreError>
+fn rebuild<F>(store: &Files) -> Result<Index, StoreError>
 where
     F: Flow,
 {

@@ -163,15 +163,15 @@ pub(super) async fn submit(
         Ok(found) => found,
         Err(refusal) => return Err(refused(services, &id, chosen, refusal).await),
     };
-    if let Err(error) = saved::seal(services, &id, &preset) {
+    if let Err(error) = saved::seal(services, &id, &preset).await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     visit.session().forget();
     visit.record_mut().choose_source(router.clone());
-    if let Err(error) = visit.forget_passwords() {
+    if let Err(error) = visit.forget_passwords().await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
-    if let Err(error) = visit.save() {
+    if let Err(error) = visit.save().await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     Audit::on_router("web.preset_copy_source", &router, id)

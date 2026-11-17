@@ -89,7 +89,7 @@ pub(super) async fn proceed(
         return Err(respond::unprocessable(&panel).into());
     }
     visit.record_mut().review_done();
-    if let Err(error) = visit.save() {
+    if let Err(error) = visit.save().await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     let record = visit.record();
@@ -123,6 +123,7 @@ async fn decide(visit: &mut Visit<'_>, form: &[(String, String)]) -> Result<usiz
         .map_err(|_problem| Answer::from(StatusCode::UNPROCESSABLE_ENTITY.into_response()))?;
     let passwords = visit
         .passwords()
+        .await
         .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(locale))))?;
     let classified = Classified::new(&analysis, visit.record(), &passwords)
         .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(locale))))?;
@@ -156,6 +157,7 @@ async fn decide(visit: &mut Visit<'_>, form: &[(String, String)]) -> Result<usiz
     }
     visit
         .save()
+        .await
         .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(locale))))?;
     Ok(classified.unresolved(visit.record()))
 }

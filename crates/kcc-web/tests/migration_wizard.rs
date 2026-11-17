@@ -13,6 +13,8 @@ mod finish_audit;
 mod flow;
 #[path = "migration_wizard/guards.rs"]
 mod guards;
+#[path = "migration_wizard/off_runtime.rs"]
+mod off_runtime;
 #[path = "migration_wizard/operator_guards.rs"]
 mod operator_guards;
 #[path = "migration_wizard/plan_agreement.rs"]

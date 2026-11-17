@@ -136,7 +136,7 @@ pub(super) async fn submit(
     let Ok(users) = basis.users(visit.record()) else {
         return Err(respond::unprocessable(&Panel::new(&visit, &[]).await).into());
     };
-    let mut passwords = visit.passwords().map_err(|error| internal(&error))?;
+    let mut passwords = visit.passwords().await.map_err(|error| internal(&error))?;
     let mut refused = Vec::new();
     for (index, name) in users.iter().enumerate() {
         let field = format!("password-{index}");
@@ -159,6 +159,7 @@ pub(super) async fn submit(
     passwords.retain(|name, _| users.contains(name));
     visit
         .seal_passwords(&passwords)
+        .await
         .map_err(|error| internal(&error))?;
     visit
         .record_mut()
@@ -170,7 +171,7 @@ pub(super) async fn submit(
             visit
                 .record_mut()
                 .preview_ready(request.plan.plan_id.clone());
-            visit.save().map_err(|error| internal(&error))?;
+            visit.save().await.map_err(|error| internal(&error))?;
             let record = visit.record();
             Audit::on_router("web.preset_inputs", record.target().unwrap_or_default(), id)
                 .with_params(json!({ "users": record.passwords().len() }))
@@ -179,7 +180,7 @@ pub(super) async fn submit(
             Ok(screen::moved(visit.record()))
         }
         Err(Refused::Apply(PresetApplyError::PlanNotReady)) => {
-            visit.save().map_err(|error| internal(&error))?;
+            visit.save().await.map_err(|error| internal(&error))?;
             let mut panel = Panel::new(&visit, &[]).await;
             panel.blocked = kept.map_or_default(|plan| blocked(&plan.items, &visit, locale));
             Err(respond::unprocessable(&panel).into())

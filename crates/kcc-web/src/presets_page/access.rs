@@ -30,7 +30,8 @@ pub(super) trait PresetRun {
     ///
     /// Returns [`Problem::Source`] when they cannot be read: the preset was deleted or
     /// is out of scope, or the copied settings expired.
-    fn preset(&self) -> Result<Preset, Problem>;
+    // cancel-safe: reads only.
+    async fn preset(&self) -> Result<Preset, Problem>;
 
     /// The target's inventory, read once for the run's settings and kept in its session.
     ///
@@ -43,13 +44,14 @@ pub(super) trait PresetRun {
 }
 
 impl PresetRun for Visit<'_> {
-    fn preset(&self) -> Result<Preset, Problem> {
+    // cancel-safe: reads only.
+    async fn preset(&self) -> Result<Preset, Problem> {
         let services = self.services();
-        let fleet = services.fleet();
         let (store, now) = (services.store(), services.state().unix_seconds());
         let found = match self.record().origin() {
             Origin::Preset { id, name: _ } => {
-                match saved::store(fleet).get_for_apply(services.user().role(), id) {
+                let role = services.user().role();
+                match saved::load_for_apply(services.fleet(), role, id).await {
                     Ok(preset) => Some(preset),
                     Err(error) => {
                         tracing::warn!(%error, "preset of a run could not be read");
@@ -57,10 +59,12 @@ impl PresetRun for Visit<'_> {
                     }
                 }
             }
-            Origin::Copy if retention::idle::<Record>(&store, self.record().id(), now) => None,
+            Origin::Copy if retention::idle::<Record>(&store, self.record().id(), now).await => {
+                None
+            }
             Origin::Copy => {
                 let name = self.record().source_router().unwrap_or_default().to_owned();
-                match saved::transient(services, self.record().id(), name) {
+                match saved::transient(services, self.record().id(), name).await {
                     Ok(preset) => preset,
                     Err(error) => {
                         tracing::warn!(%error, "copied settings could not be read");

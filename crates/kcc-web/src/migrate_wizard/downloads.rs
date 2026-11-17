@@ -55,8 +55,14 @@ pub(super) async fn download(
     let conflict = || Answer::from(StatusCode::CONFLICT.into_response());
     let store = services.store();
     let kept = (
-        store.kept(&id, Kept::Report).map_err(|_error| conflict())?,
-        store.kept(&id, Kept::Plan).map_err(|_error| conflict())?,
+        store
+            .kept(&id, Kept::Report)
+            .await
+            .map_err(|_error| conflict())?,
+        store
+            .kept(&id, Kept::Plan)
+            .await
+            .map_err(|_error| conflict())?,
     );
     let (report, plan) = if let (Some(report), Some(plan)) = kept {
         (
@@ -65,7 +71,7 @@ pub(super) async fn download(
         )
     } else {
         let analysis = visit.analysis().await.map_err(|_problem| conflict())?;
-        let passwords = visit.passwords().map_err(|_error| conflict())?;
+        let passwords = visit.passwords().await.map_err(|_error| conflict())?;
         let built =
             Built::new(&analysis, visit.record(), &passwords).map_err(|_error| conflict())?;
         let plan = serde_json::to_string_pretty(built.plan()).map_err(|_error| conflict())?;

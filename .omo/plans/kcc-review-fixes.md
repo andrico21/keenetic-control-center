@@ -902,7 +902,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(app): job and backup bookkeeping
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 37. No blocking file, lock or crypto work on async workers
+- [x] 37. No blocking file, lock or crypto work on async workers
   What to do / Must NOT do: Move blocking file I/O, fsync, `flock` waits and preset crypto to `spawn_blocking` (or tokio fs) in kcc-app, the wizard store and the preset store; B-07's 'release `clients` before connecting' part is already done by todo 20's per-id OnceCell (SEC2-09) - do not implement it twice; G-22 also removes the duplicated PresetStore method. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `B-07` (low; critic adjusted, medium->low) Blocking file I/O and blocking `flock` waits run directly on Tokio workers. Evidence: `crates/kcc-app/src/workflow.rs:1370-1374`, `backups/store.rs:85,101`, `registry.rs:359,525,571,606`, `jobs.rs:427,476,524`. Fix: Wrap these synchronous store calls in `spawn_blocking`, as `kcc-web` already does for accounts. Release `clients` before connecting, then insert with a re-check. Critic correction (binding): This is a guideline violation with small, bounded stalls. Keep the fix (`spawn_blocking` for the store calls, and connect outside the `clients` lock).
   - `W2-08` (low; critic confirmed) The wizard store does blocking file I/O, including fsync, in async handlers. Evidence: `wizard/store.rs:648-652`, `visit.rs:59`, `visit.rs:105`, `finish.rs:275`. Fix: Wrap the `Store` calls in `spawn_blocking`, the way `config_page::store::blocking` does.

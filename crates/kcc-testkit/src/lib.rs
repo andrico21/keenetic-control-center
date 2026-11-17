@@ -28,6 +28,7 @@ pub mod anonymize;
 pub mod auth_fixture;
 mod auth_fixture_digest;
 mod auth_fixture_ndw4;
+pub mod blocking_gate;
 pub mod capture;
 mod cli_engine;
 mod components;

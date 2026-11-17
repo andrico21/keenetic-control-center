@@ -68,7 +68,7 @@ impl Prepared {
             .analysis()
             .await
             .map_err(|_problem| Refused::Unreadable)?;
-        let passwords = visit.passwords().map_err(|_error| Refused::Broken)?;
+        let passwords = visit.passwords().await.map_err(|_error| Refused::Broken)?;
         let classified =
             Classified::new(&analysis, record, &passwords).map_err(|_error| Refused::Broken)?;
         let built = Built::new(&analysis, record, &passwords).map_err(|_error| Refused::Broken)?;
@@ -108,6 +108,7 @@ impl Prepared {
                 let text = services
                     .store()
                     .open(services.key(), record.id(), Sealed::Source)
+                    .await
                     .map_err(|_error| Refused::Broken)?
                     .ok_or(Refused::Broken)?;
                 ApplySource::File(SecretBytes::from(text.expose_secret().as_bytes().to_vec()))

@@ -145,7 +145,7 @@ pub(super) async fn save(
         user.username().to_owned(),
     );
     let ast = source_ast(found).unwrap_or_default();
-    match saved::store(fleet).capture(user.role(), &ast, request) {
+    match saved::capture(fleet, user.role(), ast, request).await {
         Ok(preset) => {
             drafts.remove(&draft_id);
             audit

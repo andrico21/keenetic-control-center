@@ -118,7 +118,7 @@ impl Panel {
         let mut panel = Self::base(visit).await;
         if visit.record().target().is_some() {
             let locale = visit.services().user().locale();
-            let read = match visit.preset() {
+            let read = match visit.preset().await {
                 Ok(preset) => visit.inventory(&preset).await,
                 Err(problem) => Err(problem),
             };

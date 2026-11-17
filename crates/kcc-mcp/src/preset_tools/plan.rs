@@ -232,13 +232,16 @@ async fn planned(
     valid_text(&input.preset_id, 96)?;
     let target = RouterId::new(input.host.clone())?;
     let presets = &server.presets;
-    let preset = match presets.transient(&identity.name, &input.preset_id).await? {
-        Some(preset) => preset,
-        None => presets
-            .store()?
-            .load_for_apply(&identity.role, &input.preset_id)
-            .map_err(|error| map_preset(&error))?,
-    };
+    let preset =
+        if let Some(transient) = presets.transient(&identity.name, &input.preset_id).await? {
+            transient
+        } else {
+            let (role, id) = (identity.role.clone(), input.preset_id.clone());
+            presets
+                .stored(move |store| store.load_for_apply(&role, &id))
+                .await?
+                .map_err(|error| map_preset(&error))?
+        };
     let source = preset
         .source_router()
         .map(|router| RouterId::new(router.to_owned()))

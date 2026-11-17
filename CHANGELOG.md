@@ -390,6 +390,16 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **File, lock and sealing work no longer runs on the async workers.** The automatic
+  pre-change backup, router profile and password writes, job records (start, end and the
+  startup recovery), every file of the Web migration and preset wizards, and the preset
+  store behind the Web pages and the MCP preset tools now run on Tokio's blocking pool,
+  so a slow disk or a lock held by the CLI no longer stalls other Web, MCP and polling
+  work. A request dropped while such a write runs no longer interrupts it: the write
+  completes.
+- **One unreadable preset no longer hides the others.** The preset list skips and logs
+  (file name only) every record it cannot read, open or parse, I/O errors included; only
+  an unreadable presets directory fails the list.
 - **Finish outcomes tell when the recovery timer is still armed.** A migration or preset
   commit or keep-unsaved that finds the target changed since verification, or cannot
   detect the target, now fails as `FinishFailed` (timer still armed; MCP

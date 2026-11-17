@@ -26,7 +26,8 @@ pub(super) trait Migration {
     /// # Errors
     ///
     /// Returns sealing and write failures.
-    fn seal_source(&self, text: &SecretString) -> Result<(), StoreError>;
+    // NOT cancel-safe: dropped, the sealed source is still written.
+    async fn seal_source(&self, text: &SecretString) -> Result<(), StoreError>;
 
     /// The analysis of the record's source and target: the kept one, or read again.
     ///
@@ -43,13 +44,17 @@ pub(super) trait Migration {
 }
 
 impl Migration for Visit<'_> {
-    fn seal_source(&self, text: &SecretString) -> Result<(), StoreError> {
-        self.services().store().seal(
-            self.services().key(),
-            self.record().id(),
-            Sealed::Source,
-            text,
-        )
+    // NOT cancel-safe: dropped, the sealed source is still written.
+    async fn seal_source(&self, text: &SecretString) -> Result<(), StoreError> {
+        self.services()
+            .store()
+            .seal(
+                self.services().key(),
+                self.record().id(),
+                Sealed::Source,
+                text,
+            )
+            .await
     }
 
     // cancel-safe: reads only.
@@ -62,6 +67,7 @@ impl Migration for Visit<'_> {
             .services()
             .store()
             .open(self.services().key(), self.record().id(), Sealed::Source)
+            .await
             .map_err(|error| {
                 tracing::error!(%error, "migration source could not be opened");
                 Problem::Source

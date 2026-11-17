@@ -82,7 +82,7 @@ where
         .await
         .map_err(Refusal::status)?;
     if visit.record_mut().go_back(back.step)
-        && let Err(error) = visit.save()
+        && let Err(error) = visit.save().await
     {
         return Err(errors::internal(&error, fragment_shell(user.locale())).into());
     }
@@ -117,6 +117,7 @@ where
     }
     visit
         .save()
+        .await
         .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(user.locale()))))?;
     Ok(screen::moved(visit.record()))
 }

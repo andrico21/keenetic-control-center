@@ -79,9 +79,9 @@ pub(super) async fn copy_page(
     if !user.role().grants(Permission::Migrate) {
         return errors::response(Kind::Forbidden, shell);
     }
-    retention::sweep::<Record>(&services.store(), state.unix_seconds());
+    retention::sweep::<Record>(&services.store(), state.unix_seconds()).await;
     let locale = user.locale();
-    let rows = runs(&services.store(), user.username(), |_record| true);
+    let rows = runs(&services.store(), user.username(), |_record| true).await;
     errors::render(&Landing {
         title: tr(locale, keys::WEB_PRESETS_COPY, None),
         intro: tr(locale, keys::WEB_PRESETS_COPY_INTRO, None),
@@ -108,17 +108,18 @@ pub(super) async fn preset_page(
         Ok(found) => found,
         Err(refusal) => return refusal.page(shell),
     };
-    let (name, _source) = match applicable(services, &id) {
+    let (name, _source) = match applicable(services, &id).await {
         Ok(found) => found,
         Err(refusal) => return refusal.page(shell),
     };
-    retention::sweep::<Record>(&services.store(), state.unix_seconds());
+    retention::sweep::<Record>(&services.store(), state.unix_seconds()).await;
     let locale = user.locale();
     let rows = runs(
         &services.store(),
         user.username(),
         |record| matches!(record.origin(), Origin::Preset { id: known, name: _ } if *known == id),
-    );
+    )
+    .await;
     let mut args = FluentArgs::new();
     args.set("name", name);
     errors::render(&Landing {
@@ -150,7 +151,7 @@ pub(super) async fn copy_start(
             .await;
         return Err(errors::response(Kind::Forbidden, fragment_shell(user.locale())).into());
     }
-    retention::sweep::<Record>(&services.store(), state.unix_seconds());
+    retention::sweep::<Record>(&services.store(), state.unix_seconds()).await;
     start(&state, (services, &runs), Origin::Copy, None).await
 }
 
@@ -168,7 +169,7 @@ pub(super) async fn preset_start(
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let services = Services::of(&state, &user).map_err(Refusal::status)?;
-    let (name, source) = match applicable(services, &id) {
+    let (name, source) = match applicable(services, &id).await {
         Ok(found) => found,
         Err(Refusal::Forbidden) => {
             Audit::new("web.preset_run_start", id)
@@ -216,7 +217,7 @@ async fn start(
     })?;
 
     let record = Record::new((id, user.username().to_owned()), now, origin, source_router);
-    if let Err(error) = services.store().save(&record) {
+    if let Err(error) = services.store().save(&record).await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     drop(runs.session(record.id()));
@@ -237,13 +238,14 @@ async fn start(
 /// # Errors
 ///
 /// Returns the refusal.
-fn applicable(services: Services<'_>, id: &str) -> Result<(String, Option<String>), Refusal> {
+// cancel-safe: reads only.
+async fn applicable(services: Services<'_>, id: &str) -> Result<(String, Option<String>), Refusal> {
     let user = services.user();
     if !user.role().grants(Permission::Migrate) {
         return Err(Refusal::Forbidden);
     }
-    let presets = saved::store(services.fleet())
-        .list(user.role())
+    let presets = saved::list(services.fleet(), user.role())
+        .await
         .map_err(|error| Refusal::Failed(Box::new(error)))?;
     let preset = presets
         .into_iter()
@@ -260,11 +262,12 @@ fn applicable(services: Services<'_>, id: &str) -> Result<(String, Option<String
 }
 
 /// The runs of `owner` that `keep` keeps, newest first.
-fn runs<F>(store: &Store, owner: &str, keep: F) -> Vec<Record>
+// NOT cancel-safe: see `Store::list`.
+async fn runs<F>(store: &Store, owner: &str, keep: F) -> Vec<Record>
 where
     F: Fn(&Record) -> bool,
 {
-    let mut records = store.list::<Record>(owner).unwrap_or_else(|error| {
+    let mut records = store.list::<Record>(owner).await.unwrap_or_else(|error| {
         tracing::warn!(%error, "preset runs could not be listed");
         Vec::new()
     });

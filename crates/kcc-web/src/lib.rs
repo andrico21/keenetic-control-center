@@ -120,6 +120,7 @@ pub mod table;
 mod advanced;
 mod auth;
 mod authz;
+mod blocking;
 
 mod admin_audit;
 mod admin_keys;

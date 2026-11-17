@@ -29,6 +29,7 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     accounts::{Clock, SystemClock},
     audit::{Actor, ActorKind, AuditEvent, AuditLog},
+    blocking,
     persist::{StateError, StateStore, create_private_dir, io_error, write_atomic},
     registry::{RegistryError, RouterRegistry},
 };
@@ -319,7 +320,8 @@ impl JobRunner {
             finished_retention,
             ids,
         });
-        runner.prune_finished()?;
+        let pruning = Arc::clone(&runner);
+        blocking::run(runner.state.dir(), move || pruning.prune_finished()).await?;
         runner.recover(&audit).await?;
         Ok(runner)
     }
@@ -402,8 +404,11 @@ impl JobRunner {
     ///
     /// Returns [`JobError::RouterBusy`] for a second simultaneous write job on one router,
     /// [`JobError::IdUnavailable`] when no random id could be drawn, or state I/O errors
-    /// while persisting the initial record.
-    // cancel-safe: ownership and map reservations roll back on every drop before the task is spawned.
+    /// while persisting the initial record. The record is written on the blocking pool.
+    // NOT cancel-safe: dropped while the initial record is written, the write still completes
+    // on the blocking pool and the record stays `running` without a job until the next start
+    // marks it interrupted; the ownership claim is released and no router slot or map entry is
+    // taken (they are taken only after the write).
     pub async fn start<F, Fut>(
         self: &Arc<Self>,
         kind: String,
@@ -431,12 +436,8 @@ impl JobRunner {
             });
         }
         let ownership = self.ownership.claim(&id)?;
-        if let Some(slot) = &write_router {
-            drop(write_jobs.insert(slot.clone(), id.clone()));
-        }
-        drop(active.insert(id.clone(), cancellation.clone()));
         let now = self.clock.unix_seconds();
-        if let Err(error) = self.persist(&JobRecord {
+        let record = JobRecord {
             id: id.clone(),
             kind,
             router,
@@ -446,13 +447,13 @@ impl JobRunner {
             created_at: now,
             updated_at: now,
             message: None,
-        }) {
-            drop(active.remove(&id));
-            if let Some(slot) = &write_router {
-                drop(write_jobs.remove(slot));
-            }
-            return Err(error);
+        };
+        let writer = Arc::clone(self);
+        blocking::run(self.state.dir(), move || writer.persist(&record)).await?;
+        if let Some(slot) = &write_router {
+            drop(write_jobs.insert(slot.clone(), id.clone()));
         }
+        drop(active.insert(id.clone(), cancellation.clone()));
         let owner = Arc::clone(self);
         let task_id = id.clone();
         let context = JobContext {
@@ -474,7 +475,18 @@ impl JobRunner {
                 (_, true, false) => JobStatus::Cancelled,
                 (true, false, false) => JobStatus::Completed,
             };
-            owner.record_final(&task_id, status, result.err(), &terminal_progress);
+            let (finisher, job) = (Arc::clone(&owner), task_id.clone());
+            let recorded = blocking::run(owner.state.dir(), move || {
+                finisher.record_final(&job, status, result.err(), &terminal_progress);
+                Ok::<_, JobError>(())
+            });
+            if let Err(error) = recorded.await {
+                tracing::warn!(
+                    job = %task_id,
+                    error_kind = job_error_kind(&error),
+                    "job final record not written"
+                );
+            }
             if let Some(slot) = write_router {
                 drop(owner.write_jobs.lock().await.remove(&slot));
             }
@@ -492,20 +504,16 @@ impl JobRunner {
     ///
     /// Only local state errors fail startup; the router probe and the audit entry are
     /// best effort.
-    async fn recover(&self, audit: &AuditLog) -> Result<(), JobError> {
-        for path in self.job_paths()? {
-            let Some(mut record) = read_job(&path)? else {
+    /// The records are read and written on the blocking pool, one record at a time.
+    // cancel-safe: each record write is atomic and, dropped, still completes on the blocking pool.
+    async fn recover(self: &Arc<Self>, audit: &AuditLog) -> Result<(), JobError> {
+        let lister = Arc::clone(self);
+        for path in blocking::run(self.state.dir(), move || lister.job_paths()).await? {
+            let runner = Arc::clone(self);
+            let interrupted = blocking::run(self.state.dir(), move || runner.interrupt(&path));
+            let Some(record) = interrupted.await? else {
                 continue;
             };
-            if record.status != JobStatus::Running {
-                continue;
-            }
-            if self.ownership.is_held(&record.id)? {
-                continue;
-            }
-            record.status = JobStatus::Interrupted;
-            record.updated_at = self.clock.unix_seconds();
-            self.persist(&record)?;
             let probe = match &record.router {
                 Some(router) => self.probe_recovery(router).await,
                 None => None,
@@ -522,6 +530,21 @@ impl JobRunner {
             self.audit_recovered(audit, &record, probe).await;
         }
         Ok(())
+    }
+
+    /// Marks the record at `path` interrupted when it is running and no live process owns
+    /// it, and returns it then.
+    fn interrupt(&self, path: &PathBuf) -> Result<Option<JobRecord>, JobError> {
+        let Some(mut record) = read_job(path)? else {
+            return Ok(None);
+        };
+        if record.status != JobStatus::Running || self.ownership.is_held(&record.id)? {
+            return Ok(None);
+        }
+        record.status = JobStatus::Interrupted;
+        record.updated_at = self.clock.unix_seconds();
+        self.persist(&record)?;
+        Ok(Some(record))
     }
 
     /// Reads `(fail_safe_active, scheduled_reboot)` from the router within the probe bound.

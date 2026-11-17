@@ -1,6 +1,6 @@
 //! The encrypted preset store and this process's transient (never stored) presets.
 
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, sync::Arc};
 use core::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -11,7 +11,7 @@ use kcc_migrate::presets::{
 use serde_json::{Value, json};
 use tokio::sync::Mutex;
 
-use crate::McpFailure;
+use crate::{McpFailure, support::blocking};
 
 /// One transient preset and the identity that captured it.
 #[derive(Debug)]
@@ -48,6 +48,26 @@ impl Presets {
             tracing::error!("MCP preset store is not configured");
             McpFailure::Internal
         })
+    }
+
+    /// Runs `work` on the encrypted store on the blocking pool: the store reads, writes
+    /// and seals files.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`McpFailure::Internal`] without a store or when the task did not finish;
+    /// the store's own error is the inner result.
+    // NOT cancel-safe: dropped, `work` still runs to its end on the blocking pool.
+    pub(crate) async fn stored<T, W>(
+        self: &Arc<Self>,
+        work: W,
+    ) -> Result<Result<T, PresetError>, McpFailure>
+    where
+        W: FnOnce(&PresetStore) -> Result<T, PresetError> + Send + 'static,
+        T: Send + 'static,
+    {
+        let presets = Arc::clone(self);
+        blocking::run(move || presets.store().map(work)).await?
     }
 
     /// A fresh transient id.

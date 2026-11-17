@@ -38,7 +38,7 @@ pub(super) async fn show(
             screen::page(shell, record, &panel)
         }
         Step::Target => screen::page(shell, record, &target::Panel::new(visit).await),
-        Step::Options => screen::page(shell, record, &options::Panel::new(visit)),
+        Step::Options => screen::page(shell, record, &options::Panel::new(visit).await),
         Step::Review => screen::page(shell, record, &review::Panel::new(visit, view).await),
         Step::Inputs => screen::page(shell, record, &inputs::Panel::new(visit, &[]).await),
         Step::Preview => {

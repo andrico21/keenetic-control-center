@@ -84,7 +84,7 @@ pub(super) async fn launch(
     let plan_id = request.plan.plan_id.clone();
     if visit.record().preview() != Some(plan_id.as_str()) {
         visit.record_mut().preview_ready(plan_id);
-        visit.save().map_err(Failure::Broken)?;
+        visit.save().await.map_err(Failure::Broken)?;
         return Err(Failure::Refused(keys::WEB_PRESETS_APPLY_CHANGED, "changed"));
     }
     let phases = &request.plan.phases;
@@ -138,7 +138,7 @@ pub(super) async fn launch(
     visit
         .record_mut()
         .start_run(Run::new(job.clone(), now, safety));
-    visit.save().map_err(Failure::Broken)?;
+    visit.save().await.map_err(Failure::Broken)?;
     Ok((job, commands))
 }
 
@@ -182,7 +182,7 @@ async fn settle(context: Settling, done: oneshot::Receiver<Result<Applier, Apply
         (Some(known), _) => Ok(known),
         (None, error) => Err(error.unwrap_or(ApplyError::Job)),
     };
-    record_end(&context, now, ended);
+    record_end(&context, now, ended).await;
     if applier.is_none() {
         context.runs.release(&context.target, &context.id);
     }
@@ -217,8 +217,9 @@ fn watch(context: Settling, left: Duration) {
 
 /// Records in the run's record how its apply ended at `now`: the engine's report, or
 /// the error it failed with before it made one.
-fn record_end(context: &Settling, now: u64, outcome: Result<&ApplyReport, ApplyError>) {
-    let Ok(Some(mut record)) = context.store.load_named::<Record>(&context.id, FILE) else {
+// NOT cancel-safe: dropped, the record write still completes.
+async fn record_end(context: &Settling, now: u64, outcome: Result<&ApplyReport, ApplyError>) {
+    let Ok(Some(mut record)) = context.store.load_named::<Record>(&context.id, FILE).await else {
         tracing::error!(id = context.id, "preset run record missing at its end");
         return;
     };
@@ -229,7 +230,7 @@ fn record_end(context: &Settling, now: u64, outcome: Result<&ApplyReport, ApplyE
         let (keys, kept) = wireguard(known);
         record.set_keys(keys, kept);
     }
-    if let Err(error) = context.store.save_named(&context.id, FILE, &record) {
+    if let Err(error) = context.store.save_named(&context.id, FILE, &record).await {
         tracing::error!(%error, "preset run end could not be recorded");
     }
 }

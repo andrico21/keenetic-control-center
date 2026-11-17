@@ -139,16 +139,16 @@ impl Panel {
             problem: String::new(),
             id,
         };
-        let found = match visit.analysis().await {
-            Ok(analysis) => visit
-                .passwords()
-                .ok()
-                .and_then(|passwords| Classified::new(&analysis, visit.record(), &passwords).ok()),
-            Err(problem) => {
-                panel.problem = problem_text(&problem, locale);
-                return panel;
-            }
-        };
+        let found =
+            match visit.analysis().await {
+                Ok(analysis) => visit.passwords().await.ok().and_then(|passwords| {
+                    Classified::new(&analysis, visit.record(), &passwords).ok()
+                }),
+                Err(problem) => {
+                    panel.problem = problem_text(&problem, locale);
+                    return panel;
+                }
+            };
         let Some(classified) = found else {
             panel.problem = tr(locale, keys::WEB_MIGRATE_PROBLEM_SOURCE, None);
             return panel;

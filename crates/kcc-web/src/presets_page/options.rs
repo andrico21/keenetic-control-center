@@ -81,7 +81,8 @@ struct Rename {
 
 impl Panel {
     /// The panel of `visit` with its stored choices.
-    pub(super) fn new(visit: &Visit<'_>) -> Self {
+    // cancel-safe: reads only.
+    pub(super) async fn new(visit: &Visit<'_>) -> Self {
         let record = visit.record();
         let locale = visit.services().user().locale();
         let mut panel = Self {
@@ -94,7 +95,7 @@ impl Panel {
             policies: Vec::new(),
             problem: String::new(),
         };
-        match visit.preset() {
+        match visit.preset().await {
             Ok(preset) => {
                 let (interfaces, policies) = names(&preset);
                 panel.has_keys = has_keys(&preset);
@@ -128,7 +129,7 @@ pub(super) async fn submit(
         return Ok(screen::moved(visit.record()));
     }
     let locale = user.locale();
-    let read = match visit.preset() {
+    let read = match visit.preset().await {
         Ok(preset) => visit
             .inventory(&preset)
             .await
@@ -136,7 +137,7 @@ pub(super) async fn submit(
         Err(problem) => Err(problem),
     };
     let Ok((preset, inventory)) = read else {
-        return Err(respond::unprocessable(&Panel::new(&visit)).into());
+        return Err(respond::unprocessable(&Panel::new(&visit).await).into());
     };
     let value = |field: &str| last(&form, field).map(|typed| typed.trim().to_owned());
     let mode = match value("mode").as_deref() {
@@ -144,7 +145,7 @@ pub(super) async fn submit(
         Some(_) | None => Mode::Merge,
     };
     let keep_keys = has_keys(&preset) && value("regenerate").as_deref() != Some("yes");
-    let mut panel = Panel::new(&visit);
+    let mut panel = Panel::new(&visit).await;
     panel.mode = mode.slug();
     panel.regenerate = !keep_keys;
     let chosen_interfaces = checked(&mut panel.interfaces, &value, locale, |source, chosen| {
@@ -169,7 +170,7 @@ pub(super) async fn submit(
     visit
         .record_mut()
         .set_options((mode, keep_keys), (chosen_interfaces, chosen_policies));
-    if let Err(error) = visit.save() {
+    if let Err(error) = visit.save().await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     let router = visit.record().target().unwrap_or_default().to_owned();

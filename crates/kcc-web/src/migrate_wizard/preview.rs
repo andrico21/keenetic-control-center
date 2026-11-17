@@ -119,7 +119,7 @@ impl Panel {
                 return panel;
             }
         };
-        let passwords = visit.passwords().unwrap_or_default();
+        let passwords = visit.passwords().await.unwrap_or_default();
         let (Ok(classified), Ok(built)) = (
             Classified::new(&analysis, record, &passwords),
             Built::new(&analysis, record, &passwords),

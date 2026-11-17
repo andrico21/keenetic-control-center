@@ -86,10 +86,10 @@ pub(super) async fn choose(
     }
     visit.record_mut().choose_target(router.clone());
     visit.session().forget();
-    if let Err(error) = visit.forget_passwords() {
+    if let Err(error) = visit.forget_passwords().await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
-    let read = match visit.preset() {
+    let read = match visit.preset().await {
         Ok(preset) => visit.inventory(&preset).await.map(drop),
         Err(problem) => Err(problem),
     };
@@ -100,7 +100,7 @@ pub(super) async fn choose(
             .await;
         return Err(respond::unprocessable(&panel).into());
     }
-    if let Err(error) = visit.save() {
+    if let Err(error) = visit.save().await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     Audit::on_router("web.preset_target", &router, id)
@@ -157,7 +157,7 @@ pub(super) async fn confirm(
         return Err(respond::unprocessable(&panel).into());
     }
     visit.record_mut().confirm_target(needs_ack);
-    if let Err(error) = visit.save() {
+    if let Err(error) = visit.save().await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     if needs_ack {

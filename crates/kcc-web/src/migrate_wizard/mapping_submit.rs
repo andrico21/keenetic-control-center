@@ -84,7 +84,7 @@ pub(super) async fn submit(
     })
     .sum::<usize>();
     visit.record_mut().set_maps(maps);
-    if let Err(error) = visit.save() {
+    if let Err(error) = visit.save().await {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     let router = visit.record().target().unwrap_or_default().to_owned();

@@ -47,6 +47,7 @@ use tokio::{
 use url::Url;
 
 use crate::{
+    blocking,
     credentials::{CredentialError, CredentialKind, CredentialStore},
     permissions::{Permission, Role},
     persist::{Migration, StateDoc, StateError, StateStore},
@@ -341,12 +342,17 @@ impl RouterRegistry {
     /// record; a `kcc.toml` profile (or any profile without a credential store) gets its
     /// own `password_file` rewritten. A token profile stores no password and keeps no
     /// cached client, so its next client signs in with the stored token.
-    // NOT cancel-safe: once persistence begins, the transition runs without await points.
+    ///
+    /// The password and `routers.json` are written on the blocking pool while the client
+    /// cache stays locked, so no client of the router is built in between.
+    // NOT cancel-safe: dropped while the password and profile are written, both writes still
+    // complete on the blocking pool, but the loaded profile and the cached client stay the old
+    // ones until the next reload.
     pub(crate) async fn transition(
         &self,
         id: &str,
         client: Arc<RciClient>,
-        replacement: Option<&Credentials>,
+        replacement: Option<Credentials>,
     ) -> Result<(), RegistryError> {
         let endpoint =
             Url::parse(client.router_url().as_str()).map_err(|_error| RciError::Validation)?;
@@ -356,27 +362,38 @@ impl RouterRegistry {
         } else {
             ProfileSource::State
         };
-        let mut profiles = self.profiles.write().map_err(lock_error)?;
-        let mut profile = profiles
+        let mut profile = self
+            .profiles
+            .read()
+            .map_err(lock_error)?
             .get(id)
             .cloned()
             .ok_or_else(|| RegistryError::NotFound { id: id.to_owned() })?;
-        if let Some(credential) = replacement {
-            stored::replace_password(
-                self.credentials.as_deref(),
-                source,
-                &mut profile,
-                credential,
-            )?;
-        }
-        profile.url = endpoint;
-        self.store.update::<RoutersDocument, _, _>(|document| {
-            if let Some(stored) = document.routers.iter_mut().find(|entry| entry.id == id) {
-                stored.clone_from(&profile);
+        let (credentials, store) = (self.credentials.clone(), self.store.clone());
+        let written = blocking::run(self.store.dir(), move || {
+            if let Some(credential) = &replacement {
+                stored::replace_password(credentials.as_deref(), source, &mut profile, credential)?;
             }
-        })?;
-        let token = profile.password_file.is_none();
-        drop(profiles.insert(id.to_owned(), profile));
+            profile.url = endpoint;
+            store.update::<RoutersDocument, _, _>(|document| {
+                if let Some(stored) = document
+                    .routers
+                    .iter_mut()
+                    .find(|entry| entry.id == profile.id)
+                {
+                    stored.clone_from(&profile);
+                }
+            })?;
+            Ok::<_, RegistryError>(profile)
+        })
+        .await?;
+        let token = written.password_file.is_none();
+        drop(
+            self.profiles
+                .write()
+                .map_err(lock_error)?
+                .insert(id.to_owned(), written),
+        );
         self.read_clients.forget(id);
         if token {
             drop(clients.remove(id));
@@ -519,8 +536,10 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns permission, validation, duplicate, or state errors.
-    // NOT cancel-safe: cancelled at the client-cache lock, the profile is already stored and loaded
-    // but no stale client is evicted and no change notification is sent.
+    // NOT cancel-safe: dropped while `routers.json` is written, the write still completes on the
+    // blocking pool but the profile is not loaded; cancelled at the client-cache lock, the profile
+    // is already stored and loaded but no stale client is evicted and no change notification is
+    // sent.
     pub async fn create(
         &self,
         role: &Role,
@@ -538,14 +557,19 @@ impl RouterRegistry {
         }
         let id = profile.id.clone();
         let loaded = profile.clone();
-        let inserted = self.store.update::<RoutersDocument, _, _>(|document| {
-            if document.routers.iter().any(|entry| entry.id == id) {
-                false
-            } else {
-                document.routers.push(profile);
-                true
-            }
-        })?;
+        let store = self.store.clone();
+        let target = id.clone();
+        let inserted = blocking::run(self.store.dir(), move || {
+            store.update::<RoutersDocument, _, _>(|document| {
+                if document.routers.iter().any(|entry| entry.id == target) {
+                    false
+                } else {
+                    document.routers.push(profile);
+                    true
+                }
+            })
+        })
+        .await?;
         if !inserted {
             return Err(RegistryError::AlreadyExists { id });
         }
@@ -566,8 +590,10 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns permission, validation, config-defined, missing, or state errors.
-    // NOT cancel-safe: cancelled at the client-cache lock, the new profile is stored and loaded
-    // but the client built from the old one stays cached and no change notification is sent.
+    // NOT cancel-safe: dropped while `routers.json` is written, the write still completes on the
+    // blocking pool but the new profile is not loaded; cancelled at the client-cache lock, the new
+    // profile is stored and loaded but the client built from the old one stays cached and no
+    // change notification is sent.
     pub async fn update(
         &self,
         role: &Role,
@@ -585,15 +611,20 @@ impl RouterRegistry {
         }
         let id = profile.id.clone();
         let loaded = profile.clone();
-        let replaced = self.store.update::<RoutersDocument, _, _>(|document| {
-            match document.routers.iter_mut().find(|entry| entry.id == id) {
-                Some(entry) => {
-                    *entry = profile;
-                    true
+        let store = self.store.clone();
+        let target = id.clone();
+        let replaced = blocking::run(self.store.dir(), move || {
+            store.update::<RoutersDocument, _, _>(|document| {
+                match document.routers.iter_mut().find(|entry| entry.id == target) {
+                    Some(entry) => {
+                        *entry = profile;
+                        true
+                    }
+                    None => false,
                 }
-                None => false,
-            }
-        })?;
+            })
+        })
+        .await?;
         if !replaced {
             return Err(RegistryError::NotFound { id });
         }
@@ -614,18 +645,24 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns permission, config-defined, missing, or state errors.
-    // NOT cancel-safe: cancelled at the client-cache lock, the profile is already removed
-    // but its cached client stays and no change notification is sent.
+    // NOT cancel-safe: dropped while `routers.json` is written, the removal still completes on the
+    // blocking pool but the profile stays loaded; cancelled at the client-cache lock, the profile
+    // is already removed but its cached client stays and no change notification is sent.
     pub async fn delete(&self, role: &Role, id: &str) -> Result<(), RegistryError> {
         authorize(role, Permission::ManageRouters, id)?;
         if self.config.read().map_err(lock_error)?.contains_key(id) {
             return Err(RegistryError::ConfigDefined { id: id.to_owned() });
         }
-        let removed = self.store.update::<RoutersDocument, _, _>(|document| {
-            let before = document.routers.len();
-            document.routers.retain(|entry| entry.id != id);
-            document.routers.len() != before
-        })?;
+        let store = self.store.clone();
+        let target = id.to_owned();
+        let removed = blocking::run(self.store.dir(), move || {
+            store.update::<RoutersDocument, _, _>(|document| {
+                let before = document.routers.len();
+                document.routers.retain(|entry| entry.id != target);
+                document.routers.len() != before
+            })
+        })
+        .await?;
         if !removed {
             return Err(RegistryError::NotFound { id: id.to_owned() });
         }

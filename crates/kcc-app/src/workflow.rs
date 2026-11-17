@@ -915,7 +915,7 @@ impl ChangeSet {
             .transition(
                 &self.router,
                 Arc::clone(&original),
-                password.then_some(&credentials),
+                password.then_some(credentials),
             )
             .await?;
         self.client = original;
@@ -945,7 +945,7 @@ impl ChangeSet {
         let expected = read_last_change(&client).await?;
         self.workflow
             .registry
-            .transition(&self.router, Arc::clone(&client), credentials.as_ref())
+            .transition(&self.router, Arc::clone(&client), credentials)
             .await?;
         self.client = client;
         self.expected = expected;
@@ -1460,8 +1460,10 @@ impl ChangeSet {
         Ok(())
     }
 
-    /// Makes at most one automatic backup per router in the rolling window.
-    // NOT cancel-safe: cancellation can interrupt backup preparation.
+    /// Makes at most one automatic backup per router in the rolling window; the backup is
+    /// written on the blocking pool.
+    // NOT cancel-safe: cancellation can interrupt backup preparation; dropped while the
+    // backup is written, the write still completes but the window is not marked.
     async fn ensure_backup(&mut self) -> Result<(), WorkflowError> {
         if self.backed_up {
             return Ok(());
@@ -1481,11 +1483,16 @@ impl ChangeSet {
             let bytes = self.client.download_config(ConfigKind::Startup).await?;
             let text = core::str::from_utf8(bytes.expose_secret())
                 .map_err(|_error| WorkflowError::UndecodableConfig)?;
-            drop(self.workflow.backups.create(
-                &self.router,
-                "pre-change",
-                &SecretString::from(text.to_owned()),
-            )?);
+            let secret = SecretString::from(text.to_owned());
+            let backups = Arc::clone(&self.workflow.backups);
+            let router = self.router.clone();
+            drop(
+                crate::blocking::run(self.workflow.state.dir(), move || {
+                    backups.create(&router, "pre-change", &secret)
+                })
+                .await
+                .map_err(WorkflowError::Backup)?,
+            );
             let _previous = self
                 .workflow
                 .backup_times

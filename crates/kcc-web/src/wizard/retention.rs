@@ -18,7 +18,7 @@ use super::{
     ids::is_id,
     index,
     services::Services,
-    store::{Sealed, Store, StoreError},
+    store::{Sealed, Store, StoreError, files::Files},
 };
 use crate::{
     errors,
@@ -39,12 +39,75 @@ pub(crate) const ABANDONED_AFTER: u64 = 24 * 60 * 60;
 /// Seconds without a change after which a run is deleted.
 pub(crate) const KEPT_FOR: u64 = 30 * 24 * 60 * 60;
 
-/// Whether `owner` may start another run of wizard `F` at Unix second `now`.
+/// Whether `owner` may start another run of wizard `F` at Unix second `now`; the
+/// records are read on the blocking pool.
 ///
 /// # Errors
 ///
 /// Returns read failures of the index and the records.
-pub(crate) fn may_start<F>(store: &Store, owner: &str, now: u64) -> Result<bool, StoreError>
+// NOT cancel-safe: dropped, the reads (and the index correction) still run to their end.
+pub(crate) async fn may_start<F>(store: &Store, owner: &str, now: u64) -> Result<bool, StoreError>
+where
+    F: Flow,
+{
+    let user = owner.to_owned();
+    store
+        .run(move |files| open_below_limit::<F>(files, &user, now))
+        .await
+}
+
+/// Whether run `id` of wizard `F` counts as abandoned at Unix second `now`: its record
+/// has not changed for [`ABANDONED_AFTER`]. The record's age is read on the blocking pool.
+// cancel-safe: reads only.
+pub(crate) async fn idle<F>(store: &Store, id: &str, now: u64) -> bool
+where
+    F: Flow,
+{
+    let run = id.to_owned();
+    store
+        .run(move |files| Ok(abandoned::<F>(files, &run, now)))
+        .await
+        .unwrap_or(false)
+}
+
+/// Deletes what run `id` sealed, on the blocking pool (see [`forget_parts`]).
+// NOT cancel-safe: dropped, the deletions still run to their end.
+pub(crate) async fn forget_secrets(store: &Store, id: &str) {
+    let run = id.to_owned();
+    if let Err(error) = store
+        .run(move |files| {
+            forget_parts(files, &run);
+            Ok(())
+        })
+        .await
+    {
+        tracing::error!(%error, "a run's sealed parts could not be deleted");
+    }
+}
+
+/// Deletes old runs and old runs' sealed parts on the blocking pool (see [`sweep_runs`]).
+// NOT cancel-safe: dropped, the sweep still runs to its end.
+pub(crate) async fn sweep<F>(store: &Store, now: u64)
+where
+    F: Flow,
+{
+    if let Err(error) = store
+        .run(move |files| {
+            sweep_runs::<F>(files, now);
+            Ok(())
+        })
+        .await
+    {
+        tracing::warn!(%error, "runs could not be swept");
+    }
+}
+
+/// Whether `owner` keeps fewer than [`OPEN_RUNS`] open runs of wizard `F` at `now`.
+///
+/// # Errors
+///
+/// Returns read failures of the index and the records.
+fn open_below_limit<F>(store: &Files, owner: &str, now: u64) -> Result<bool, StoreError>
 where
     F: Flow,
 {
@@ -59,9 +122,8 @@ where
     Ok(open < OPEN_RUNS)
 }
 
-/// Whether run `id` of wizard `F` counts as abandoned at Unix second `now`: its record
-/// has not changed for [`ABANDONED_AFTER`].
-pub(crate) fn idle<F>(store: &Store, id: &str, now: u64) -> bool
+/// Whether run `id` of wizard `F` has not changed for [`ABANDONED_AFTER`] at `now`.
+fn abandoned<F>(store: &Files, id: &str, now: u64) -> bool
 where
     F: Flow,
 {
@@ -74,7 +136,7 @@ where
 /// Deletes what run `id` sealed: its source, its copied settings and its typed
 /// passwords. A part that is not there is fine; a part that cannot be deleted is logged
 /// and the others are still deleted.
-pub(crate) fn forget_secrets(store: &Store, id: &str) {
+fn forget_parts(store: &Files, id: &str) {
     for part in [Sealed::Source, Sealed::Preset, Sealed::Passwords] {
         if let Err(error) = store.discard(id, part) {
             tracing::error!(%error, "a run's sealed part could not be deleted");
@@ -85,7 +147,7 @@ pub(crate) fn forget_secrets(store: &Store, id: &str) {
 /// Deletes, at Unix second `now`, every run of wizard `F` whose record has not changed
 /// for [`KEPT_FOR`], and the sealed parts of every run that has not changed for
 /// [`ABANDONED_AFTER`]; such a run itself stays.
-pub(crate) fn sweep<F>(store: &Store, now: u64)
+fn sweep_runs<F>(store: &Files, now: u64)
 where
     F: Flow,
 {
@@ -108,7 +170,7 @@ where
 /// Whether run `id` of wizard `F` is gone at Unix second `now`: its record is missing,
 /// or the run was deleted because it had not changed for [`KEPT_FOR`]; an abandoned run
 /// that stays loses its sealed parts.
-fn gone<F>(store: &Store, id: &str, now: u64) -> bool
+fn gone<F>(store: &Files, id: &str, now: u64) -> bool
 where
     F: Flow,
 {
@@ -123,7 +185,7 @@ where
         },
         Ok(Some(at)) => {
             if now.saturating_sub(at) > ABANDONED_AFTER {
-                forget_secrets(store, id);
+                forget_parts(store, id);
             }
             false
         }
@@ -140,7 +202,7 @@ where
 /// # Errors
 ///
 /// Returns metadata read failures other than a missing record.
-fn changed<F>(store: &Store, id: &str) -> Result<Option<u64>, StoreError>
+fn changed<F>(store: &Files, id: &str) -> Result<Option<u64>, StoreError>
 where
     F: Flow,
 {
@@ -173,7 +235,7 @@ where
 {
     let user = services.user();
     let locale = user.locale();
-    match may_start::<F>(&services.store(), user.username(), now) {
+    match may_start::<F>(&services.store(), user.username(), now).await {
         Ok(true) => None,
         Ok(false) => {
             Audit::new(action, String::new())

@@ -73,7 +73,7 @@ async fn token_profile_reconnect_keeps_the_token_and_saves_the_url() -> Result<(
     let replacement = Credentials::new(DEFAULT_LOGIN.to_owned(), SecretString::from(password));
 
     registry
-        .transition("home", client, Some(&replacement))
+        .transition("home", client, Some(replacement))
         .await?;
 
     let reconnected = registry.get("home")?.profile;

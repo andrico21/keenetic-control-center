@@ -63,7 +63,7 @@ pub(super) async fn launch(
         Ok(found) => found,
         Err(Refused::Changed(plan)) => {
             visit.record_mut().preview_ready(plan);
-            visit.save().map_err(Failure::Broken)?;
+            visit.save().await.map_err(Failure::Broken)?;
             return Err(Failure::Refused(keys::WEB_MIGRATE_APPLY_CHANGED, "changed"));
         }
         Err(Refused::Unreadable) => {
@@ -82,7 +82,11 @@ pub(super) async fn launch(
     let store = visit.services().store();
     store
         .keep(&id, Kept::Report, &report)
-        .and_then(|()| store.keep(&id, Kept::Plan, &plan))
+        .await
+        .map_err(Failure::Broken)?;
+    store
+        .keep(&id, Kept::Plan, &plan)
+        .await
         .map_err(Failure::Broken)?;
     let target = visit.record().target().unwrap_or_default().to_owned();
     let claim = wizards
@@ -122,7 +126,7 @@ pub(super) async fn launch(
     visit
         .record_mut()
         .start_run(Run::new(job.clone(), now, safety));
-    visit.save().map_err(Failure::Broken)?;
+    visit.save().await.map_err(Failure::Broken)?;
     Ok((job, commands))
 }
 
@@ -162,7 +166,7 @@ async fn settle(context: Settling, done: oneshot::Receiver<Result<Applier, Apply
     let report = applier.as_ref().map(|found| found.report().clone());
     let verified = report.as_ref().is_some_and(|known| known.verified);
     let now = context.state.unix_seconds();
-    record_end(&context, now, (report.as_ref(), failure));
+    record_end(&context, now, (report.as_ref(), failure)).await;
     if applier.is_none() {
         context.wizards.release(&context.target, &context.id);
     }
@@ -180,12 +184,13 @@ async fn settle(context: Settling, done: oneshot::Receiver<Result<Applier, Apply
 
 /// Records in the migration's record how its apply ended at `now`: the engine's report,
 /// or the error it failed with before it made one.
-fn record_end(
+// NOT cancel-safe: dropped, the record write still completes.
+async fn record_end(
     context: &Settling,
     now: u64,
     (report, failure): (Option<&ApplyReport>, Option<ApplyError>),
 ) {
-    let Ok(Some(mut record)) = context.store.load::<Record>(&context.id) else {
+    let Ok(Some(mut record)) = context.store.load::<Record>(&context.id).await else {
         tracing::error!(id = context.id, "migration record missing at its end");
         return;
     };
@@ -198,7 +203,7 @@ fn record_end(
         (None, error) => Err(error.unwrap_or(ApplyError::Job)),
     };
     run.end(now, outcome);
-    if let Err(error) = context.store.save(&record) {
+    if let Err(error) = context.store.save(&record).await {
         tracing::error!(%error, "migration end could not be recorded");
     }
 }

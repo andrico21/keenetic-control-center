@@ -25,11 +25,12 @@ use crate::page_kit::{audit::Record as Audit, context::Refusal};
 /// # Errors
 ///
 /// Returns [`Refusal::Missing`] for a missing or foreign run and the read failure.
-fn owned<F>(services: Services<'_>, id: &str) -> Result<F, Refusal>
+// cancel-safe: reads only.
+async fn owned<F>(services: Services<'_>, id: &str) -> Result<F, Refusal>
 where
     F: Flow,
 {
-    match services.store().load::<F>(id) {
+    match services.store().load::<F>(id).await {
         Ok(Some(found)) if found.owner() == services.user().username() => Ok(found),
         Ok(_) => Err(Refusal::Missing),
         Err(error) => Err(Refusal::Failed(Box::new(error))),
@@ -75,10 +76,10 @@ where
         if !is_id(id) {
             return Err(Refusal::Missing);
         }
-        drop(owned::<F>(services, id)?);
+        drop(owned::<F>(services, id).await?);
         let session = wizards.session(id);
         let turn = session.turn().await;
-        let record = owned::<F>(services, id)?;
+        let record = owned::<F>(services, id).await?;
         if let Some(router) = record
             .routers()
             .into_iter()
@@ -122,8 +123,9 @@ where
     /// # Errors
     ///
     /// Returns write failures.
-    pub(crate) fn save(&self) -> Result<(), StoreError> {
-        self.services.store().save(&self.record)
+    // NOT cancel-safe: dropped, the record is still written.
+    pub(crate) async fn save(&self) -> Result<(), StoreError> {
+        self.services.store().save(&self.record).await
     }
 
     /// The typed passwords, by user name.
@@ -131,11 +133,13 @@ where
     /// # Errors
     ///
     /// Returns read, format and opening failures.
-    pub(crate) fn passwords(&self) -> Result<BTreeMap<String, SecretString>, StoreError> {
-        let Some(sealed) =
-            self.services
-                .store()
-                .open(self.services.key(), self.record.id(), Sealed::Passwords)?
+    // cancel-safe: reads only.
+    pub(crate) async fn passwords(&self) -> Result<BTreeMap<String, SecretString>, StoreError> {
+        let Some(sealed) = self
+            .services
+            .store()
+            .open(self.services.key(), self.record.id(), Sealed::Passwords)
+            .await?
         else {
             return Ok(BTreeMap::new());
         };
@@ -152,10 +156,12 @@ where
     /// # Errors
     ///
     /// Returns removal failures other than a missing file.
-    pub(crate) fn forget_passwords(&self) -> Result<(), StoreError> {
+    // NOT cancel-safe: dropped, the file is still deleted.
+    pub(crate) async fn forget_passwords(&self) -> Result<(), StoreError> {
         self.services
             .store()
             .discard(self.record.id(), Sealed::Passwords)
+            .await
     }
 
     /// Seals `passwords`, by user name.
@@ -163,7 +169,8 @@ where
     /// # Errors
     ///
     /// Returns sealing and write failures.
-    pub(crate) fn seal_passwords(
+    // NOT cancel-safe: dropped, the sealed passwords are still written.
+    pub(crate) async fn seal_passwords(
         &self,
         passwords: &BTreeMap<String, SecretString>,
     ) -> Result<(), StoreError> {
@@ -174,11 +181,14 @@ where
         let text = SecretString::from(
             serde_json::to_string(&plain).map_err(|_error| StoreError::Malformed)?,
         );
-        self.services.store().seal(
-            self.services.key(),
-            self.record.id(),
-            Sealed::Passwords,
-            &text,
-        )
+        self.services
+            .store()
+            .seal(
+                self.services.key(),
+                self.record.id(),
+                Sealed::Passwords,
+                &text,
+            )
+            .await
     }
 }

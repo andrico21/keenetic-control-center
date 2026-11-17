@@ -83,7 +83,7 @@ pub(super) async fn page(
         Ok(found) => found,
         Err(refusal) => return refusal.page(shell),
     };
-    let presets = match saved::store(services.fleet()).list(user.role()) {
+    let presets = match saved::list(services.fleet(), user.role()).await {
         Ok(found) => found,
         Err(error) => return Refusal::Failed(Box::new(error)).page(shell),
     };
