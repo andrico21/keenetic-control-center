@@ -130,6 +130,10 @@ pub struct FaultInjection {
     refuse_batch_pointer: Option<String>,
     /// Show resources whose `GET` answers 404 while `POST` answers normally.
     show_requires_post: BTreeSet<String>,
+    /// Show resources whose `GET` answers 405 while `POST` answers normally.
+    show_get_not_allowed: BTreeSet<String>,
+    /// Answers left out at the end of every root batch reply.
+    batch_answers_dropped: usize,
     /// Parser command whose connection is lost before or after application.
     disconnect_parse: Option<(String, bool)>,
     /// `show version` probes answered after `components commit` before the reboot window.
@@ -172,6 +176,27 @@ impl FaultInjection {
         S: Into<String>,
     {
         let _: bool = self.show_requires_post.insert(path.into());
+        self
+    }
+
+    /// Answers `GET /rci/<path>` for the show resource `path` with 405 Method Not Allowed;
+    /// `POST /rci/<path>` still answers normally.
+    #[inline]
+    #[must_use]
+    pub fn show_get_not_allowed<S>(mut self, path: S) -> Self
+    where
+        S: Into<String>,
+    {
+        let _: bool = self.show_get_not_allowed.insert(path.into());
+        self
+    }
+
+    /// Answers every root batch with one element fewer than it had items: the last
+    /// item is applied but its answer is missing.
+    #[inline]
+    #[must_use]
+    pub const fn short_batch_reply(mut self) -> Self {
+        self.batch_answers_dropped = 1;
         self
     }
 

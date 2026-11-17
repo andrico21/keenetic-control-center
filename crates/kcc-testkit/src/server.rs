@@ -1369,6 +1369,13 @@ async fn rci_get(
     {
         return empty(StatusCode::NOT_FOUND);
     }
+    if shared
+        .faults
+        .show_get_not_allowed
+        .contains(path.trim_end_matches('/'))
+    {
+        return empty(StatusCode::METHOD_NOT_ALLOWED);
+    }
     if shared.reject_read(&path) {
         return empty(StatusCode::INTERNAL_SERVER_ERROR);
     }
@@ -1399,7 +1406,17 @@ async fn rci_post_root(State(shared): State<Arc<Shared>>, body: Bytes) -> Respon
     }
     parse_body(&body).map_or_else(
         || empty(StatusCode::BAD_REQUEST),
-        |parsed| Json(shared.post("", &parsed)).into_response(),
+        |parsed| {
+            let mut answer = shared.post("", &parsed);
+            if let Value::Array(answers) = &mut answer {
+                answers.truncate(
+                    answers
+                        .len()
+                        .saturating_sub(shared.faults.batch_answers_dropped),
+                );
+            }
+            Json(answer).into_response()
+        },
     )
 }
 

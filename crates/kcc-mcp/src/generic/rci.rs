@@ -350,7 +350,7 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
             .await?
             .batch(values)
             .await
-            .map_err(|error| map_rci(&error))?;
+            .map_err(|failure| map_rci(&failure.error))?;
         return Ok(reply_for(
             &identity,
             &host,

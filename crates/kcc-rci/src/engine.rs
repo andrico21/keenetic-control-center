@@ -1,7 +1,10 @@
 //! Authenticated RCI requests, bounded batching, background work, and configuration files.
 
+mod admit;
 pub mod background;
+pub mod batch;
 pub(crate) mod body;
+mod show;
 
 use alloc::{collections::BTreeSet, sync::Arc};
 use core::{
@@ -16,27 +19,25 @@ use reqwest::{Method, Response, StatusCode, header::HeaderMap, multipart};
 use secrecy::{ExposeSecret as _, SecretSlice};
 use serde::Serialize;
 use serde_json::{Value, json};
-use tokio::{sync::Semaphore, time};
+use tokio::sync::Semaphore;
 use zeroize::Zeroizing;
 
-use self::body::read_capped;
+use self::{admit::Admission, batch::BatchError, body::read_capped};
 use crate::{
     ObjectName, RciError, RciPath, RciResponse, RouterUrl,
     auth::Credentials,
     auth_options::Options as AuthOptions,
-    budget::Budget,
+    budget::{Budget, DEFAULT_CONCURRENCY},
     capabilities::RouterInfo,
     configuration_answer::ConfigurationAnswer,
     encode_query,
-    observe::{RciObserver, RequestOutcome},
+    observe::RciObserver,
     outbound::{OutboundPolicy, TlsMode},
-    session::{HttpTimeouts, Manager, RequestKind, lock},
+    session::{HttpTimeouts, Manager, RequestKind},
 };
 
-/// Maximum serialized request size used for one batch chunk.
-const BATCH_BYTES: usize = 900 * 1024;
-/// Default response body cap.
-const RESPONSE_BYTES: usize = 8 * 1024 * 1024;
+/// Default response body cap of a client and of identity detection.
+pub const DEFAULT_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 
 /// Secret configuration bytes that zeroize on drop.
 pub type SecretBytes = SecretSlice<u8>;
@@ -77,8 +78,6 @@ pub struct RciClientOptions {
     pub budget: Option<Budget>,
     /// Maximum accepted response bytes.
     pub response_bytes: usize,
-    /// Stop batch submission after the first per-item error.
-    pub stop_on_error: bool,
     /// Optional request and login observer (self-metrics).
     pub observer: Option<Arc<dyn RciObserver>>,
     /// Authentication policy of every session this client opens.
@@ -92,10 +91,9 @@ impl Default for RciClientOptions {
             timeouts: HttpTimeouts::default(),
             outbound: OutboundPolicy::default(),
             tls: TlsMode::Verify,
-            concurrency: 2,
+            concurrency: DEFAULT_CONCURRENCY,
             budget: None,
-            response_bytes: RESPONSE_BYTES,
-            stop_on_error: false,
+            response_bytes: DEFAULT_RESPONSE_BYTES,
             observer: None,
             auth: AuthOptions::default(),
         }
@@ -165,17 +163,18 @@ impl RciClient {
     // cancel-safe: the read-only probe releases its permit when cancelled.
     #[inline]
     pub async fn auth_headers(&self) -> Result<HeaderMap, RciError> {
-        let _permit = self
-            .semaphore
-            .acquire()
-            .await
-            .map_err(|_closed| RciError::Transport)?;
-        Ok(self
-            .session
-            .probe_auth(&self.router)
-            .await?
-            .headers()
-            .clone())
+        let admission = Admission::take(&self.semaphore, self.observer()).await?;
+        admission.report(
+            async {
+                Ok(self
+                    .session
+                    .probe_auth(&self.router)
+                    .await?
+                    .headers()
+                    .clone())
+            }
+            .await,
+        )
     }
 
     /// Clones credentials into secret storage for an explicitly authorized connection transition.
@@ -236,12 +235,11 @@ impl RciClient {
     // cancel-safe: detection reads router state.
     #[inline]
     pub async fn detect(&self) -> Result<RouterInfo, RciError> {
-        let _permit = self
-            .semaphore
-            .acquire()
-            .await
-            .map_err(|_closed| RciError::Transport)?;
-        RouterInfo::detect(&self.session, &self.router).await
+        let admission = Admission::take(&self.semaphore, self.observer()).await?;
+        admission.report(
+            RouterInfo::detect_capped(&self.session, &self.router, self.options.response_bytes)
+                .await,
+        )
     }
 
     /// Checks authentication and reports explicitly enabled factory setup.
@@ -251,7 +249,10 @@ impl RciClient {
     // cancel-safe: this probe performs no configuration writes.
     #[inline]
     pub async fn is_bootstrap(&self) -> Result<bool, RciError> {
-        self.session.ensure_session().await?;
+        // The permit (the receiver) is taken before the sign-in (the argument) runs.
+        Admission::take(&self.semaphore, self.observer())
+            .await?
+            .report(self.session.ensure_session().await)?;
         Ok(self.session.is_bootstrap())
     }
 
@@ -304,8 +305,7 @@ impl RciClient {
         if options.concurrency == 0 || options.response_bytes == 0 {
             return Err(RciError::Validation);
         }
-        let session = session((&router, resolved), &credentials, &options)?
-            .with_observer(options.observer.clone());
+        let session = session((&router, resolved), &credentials, &options)?;
         Ok(Self {
             router,
             credentials,
@@ -425,58 +425,23 @@ impl RciClient {
     where
         T: Serialize + Sync + ?Sized,
     {
-        let key = path.to_string();
-        if lock(&self.post_only_show).contains(&key) {
-            return self.post(path, &json!({})).await;
-        }
-        match self.get(path, query).await {
-            Err(RciError::NotFound) => {
-                let result = self.post(path, &json!({})).await;
-                if result.is_ok() {
-                    let _: bool = lock(&self.post_only_show).insert(key);
-                }
-                result
-            }
-            result => result,
-        }
+        show::read(self, path, query).await
     }
 
     /// Runs root RCI items in ordered chunks below 900 KiB.
     ///
     /// # Errors
     ///
-    /// Returns a request-level error when a chunk cannot be serialized or transported. Per-item
-    /// RCI failures are returned in their corresponding result slots.
+    /// Returns a [`BatchError`] carrying the answers of the chunks completed before a chunk
+    /// could not be serialized, transported or matched item by item. Per-item RCI failures
+    /// are returned in their corresponding result slots.
     // NOT cancel-safe: completed chunks may have mutated the router before cancellation.
     #[inline]
     pub async fn batch(
         &self,
         items: Vec<Value>,
-    ) -> Result<Vec<Result<RciResponse, RciError>>, RciError> {
-        let chunks = batch_chunks(items)?;
-        let mut results = Vec::new();
-        for chunk in chunks {
-            let body = Value::Array(chunk);
-            let _permit = self
-                .semaphore
-                .acquire()
-                .await
-                .map_err(|_closed| RciError::Transport)?;
-            let response = self.session.post("/rci/", &body).await?;
-            let Value::Array(values) = response_json(response, self.options.response_bytes).await?
-            else {
-                return Err(RciError::Decode);
-            };
-            for value in values {
-                let item = RciResponse::from_value(value);
-                let failed = item.is_err();
-                results.push(item);
-                if failed && self.options.stop_on_error {
-                    return Ok(results);
-                }
-            }
-        }
-        Ok(results)
+    ) -> Result<Vec<Result<RciResponse, RciError>>, BatchError> {
+        batch::run(self, items).await
     }
 
     /// Parses one CLI line through the root RCI endpoint.
@@ -494,13 +459,14 @@ impl RciClient {
     ///
     /// # Errors
     ///
-    /// Returns request-level errors and preserves per-line RCI errors in order.
+    /// Returns a [`BatchError`] with the answers so far and preserves per-line RCI errors in
+    /// order.
     // NOT cancel-safe: completed parse items may mutate router configuration before cancellation.
     #[inline]
     pub async fn parse_batch<I, S>(
         &self,
         lines: I,
-    ) -> Result<Vec<Result<RciResponse, RciError>>, RciError>
+    ) -> Result<Vec<Result<RciResponse, RciError>>, BatchError>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
@@ -559,17 +525,18 @@ impl RciClient {
             ConfigKind::Startup => "/ci/startup-config.txt",
             ConfigKind::Running => "/ci/running-config.txt",
         };
-        let _permit = self
-            .semaphore
-            .acquire()
-            .await
-            .map_err(|_closed| RciError::Transport)?;
-        let response = self.session.get(path).await?;
-        map_status(response.status())?;
-        let body = read_capped(response, self.options.response_bytes).await?;
-        // An exact copy: `SecretBytes::from(Vec)` shrinks the buffer, reallocating
-        // outside the wipe.
-        Ok(SecretBytes::from(Box::<[u8]>::from(body.as_slice())))
+        let admission = Admission::take(&self.semaphore, self.observer()).await?;
+        admission.report(
+            async {
+                let response = self.session.get(path).await?;
+                map_status(response.status())?;
+                let body = read_capped(response, self.options.response_bytes).await?;
+                // An exact copy: `SecretBytes::from(Vec)` shrinks the buffer, reallocating
+                // outside the wipe.
+                Ok(SecretBytes::from(Box::<[u8]>::from(body.as_slice())))
+            }
+            .await,
+        )
     }
 
     /// Uploads bytes as `flash:startup-config` through the Keenetic file-upload handshake.
@@ -605,13 +572,14 @@ impl RciClient {
             .mime_str("text/plain")
             .map_err(|_error| RciError::Validation)?,
         );
-        let _permit = self
-            .semaphore
-            .acquire()
-            .await
-            .map_err(|_closed| RciError::Transport)?;
-        let response = self.session.post_multipart("/fui/", form).await?;
-        decode_response(response, self.options.response_bytes).await
+        let admission = Admission::take(&self.semaphore, self.observer()).await?;
+        admission.report(
+            async {
+                let response = self.session.post_multipart("/fui/", form).await?;
+                decode_response(response, self.options.response_bytes).await
+            }
+            .await,
+        )
     }
 
     /// Sends one bounded request under the per-router concurrency budget.
@@ -619,6 +587,7 @@ impl RciClient {
     /// # Errors
     ///
     /// Returns authentication, transport, concurrency, or response-processing errors.
+    // NOT cancel-safe: a POST or DELETE may have reached the router when this is cancelled.
     async fn send(
         &self,
         method: Method,
@@ -626,28 +595,27 @@ impl RciClient {
         body: Option<&Value>,
         kind: RequestKind,
     ) -> Result<RciBody, RciError> {
-        let _permit = self
-            .semaphore
-            .acquire()
-            .await
-            .map_err(|_closed| RciError::Transport)?;
-        let started = time::Instant::now();
-        let result = match self.session.request(method, path, body, kind).await {
-            Ok(response) => decode_response(response, self.options.response_bytes).await,
-            Err(error) => Err(error),
-        };
-        if let Some(observer) = &self.options.observer {
-            observer.request(RequestOutcome::of(&result), started.elapsed());
-        }
-        result
+        let admission = Admission::take(&self.semaphore, self.observer()).await?;
+        admission.report(
+            async {
+                let response = self.session.request(method, path, body, kind).await?;
+                decode_response(response, self.options.response_bytes).await
+            }
+            .await,
+        )
+    }
+
+    /// The request and login observer of this client, if any.
+    fn observer(&self) -> Option<&dyn RciObserver> {
+        self.options.observer.as_deref()
     }
 }
 
 /// A dedicated-session handle sharing its parent client's request budget.
 pub type BackgroundHandle = background::Handle;
 
-/// Opens a session to `router`, pinned to `resolved`, under the client's transport and
-/// authentication policy.
+/// Opens a session to `router`, pinned to `resolved`, under the client's transport,
+/// authentication and observer policy.
 ///
 /// # Errors
 /// Returns policy, transport, or invalid authentication option errors.
@@ -662,13 +630,14 @@ fn session(
         options.timeouts,
         resolved,
     )?;
-    Manager::with_client_builder(
+    Ok(Manager::with_client_builder(
         router.clone(),
         credentials.clone(),
         options.timeouts,
         builder,
     )?
-    .with_auth(options.auth.clone(), true)
+    .with_auth(options.auth.clone(), true)?
+    .with_observer(options.observer.clone()))
 }
 
 /// Serializes a query onto one validated RCI resource path.
@@ -686,36 +655,6 @@ where
     } else {
         Ok(format!("/rci/{path}?{encoded}"))
     }
-}
-
-/// Splits items so every serialized array remains below the router request budget.
-///
-/// # Errors
-///
-/// Returns validation errors for an unserializable or individually oversized item.
-fn batch_chunks(items: Vec<Value>) -> Result<Vec<Vec<Value>>, RciError> {
-    let mut chunks = Vec::new();
-    let mut current = Vec::new();
-    let mut bytes = 2_usize;
-    for item in items {
-        let item_bytes = serde_json::to_vec(&item).map_err(|_error| RciError::Validation)?;
-        let added = item_bytes
-            .len()
-            .saturating_add(usize::from(!current.is_empty()));
-        if item_bytes.len().saturating_add(2) >= BATCH_BYTES {
-            return Err(RciError::Validation);
-        }
-        if bytes.saturating_add(added) >= BATCH_BYTES && !current.is_empty() {
-            chunks.push(take(&mut current));
-            bytes = 2;
-        }
-        bytes = bytes.saturating_add(added);
-        current.push(item);
-    }
-    if !current.is_empty() {
-        chunks.push(current);
-    }
-    Ok(chunks)
 }
 
 /// Maps HTTP status before reading a response body.

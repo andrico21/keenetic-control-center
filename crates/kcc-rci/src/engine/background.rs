@@ -8,9 +8,10 @@ use serde_json::Value;
 use tokio::{runtime, sync::Semaphore, time};
 use tokio_util::sync::CancellationToken;
 
-use super::{RciBody, RciClient, decode_response, response_json, session};
+use super::{RciBody, RciClient, admit::Admission, decode_response, response_json, session};
 use crate::{
     RciError, RciPath, encode_query,
+    observe::RciObserver,
     session::{Manager, RequestKind},
 };
 
@@ -63,21 +64,25 @@ pub(super) async fn start(
         )?
         .with_key_cache(client.session.key_cache()),
     ));
-    let _permit = client
-        .semaphore
-        .acquire()
-        .await
-        .map_err(|_closed| RciError::Transport)?;
-    let response = session.0.post(&format!("/rci/{path}"), body).await?;
-    let value = response_json(response, client.options.response_bytes).await?;
-    let process_id = value
-        .pointer("/process/id")
-        .and_then(Value::as_str)
-        .ok_or(RciError::Decode)?
-        .to_owned();
+    // The permit (the receiver) is taken before the request (the argument) runs.
+    let process_id = Admission::take(&client.semaphore, client.options.observer.as_deref())
+        .await?
+        .report(
+            async {
+                let response = session.0.post(&format!("/rci/{path}"), body).await?;
+                let value = response_json(response, client.options.response_bytes).await?;
+                Ok(value
+                    .pointer("/process/id")
+                    .and_then(Value::as_str)
+                    .ok_or(RciError::Decode)?
+                    .to_owned())
+            }
+            .await,
+        )?;
     Ok(Handle {
         session,
         semaphore: Arc::clone(&client.semaphore),
+        observer: client.options.observer.clone(),
         path,
         process_id,
         response_bytes: client.options.response_bytes,
@@ -93,6 +98,8 @@ pub struct Handle {
     session: Dedicated,
     /// Router-wide admission shared with ordinary requests.
     semaphore: Arc<Semaphore>,
+    /// The parent client's request and login observer.
+    observer: Option<Arc<dyn RciObserver>>,
     /// Process resource path.
     path: RciPath,
     /// Router process identifier.
@@ -125,14 +132,15 @@ impl Handle {
     // cancel-safe: dropping the future releases its permit and partial local response.
     #[inline]
     pub async fn next(&self) -> Result<RciBody, RciError> {
-        let _permit = self
-            .semaphore
-            .acquire()
-            .await
-            .map_err(|_closed| RciError::Transport)?;
         let path = process_path(&self.path, &self.process_id)?;
-        let response = self.session.0.get(&path).await?;
-        decode_response(response, self.response_bytes).await
+        let admission = Admission::take(&self.semaphore, self.observer.as_deref()).await?;
+        admission.report(
+            async {
+                let response = self.session.0.get(&path).await?;
+                decode_response(response, self.response_bytes).await
+            }
+            .await,
+        )
     }
 
     /// Overrides the default one-second poll interval.
@@ -194,18 +202,19 @@ impl Handle {
     // NOT cancel-safe: cancellation after transmission may leave an uncertain stop result.
     #[inline]
     pub async fn stop(&self) -> Result<RciBody, RciError> {
-        let _permit = self
-            .semaphore
-            .acquire()
-            .await
-            .map_err(|_closed| RciError::Transport)?;
         let path = process_path(&self.path, &self.process_id)?;
-        let response = self
-            .session
-            .0
-            .request::<()>(Method::DELETE, &path, None, RequestKind::NonRetryable)
-            .await?;
-        decode_response(response, self.response_bytes).await
+        let admission = Admission::take(&self.semaphore, self.observer.as_deref()).await?;
+        admission.report(
+            async {
+                let response = self
+                    .session
+                    .0
+                    .request::<()>(Method::DELETE, &path, None, RequestKind::NonRetryable)
+                    .await?;
+                decode_response(response, self.response_bytes).await
+            }
+            .await,
+        )
     }
 }
 

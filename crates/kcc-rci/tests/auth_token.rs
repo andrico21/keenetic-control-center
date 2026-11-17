@@ -10,11 +10,11 @@
 mod tests {
     use core::{error::Error, sync::atomic::Ordering};
 
-    use kcc_rci::{
-        AuthError, OutboundPolicy, RciError, auth::Credentials, auth_options::Options,
-        session::Manager,
+    use kcc_rci::{AuthError, OutboundPolicy, RciError, auth::Credentials, auth_options::Options};
+    use kcc_testkit::{
+        auth_fixture::{self, Options as Fixture, Protocol},
+        outbound::connect_manager_with_options,
     };
-    use kcc_testkit::auth_fixture::{self, Options as Fixture, Protocol};
     use reqwest::StatusCode;
     use secrecy::SecretString;
 
@@ -30,11 +30,13 @@ mod tests {
         let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
         let mut options = Options::default();
         options.experimental_token = Some(SecretString::from("fixture-token"));
-        let manager = Manager::connect_with_options(
-            format!("http://{address}").parse()?,
+        let manager = connect_manager_with_options(
+            (
+                format!("http://{address}").parse()?,
+                &OutboundPolicy::default().with_loopback(true),
+            ),
             None,
             options,
-            &OutboundPolicy::default().with_loopback(true),
         )
         .await?;
 
@@ -70,11 +72,13 @@ mod tests {
             options.token_fallback = token_fallback;
             let credentials = credentials_present
                 .then(|| Credentials::new("admin".to_owned(), SecretString::from("admin")));
-            let manager = Manager::connect_with_options(
-                format!("http://{address}").parse()?,
+            let manager = connect_manager_with_options(
+                (
+                    format!("http://{address}").parse()?,
+                    &OutboundPolicy::default().with_loopback(true),
+                ),
                 credentials,
                 options,
-                &OutboundPolicy::default().with_loopback(true),
             )
             .await?;
 

@@ -14,9 +14,11 @@ mod tests {
         OutboundPolicy, RciError,
         auth::Credentials,
         auth_options::{Mode, Options},
-        session::Manager,
     };
-    use kcc_testkit::auth_fixture::{self, Hang, Options as Fixture, Protocol};
+    use kcc_testkit::{
+        auth_fixture::{self, Hang, Options as Fixture, Protocol},
+        outbound::connect_manager_with_options,
+    };
     use secrecy::SecretString;
 
     /// Fallible integration result.
@@ -45,14 +47,16 @@ mod tests {
                 _ => fixture.hang = Hang::Ndw4Phases,
             }
             let (address, handle, _counts) = auth_fixture::spawn(fixture).await?;
-            let manager = Manager::connect_with_options(
-                format!("http://{address}").parse()?,
+            let manager = connect_manager_with_options(
+                (
+                    format!("http://{address}").parse()?,
+                    &OutboundPolicy::default().with_loopback(true),
+                ),
                 Some(Credentials::new(
                     "admin".to_owned(),
                     SecretString::from("admin"),
                 )),
                 options,
-                &OutboundPolicy::default().with_loopback(true),
             )
             .await?;
 

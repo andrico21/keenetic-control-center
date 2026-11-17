@@ -14,9 +14,11 @@ mod tests {
         AuthError, OutboundPolicy, RciError,
         auth::Credentials,
         auth_options::{Mode, Options},
-        session::Manager,
     };
-    use kcc_testkit::auth_fixture::{self, Options as Fixture, Protocol};
+    use kcc_testkit::{
+        auth_fixture::{self, Options as Fixture, Protocol},
+        outbound::connect_manager_with_options,
+    };
     use reqwest::StatusCode;
     use secrecy::SecretString;
 
@@ -34,11 +36,13 @@ mod tests {
             let mut options = Options::default();
             options.mode = Mode::DigestProxy;
             let credentials = Credentials::new("admin".to_owned(), SecretString::from("admin"));
-            let manager = Manager::connect_with_options(
-                format!("http://{address}").parse()?,
+            let manager = connect_manager_with_options(
+                (
+                    format!("http://{address}").parse()?,
+                    &OutboundPolicy::default().with_loopback(true),
+                ),
                 Some(credentials),
                 options,
-                &OutboundPolicy::default().with_loopback(true),
             )
             .await?;
 
@@ -77,11 +81,13 @@ mod tests {
         let mut options = Options::default();
         options.mode = Mode::DigestProxy;
         let credentials = Credentials::new("admin".to_owned(), SecretString::from("admin"));
-        let manager = Manager::connect_with_options(
-            format!("http://{address}").parse()?,
+        let manager = connect_manager_with_options(
+            (
+                format!("http://{address}").parse()?,
+                &OutboundPolicy::default().with_loopback(true),
+            ),
             Some(credentials),
             options,
-            &OutboundPolicy::default().with_loopback(true),
         )
         .await?;
 
@@ -110,11 +116,13 @@ mod tests {
         let mut options = Options::default();
         options.mode = Mode::DigestProxy;
         let credentials = Credentials::new("admin".to_owned(), SecretString::from("wrong"));
-        let manager = Manager::connect_with_options(
-            format!("http://{address}").parse()?,
+        let manager = connect_manager_with_options(
+            (
+                format!("http://{address}").parse()?,
+                &OutboundPolicy::default().with_loopback(true),
+            ),
             Some(credentials),
             options,
-            &OutboundPolicy::default().with_loopback(true),
         )
         .await?;
 

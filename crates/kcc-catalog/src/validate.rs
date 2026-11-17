@@ -156,20 +156,8 @@ pub(crate) fn method_allowed(
     }
 }
 
-/// Validates one object node, recursively following nested command names.
-pub(crate) fn validate_value(
-    catalog: &Catalog,
-    _command: &Command,
-    command_path: &str,
-    value: &Value,
-    field_path: &str,
-    issues: &mut Vec<ValidationIssue>,
-) {
-    validate_node(catalog, command_path, value, field_path, issues);
-}
-
 /// Validates a concrete command or a virtual prefix node in a batch request tree.
-fn validate_node(
+pub(crate) fn validate_node(
     catalog: &Catalog,
     command_path: &str,
     value: &Value,

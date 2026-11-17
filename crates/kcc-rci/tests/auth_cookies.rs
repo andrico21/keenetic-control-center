@@ -11,7 +11,10 @@ mod tests {
     use core::{error::Error, net::SocketAddr, sync::atomic::Ordering};
 
     use kcc_rci::{OutboundPolicy, auth::Credentials, session::Manager};
-    use kcc_testkit::auth_fixture::{self, Options as Fixture};
+    use kcc_testkit::{
+        auth_fixture::{self, Options as Fixture},
+        outbound::connect_manager,
+    };
     use reqwest::StatusCode;
     use secrecy::SecretString;
 
@@ -21,7 +24,7 @@ mod tests {
     /// Connects a default ndw4 manager to a fixture at `address`.
     // NOT cancel-safe: DNS resolution may finish after cancellation.
     async fn manager(address: SocketAddr) -> Result<Manager, Box<dyn Error + Send + Sync>> {
-        Ok(Manager::connect(
+        Ok(connect_manager(
             format!("http://{address}").parse()?,
             Credentials::new("admin".to_owned(), SecretString::from("admin")),
             &OutboundPolicy::default().with_loopback(true),

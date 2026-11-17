@@ -238,7 +238,12 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
   resource (for example `show/clock/date`) with 404 and an empty body, while
   `POST /rci/<path>` answers as usual. **assumed fault injection** (models a router that
   serves a show resource only by POST; lets tests tell the client's POST fallback for show
-  commands from a plain GET)
+  commands from a plain GET). `FaultInjection::show_get_not_allowed(path)` does the same with
+  405 Method Not Allowed. The POST of a show resource reads its string body members as the
+  query (`{"name": "x"}` selects like `?name=x`). **assumed fault injection**
+- `FaultInjection::short_batch_reply()` answers every root batch (`POST /rci/` with an array)
+  with one answer fewer than it had items; every item is still applied. **assumed fault
+  injection** (models a router reply that cannot be matched item by item)
 - `Handle::request_log()` records method, path, sorted query pairs, and non-secret root
   parser lines. Parser lines containing password or key command fields are omitted; headers,
   cookies, authorization values, and other request bodies are never retained.

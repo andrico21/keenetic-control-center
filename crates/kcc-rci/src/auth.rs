@@ -267,7 +267,7 @@ pub fn ndw2_response(credentials: &Credentials, realm: &str, challenge: &str) ->
 }
 
 /// Appends bytes as lowercase hexadecimal into zeroizing storage.
-fn push_hex(output: &mut String, bytes: &[u8]) {
+pub(crate) fn push_hex(output: &mut String, bytes: &[u8]) {
     for &byte in bytes {
         for nibble in [byte >> 4_u8, byte & 0x0f_u8] {
             output.push(char::from_digit(u32::from(nibble), 16).unwrap_or('0'));

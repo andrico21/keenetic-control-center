@@ -2,6 +2,7 @@
 //! batch responses.
 
 use kcc_catalog::ValidatedRequest;
+use kcc_rci::{RciError, RciResponse};
 use serde_json::{Value, json};
 
 /// The successful subset and value-free refusal counts.
@@ -85,6 +86,30 @@ where
         persists_immediately: applied_changes != 0 && !ordinary,
         persisted_paths,
     }
+}
+
+/// The audit facts of a batch stopped by a failed chunk after `answered` items: params with
+/// counts only and the outcome, or `None` when no answered item succeeded. Unanswered items
+/// count as not applied.
+pub(super) fn interrupted(
+    items: &[ValidatedRequest],
+    answered: &[Result<RciResponse, RciError>],
+) -> Option<(Value, &'static str)> {
+    let unanswered = items.len().saturating_sub(answered.len());
+    let accepted = answered
+        .iter()
+        .map(Result::is_ok)
+        .chain(core::iter::repeat_n(false, unanswered));
+    let completion = completion(items.iter().zip(accepted));
+    (completion.succeeded != 0).then(|| {
+        let params = json!({
+            "error": "request_failed",
+            "succeeded": completion.succeeded,
+            "failed": completion.failed.saturating_sub(unanswered),
+            "unanswered": unanswered,
+        });
+        (params, completion.outcome())
+    })
 }
 
 /// The audit target: each item's leaf command paths, or its validated path when it changes

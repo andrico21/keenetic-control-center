@@ -1,6 +1,6 @@
 //! KeeneticOS firmware versions with a total order.
 
-use core::{cmp::Ordering, fmt, str::FromStr};
+use core::{fmt, str::FromStr};
 
 use thiserror::Error;
 
@@ -54,7 +54,7 @@ impl Stage {
 ///
 /// Ordering compares `major`, `minor`, `stage`, `build`, then `patch`, so
 /// `5.2 Beta 1 < 5.2.0` and `4.3.9 < 5.0.12`.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[non_exhaustive]
 #[expect(
     clippy::module_name_repetitions,
@@ -158,26 +158,6 @@ impl FirmwareVersion {
     }
 }
 
-impl Ord for FirmwareVersion {
-    #[inline]
-    fn cmp(&self, other: &Self) -> Ordering {
-        (self.major, self.minor, self.stage, self.build, self.patch).cmp(&(
-            other.major,
-            other.minor,
-            other.stage,
-            other.build,
-            other.patch,
-        ))
-    }
-}
-
-impl PartialOrd for FirmwareVersion {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 impl FromStr for FirmwareVersion {
     type Err = FirmwareVersionError;
 
@@ -228,6 +208,8 @@ fn number(text: &str) -> Result<u16, FirmwareVersionError> {
 
 #[cfg(test)]
 mod tests {
+    use core::cmp::Ordering;
+
     use super::{FirmwareVersion, FirmwareVersionError, Stage};
 
     #[test]
@@ -273,5 +255,42 @@ mod tests {
             );
         }
         Ok(())
+    }
+
+    /// A-19: versions order by major, minor, stage, build, then patch, and stages order
+    /// alpha, beta, release candidate, release.
+    #[test]
+    #[expect(
+        clippy::missing_panics_doc,
+        reason = "test assertions define the contract"
+    )]
+    fn orders_every_field_in_declaration_order() {
+        let stages = [Stage::Alpha, Stage::Beta, Stage::Rc, Stage::Release];
+        assert!(stages.is_sorted_by(|lower, higher| lower < higher));
+        let base = FirmwareVersion::new(4, 3, Stage::Beta, 6, 3);
+        let ladder = [
+            FirmwareVersion::new(4, 3, Stage::Beta, 6, 4),
+            FirmwareVersion::new(4, 3, Stage::Beta, 7, 0),
+            FirmwareVersion::new(4, 3, Stage::Rc, 0, 0),
+            FirmwareVersion::new(4, 4, Stage::Alpha, 0, 0),
+            FirmwareVersion::new(5, 0, Stage::Alpha, 0, 0),
+        ];
+        let mut lower = base;
+        for higher in ladder {
+            assert!(lower < higher, "{lower} < {higher}");
+            assert_eq!(lower.cmp(&higher), Ordering::Less);
+            assert_eq!(higher.partial_cmp(&lower), Some(Ordering::Greater));
+            lower = higher;
+        }
+        // A more significant field outweighs every less significant one.
+        assert!(
+            FirmwareVersion::new(4, 3, Stage::Beta, u16::MAX, u16::MAX)
+                < FirmwareVersion::new(4, 3, Stage::Rc, 0, 0)
+        );
+        assert!(
+            FirmwareVersion::new(4, u16::MAX, Stage::Release, u16::MAX, u16::MAX)
+                < FirmwareVersion::new(5, 0, Stage::Alpha, 0, 0)
+        );
+        assert_eq!(base.cmp(&base), Ordering::Equal);
     }
 }

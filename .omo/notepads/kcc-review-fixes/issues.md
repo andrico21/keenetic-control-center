@@ -155,3 +155,14 @@
 ## [2026-11-17] Todo 39
 - `crates/kcc-rci/src/session.rs` was 572 pure LOC and is 604 after this todo (refresh rule, cookie name filter); a split (e.g. cookie parsing into `session/cookie.rs`) is a follow-up.
 - No `KCC_OUTBOUND_ARGON2_MAX_ITERATIONS` env override was added (CONFIG.md says only the keys in env_overrides.rs have one).
+
+## [2026-11-17] Todo 40 (wt/r40) notes, not fixed here
+- A-16 items left (other crates / other todos' files): the 256-byte secret limit (kcc-config `quoting.rs`, kcc-catalog `runtime.rs` and `validate.rs`, todo 41 owns validate.rs) and the JSON-pointer token escaping copies (`kcc-rci/src/lib.rs` append_pointer, kcc-catalog `request.rs`/`secret_value.rs`, kcc-domain several, kcc-app `workflow_cli/grammar.rs`, kcc-testkit `tree.rs`). The A-17 finding also lists `kcc-catalog/src/request.rs:168-171` (defensive block); the plan's evidence list omits it and the file belongs to todo 41.
+- `crates/kcc-app/src/workflow.rs` grew to ~1150 pure LOC (+~40 for `interrupted_batch`); `session.rs` (577) and `lib.rs` (583) of kcc-rci are still over the ceiling (both shrank). `engine.rs` went from ~500 to 411 pure LOC (batch, show and admission moved to submodules).
+- The interrupted-batch audit counts the items of the failed chunk as `unanswered` (not applied); the router may have applied that chunk before the failure (the error says nothing about it).
+- `RouterInfo::detect` counts as one request in the observer although it sends several GETs (it was not counted before).
+
+## [2026-11-17] Todo 41 (wt/r41) notes, not fixed here
+- The Web console help text `web-console-unvalidated-help` ("Administrators only... the request is audited") does not say the line is destructive now; the dialog does. Changing it needs six locales (left for a copy pass).
+- Project overlay rule (b) still reads "every raw ... CLI line ... is validated"; the audited raw escape is documented in docs/SECURITY.md and MCP_TOOLS.md and is now Destructive, but rule (b) has no sentence naming it.
+- `cargo test -p kcc-catalog --lib` takes ~6 min on 2 jobs (risk tests over three catalogs): budget for it.

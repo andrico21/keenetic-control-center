@@ -4,7 +4,10 @@ use alloc::sync::Arc;
 
 use tokio::sync::Semaphore;
 
-/// A cloneable two-request budget owned by a router registry entry.
+/// Concurrent requests one router admits by default.
+pub const DEFAULT_CONCURRENCY: usize = 2;
+
+/// A cloneable budget of [`DEFAULT_CONCURRENCY`] requests owned by a router registry entry.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct Budget {
@@ -16,7 +19,7 @@ impl Default for Budget {
     #[inline]
     fn default() -> Self {
         Self {
-            semaphore: Arc::new(Semaphore::new(2)),
+            semaphore: Arc::new(Semaphore::new(DEFAULT_CONCURRENCY)),
         }
     }
 }

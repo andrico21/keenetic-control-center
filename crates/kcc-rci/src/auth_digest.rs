@@ -15,7 +15,7 @@ use zeroize::Zeroizing;
 
 use crate::{
     AuthError, RciError,
-    auth::{Credentials, Scheme, WwwAuthenticate},
+    auth::{Credentials, Scheme, WwwAuthenticate, push_hex},
     session::map_reqwest_error,
 };
 
@@ -256,11 +256,7 @@ fn hash(algorithm: Algorithm, input: &str) -> Zeroizing<String> {
         Algorithm::Md5 => Md5::digest(input.as_bytes()).to_vec(),
         Algorithm::Sha256 => Sha256::digest(input.as_bytes()).to_vec(),
     });
-    let mut output = Zeroizing::new(String::new());
-    for byte in bytes.iter() {
-        for nibble in [byte >> 4_u8, byte & 15_u8] {
-            output.push(char::from_digit(u32::from(nibble), 16).unwrap_or('0'));
-        }
-    }
+    let mut output = Zeroizing::new(String::with_capacity(bytes.len().saturating_mul(2)));
+    push_hex(&mut output, &bytes);
     output
 }

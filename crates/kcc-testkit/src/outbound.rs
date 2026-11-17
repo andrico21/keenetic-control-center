@@ -7,8 +7,10 @@ use alloc::sync::Arc;
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use kcc_rci::{
-    AllowedNetwork, OutboundPolicy, RciClient, RciClientOptions, RciError, RouterUrl,
+    AllowedNetwork, OutboundPolicy, RciClient, RciClientOptions, RciError, RouterUrl, TlsMode,
     auth::Credentials,
+    auth_options::Options,
+    session::{HttpTimeouts, Manager},
 };
 
 /// Connects a client whose policy admits loopback only, for fixtures on `127.0.0.1`.
@@ -27,6 +29,45 @@ pub async fn loopback_client(
     Ok(Arc::new(
         RciClient::connect_with(router, credentials, options).await?,
     ))
+}
+
+/// Builds a bare session manager for `router` under `outbound`, verifying TLS with default
+/// timeouts, for tests of the session layer itself.
+///
+/// # Errors
+///
+/// Policy, DNS, TLS-provider or HTTP-client construction errors.
+// NOT cancel-safe: cancellation can abandon synchronous DNS resolution, but sends no request.
+#[inline]
+pub async fn connect_manager(
+    router: RouterUrl,
+    credentials: Credentials,
+    outbound: &OutboundPolicy,
+) -> Result<Manager, RciError> {
+    let timeouts = HttpTimeouts::default();
+    let builder = outbound
+        .client_builder(&router, &TlsMode::Verify, timeouts)
+        .await?;
+    Manager::with_client_builder(router, credentials, timeouts, builder)
+}
+
+/// Builds a bare session manager like [`connect_manager`] with an explicit authentication policy;
+/// `credentials` may be absent for a token-only policy.
+///
+/// # Errors
+///
+/// Validation, policy, DNS, TLS-provider or HTTP-client construction errors.
+// NOT cancel-safe: cancellation can abandon synchronous DNS resolution, but sends no request.
+#[inline]
+pub async fn connect_manager_with_options(
+    (router, outbound): (RouterUrl, &OutboundPolicy),
+    credentials: Option<Credentials>,
+    options: Options,
+) -> Result<Manager, RciError> {
+    let builder = outbound
+        .client_builder(&router, &TlsMode::Verify, HttpTimeouts::default())
+        .await?;
+    Manager::with_options_and_client_builder(router, credentials, options, builder)
 }
 
 /// Private, carrier-grade NAT and unique-local networks plus the Keenetic and Netcraze

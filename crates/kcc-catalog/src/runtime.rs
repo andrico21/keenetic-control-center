@@ -27,7 +27,7 @@ use crate::{
     search::SearchResult,
     validate::{
         HttpMethod, RawAuthorization, RequestOptions, ValidationIssue, method_allowed,
-        validate_root, validate_value,
+        validate_node, validate_root,
     },
 };
 
@@ -318,7 +318,7 @@ impl Catalog {
         if !method_allowed(self, command, path, method) {
             issues.push(ValidationIssue::MethodNotAllowed { method });
         }
-        validate_value(self, command, path, value, "", &mut issues);
+        validate_node(self, path, value, "", &mut issues);
         if issues.is_empty() {
             Ok(ValidatedRequest::capture(
                 self,

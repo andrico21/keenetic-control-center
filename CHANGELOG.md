@@ -114,6 +114,23 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **A raw batch that fails part-way is audited for what was applied.** A batch larger than
+  one request (about 900 KiB) is sent in chunks. When a later chunk fails, the earlier
+  chunks were already applied: the change is now audited as `router.change_batch` with a
+  partial outcome and the params `{"error":"request_failed","succeeded":N,"failed":N,"unanswered":N}`
+  (counts only), and the request error is returned. Before, nothing was audited. A router
+  reply with fewer or more answers than items is now an error (the response could not be
+  decoded) instead of a success counted over the answers present.
+- **Router status items are judged by their level alone.** An item whose `status` level is
+  unknown is treated as an error, and an `error` item whose code, subsystem or message is a
+  number or missing is still an error. Before, such items were ignored and the reply
+  counted as a success.
+- **Self-metrics count every router request and login.** Batches, configuration downloads
+  and uploads, identity detection, background operations (ping, traceroute, live logs) and
+  factory-setup clients now count in `kcc_router_requests_total`,
+  `kcc_router_request_duration_seconds` and `kcc_router_auth_total`; the factory-setup
+  sign-in check also waits for the router's request budget like every other request.
+
 - **New setting `[outbound] argon2_max_iterations` (default 16, 1 to 64).** At ndw4 sign-in
   a router asking for more Argon2 iterations than this is refused ("router authentication
   cost exceeds local policy") before any key is derived. Before, any count up to the
@@ -406,6 +423,12 @@ The first release, `0.1.0`, is in preparation and contains:
   a new stream label.
 
 ### Fixed
+
+- **A show read the router serves only by POST keeps its query.** When a router refuses
+  GET for a show resource (404 or 405), kcc reads it by POST with the query parameters as
+  the body; before, the POST was sent empty, so a filtered read (for example one
+  interface's statistics) returned the unfiltered answer, and every later read of that
+  resource ignored its query. A 404 for one query no longer moves the whole resource to POST.
 
 - **Router session cookies are refreshed only from answers that may refresh them.** A 401
   no longer installs the cookie it carries (which skipped the next sign-in and failed the

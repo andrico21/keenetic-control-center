@@ -35,9 +35,6 @@ pub const NETCRAZE_ALIASES: &[(&str, &str)] = &[
     ("NC-4210", "KN-4110"),
 ];
 
-/// Maximum accepted size of one detection response body.
-const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
-
 /// The router brand.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[non_exhaustive]
@@ -362,30 +359,42 @@ impl RouterInfo {
     // cancel-safe: every request is a read.
     #[inline]
     pub async fn detect(client: &Manager, router: &RouterUrl) -> Result<Self, RciError> {
+        Self::detect_capped(client, router, engine::DEFAULT_RESPONSE_BYTES).await
+    }
+
+    /// Detects identity and capabilities, reading at most `cap` bytes per response.
+    ///
+    /// # Errors
+    ///
+    /// As [`RouterInfo::detect`].
+    // cancel-safe: every request is a read.
+    pub(crate) async fn detect_capped(
+        client: &Manager,
+        router: &RouterUrl,
+        cap: usize,
+    ) -> Result<Self, RciError> {
+        let read = |path| read_optional(client, path, cap);
         let auth_schemes = probe_auth_schemes(client, router).await?;
-        let version: ShowVersion = decode(
-            read_optional(client, "/rci/show/version")
-                .await?
-                .ok_or(RciError::NotFound)?,
-        )?;
-        let identification = read_optional(client, "/rci/show/identification")
+        let version: ShowVersion =
+            decode(read("/rci/show/version").await?.ok_or(RciError::NotFound)?)?;
+        let identification = read("/rci/show/identification")
             .await?
             .map(decode::<Identification>)
             .transpose()?;
-        let user = read_optional(client, "/rci/whoami")
+        let user = read("/rci/whoami")
             .await?
             .map(decode::<WhoAmI>)
             .transpose()?;
-        let system_mode = read_optional(client, "/rci/show/system/mode")
+        let system_mode = read("/rci/show/system/mode")
             .await?
             .map(decode::<ShowSystemMode>)
             .transpose()?
             .and_then(|mode| mode.active.or(mode.selected))
             .map(|name| SystemMode::from_name(&name));
-        let interfaces = match read_optional(client, "/rci/show/interface").await? {
+        let interfaces = match read("/rci/show/interface").await? {
             None => None,
             Some(value) => {
-                let bands = read_optional(client, "/rci/show/interface/bands").await?;
+                let bands = read("/rci/show/interface/bands").await?;
                 Some(inventory(value, bands)?)
             }
         };
@@ -543,7 +552,11 @@ async fn probe_auth_schemes(
 ///
 /// Returns transport, authentication, other HTTP status, decode, or body-size failures.
 // cancel-safe: the request is a read.
-async fn read_optional(client: &Manager, path: &str) -> Result<Option<Value>, RciError> {
+async fn read_optional(
+    client: &Manager,
+    path: &str,
+    cap: usize,
+) -> Result<Option<Value>, RciError> {
     let response = client.get(path).await?;
     let status = response.status();
     if matches!(
@@ -557,7 +570,7 @@ async fn read_optional(client: &Manager, path: &str) -> Result<Option<Value>, Rc
             status: status.as_u16(),
         });
     }
-    let body = engine::body::read_capped(response, MAX_BODY_BYTES).await?;
+    let body = engine::body::read_capped(response, cap).await?;
     let value = serde_json::from_slice::<Value>(&body).map_err(|_error| RciError::Decode)?;
     match RciResponse::from_value(value) {
         Ok(decoded) => Ok(Some(decoded.value)),

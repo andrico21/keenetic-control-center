@@ -32,11 +32,10 @@ use crate::{
     auth::{Credentials, Scheme, WwwAuthenticate, ndw2_response},
     auth_digest,
     auth_ndw4::{Cache, Exchange},
-    auth_options::{Mode, Options},
+    auth_options::{ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, Mode, Options},
     auth_token,
     ndw4_reply::Caps,
     observe::{LoginScheme, RciObserver},
-    outbound::{OutboundPolicy, TlsMode},
 };
 
 /// Configurable HTTP connection and response-read timeouts.
@@ -112,12 +111,7 @@ impl Session {
     ///
     /// Returns [`RciError::Transport`] if the cookie cannot be represented as a header.
     pub(crate) fn header_value(&self) -> Result<HeaderValue, RciError> {
-        HeaderValue::from_str(&format!(
-            "{}={}",
-            self.cookie_name,
-            self.cookie_value.expose_secret()
-        ))
-        .map_err(|_error| RciError::Transport)
+        cookie_header(&self.cookie_name, &self.cookie_value)
     }
 
     /// Replaces expiry and value when a response refreshes this cookie.
@@ -188,43 +182,6 @@ pub struct Manager {
 }
 
 impl Manager {
-    /// Creates a manager after resolving and validating the router through `outbound`.
-    ///
-    /// # Errors
-    /// Returns policy, DNS, TLS-provider or HTTP-client construction failures.
-    // NOT cancel-safe: synchronous DNS may finish after cancellation, but no request is sent.
-    #[inline]
-    pub async fn connect(
-        router: RouterUrl,
-        credentials: Credentials,
-        outbound: &OutboundPolicy,
-    ) -> Result<Self, RciError> {
-        let timeouts = HttpTimeouts::default();
-        let builder = outbound
-            .client_builder(&router, &TlsMode::Verify, timeouts)
-            .await?;
-        Self::with_client_builder(router, credentials, timeouts, builder)
-    }
-
-    /// Creates a manager with authentication options after outbound-policy validation.
-    ///
-    /// # Errors
-    /// Returns validation, policy, DNS, TLS-provider or HTTP-client construction failures.
-    // NOT cancel-safe: synchronous DNS may finish after cancellation, but no request is sent.
-    #[inline]
-    pub async fn connect_with_options(
-        router: RouterUrl,
-        credentials: Option<Credentials>,
-        options: Options,
-        outbound: &OutboundPolicy,
-    ) -> Result<Self, RciError> {
-        let timeouts = HttpTimeouts::default();
-        let builder = outbound
-            .client_builder(&router, &TlsMode::Verify, timeouts)
-            .await?;
-        Self::with_options_and_client_builder(router, credentials, options, builder)
-    }
-
     /// Probes authentication through this session's transport and bound origin.
     ///
     /// # Errors
@@ -316,8 +273,8 @@ impl Manager {
         options: Options,
         password_configured: bool,
     ) -> Result<Self, RciError> {
-        if !(8..=0x0004_0000).contains(&options.max_argon2_memory_kib)
-            || !(1..=64).contains(&options.max_argon2_iterations)
+        if !ARGON2_MEMORY_KIB.contains(&options.max_argon2_memory_kib)
+            || !ARGON2_ITERATIONS.contains(&options.max_argon2_iterations)
             || (!password_configured && options.experimental_token.is_none())
         {
             return Err(RciError::Validation);
@@ -778,13 +735,18 @@ impl ParsedCookie {
     ///
     /// Returns [`RciError::Transport`] if the cookie cannot be represented as a header.
     fn header_value(&self) -> Result<HeaderValue, RciError> {
-        HeaderValue::from_str(&format!(
-            "{}={}",
-            self.cookie_name,
-            self.cookie_value.expose_secret()
-        ))
-        .map_err(|_error| RciError::Transport)
+        cookie_header(&self.cookie_name, &self.cookie_value)
     }
+}
+
+/// The private `Cookie` request header for one cookie.
+///
+/// # Errors
+///
+/// Returns [`RciError::Transport`] if the cookie cannot be represented as a header.
+fn cookie_header(name: &str, value: &SecretString) -> Result<HeaderValue, RciError> {
+    HeaderValue::from_str(&format!("{name}={}", value.expose_secret()))
+        .map_err(|_error| RciError::Transport)
 }
 
 impl From<ParsedCookie> for Session {

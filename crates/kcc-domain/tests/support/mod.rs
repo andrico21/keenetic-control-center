@@ -34,6 +34,7 @@ use kcc_rci::{
 use kcc_testkit::{
     DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, migration,
     model::{Firmware, Model, Profile},
+    outbound::connect_manager,
     time::{Clock, MockClock},
 };
 use secrecy::SecretString;
@@ -254,7 +255,7 @@ impl Fixture {
             )
             .await?,
         );
-        let manager = kcc_rci::session::Manager::connect(
+        let manager = connect_manager(
             origin.clone(),
             Credentials::new(
                 DEFAULT_LOGIN.to_owned(),

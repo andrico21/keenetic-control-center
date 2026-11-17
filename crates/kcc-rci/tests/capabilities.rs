@@ -25,12 +25,12 @@ use kcc_rci::{
     OutboundPolicy, RouterUrl,
     auth::Credentials,
     capabilities::{AuthSchemeKind, Brand, RouterInfo, SupportTier},
-    session::Manager,
     version::{FirmwareVersion, Stage},
 };
 use kcc_testkit::{
     DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FakeRouterBuilder,
     model::{Firmware, Model, Profile},
+    outbound::connect_manager,
 };
 use proptest::prelude::*;
 use secrecy::SecretString;
@@ -45,7 +45,7 @@ async fn detect(builder: FakeRouterBuilder) -> TestResult<RouterInfo> {
         .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
         .await?;
     let router = format!("http://{address}").parse::<RouterUrl>()?;
-    let manager = Manager::connect(
+    let manager = connect_manager(
         router.clone(),
         Credentials::new(
             DEFAULT_LOGIN.to_owned(),

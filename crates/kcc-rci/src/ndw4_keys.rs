@@ -156,7 +156,25 @@ mod tests {
     use tokio::{sync::Mutex, time::timeout};
 
     use super::{Arc, BUDGET, Credentials, Keys, Parameters, STANDARD, salted_password};
-    use crate::{AuthError, RciError, auth_options::Options, session::Manager};
+    use crate::{
+        AuthError, OutboundPolicy, RciError, RouterUrl, TlsMode,
+        auth_options::Options,
+        session::{HttpTimeouts, Manager},
+    };
+
+    /// A loopback session manager for `router` with the authentication policy `options`.
+    // NOT cancel-safe: cancellation can abandon synchronous DNS resolution, but sends no request.
+    async fn loopback_manager(
+        router: RouterUrl,
+        credentials: Credentials,
+        options: Options,
+    ) -> Result<Manager, RciError> {
+        let builder = OutboundPolicy::default()
+            .with_loopback(true)
+            .client_builder(&router, &TlsMode::Verify, HttpTimeouts::default())
+            .await?;
+        Manager::with_options_and_client_builder(router, Some(credentials), options, builder)
+    }
 
     /// Fallible unit-test result.
     type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
@@ -217,10 +235,10 @@ mod tests {
         let _turn = TURN.lock().await;
         let (address, handle, _counts) = auth_fixture::spawn(Fixture::default()).await?;
         let credentials = Credentials::new("admin".to_owned(), SecretString::from("admin"));
-        let manager = Manager::connect(
+        let manager = loopback_manager(
             format!("http://{address}").parse()?,
             credentials.clone(),
-            &crate::OutboundPolicy::default().with_loopback(true),
+            Options::default(),
         )
         .await?;
         manager.ensure_session().await?;
@@ -246,11 +264,10 @@ mod tests {
             max_argon2_memory_kib: 32,
             max_argon2_iterations,
         };
-        let limited = Manager::connect_with_options(
+        let limited = loopback_manager(
             format!("http://{other_address}").parse()?,
-            Some(credentials),
+            credentials,
             options,
-            &crate::OutboundPolicy::default().with_loopback(true),
         )
         .await?;
         let result = timeout(Duration::from_secs(2), limited.ensure_session()).await?;
@@ -273,10 +290,10 @@ mod tests {
 
         let _turn = TURN.lock().await;
         let (address, handle, counts) = auth_fixture::spawn(Fixture::default()).await?;
-        let router: crate::RouterUrl = format!("http://{address}").parse()?;
+        let router: RouterUrl = format!("http://{address}").parse()?;
         let credentials = Credentials::new("admin".to_owned(), SecretString::from("admin"));
         let options = crate::RciClientOptions::default()
-            .with_outbound(crate::OutboundPolicy::default().with_loopback(true));
+            .with_outbound(OutboundPolicy::default().with_loopback(true));
         let client = crate::RciClient::connect_with(router, credentials, options).await?;
         let path = crate::RciPath::from_segments(["tools", "ping"])?;
         drop(client.get(&path, &()).await?);

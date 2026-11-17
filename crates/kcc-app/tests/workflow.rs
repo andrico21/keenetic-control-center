@@ -33,6 +33,9 @@ use tempfile::TempDir;
 use tokio::sync::oneshot;
 use url::Url;
 
+#[path = "workflow/batch_interrupted.rs"]
+mod batch_interrupted;
+
 #[path = "workflow/batch_outcomes.rs"]
 mod batch_outcomes;
 

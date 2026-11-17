@@ -19,11 +19,12 @@ mod tests {
         http::{Method, Request, StatusCode, header},
         response::Response,
     };
-    use kcc_rci::{RouterUrl, auth::Credentials, capabilities::RouterInfo, session::Manager};
+    use kcc_rci::{RouterUrl, auth::Credentials, capabilities::RouterInfo};
     use kcc_testkit::{
         DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter,
         model::Profile,
         ndw2,
+        outbound::connect_manager,
         time::{Clock, MockClock},
     };
     use secrecy::SecretString;
@@ -96,7 +97,7 @@ mod tests {
             .await?;
         let router = format!("http://{address}").parse::<RouterUrl>()?;
         let policy = kcc_rci::OutboundPolicy::default().with_loopback(true);
-        let manager = Manager::connect(router.clone(), credentials(), &policy).await?;
+        let manager = connect_manager(router.clone(), credentials(), &policy).await?;
         let before = RouterInfo::detect(&manager, &router).await?;
 
         drop(
@@ -138,7 +139,7 @@ mod tests {
             .await?;
         assert_eq!(old_response.status(), StatusCode::UNAUTHORIZED);
 
-        let refreshed = Manager::connect(router.clone(), credentials(), &policy).await?;
+        let refreshed = connect_manager(router.clone(), credentials(), &policy).await?;
         let after = RouterInfo::detect(&refreshed, &router).await?;
         assert_eq!(after.version.title.as_deref(), Some("5.1.4"));
         assert_eq!(after.version.release.as_deref(), Some("5.01.C.4.0-0"));

@@ -96,7 +96,7 @@ pub(super) async fn run(
                 .ok_or(RciError::Decode)
                 .and_then(|result| result),
             Ok(_results) => Err(RciError::Decode),
-            Err(error) => Err(error),
+            Err(failure) => Err(RciError::from(failure)),
         };
         let outcome = match response {
             Ok(_body) => ReplayOutcome::Applied,

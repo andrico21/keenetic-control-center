@@ -264,7 +264,12 @@ async fn read_batch(
         .iter()
         .map(|(item, _validated)| item.value.expose_for_send().expose_secret().clone())
         .collect();
-    let responses = target.router().client.batch(values).await?;
+    let responses = target
+        .router()
+        .client
+        .batch(values)
+        .await
+        .map_err(RciError::from)?;
     report(
         ctx,
         shown(ctx, target, responses),

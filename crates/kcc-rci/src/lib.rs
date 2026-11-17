@@ -30,6 +30,7 @@ mod ndw4_reply;
 pub mod observe;
 pub mod outbound;
 pub mod session;
+mod status_item;
 pub mod version;
 
 use core::{fmt, net::Ipv4Addr, str::FromStr};
@@ -427,7 +428,11 @@ pub enum Level {
 }
 
 /// A generic status item returned at any depth in an RCI response.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+///
+/// The level comes from the item's `status` member alone; a level this version does not
+/// know is [`Level::Error`]. The other members are read as text (strings or numbers) and
+/// are empty when absent.
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct StatusItem {
     /// Status severity.
@@ -461,7 +466,7 @@ impl fmt::Display for JsonPointer {
     }
 }
 
-/// Finds all well-formed status items in document order without recursive descent.
+/// Finds all status items in document order without recursive descent.
 #[inline]
 #[must_use]
 pub fn collect_statuses(value: &Value) -> Vec<(JsonPointer, StatusItem)> {
@@ -473,9 +478,7 @@ pub fn collect_statuses(value: &Value) -> Vec<(JsonPointer, StatusItem)> {
             Value::Object(object) => {
                 if let Some(Value::Array(statuses)) = object.get("status") {
                     found.extend(statuses.iter().filter_map(|status| {
-                        serde_json::from_value::<StatusItem>(status.clone())
-                            .ok()
-                            .map(|item| (pointer.clone(), item))
+                        status_item::parse(status).map(|item| (pointer.clone(), item))
                     }));
                 }
                 for (key, child) in object.iter().rev() {

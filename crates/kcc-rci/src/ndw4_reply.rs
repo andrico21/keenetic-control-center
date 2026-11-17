@@ -6,7 +6,11 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use reqwest::header::HeaderMap;
 use serde::Deserialize;
 
-use crate::{AuthError, RciError, ndw4_keys::Parameters};
+use crate::{
+    AuthError, RciError,
+    auth_options::{ARGON2_ITERATIONS, ARGON2_MEMORY_KIB},
+    ndw4_keys::Parameters,
+};
 
 /// Local Argon2 ceilings; each may only lower the protocol maximum.
 #[derive(Clone, Copy, Debug)]
@@ -119,11 +123,11 @@ impl Reply {
         let (iterations, iter_raw) = self
             .iter
             .ok_or(RciError::Auth(AuthError::Rejected))?
-            .parse(1..=64)?;
+            .parse(ARGON2_ITERATIONS)?;
         let (memory, mem_raw) = self
             .memcost
             .ok_or(RciError::Auth(AuthError::Rejected))?
-            .parse(8..=0x0004_0000)?;
+            .parse(ARGON2_MEMORY_KIB)?;
         if memory > caps.memory_kib || iterations > caps.iterations {
             return Err(RciError::Auth(AuthError::CostTooHigh));
         }

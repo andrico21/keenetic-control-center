@@ -112,7 +112,9 @@ impl Dispatch<'_> {
         match self.client().await {
             Ok(client) => match client.batch(items).await {
                 Ok(responses) => self.items(&responses, Left::Nothing, None),
-                Err(error) => Reply::failed(rci_failure(Family::Commands, self.locale(), &error)),
+                Err(failure) => {
+                    Reply::failed(rci_failure(Family::Commands, self.locale(), &failure.error))
+                }
             },
             Err(failure) => Reply::failed(failure),
         }

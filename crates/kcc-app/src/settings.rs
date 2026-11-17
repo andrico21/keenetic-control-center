@@ -21,6 +21,7 @@ use std::{
 };
 
 use ipnet::IpNet;
+use kcc_rci::auth_options::ARGON2_ITERATIONS;
 use rmcp_server_kit::{
     RmcpServerKitError,
     config::{
@@ -789,7 +790,7 @@ impl Config {
     pub fn from_toml_str(text: &str) -> Result<Self, ConfigError> {
         let mut config = toml::from_str::<Self>(text)?;
         normalize_suffixes(&mut config.outbound.allowed_suffixes)?;
-        if !(1..=64).contains(&config.outbound.argon2_max_iterations) {
+        if !ARGON2_ITERATIONS.contains(&config.outbound.argon2_max_iterations) {
             return Err(invalid(
                 "outbound.argon2_max_iterations",
                 "must be between 1 and 64",

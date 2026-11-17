@@ -1,7 +1,10 @@
 //! Parser and canonical formatter for Keenetic startup and running configurations.
 
 use alloc::collections::BTreeMap;
-use core::{fmt, iter::Peekable};
+use core::{
+    fmt::{self, Write as _},
+    iter::Peekable,
+};
 
 use thiserror::Error;
 
@@ -194,11 +197,21 @@ pub fn parse(input: &str) -> Result<Ast, ParseError> {
 pub fn print(ast: &Ast) -> String {
     let mut output = String::new();
     write_header(&mut output, &ast.header);
-    for node in &ast.nodes {
-        write_node(&mut output, node, 0);
-        output.push_str("!\n");
-    }
+    output.push_str(&Nodes(&ast.nodes).to_string());
     output
+}
+
+/// Top-level nodes, each followed by its `!` separator line.
+struct Nodes<'ast>(&'ast [Node]);
+
+impl fmt::Display for Nodes<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for node in self.0 {
+            write_node(f, node, 0)?;
+            f.write_str("!\n")?;
+        }
+        Ok(())
+    }
 }
 
 /// Parses and reprints text using canonical whitespace and quoting.
@@ -377,17 +390,20 @@ fn write_header_field(output: &mut String, key: &str, field_value: Option<&str>)
 }
 
 /// Writes one node and all descendants.
-fn write_node(output: &mut String, node: &Node, depth: usize) {
+///
+/// # Errors
+///
+/// Returns the destination writer's formatting error.
+fn write_node(output: &mut fmt::Formatter<'_>, node: &Node, depth: usize) -> fmt::Result {
     for _ in 0..depth {
-        output.push(' ');
+        output.write_char(' ')?;
     }
-    let Ok(()) = write_tokens(output, &node.tokens) else {
-        return;
-    };
-    output.push('\n');
+    write_tokens(output, &node.tokens)?;
+    output.write_char('\n')?;
     for child in &node.children {
-        write_node(output, child, depth.saturating_add(1));
+        write_node(output, child, depth.saturating_add(1))?;
     }
+    Ok(())
 }
 
 /// Writes tokens in their canonical CLI representation.

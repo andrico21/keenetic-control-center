@@ -21,10 +21,10 @@ use std::{
     time::SystemTime,
 };
 
-use kcc_catalog::{Catalog, HttpMethod, Risk, SecretValue, ValidationIssue};
+use kcc_catalog::{Catalog, HttpMethod, Risk, SecretValue, ValidatedRequest, ValidationIssue};
 use kcc_rci::{
     ConfigKind, RciBody, RciClient, RciError, RciPath, RciResponse, RouterUrl, SecretBytes,
-    auth::Credentials, capabilities::SystemMode,
+    auth::Credentials, capabilities::SystemMode, engine::batch::BatchError,
 };
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::Serialize;
@@ -1081,12 +1081,12 @@ impl ChangeSet {
             .iter()
             .map(|value| value.expose_secret().clone())
             .collect();
-        let mut responses = self.client.batch(values).await.map_err(|mut error| {
-            for item in &request.items {
-                error = scrub_error(&item.value, error);
+        let mut responses = match self.client.batch(values).await {
+            Ok(responses) => responses,
+            Err(failure) => {
+                return Err(self.interrupted_batch(&request, &validated, failure).await);
             }
-            error
-        })?;
+        };
         for response in &mut responses {
             for item in &request.items {
                 match response {
@@ -1127,6 +1127,41 @@ impl ChangeSet {
             persisted_paths: completion.persisted_paths,
             responses,
         })
+    }
+
+    /// Audits the chunks of a batch the router applied before a later chunk failed, and
+    /// returns the scrubbed failure (or the audit failure, which wins).
+    // NOT cancel-safe: the writer can append after cancellation.
+    async fn interrupted_batch(
+        &mut self,
+        request: &BatchChangeRequest,
+        validated: &[ValidatedRequest],
+        failure: BatchError,
+    ) -> WorkflowError {
+        let BatchError {
+            completed,
+            mut error,
+            ..
+        } = failure;
+        for item in &request.items {
+            error = scrub_error(&item.value, error);
+        }
+        let Some((params, outcome)) = batch::interrupted(validated, &completed) else {
+            return WorkflowError::Rci(error);
+        };
+        let event = AuditEvent::new(
+            SystemClock.unix_seconds(),
+            self.actor.clone(),
+            "router.change_batch".to_owned(),
+        )
+        .with_router(self.router.clone())
+        .with_target(batch::target(validated))
+        .with_params(params)
+        .with_result(outcome.to_owned(), self.request_id.clone());
+        match self.receipts.record(&self.workflow.audit, event).await {
+            Ok(_receipt) => WorkflowError::Rci(error),
+            Err(audit) => WorkflowError::from(audit),
+        }
     }
 
     /// Applies catalog-validated CLI parser commands under the normal write protections;
@@ -1397,14 +1432,25 @@ impl ChangeSet {
         let mut answers = match lines.as_slice() {
             [] => Vec::new(),
             [line] => vec![Ok(self.client.parse(line).await.map_err(scrub_failure)?)],
-            many => self
-                .client
-                .parse_batch(many.iter().map(|line| line.as_str()))
-                .await
-                .map_err(scrub_failure)?
-                .into_iter()
-                .map(|response| response.map(RciBody::Json).map_err(scrub_failure))
-                .collect(),
+            many => {
+                // A failed chunk becomes the answer of its first line, after the lines the
+                // router already answered, so a partial change is audited like a refusal.
+                let (answered, failure) = match self
+                    .client
+                    .parse_batch(many.iter().map(|line| line.as_str()))
+                    .await
+                {
+                    Ok(answered) => (answered, None),
+                    Err(BatchError {
+                        completed, error, ..
+                    }) => (completed, Some(error)),
+                };
+                answered
+                    .into_iter()
+                    .map(|response| response.map(RciBody::Json).map_err(scrub_failure))
+                    .chain(failure.map(|error| Err(scrub_failure(error))))
+                    .collect()
+            }
         };
         for response in answers.iter_mut().filter_map(|answer| answer.as_mut().ok()) {
             for command in commands {
