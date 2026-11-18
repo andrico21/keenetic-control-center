@@ -30,7 +30,9 @@ mod tests {
         },
     };
     use kcc_catalog::Catalog;
-    use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, model::Profile};
+    use kcc_testkit::{
+        DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, leak::contains_secret, model::Profile,
+    };
     use secrecy::SecretString;
     use serde_json::json;
     use tempfile::TempDir;
@@ -56,6 +58,9 @@ mod tests {
     }
 
     /// Password hashing and quoted PSK storage occur without plaintext in observable outputs.
+    ///
+    /// T-01: the secret carries `"` and `\`, which JSON, `Debug` and the CLI quoting escape, so every
+    /// sink is searched for each escaped form too ([`kcc_testkit::leak::contains_secret`]).
     // NOT cancel-safe: creates isolated fixture state and applies mutations.
     #[tokio::test]
     async fn secret_cli_writes_are_redacted_end_to_end() -> Result<(), Box<dyn Error>> {
@@ -95,7 +100,7 @@ mod tests {
         let result = changes.apply_cli(request).await?;
         assert!(result.unsaved, "ordinary writes stay unsaved");
         assert!(
-            !format!("{result:?}").contains(secret),
+            !contains_secret(&format!("{result:?}"), secret),
             "result must be redacted"
         );
         assert!(
@@ -103,7 +108,7 @@ mod tests {
             "fake must store a hash"
         );
         assert!(
-            !handle.running_config_text().contains(secret),
+            !contains_secret(&handle.running_config_text(), secret),
             "fake must discard plaintext"
         );
         let psk = catalog
@@ -130,18 +135,18 @@ mod tests {
             "fake must encode the PSK"
         );
         assert!(
-            !format!("{wifi_result:?}").contains(secret),
+            !contains_secret(&format!("{wifi_result:?}"), secret),
             "Wi-Fi result must be redacted"
         );
         forced_failure(&catalog, &mut changes, secret).await?;
         refuses_controls(&catalog, &handle);
         let audit = fs::read(state.dir().join(AUDIT_FILE_NAME)).await?;
         assert!(
-            !String::from_utf8(audit)?.contains(secret),
+            !contains_secret(&String::from_utf8(audit)?, secret),
             "audit must not retain plaintext"
         );
         assert!(
-            !format!("{:?}", handle.request_log()).contains(secret),
+            !contains_secret(&format!("{:?}", handle.request_log()), secret),
             "request log must not retain plaintext"
         );
         let trace = capture
@@ -150,7 +155,7 @@ mod tests {
             .map_err(|_error| "capture poisoned")?
             .clone();
         assert!(
-            !String::from_utf8(trace)?.contains(secret),
+            !contains_secret(&String::from_utf8(trace)?, secret),
             "TRACE must not retain plaintext"
         );
         drop(changes);
@@ -250,7 +255,7 @@ mod tests {
             .await;
         match failure {
             Err(error) => assert!(
-                !format!("{error} {error:?}").contains(secret),
+                !contains_secret(&format!("{error} {error:?}"), secret),
                 "failure must be redacted"
             ),
             Ok(_) => return Err("forced parser failure must fail".into()),

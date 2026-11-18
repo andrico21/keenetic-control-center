@@ -13,7 +13,7 @@ use std::fs;
 
 use kcc_app::audit::AUDIT_FILE_NAME;
 use kcc_domain::{DomainError, router_users};
-use kcc_testkit::DEFAULT_LOGIN;
+use kcc_testkit::{DEFAULT_LOGIN, leak::contains_secret};
 use secrecy::SecretString;
 
 use crate::support::{Fixture, PROFILES, TestResult, TraceCapture};
@@ -117,12 +117,17 @@ async fn own_logins_are_refused_and_a_missing_login_protects_every_account() -> 
     Ok(())
 }
 
+/// A password write leaves no plaintext in any observable output.
+///
+/// T-01: the secret carries `"` and `\`, which JSON, `Debug` and the CLI quoting escape, so every
+/// sink is searched for each escaped form too ([`kcc_testkit::leak::contains_secret`]).
 #[tokio::test]
 async fn password_write_hashes_and_never_exposes_plaintext() -> TestResult {
     for firmware in PROFILES {
         let trace = TraceCapture::install();
         let fixture = Fixture::spawn(firmware).await?;
-        let secret = "\u{43f}\u{430}\u{440}\u{43e}\u{43b}\u{44c} with spaces \"quotes\"";
+        let secret =
+            "\u{43f}\u{430}\u{440}\u{43e}\u{43b}\u{44c} with spaces \"quotes\" and \\ slash";
         // Not the fixture's own login: the fake router (like a real one) ends the sessions of an
         // account whose password changes, which would make the fixture's follow-up reads fail.
         let operation = router_users::plan_password(
@@ -131,31 +136,40 @@ async fn password_write_hashes_and_never_exposes_plaintext() -> TestResult {
             &router_users::protection::OwnLogins::new(DEFAULT_LOGIN, None)?,
             SecretString::from(secret.to_owned()),
         )?;
-        assert!(!format!("{operation:?}").contains(secret));
-        assert!(!serde_json::to_string(&operation.requests)?.contains(secret));
+        assert!(!contains_secret(&format!("{operation:?}"), secret));
+        assert!(!contains_secret(
+            &serde_json::to_string(&operation.requests)?,
+            secret
+        ));
         let request = router_users::change_request(&operation)?;
-        assert!(!format!("{request:?}").contains(secret));
-        assert!(!serde_json::to_string(&request)?.contains(secret));
+        assert!(!contains_secret(&format!("{request:?}"), secret));
+        assert!(!contains_secret(&serde_json::to_string(&request)?, secret));
         let mut changes = fixture.changes().await?;
 
         let result = changes.apply_cli(request).await?;
         let users = router_users::read_users(fixture.context()).await?;
 
-        assert!(!format!("{result:?}").contains(secret));
-        assert!(!serde_json::to_string(&result)?.contains(secret));
-        assert!(!format!("{users:?}").contains(secret));
-        assert!(!serde_json::to_string(&users)?.contains(secret));
+        assert!(!contains_secret(&format!("{result:?}"), secret));
+        assert!(!contains_secret(&serde_json::to_string(&result)?, secret));
+        assert!(!contains_secret(&format!("{users:?}"), secret));
+        assert!(!contains_secret(&serde_json::to_string(&users)?, secret));
         assert!(
             fixture
                 .handle()
                 .running_config_text()
                 .contains("password md5")
         );
-        assert!(!fixture.handle().running_config_text().contains(secret));
-        assert!(!format!("{:?}", fixture.handle().request_log()).contains(secret));
+        assert!(!contains_secret(
+            &fixture.handle().running_config_text(),
+            secret
+        ));
+        assert!(!contains_secret(
+            &format!("{:?}", fixture.handle().request_log()),
+            secret
+        ));
         let audit = fs::read(fixture.state_dir().join(AUDIT_FILE_NAME))?;
-        assert!(!String::from_utf8(audit)?.contains(secret));
-        assert!(!trace.text()?.contains(secret));
+        assert!(!contains_secret(&String::from_utf8(audit)?, secret));
+        assert!(!contains_secret(&trace.text()?, secret));
         drop(changes);
         fixture.shutdown().await?;
     }

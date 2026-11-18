@@ -14,6 +14,7 @@ use kcc_app::audit::AUDIT_FILE_NAME;
 use kcc_config::config_text::{Token, flatten, parse};
 use kcc_domain::{DomainError, wifi};
 use kcc_rci::ObjectName;
+use kcc_testkit::leak::contains_secret;
 use secrecy::SecretString;
 
 mod support;
@@ -125,48 +126,62 @@ async fn radios_and_stations_are_typed_from_show_data() -> TestResult {
     Ok(())
 }
 
+/// A WPA PSK write leaves no plaintext in any observable output.
+///
+/// T-01: the secret carries `"` and `\`, which JSON, `Debug` and the CLI quoting escape, so every
+/// sink is searched for each escaped form too ([`kcc_testkit::leak::contains_secret`]).
 #[tokio::test]
 async fn wpa_psk_write_is_encoded_and_absent_from_public_surfaces() -> TestResult {
     for firmware in PROFILES {
         let trace = TraceCapture::install();
         let fixture = Fixture::spawn(firmware).await?;
         let name = ObjectName::try_from("WifiMaster0/AccessPoint0".to_owned())?;
-        let secret = "wireless passphrase with \"quotes\"";
+        let secret = "wireless passphrase with \"quotes\" and \\ slash";
         let operation = wifi::plan_wpa_psk(
             fixture.context(),
             &name,
             SecretString::from(secret.to_owned()),
         )?;
-        assert!(!format!("{operation:?}").contains(secret));
-        assert!(!serde_json::to_string(&operation.requests)?.contains(secret));
+        assert!(!contains_secret(&format!("{operation:?}"), secret));
+        assert!(!contains_secret(
+            &serde_json::to_string(&operation.requests)?,
+            secret
+        ));
         let request = wifi::change_request(&name, &operation)?;
-        assert!(!format!("{request:?}").contains(secret));
-        assert!(!serde_json::to_string(&request)?.contains(secret));
+        assert!(!contains_secret(&format!("{request:?}"), secret));
+        assert!(!contains_secret(&serde_json::to_string(&request)?, secret));
         let mut changes = fixture.changes().await?;
 
         let result = changes.apply_cli(request).await?;
         let access_point = wifi::read_access_point(fixture.context(), &name).await?;
 
-        assert!(!format!("{result:?}").contains(secret));
-        assert!(!serde_json::to_string(&result)?.contains(secret));
-        assert!(!format!("{access_point:?}").contains(secret));
-        assert!(!serde_json::to_string(&access_point)?.contains(secret));
+        assert!(!contains_secret(&format!("{result:?}"), secret));
+        assert!(!contains_secret(&serde_json::to_string(&result)?, secret));
+        assert!(!contains_secret(&format!("{access_point:?}"), secret));
+        assert!(!contains_secret(
+            &serde_json::to_string(&access_point)?,
+            secret
+        ));
         assert!(
             fixture
                 .handle()
                 .running_config_text()
                 .contains("wpa-psk ns3")
         );
-        assert!(!fixture.handle().running_config_text().contains(secret));
-        assert!(!format!("{:?}", fixture.handle().request_log()).contains(secret));
+        assert!(!contains_secret(
+            &fixture.handle().running_config_text(),
+            secret
+        ));
+        assert!(!contains_secret(
+            &format!("{:?}", fixture.handle().request_log()),
+            secret
+        ));
         let audit = fs::read(fixture.state_dir().join(AUDIT_FILE_NAME))?;
-        assert!(!String::from_utf8(audit)?.contains(secret));
-        assert!(
-            !trace
-                .text()
-                .map_err(|error| error.to_string())?
-                .contains(secret)
-        );
+        assert!(!contains_secret(&String::from_utf8(audit)?, secret));
+        assert!(!contains_secret(
+            &trace.text().map_err(|error| error.to_string())?,
+            secret
+        ));
         drop(changes);
         fixture.shutdown().await?;
     }
@@ -188,7 +203,7 @@ async fn wpa_psk_control_character_is_refused_before_router_request() -> TestRes
         );
 
         let error = result.err().ok_or("control character was accepted")?;
-        assert!(!format!("{error:?}").contains(secret));
+        assert!(!contains_secret(&format!("{error:?}"), secret));
         assert_eq!(fixture.handle().request_count(), before);
         fixture.shutdown().await?;
     }

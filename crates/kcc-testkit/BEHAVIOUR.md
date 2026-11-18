@@ -244,9 +244,15 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 - `FaultInjection::short_batch_reply()` answers every root batch (`POST /rci/` with an array)
   with one answer fewer than it had items; every item is still applied. **assumed fault
   injection** (models a router reply that cannot be matched item by item)
-- `Handle::request_log()` records method, path, sorted query pairs, and non-secret root
-  parser lines. Parser lines containing password or key command fields are omitted; headers,
-  cookies, authorization values, and other request bodies are never retained.
+- `Handle::request_log()` records method, path, sorted query pairs, and the root parser
+  lines of each request. The fault middleware logs a request on arrival and tags it with its
+  record index, and the root handler attaches every `parse` line of the body to that record
+  (`RequestRecord::commands`, in body order, a batch item refused by fault injection
+  included), so batch lines are never collapsed and overlapping requests never swap lines.
+  `RequestRecord::command` is the last line of the request. A line containing a password or
+  key command field (` password `, `private-key`, `preshared-key`, `wpa-psk`,
+  `xauth-password`, `obfs-key`, `ike key`) is kept as `None`; headers, cookies,
+  authorization values, and other request bodies are never retained.
   `settings_snapshot`, `running_config_text`, and `startup_config_text` expose independent
   store snapshots for workflow assertions. **assumed test observability API**
 
@@ -263,6 +269,18 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 - Interface IPsec PSKs, named IKE keys, and IPsec profile PSKs/XAuth passwords
   use NS3 storage in the fake. IKE identity selectors remain non-secret arguments;
   replacement uses the key name. These CLI shapes and storage choices are **assumed**.
+- A plaintext Wi-Fi `authentication wpa-psk|password`, PPP `authentication password`,
+  WireGuard key, IPsec PSK, XAuth password or named IKE key sent by parser is NS3-encoded
+  by the fake itself (with the unsalted `kcc_config::ns3::encode`) before it reaches the
+  running configuration, as the router is expected to do. **assumed** (not
+  hardware-verified)
+- `user <name> password plain <password>` is stored as `password md5 <md5hex(password)>`,
+  the lowercase MD5 of the bare password. This is **assumed**, and inconsistent with the
+  fake's own authentication, which checks the realm-bound HA1
+  `md5hex(login:realm:password)`. The `plain` write itself updates authentication with the
+  HA1, and a `password md5 <hex>` line sets the HA1 to `<hex>`, so replaying the stored line
+  (for example from a saved configuration) leaves an account whose password no longer signs
+  in on the fake.
 
 - POST-only `show log` and `show ipsec` behavior remains **assumed (R-CLI documentation,
   not live-verified - see `spikes/live-router/RESULT.md`)** and is not yet a full stream

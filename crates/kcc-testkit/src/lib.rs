@@ -40,6 +40,7 @@ pub mod fake_loki;
 pub mod firmware_update;
 mod fixtures;
 mod inflight;
+pub mod leak;
 pub mod live_matrix;
 pub mod migration;
 pub mod model;
@@ -321,8 +322,8 @@ pub struct RequestRecord {
     path: String,
     /// Query pairs sorted by key and value.
     query: Vec<(String, String)>,
-    /// Non-secret CLI line submitted through the root parser.
-    command: Option<String>,
+    /// Root parser lines in body order; `None` for a line with a secret-bearing field.
+    commands: Vec<Option<String>>,
 }
 
 impl RequestRecord {
@@ -347,11 +348,19 @@ impl RequestRecord {
         &self.query
     }
 
-    /// Returns the parser line when it contains no secret-bearing command field.
+    /// Returns the last parser line of this request when it contains no secret-bearing
+    /// command field; see [`Self::commands`] for every line of a batch.
     #[inline]
     #[must_use]
     pub fn command(&self) -> Option<&str> {
-        self.command.as_deref()
+        self.commands.last().and_then(Option::as_deref)
+    }
+
+    /// Returns every root parser line of this request in body order, `None` for a line
+    /// that contains a secret-bearing command field.
+    #[inline]
+    pub fn commands(&self) -> impl Iterator<Item = Option<&str>> {
+        self.commands.iter().map(Option::as_deref)
     }
 }
 

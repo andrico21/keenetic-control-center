@@ -15,6 +15,7 @@ use kcc_app::audit::AUDIT_FILE_NAME;
 use kcc_catalog::Risk;
 use kcc_domain::{interfaces::ManagementVerdict, wan, wan::StaticAddress};
 use kcc_rci::ObjectName;
+use kcc_testkit::leak::contains_secret;
 use secrecy::SecretString;
 use serde_json::json;
 
@@ -104,6 +105,10 @@ async fn fake_router_reads_ipoe_without_authentication_values() -> TestResult {
     Ok(())
 }
 
+/// A PPP password write leaves no plaintext in any observable output.
+///
+/// T-01: the secret carries `"` and `\`, which JSON, `Debug` and the CLI quoting escape, so every
+/// sink is searched for each escaped form too ([`kcc_testkit::leak::contains_secret`]).
 #[tokio::test]
 async fn ppp_password_write_is_encoded_and_read_as_presence_only() -> TestResult {
     for firmware in PROFILES {
@@ -117,26 +122,32 @@ async fn ppp_password_write_is_encoded_and_read_as_presence_only() -> TestResult
                 .apply_cli(wan::change_request(&name, &create)?)
                 .await?,
         );
-        let secret = "ppp password with \"quotes\"";
+        let secret = "ppp password with \"quotes\" and \\ slash";
         let operation = wan::plan_password(
             fixture.context(),
             &name,
             SecretString::from(secret.to_owned()),
         )
         .await?;
-        assert!(!format!("{operation:?}").contains(secret));
-        assert!(!serde_json::to_string(&operation.requests)?.contains(secret));
+        assert!(!contains_secret(&format!("{operation:?}"), secret));
+        assert!(!contains_secret(
+            &serde_json::to_string(&operation.requests)?,
+            secret
+        ));
         let request = wan::change_request(&name, &operation)?;
-        assert!(!format!("{request:?}").contains(secret));
-        assert!(!serde_json::to_string(&request)?.contains(secret));
+        assert!(!contains_secret(&format!("{request:?}"), secret));
+        assert!(!contains_secret(&serde_json::to_string(&request)?, secret));
 
         let result = changes.apply_cli(request).await?;
         let connections = wan::read_connections(fixture.context()).await?;
 
-        assert!(!format!("{result:?}").contains(secret));
-        assert!(!serde_json::to_string(&result)?.contains(secret));
-        assert!(!format!("{connections:?}").contains(secret));
-        assert!(!serde_json::to_string(&connections)?.contains(secret));
+        assert!(!contains_secret(&format!("{result:?}"), secret));
+        assert!(!contains_secret(&serde_json::to_string(&result)?, secret));
+        assert!(!contains_secret(&format!("{connections:?}"), secret));
+        assert!(!contains_secret(
+            &serde_json::to_string(&connections)?,
+            secret
+        ));
         assert!(
             connections
                 .get("PPPoE9")
@@ -148,16 +159,20 @@ async fn ppp_password_write_is_encoded_and_read_as_presence_only() -> TestResult
                 .running_config_text()
                 .contains("password ns3")
         );
-        assert!(!fixture.handle().running_config_text().contains(secret));
-        assert!(!format!("{:?}", fixture.handle().request_log()).contains(secret));
+        assert!(!contains_secret(
+            &fixture.handle().running_config_text(),
+            secret
+        ));
+        assert!(!contains_secret(
+            &format!("{:?}", fixture.handle().request_log()),
+            secret
+        ));
         let audit = fs::read(fixture.state_dir().join(AUDIT_FILE_NAME))?;
-        assert!(!String::from_utf8(audit)?.contains(secret));
-        assert!(
-            !trace
-                .text()
-                .map_err(|error| error.to_string())?
-                .contains(secret)
-        );
+        assert!(!contains_secret(&String::from_utf8(audit)?, secret));
+        assert!(!contains_secret(
+            &trace.text().map_err(|error| error.to_string())?,
+            secret
+        ));
         drop(changes);
         fixture.shutdown().await?;
     }
@@ -180,7 +195,7 @@ async fn ppp_password_control_character_is_refused_before_router_request() -> Te
         .await;
 
         let error = result.err().ok_or("control character was accepted")?;
-        assert!(!format!("{error:?}").contains(secret));
+        assert!(!contains_secret(&format!("{error:?}"), secret));
         assert_eq!(fixture.handle().request_count(), before);
         fixture.shutdown().await?;
     }

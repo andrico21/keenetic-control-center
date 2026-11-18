@@ -21,20 +21,24 @@ mod tests {
         },
     };
     use kcc_rci::ObjectName;
-    use kcc_testkit::model::Firmware;
+    use kcc_testkit::{leak::contains_secret, model::Firmware};
     use secrecy::SecretString;
     use tokio::fs;
 
     use crate::support::{Fixture, PROFILES, TestResult, TraceCapture, refused_by_catalog};
 
     /// Every supported credential reaches protected storage and leaves no plaintext output.
+    ///
+    /// T-01: the secret carries `"` and `\`, which JSON, `Debug` and the CLI quoting escape, so every
+    /// sink is searched for each escaped form too ([`kcc_testkit::leak::contains_secret`]). T-04: the
+    /// `crypto ike key` line is redacted from the fake's request log.
     // NOT cancel-safe: applies writes to an isolated fake router.
     #[tokio::test]
     async fn vpn_credentials_are_verified_without_disclosure() -> TestResult {
         for firmware in PROFILES {
             let trace = TraceCapture::install();
             let fixture = Fixture::spawn(firmware).await?;
-            let secret = "vpn fixture with \"quote\"";
+            let secret = "vpn fixture with \"quote\" and \\ slash";
             let mut changes = fixture.changes().await?;
             for target in [
                 CredentialTarget::Ppp(ObjectName::try_from("L2TP7".to_owned())?),
@@ -67,7 +71,7 @@ mod tests {
                     continue;
                 }
                 let plan = secrets::plan(fixture.context(), &target, SecretString::from(secret))?;
-                assert!(!format!("{plan:?}").contains(secret));
+                assert!(!contains_secret(&format!("{plan:?}"), secret));
                 drop(
                     secrets::apply(
                         &mut changes,
@@ -109,7 +113,7 @@ mod tests {
                 format!("{clients:?}"),
             ] {
                 assert!(
-                    !output.contains(secret),
+                    !contains_secret(&output, secret),
                     "credential leaked through an observable boundary"
                 );
             }

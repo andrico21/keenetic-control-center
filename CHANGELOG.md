@@ -114,6 +114,13 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **Test kit: the fake router's request log keeps every parser line.**
+  `kcc_testkit::RequestRecord::commands()` (new) lists every root `parse` line of a request
+  in body order, a batch included, with secret-bearing lines (now also `crypto ike key`) as
+  `None`; lines are attached to their own request even when requests overlap.
+  `RequestRecord::command()` stays the last line of the request. The new
+  `kcc_testkit::leak::contains_secret` finds a test secret in its JSON, `Debug` and
+  CLI-quoted forms as well, and the secret-leak tests use it.
 - **`kcc.toml` router profiles follow the same rules as the others.** A `[[routers]]`
   `url` must be an origin (no path, query or fragment) and is refused by `kcc.toml`
   validation with the field named, where it was accepted and then failed when the

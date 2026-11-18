@@ -40,6 +40,9 @@ use crate::{
 /// Parser interception before ordinary command dispatch.
 #[path = "server/parse_command.rs"]
 mod parse_command;
+/// The sanitized request log.
+#[path = "server/request_log.rs"]
+mod request_log;
 
 /// Largest accepted request body; RCI limits POST bodies to about a megabyte.
 pub(crate) const MAX_BODY_BYTES: usize = 1024 * 1024;
@@ -430,34 +433,6 @@ impl Shared {
         self.log_streams.load(Ordering::SeqCst)
     }
 
-    /// Records method, path, and sorted query pairs without headers or bodies.
-    fn record_request(&self, request: &Request) {
-        let mut query: Vec<(String, String)> = request
-            .uri()
-            .query()
-            .into_iter()
-            .flat_map(|value| value.split('&'))
-            .map(|pair| {
-                pair.split_once('=').map_or_else(
-                    || (pair.to_owned(), String::new()),
-                    |(key, value)| (key.to_owned(), value.to_owned()),
-                )
-            })
-            .collect();
-        query.sort();
-        let logged = {
-            let mut log = lock(&self.request_log);
-            log.push(RequestRecord {
-                method: request.method().clone(),
-                path: request.uri().path().to_owned(),
-                query,
-                command: None,
-            });
-            log.len()
-        };
-        let _previous: usize = self.logged.send_replace(logged);
-    }
-
     /// Resolves once at least `at_least` logged requests used `method` on `path`.
     // cancel-safe: only observes the request log.
     pub(crate) async fn wait_for_requests(&self, method: &str, path: &str, at_least: usize) {
@@ -469,23 +444,6 @@ impl Shared {
         };
         let mut logged = self.logged.subscribe();
         drop(logged.wait_for(|_total| matching() >= at_least).await);
-    }
-
-    /// Attaches a non-secret parser line to its request record.
-    fn record_command(&self, line: &str) {
-        let secret = [
-            " password ",
-            "private-key",
-            "preshared-key",
-            "wpa-psk",
-            "xauth-password",
-            "obfs-key",
-        ]
-        .iter()
-        .any(|marker| line.contains(marker));
-        if let Some(record) = lock(&self.request_log).last_mut() {
-            record.command = (!secret).then(|| line.to_owned());
-        }
     }
 
     /// The session id carried in this server's cookie, if any.
@@ -1020,7 +978,6 @@ impl Shared {
         if pointer.is_empty()
             && let Some(line) = body.get("parse").and_then(Value::as_str)
         {
-            self.record_command(line);
             if let Some((command, apply)) = &self.faults.disconnect_parse
                 && line.contains(command)
             {
@@ -1210,10 +1167,11 @@ async fn require_session(
 // cancel-safe: sleeping is cancel-safe and no lock is held across the inner handler.
 async fn inject_faults(
     State(shared): State<Arc<Shared>>,
-    request: Request,
+    mut request: Request,
     next: Next,
 ) -> Response {
-    shared.record_request(&request);
+    let record = request_log::push(&shared, &request);
+    let _previous: Option<request_log::RecordIndex> = request.extensions_mut().insert(record);
     shared.gate.pass().await;
     let _inflight = shared.inflight.enter();
     shared.expire_reboots();
@@ -1401,7 +1359,11 @@ fn consume_fault(bounded: &Mutex<Vec<ParseFault>>, text: &str) -> bool {
 
 /// `POST /rci/`: batch endpoint at the root.
 // cancel-safe: no await point after the body is read.
-async fn rci_post_root(State(shared): State<Arc<Shared>>, body: Bytes) -> Response {
+async fn rci_post_root(
+    State(shared): State<Arc<Shared>>,
+    Extension(record): Extension<request_log::RecordIndex>,
+    body: Bytes,
+) -> Response {
     if !body.windows(8).any(|window| window == b"\"parse\":")
         && shared.reject_read(&String::from_utf8_lossy(&body))
     {
@@ -1410,6 +1372,7 @@ async fn rci_post_root(State(shared): State<Arc<Shared>>, body: Bytes) -> Respon
     parse_body(&body).map_or_else(
         || empty(StatusCode::BAD_REQUEST),
         |parsed| {
+            request_log::record_commands(&shared, record, &parsed);
             let mut answer = shared.post("", &parsed);
             if let Value::Array(answers) = &mut answer {
                 answers.truncate(
