@@ -1505,6 +1505,26 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | docs: changelog, backlog and finding ledger
   Recommended task executor category: writing - documentation and strings
 
+- [x] 76. Ignore the two unmaintained advisories on humantime and chrono (owner decision D-DENY)
+  What was done: Narrow `ignore` for exactly RUSTSEC-2026-0542 and RUSTSEC-2026-0543 in `deny.toml` and `.cargo/audit.toml`, each with its reason, "no upstream fix" and the review date 2027-02-18; `docs/BACKLOG.md` records it. Added by convergence rule 1 (class e), outside the original todo list.
+  Closes: F2 (round 1, class e): `cargo deny check` failed on RUSTSEC-2026-0542 and RUSTSEC-2026-0543. Confirmed green by F2r2 and F2c.
+  Commit: b457d99af6c63bb2ca0d8c5b516a38f4b366c87c | build(deny): ignore the two unmaintained advisories on humantime and chrono
+
+- [x] 77. Interface changes fail closed when kcc cannot tell which interface carries its connection
+  What was done: `ManagementVerdict::Unknown` now classifies as Management (binding row `C-05`: an undecidable case classifies as Management); `classify_direct` decides every other name once an interface owns the pinned address; the test kit gains `FakeRouterBuilder::reached_directly`. Added by convergence rule 1 (class c).
+  Closes: F1a (round 1, BACKLOG 1, by code reading) and F3 (round 1, item 7: ISP MTU and address edits applied with no dialog). Confirmed by F3r2 S1 and F1r2.
+  Commit: 0dd1038920bf4d964ddd2531cd13958aca2850ba | fix(domain): interface changes fail closed when kcc cannot tell which interface carries it
+
+- [x] 78. A typed password wins over a same-realm hash; a stopped migration says what was applied
+  What was done: A password typed for a router user (`--user-password`) is sent instead of copying a same-realm hash, for migrations and presets; a run that stopped after applied lines reports how many were applied (six locales); rolling back an already restored run succeeds without sending anything. Added by convergence rule 1 (class d).
+  Closes: F3 (round 1, BACKLOG 1): a same-realm migration dropped the typed password, waited out the 900 s fail-safe and then said "rejected before anything was sent". Confirmed by F3r2 S2 and F1r2.
+  Commit: 299dfc042313ba38763e8b793eb79b26f09d116e | fix(migrate,cli): a typed password wins over a same-realm hash; a stopped migration says what was applied
+
+- [x] 79. A rollback the router did not prove is reported as restarting
+  What was done: One shared mapping (`stopped_report`) for `kcc migrate apply` and `kcc preset apply`: a rollback the router accepted but was not seen to survive says the router is restarting with its saved configuration, never that it is back on it; the stale doc comment and the bridge wording in the user guide are corrected. Added by convergence rule 1 (class d).
+  Closes: F1r2 (round 2, BLOCKER 1): a regression introduced by `299dfc04`. Confirmed by F1c2.
+  Commit: 47801a5f96dddcd4a2d7d0918f98ac241f76d3d7 | fix(cli): a rollback the router did not prove is reported as restarting; doc and backlog corrections
+
 ## Final verification wave
 > Runs in parallel after ALL todos. ALL must APPROVE. Surface results and wait for the user's explicit okay before declaring complete.
 
