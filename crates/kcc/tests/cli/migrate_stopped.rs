@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 
 use super::support::{Env, TestResult, router};
 
-/// F3 backlog 1: a run that stopped after one applied line, which kcc then rolled back,
+/// A run that stopped after one applied line, which kcc then rolled back,
 /// keeps the router exit code and says how many lines were applied, never that nothing
 /// was sent.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

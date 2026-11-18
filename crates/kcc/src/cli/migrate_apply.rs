@@ -114,23 +114,38 @@ pub(crate) async fn apply(
     }
     out.emit(&document, &human)?;
     report.failure.map_or(Ok(()), |failure| {
-        if action == "rollback" && failure == ApplyError::Verification {
+        if action == "rollback" && failure == ApplyError::Verification && !rollback_restarting {
             Err(Failure::headline_only(
                 Exit::Router,
                 keys::MIGRATE_APPLY_RESTORED,
             ))
         } else {
-            Err(stopped_failure(failure, report.applied.len()))
+            Err(stopped_report(
+                failure,
+                report.applied.len(),
+                rollback_restarting,
+            ))
         }
     })
 }
 
-/// The failure of a run that stopped after `applied` lines, which its finish rolled back:
-/// the exit code of `failure`, and how many lines were applied before it stopped.
-pub(crate) fn stopped_failure(failure: ApplyError, applied: usize) -> Failure {
+/// The failure of a run that stopped after `applied` lines, which its finish rolled back.
+///
+/// It keeps the exit code of `failure`, and an armed fate keeps its own report. A rollback
+/// the router accepted but did not prove (`rollback_restarting`) says the router is
+/// restarting with its saved configuration; only a proven rollback says how many lines
+/// were applied and that none of them remain.
+pub(crate) fn stopped_report(
+    failure: ApplyError,
+    applied: usize,
+    rollback_restarting: bool,
+) -> Failure {
     let mapped = apply_failure(failure);
     if failure.fate().is_some() {
         return mapped;
+    }
+    if rollback_restarting {
+        return Failure::message(mapped.exit(), keys::MIGRATE_ROLLBACK_SAVED, &[]);
     }
     Failure::message(
         mapped.exit(),
@@ -205,3 +220,10 @@ pub(crate) fn apply_failure(error: ApplyError) -> Failure {
         Failure::message(exit, error.message_key(), &[])
     }
 }
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+mod tests;

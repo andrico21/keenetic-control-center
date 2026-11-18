@@ -24,19 +24,38 @@ use super::{
 use crate::cli::{
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome, denied},
-    migrate_apply::{apply_failure, reserve, stopped_failure},
+    migrate_apply::{apply_failure, reserve, stopped_report},
     secret::confirm,
 };
 
-/// Audits one failed preset rollback without claiming an unarmed timer is armed.
-// NOT cancel-safe: the audit writer may append after cancellation.
-async fn audit_rollback_failure(ctx: &Ctx, services: &Services, target: &str, error: ApplyError) {
+/// Rolls `applier` back, auditing a failed rollback without claiming an unarmed timer is
+/// armed; `Ok(true)` when the router accepted the rollback reboot but was not seen back.
+///
+/// # Errors
+///
+/// Returns the mapped rollback failure.
+// NOT cancel-safe: the rollback sends router requests and may sign in first, and the audit
+// writer may append after cancellation.
+async fn roll_back(
+    ctx: &Ctx,
+    services: &Services,
+    target: &str,
+    applier: &mut Applier,
+) -> Outcome<bool> {
+    let Err(error) = applier.rollback().await else {
+        return Ok(false);
+    };
     let failed = Attempt::Failed {
         error: "router",
         fail_safe_armed: error.recovery_armed(),
     };
     ctx.attempt(services, "cli.change", Some(target), failed)
         .await;
+    if error == ApplyError::RollbackRestarting {
+        Ok(true)
+    } else {
+        Err(apply_failure(error))
+    }
 }
 
 /// Maps a preset apply refusal.
@@ -128,13 +147,8 @@ pub(super) async fn apply(
         .map_err(apply_failure)?;
     let report = applier.report().clone();
     if let Some(failure) = report.failure {
-        if let Err(error) = applier.rollback().await {
-            audit_rollback_failure(ctx, services, target, error).await;
-            if error != ApplyError::RollbackRestarting {
-                return Err(apply_failure(error));
-            }
-        }
-        return Err(stopped_failure(failure, report.applied.len()));
+        let restarting = roll_back(ctx, services, target, &mut applier).await?;
+        return Err(stopped_report(failure, report.applied.len(), restarting));
     }
     let action = choose(ctx, finish, (target, &run))?;
     let mut rollback_restarting = false;
@@ -142,13 +156,7 @@ pub(super) async fn apply(
         Finish::Save => applier.commit().await.map_err(apply_failure)?,
         Finish::Rollback => {
             ctx.authorize_recovery(services, target).await?;
-            if let Err(error) = applier.rollback().await {
-                audit_rollback_failure(ctx, services, target, error).await;
-                if error != ApplyError::RollbackRestarting {
-                    return Err(apply_failure(error));
-                }
-                rollback_restarting = true;
-            }
+            rollback_restarting = roll_back(ctx, services, target, &mut applier).await?;
         }
         Finish::KeepUnsaved => {
             drop(applier);

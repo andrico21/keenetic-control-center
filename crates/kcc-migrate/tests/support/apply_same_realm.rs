@@ -66,7 +66,7 @@ mod tests {
         Ok(())
     }
 
-    /// F3 backlog 1: a password typed for `admin` wins over the same-realm hash the source
+    /// A password typed for `admin` wins over the same-realm hash the source
     /// carries; the router gets it, the run completes, and the typed password signs in.
     #[tokio::test]
     async fn typed_password_replaces_a_same_realm_hash() -> Result<(), Box<dyn Error>> {
@@ -101,7 +101,7 @@ mod tests {
         Ok(())
     }
 
-    /// F3 backlog 1: without a typed password, a same-realm hash for kcc's own login is
+    /// Without a typed password, a same-realm hash for kcc's own login is
     /// refused with `PasswordRequired` before anything is sent.
     #[tokio::test]
     async fn same_realm_login_hash_without_a_password_is_refused() -> Result<(), Box<dyn Error>> {
@@ -122,7 +122,7 @@ mod tests {
         Ok(())
     }
 
-    /// F3 backlog 1: a run the router already rolled back by itself has nothing left to
+    /// A run the router already rolled back by itself has nothing left to
     /// roll back; asking for it sends nothing and is not a refusal.
     #[tokio::test]
     async fn rollback_after_the_router_restored_itself_sends_nothing() -> Result<(), Box<dyn Error>>
@@ -156,7 +156,7 @@ mod tests {
         Ok(())
     }
 
-    /// F3 backlog 1: a preset password typed for a user wins over that user's same-realm
+    /// A preset password typed for a user wins over that user's same-realm
     /// hash, as in a migration.
     #[tokio::test]
     async fn preset_typed_password_replaces_a_same_realm_hash() -> Result<(), Box<dyn Error>> {

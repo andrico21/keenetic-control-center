@@ -7,8 +7,8 @@ use crate::{RouterCtx, interfaces, interfaces::membership};
 
 /// Classifies the interfaces whose traffic a firewall change affects.
 ///
-/// Failed detection is management risk; successful unknown verdicts retain the
-/// interface classifier's conservative management-bridge fallback.
+/// Failed detection is management risk, and so is a verdict that cannot tell which
+/// interface carries kcc's connection.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, topology reads do not change router state.
 #[inline]

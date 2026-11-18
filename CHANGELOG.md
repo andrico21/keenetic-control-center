@@ -119,7 +119,8 @@ The first release, `0.1.0`, is in preparation and contains:
   relay, address translation or the cloud path), a change to any interface (taking it down,
   its security level or address, the MTU, identity, PPP password, "connect via" or default
   route of an internet connection, a firewall binding or Wi-Fi schedule on it, a segment or
-  VPN connection naming it) is now a management change: it asks for the fail-safe
+  VPN connection naming it) is now a management change, except on a bridge whose
+  neighbours in the router's ARP or hotspot records are all on other interfaces: it asks for the fail-safe
   confirmation on every surface (the Web dialog, MCP `confirm_required`, the CLI's `--yes`)
   and runs inside the router's recovery timer. It used to run as a plain write except on
   a bridge or a bridge member. When kcc does know the interface, creating a connection
@@ -141,7 +142,8 @@ The first release, `0.1.0`, is in preparation and contains:
 - **A stopped migration says how many lines it applied.** `kcc migrate apply` and
   `kcc preset apply` report a run that failed after its first migrated line with the
   failure's exit code (6 for a router failure or a router-side rollback) and how many lines
-  were applied before it stopped. Rolling back a run that is already back on its saved
+  were applied before it stopped, or, when the rollback left the router still restarting,
+  that it is restarting with its saved configuration. Rolling back a run that is already back on its saved
   configuration (the router restored itself) sends nothing and succeeds on every surface;
   before, it was refused as invalid input, so the CLI printed "The request was rejected
   before anything was sent." with exit 4 after lines had been applied.

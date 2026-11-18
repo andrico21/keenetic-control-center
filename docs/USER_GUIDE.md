@@ -26,7 +26,9 @@ your role: pages and buttons you have no permission for are hidden or answer
   authorizes; nothing is sent before you confirm. When kcc cannot tell which interface
   carries its connection (for example when it reaches the router through a relay or
   address translation), it treats every interface as the one it reaches the router
-  through, so these changes ask first and run under the fail-safe timer on any interface.
+  through, so these changes ask first and run under the fail-safe timer on any interface;
+  the one exception is a bridge whose neighbours in the router's ARP or hotspot records are
+  all on other interfaces, which kcc counts as not carrying its connection.
   Rolling the timer back yourself needs
   the Destructive permission. While a fail-safe timer you (or a migration) armed is
   running, a risky change is refused with nothing sent, so that it neither replaces
