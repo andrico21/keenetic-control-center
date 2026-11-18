@@ -1079,3 +1079,10 @@ Root disallowed-methods fired in test code of kcc-rci, kcc-telemetry, kcc-app, k
   `apply` under clippy's 100-line threshold.
 - The 120 s silent-reboot CLI reproduction needs a `#[path = "cli/<file>.rs"]` mod line in `tests/cli.rs` (plain
   `mod x;` fails E0583) and PROCESS_TIMEOUT raised in the copy only.
+
+## [2026-11-18] Todo 81 (post-75 dependency update)
+- Plain `cargo update` took brotli 9.1.2, brotli-decompressor 6.3.2 and rand 0.10.4 (root) and rand 0.10.4 (xtask); only the workspace `rand` requirement moved.
+- rand 0.10.3 was covered by an imported audit chain (bytecode-alliance/isrg/mozilla deltas up to 0.10.3); 0.10.4 is not, so it needs an exemption and `cargo vet prune` drops the now-unused imported rand audits from both imports.lock files.
+- `cargo vet add-exemption` and `prune` reject `--manifest-path` before the subcommand; put it after (`cargo vet prune --manifest-path xtask/Cargo.toml`).
+- taplo excludes Cargo.toml and supply-chain/** in .taplo.toml, so `taplo fmt --check <those files>` checks nothing; run it repo-wide.
+- r82: brotli 9.1.2->9.1.3 via plain cargo update; vet exemption swapped; overlay held-back list updated 18:16 UTC.
