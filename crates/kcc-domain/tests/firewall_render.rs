@@ -28,20 +28,42 @@ use crate::support::{Fixture, PROFILES, TestResult};
 
 const ACTIONS: [Action; 2] = [Action::Permit, Action::Deny];
 const PROTOCOLS: [Protocol; 4] = [Protocol::Tcp, Protocol::Udp, Protocol::Icmp, Protocol::Ip];
-const SIDES: [(&str, &str); 3] = [
-    ("192.0.2.10", "255.255.255.255"),
-    ("198.51.100.0", "255.255.255.0"),
-    ("0.0.0.0", "0.0.0.0"),
-];
+/// An address and its mask.
+type Side = (&'static str, &'static str);
+
+/// A host, a network and any address.
+const HOST: Side = ("192.0.2.10", "255.255.255.255");
+const NETWORK: Side = ("198.51.100.0", "255.255.255.0");
+const ANY: Side = ("0.0.0.0", "0.0.0.0");
+
+/// Source and destination pairs: each address kind once on each side. The address words do
+/// not depend on each other, so the full cross product adds no case.
+const ADDRESSES: [(Side, Side); 3] = [(HOST, NETWORK), (NETWORK, ANY), (ANY, HOST)];
 
 #[derive(Clone, Copy)]
 enum PortCase {
     None,
     Exact,
     Range,
+    SourceRange,
 }
 
-const PORTS: [PortCase; 3] = [PortCase::None, PortCase::Exact, PortCase::Range];
+impl PortCase {
+    /// The request field a refused port names.
+    const fn field(self) -> &'static str {
+        match self {
+            Self::SourceRange => "source-port",
+            Self::None | Self::Exact | Self::Range => "destination-port",
+        }
+    }
+}
+
+const PORTS: [PortCase; 4] = [
+    PortCase::None,
+    PortCase::Exact,
+    PortCase::Range,
+    PortCase::SourceRange,
+];
 
 /// One rule-field combination.
 #[derive(Clone, Copy)]
@@ -57,6 +79,9 @@ struct Case<'name> {
 
 /// Every rule field combination reaches the router and reads back; D-05: ports on a
 /// protocol other than TCP or UDP are refused as the port field before any request.
+///
+/// D-23: each address kind appears once on each side instead of the full cross product,
+/// and a source port range is rendered and read back too.
 #[tokio::test(flavor = "multi_thread")]
 async fn every_rule_field_combination_reaches_and_returns_from_the_router() -> TestResult {
     let mut profiles = JoinSet::new();
@@ -73,31 +98,29 @@ async fn every_rule_field_combination_reaches_and_returns_from_the_router() -> T
 async fn matrix(firmware: Firmware) -> TestResult {
     for action in ACTIONS {
         for protocol in PROTOCOLS {
-            for source in SIDES {
-                for destination in SIDES {
-                    for ports in PORTS {
-                        for disabled in [false, true] {
-                            for schedule in [None, Some("Schedule0")] {
-                                let case = Case {
-                                    action,
-                                    protocol,
-                                    source,
-                                    destination,
-                                    ports,
-                                    disabled,
-                                    schedule,
-                                };
-                                exercise(firmware, case)
-                                .await
-                                .map_err(|error| -> Box<dyn Error + Send + Sync> {
-                                    let action_name = action.name();
-                                    let protocol_name = protocol.name();
-                                    format!(
-                                        "{firmware} {action_name} {protocol_name} {source:?} {destination:?} disabled={disabled} schedule={schedule:?}: {error}",
-                                    )
-                                    .into()
-                                })?;
-                            }
+            for (source, destination) in ADDRESSES {
+                for ports in PORTS {
+                    for disabled in [false, true] {
+                        for schedule in [None, Some("Schedule0")] {
+                            let case = Case {
+                                action,
+                                protocol,
+                                source,
+                                destination,
+                                ports,
+                                disabled,
+                                schedule,
+                            };
+                            exercise(firmware, case)
+                            .await
+                            .map_err(|error| -> Box<dyn Error + Send + Sync> {
+                                let action_name = action.name();
+                                let protocol_name = protocol.name();
+                                format!(
+                                    "{firmware} {action_name} {protocol_name} {source:?} {destination:?} disabled={disabled} schedule={schedule:?}: {error}",
+                                )
+                                .into()
+                            })?;
                         }
                     }
                 }
@@ -126,6 +149,7 @@ async fn exercise(firmware: Firmware, case: Case<'_>) -> TestResult {
         PortCase::None => {}
         PortCase::Exact => rule = rule.with_destination_port(443),
         PortCase::Range => rule = rule.with_destination_port_range(8000, 8002),
+        PortCase::SourceRange => rule = rule.with_source_port_range(1024, 1030),
     }
     if ported && !matches!(protocol, Protocol::Tcp | Protocol::Udp) {
         // D-05: the manual documents ports only for `tcp` and `udp` rules, so the planner
@@ -137,7 +161,7 @@ async fn exercise(firmware: Firmware, case: Case<'_>) -> TestResult {
                 &planned,
                 Err(DomainError::Validation { issues }) if issues.iter().any(|issue| matches!(
                     issue,
-                    ValidationIssue::InvalidValue { field } if field == "destination-port"
+                    ValidationIssue::InvalidValue { field } if field == ports.field()
                 ))
             ),
             "{firmware} {}: ports on a protocol without ports were planned: {planned:?}",

@@ -9,7 +9,7 @@
 )]
 mod tests {
     use kcc_i18n::{bundle::tr, keys, locale::Locale};
-    use kcc_testkit::FaultInjection;
+    use kcc_testkit::{FaultInjection, bracket::Recovery};
     use serde_json::json;
 
     use crate::{
@@ -33,7 +33,7 @@ mod tests {
                 faults = faults.refuse_batch_pointer("/ip/http/port".to_owned());
             }
             if armed {
-                faults = faults.fail_parse_matching("no system", 1);
+                faults = faults.fail_parse_matching(Recovery::FailSafeTimer.disarm(), 1);
             }
             let lab = Lab::start(vec![("lab-1", router("router", faults)?)], admin()).await?;
             let mut items = vec![json!({"ip":{"http":{"port":{"port":8430_u16}}}})];

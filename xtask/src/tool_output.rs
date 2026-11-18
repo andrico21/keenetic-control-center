@@ -10,6 +10,10 @@ use crate::failure::GateError;
 ///
 /// Returns [`GateError::Command`] when it cannot start, exits non-zero or prints
 /// non-UTF-8.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "xtask runs toolchain programs and captures their stdout"
+)]
 pub(crate) fn stdout_of(program: &str, args: &[&str]) -> Result<String, GateError> {
     let line = format!("{program} {}", args.join(" "));
     let output = Command::new(program)

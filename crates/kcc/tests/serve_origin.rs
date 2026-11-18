@@ -9,15 +9,19 @@
     reason = "integration tests drive the built process and own temporary OS resources"
 )]
 
+#[path = "support/master_key.rs"]
+mod master_key;
+#[path = "support/serve_port.rs"]
+mod serve_port;
+#[path = "support/spawning.rs"]
+mod spawning;
+
 use core::{error::Error, time::Duration};
 use std::{
     fs,
-    io::{BufRead as _, BufReader},
-    net::TcpListener,
-    path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    path::PathBuf,
+    process::{Child, Stdio},
     sync::{Arc, mpsc},
-    thread,
 };
 
 use kcc_app::{
@@ -28,28 +32,23 @@ use kcc_app::{
 };
 use reqwest::{Client, StatusCode, header};
 use secrecy::SecretString;
+use serve_port::{Start, await_ready, start_on_free_ports, stderr_lines};
 use tempfile::TempDir;
 
 type TestResult = Result<(), Box<dyn Error>>;
 const PROCESS_TIMEOUT: Duration = Duration::from_secs(20);
 const USERNAME: &str = "origin-user";
 const PASSWORD: &str = "origin-password-123";
+/// Where the configuration template takes the listen port.
+const PORT_HOLE: &str = "{listen_port}";
 
+/// A listening `kcc serve`, killed on drop.
 struct Process {
     child: Child,
-    stderr_rx: mpsc::Receiver<String>,
-    stderr_thread: Option<thread::JoinHandle<()>>,
-}
-
-impl Process {
-    fn wait_listening(&self) -> TestResult {
-        loop {
-            let line = self.stderr_rx.recv_timeout(PROCESS_TIMEOUT)?;
-            if line.contains("listening") {
-                return Ok(());
-            }
-        }
-    }
+    /// Its stderr lines, kept open so that its logging never fails.
+    _lines: mpsc::Receiver<String>,
+    /// The listener's base URL.
+    base_url: String,
 }
 
 impl Drop for Process {
@@ -58,18 +57,16 @@ impl Drop for Process {
             drop(self.child.kill());
             drop(self.child.wait());
         }
-        if let Some(thread) = self.stderr_thread.take() {
-            drop(thread.join());
-        }
     }
 }
 
 struct Fixture {
     _directory: TempDir,
     config: PathBuf,
+    /// `kcc.toml` with [`PORT_HOLE`] for the listen port.
+    template: String,
     home: PathBuf,
     key_path: PathBuf,
-    base_url: String,
 }
 
 impl Fixture {
@@ -100,74 +97,74 @@ impl Fixture {
             ),
         )?;
         let key_path = directory.path().join("master.key");
-        write_master_key(&key_path)?;
-        let port = reserve_port()?;
+        master_key::write(&key_path, [31_u8; 32])?;
         let configured_origins = extra_origin.map_or_else(String::new, |origin| {
             format!("allowed_origins = [\"{origin}\"]\n")
         });
-        let config = directory.path().join("kcc.toml");
-        fs::write(
-            &config,
-            format!(
-                "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n{configured_origins}{server_extra}\n[web]\nenabled = true\n{web_extra}\n[mcp]\nhttp_enabled = false\n\n[state]\ndir = {:?}\n",
-                state_dir.display().to_string()
-            ),
-        )?;
+        let template = format!(
+            "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {PORT_HOLE}\n{configured_origins}{server_extra}\n[web]\nenabled = true\n{web_extra}\n[mcp]\nhttp_enabled = false\n\n[state]\ndir = {:?}\n",
+            state_dir.display().to_string()
+        );
         Ok(Self {
             home: directory.path().to_owned(),
+            config: directory.path().join("kcc.toml"),
             _directory: directory,
-            config,
+            template,
             key_path,
-            base_url: format!("http://127.0.0.1:{port}"),
         })
     }
 
-    fn spawn(&self) -> Result<Process, Box<dyn Error>> {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_kcc"))
-            .args(["serve", "--config"])
-            .arg(&self.config)
-            .env("HOME", &self.home)
-            .env("XDG_CONFIG_HOME", self.home.join("config"))
-            .env("XDG_STATE_HOME", self.home.join("state-home"))
-            .env(MASTER_KEY_FILE_ENV, &self.key_path)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let stderr = child.stderr.take().ok_or("child stderr unavailable")?;
-        let (stderr_tx, stderr_rx) = mpsc::channel();
-        let stderr_thread = thread::spawn(move || {
-            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                if stderr_tx.send(line).is_err() {
-                    break;
-                }
-            }
-        });
-        Ok(Process {
-            child,
-            stderr_rx,
-            stderr_thread: Some(stderr_thread),
-        })
+    /// Starts `kcc serve` on a free port and waits until it listens.
+    fn serve(&self) -> Result<Process, Box<dyn Error>> {
+        let (_ports, process) = start_on_free_ports(|[port]| {
+            fs::write(
+                &self.config,
+                self.template.replace(PORT_HOLE, &port.to_string()),
+            )?;
+            let mut child = spawning::spawn(
+                spawning::command(env!("CARGO_BIN_EXE_kcc"))
+                    .args(["serve", "--config"])
+                    .arg(&self.config)
+                    .env("HOME", &self.home)
+                    .env("XDG_CONFIG_HOME", self.home.join("config"))
+                    .env("XDG_STATE_HOME", self.home.join("state-home"))
+                    .env(MASTER_KEY_FILE_ENV, &self.key_path)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::piped()),
+            )?;
+            let lines = stderr_lines(&mut child)?;
+            let started = await_ready(&lines, |line| line.contains("listening"), PROCESS_TIMEOUT)?;
+            let process = Process {
+                child,
+                _lines: lines,
+                base_url: format!("http://127.0.0.1:{port}"),
+            };
+            Ok::<_, Box<dyn Error>>(match started {
+                Start::Ready(_seen) => Start::Ready(process),
+                Start::AddressInUse => Start::AddressInUse,
+            })
+        })?;
+        Ok(process)
     }
 }
 
 #[tokio::test]
 async fn same_origin_login_post_is_accepted_without_configured_origins() -> TestResult {
     let fixture = Fixture::new(None)?;
-    let process = fixture.spawn()?;
-    process.wait_listening()?;
+    let process = fixture.serve()?;
     let client = client()?;
     let login_page = client
-        .get(format!("{}/ui/login", fixture.base_url))
+        .get(format!("{}/ui/login", process.base_url))
         .send()
         .await?;
     let cookie = cookie_pair(&login_page)?;
     let csrf = meta_content(&login_page.text().await?, "csrf-token").ok_or("missing CSRF")?;
 
     let response = client
-        .post(format!("{}/ui/login", fixture.base_url))
+        .post(format!("{}/ui/login", process.base_url))
         .header(header::COOKIE, cookie)
-        .header(header::ORIGIN, &fixture.base_url)
+        .header(header::ORIGIN, &process.base_url)
         .header("sec-fetch-site", "same-origin")
         .header("x-csrf-token", csrf)
         .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
@@ -188,11 +185,10 @@ async fn https_public_url_gives_a_secure_host_cookie_and_the_tls_csp() -> TestRe
         "trusted_proxies = [\"127.0.0.1/32\"]\n",
         "public_url = \"https://kcc.example.net/\"\n",
     )?;
-    let process = fixture.spawn()?;
-    process.wait_listening()?;
+    let process = fixture.serve()?;
 
     let login_page = client()?
-        .get(format!("{}/ui/login", fixture.base_url))
+        .get(format!("{}/ui/login", process.base_url))
         .send()
         .await?;
 
@@ -213,11 +209,10 @@ async fn https_public_url_gives_a_secure_host_cookie_and_the_tls_csp() -> TestRe
 #[tokio::test]
 async fn plain_loopback_keeps_the_plain_cookie_and_csp() -> TestResult {
     let fixture = Fixture::new(None)?;
-    let process = fixture.spawn()?;
-    process.wait_listening()?;
+    let process = fixture.serve()?;
 
     let login_page = client()?
-        .get(format!("{}/ui/login", fixture.base_url))
+        .get(format!("{}/ui/login", process.base_url))
         .send()
         .await?;
 
@@ -234,11 +229,10 @@ async fn plain_loopback_keeps_the_plain_cookie_and_csp() -> TestResult {
 #[tokio::test]
 async fn foreign_origin_is_refused_by_shared_listener() -> TestResult {
     let fixture = Fixture::new(None)?;
-    let process = fixture.spawn()?;
-    process.wait_listening()?;
+    let process = fixture.serve()?;
 
     let response = client()?
-        .get(format!("{}/healthz", fixture.base_url))
+        .get(format!("{}/healthz", process.base_url))
         .header(header::ORIGIN, "http://evil.example")
         .send()
         .await?;
@@ -251,11 +245,10 @@ async fn foreign_origin_is_refused_by_shared_listener() -> TestResult {
 async fn configured_extra_origin_is_preserved_with_derived_origins() -> TestResult {
     let extra_origin = "https://proxy.example";
     let fixture = Fixture::new(Some(extra_origin))?;
-    let process = fixture.spawn()?;
-    process.wait_listening()?;
+    let process = fixture.serve()?;
 
     let response = client()?
-        .get(format!("{}/healthz", fixture.base_url))
+        .get(format!("{}/healthz", process.base_url))
         .header(header::ORIGIN, extra_origin)
         .send()
         .await?;
@@ -270,21 +263,6 @@ fn client() -> Result<Client, Box<dyn Error>> {
         .redirect(reqwest::redirect::Policy::none())
         .timeout(Duration::from_secs(5))
         .build()?)
-}
-
-fn reserve_port() -> Result<u16, Box<dyn Error>> {
-    let listener = TcpListener::bind(("127.0.0.1", 0))?;
-    Ok(listener.local_addr()?.port())
-}
-
-fn write_master_key(path: &Path) -> TestResult {
-    fs::write(path, [31_u8; 32])?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt as _;
-        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
-    }
-    Ok(())
 }
 
 fn cookie_pair(response: &reqwest::Response) -> Result<String, Box<dyn Error>> {

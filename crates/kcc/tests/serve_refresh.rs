@@ -12,6 +12,18 @@
     reason = "integration tests drive the built process"
 )]
 
+#[path = "support/master_key.rs"]
+mod master_key;
+#[path = "support/serve_port.rs"]
+mod serve_port;
+#[expect(
+    dead_code,
+    reason = "a running server here only reloads its configuration"
+)]
+#[path = "support/signal.rs"]
+mod signal;
+#[path = "support/spawning.rs"]
+mod spawning;
 #[path = "serve_refresh/support.rs"]
 mod support;
 #[path = "serve_refresh/web.rs"]

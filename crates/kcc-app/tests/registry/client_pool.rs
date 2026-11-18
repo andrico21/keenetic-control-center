@@ -19,6 +19,10 @@ const CONNECT: Duration = Duration::from_secs(20);
 /// FIFO nobody has written yet), `client("fast")` for another router still completes.
 // NOT cancel-safe: owns the fixture and the FIFO writer until both clients are built.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "creates a FIFO with mkfifo, which std has no safe call for"
+)]
 async fn a_blocked_credential_read_does_not_stall_other_routers() -> Result<(), Box<dyn Error>> {
     let directory = TempDir::new()?;
     let (address, handle, _counts) = auth_fixture::spawn(Fixture::default()).await?;

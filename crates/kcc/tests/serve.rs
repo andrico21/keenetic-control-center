@@ -9,13 +9,23 @@
     reason = "integration tests drive the built process and own temporary OS resources"
 )]
 
+#[path = "support/master_key.rs"]
+mod master_key;
+#[path = "support/serve_port.rs"]
+mod serve_port;
+#[cfg(unix)]
+#[expect(dead_code, reason = "only the startup hangup test sends a signal")]
+#[path = "support/signal.rs"]
+mod signal;
+#[path = "support/spawning.rs"]
+mod spawning;
+
 use core::{error::Error, time::Duration};
 use std::{
     fs,
     io::{BufRead as _, BufReader, Write as _},
-    net::TcpListener,
     path::{Path, PathBuf},
-    process::{Child, ChildStdin, Command, ExitStatus, Stdio},
+    process::{Child, ChildStdin, ExitStatus, Stdio},
     sync::{Arc, mpsc},
     thread,
 };
@@ -32,6 +42,7 @@ use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter};
 use reqwest::{Client, StatusCode, header};
 use secrecy::SecretString;
 use serde_json::{Value, json};
+use serve_port::{Start, await_ready, start_on_free_ports, stderr_lines};
 use tempfile::TempDir;
 use wait_timeout::ChildExt as _;
 
@@ -39,43 +50,41 @@ type TestResult = Result<(), Box<dyn Error>>;
 
 const PROCESS_TIMEOUT: Duration = Duration::from_secs(20);
 
+/// The listen port written by [`Fixture::new`]; [`Fixture::serve`] replaces it with a
+/// free port before every start.
+const UNSERVED_PORT: u16 = 1024;
+
 struct ChildGuard {
     child: Child,
     stdin: Option<ChildStdin>,
     stdout_rx: mpsc::Receiver<String>,
     stdout_thread: Option<thread::JoinHandle<()>>,
     stderr_rx: mpsc::Receiver<String>,
-    stderr_thread: Option<thread::JoinHandle<()>>,
     stderr: String,
+    /// The listener's base URL once it serves.
+    base_url: String,
 }
 
 impl ChildGuard {
     fn spawn(arguments: &[&str], home: &Path, key_path: &Path) -> Result<Self, Box<dyn Error>> {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_kcc"))
-            .args(arguments)
-            .env("HOME", home)
-            .env("XDG_CONFIG_HOME", home.join("config"))
-            .env("XDG_STATE_HOME", home.join("state-home"))
-            .env(MASTER_KEY_FILE_ENV, key_path)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+        let mut child = spawning::spawn(
+            spawning::command(env!("CARGO_BIN_EXE_kcc"))
+                .args(arguments)
+                .env("HOME", home)
+                .env("XDG_CONFIG_HOME", home.join("config"))
+                .env("XDG_STATE_HOME", home.join("state-home"))
+                .env(MASTER_KEY_FILE_ENV, key_path)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped()),
+        )?;
         let stdin = child.stdin.take().ok_or("child stdin unavailable")?;
         let stdout = child.stdout.take().ok_or("child stdout unavailable")?;
-        let stderr = child.stderr.take().ok_or("child stderr unavailable")?;
+        let stderr_rx = stderr_lines(&mut child)?;
         let (stdout_tx, stdout_rx) = mpsc::channel();
         let stdout_thread = thread::spawn(move || {
             for line in BufReader::new(stdout).lines().map_while(Result::ok) {
                 if stdout_tx.send(line).is_err() {
-                    break;
-                }
-            }
-        });
-        let (stderr_tx, stderr_rx) = mpsc::channel();
-        let stderr_thread = thread::spawn(move || {
-            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                if stderr_tx.send(line).is_err() {
                     break;
                 }
             }
@@ -86,24 +95,28 @@ impl ChildGuard {
             stdout_rx,
             stdout_thread: Some(stdout_thread),
             stderr_rx,
-            stderr_thread: Some(stderr_thread),
             stderr: String::new(),
+            base_url: String::new(),
         })
     }
 
-    fn wait_listening(&mut self) -> TestResult {
-        let deadline = std::time::Instant::now()
-            .checked_add(PROCESS_TIMEOUT)
-            .ok_or("process deadline overflow")?;
-        loop {
-            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-            let line = self.stderr_rx.recv_timeout(remaining)?;
-            self.stderr.push_str(&line);
-            self.stderr.push('\n');
-            if line.contains("listening") {
-                return Ok(());
+    /// Waits until the process logs that it listens; keeps every line read.
+    fn await_listening(&mut self) -> Result<Start<()>, Box<dyn Error>> {
+        let started = await_ready(
+            &self.stderr_rx,
+            |line| line.contains("listening"),
+            PROCESS_TIMEOUT,
+        )?;
+        Ok(match started {
+            Start::Ready(seen) => {
+                for line in seen {
+                    self.stderr.push_str(&line);
+                    self.stderr.push('\n');
+                }
+                Start::Ready(())
             }
-        }
+            Start::AddressInUse => Start::AddressInUse,
+        })
     }
 
     fn write_line(&mut self, value: &Value) -> TestResult {
@@ -132,12 +145,7 @@ impl ChildGuard {
                 .join()
                 .map_err(|_panic| "stdout reader panicked")?;
         }
-        if let Some(stderr_thread) = self.stderr_thread.take() {
-            stderr_thread
-                .join()
-                .map_err(|_panic| "stderr reader panicked")?;
-        }
-        while let Ok(line) = self.stderr_rx.try_recv() {
+        while let Ok(line) = self.stderr_rx.recv_timeout(PROCESS_TIMEOUT) {
             self.stderr.push_str(&line);
             self.stderr.push('\n');
         }
@@ -151,9 +159,6 @@ impl Drop for ChildGuard {
             drop(self.child.kill());
             drop(self.child.wait());
         }
-        if let Some(stderr_thread) = self.stderr_thread.take() {
-            drop(stderr_thread.join());
-        }
         if let Some(stdout_thread) = self.stdout_thread.take() {
             drop(stdout_thread.join());
         }
@@ -165,7 +170,6 @@ struct Fixture {
     config: PathBuf,
     home: PathBuf,
     key_path: PathBuf,
-    base_url: String,
     viewer_key: String,
     operator_key: String,
     router: kcc_testkit::Handle,
@@ -211,13 +215,12 @@ impl Fixture {
         )?;
         let operator_key = expose_created_key(&operator).to_owned();
         let key_path = directory.path().join("master.key");
-        write_master_key(&key_path)?;
-        let port = reserve_port()?;
+        master_key::write(&key_path, [17_u8; 32])?;
         let config = directory.path().join("kcc.toml");
         fs::write(
             &config,
             format!(
-                "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n\n[web]\nenabled = true\n\n[mcp]\nhttp_enabled = {http_enabled}\nstdio_enabled = true\n\n[outbound]\nallow_loopback = true\n\n[state]\ndir = {:?}\n\n[[routers]]\nname = \"router\"\nurl = \"http://{router_address}\"\nlogin = \"admin\"\npassword_file = {:?}\n",
+                "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {UNSERVED_PORT}\n\n[web]\nenabled = true\n\n[mcp]\nhttp_enabled = {http_enabled}\nstdio_enabled = true\n\n[outbound]\nallow_loopback = true\n\n[state]\ndir = {:?}\n\n[[routers]]\nname = \"router\"\nurl = \"http://{router_address}\"\nlogin = \"admin\"\npassword_file = {:?}\n",
                 state_dir.display().to_string(),
                 password_file.display().to_string()
             ),
@@ -230,11 +233,43 @@ impl Fixture {
                 .ok_or("state directory has no parent")?
                 .to_owned(),
             key_path,
-            base_url: format!("http://127.0.0.1:{port}"),
             viewer_key,
             operator_key,
             router,
         })
+    }
+
+    /// Starts `kcc serve` on a free port and waits until it listens.
+    fn serve(&self) -> Result<ChildGuard, Box<dyn Error>> {
+        self.serve_with(|_process| Ok(()))
+    }
+
+    /// Like [`Self::serve`], running `started` on each process right after it starts.
+    fn serve_with<F>(&self, mut started: F) -> Result<ChildGuard, Box<dyn Error>>
+    where
+        F: FnMut(&mut ChildGuard) -> TestResult,
+    {
+        let ([port], mut process) = start_on_free_ports(|[port]| {
+            let text = fs::read_to_string(&self.config)?
+                .lines()
+                .map(|line| {
+                    if line.starts_with("listen_port = ") {
+                        format!("listen_port = {port}\n")
+                    } else {
+                        format!("{line}\n")
+                    }
+                })
+                .collect::<String>();
+            fs::write(&self.config, text)?;
+            let mut process = self.spawn()?;
+            started(&mut process)?;
+            Ok::<_, Box<dyn Error>>(match process.await_listening()? {
+                Start::Ready(()) => Start::Ready(process),
+                Start::AddressInUse => Start::AddressInUse,
+            })
+        })?;
+        process.base_url = format!("http://127.0.0.1:{port}");
+        Ok(process)
     }
 
     fn spawn(&self) -> Result<ChildGuard, Box<dyn Error>> {
@@ -254,23 +289,6 @@ impl Fixture {
         self.router.shutdown().await?;
         Ok(())
     }
-}
-
-fn reserve_port() -> Result<u16, Box<dyn Error>> {
-    let listener = TcpListener::bind(("127.0.0.1", 0))?;
-    let port = listener.local_addr()?.port();
-    drop(listener);
-    Ok(port)
-}
-
-fn write_master_key(path: &Path) -> TestResult {
-    fs::write(path, [17_u8; 32])?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt as _;
-        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
-    }
-    Ok(())
 }
 
 fn client() -> Result<Client, Box<dyn Error>> {
@@ -353,13 +371,12 @@ fn tool_names(tools: &[Value]) -> impl Iterator<Item = &str> {
 #[tokio::test]
 async fn serve_exposes_health_web_and_viewer_filtered_mcp() -> TestResult {
     let fixture = Fixture::new(true).await?;
-    let mut process = fixture.spawn()?;
-    process.wait_listening()?;
+    let process = fixture.serve()?;
     let client = client()?;
 
     assert_eq!(
         client
-            .get(format!("{}/healthz", fixture.base_url))
+            .get(format!("{}/healthz", process.base_url))
             .send()
             .await?
             .status(),
@@ -367,14 +384,14 @@ async fn serve_exposes_health_web_and_viewer_filtered_mcp() -> TestResult {
     );
     assert_eq!(
         client
-            .get(format!("{}/readyz", fixture.base_url))
+            .get(format!("{}/readyz", process.base_url))
             .send()
             .await?
             .status(),
         StatusCode::OK
     );
     let login = client
-        .get(format!("{}/ui/login", fixture.base_url))
+        .get(format!("{}/ui/login", process.base_url))
         .send()
         .await?;
     assert_eq!(login.status(), StatusCode::OK);
@@ -386,22 +403,22 @@ async fn serve_exposes_health_web_and_viewer_filtered_mcp() -> TestResult {
         Some(kcc_web::csp::policy(false).as_str())
     );
     let unauthorized = client
-        .post(format!("{}/mcp", fixture.base_url))
+        .post(format!("{}/mcp", process.base_url))
         .json(&json!({"jsonrpc":"2.0","id":1_u32,"method":"tools/list","params":{}}))
         .send()
         .await?;
     assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
-    let viewer_session = initialize(&client, &fixture.base_url, &fixture.viewer_key).await?;
+    let viewer_session = initialize(&client, &process.base_url, &fixture.viewer_key).await?;
     initialized(
         &client,
-        &fixture.base_url,
+        &process.base_url,
         &fixture.viewer_key,
         &viewer_session,
     )
     .await?;
     let viewer_list = tools_list(
         &client,
-        &fixture.base_url,
+        &process.base_url,
         &fixture.viewer_key,
         &viewer_session,
     )
@@ -417,17 +434,17 @@ async fn serve_exposes_health_web_and_viewer_filtered_mcp() -> TestResult {
             .and_then(Value::as_bool)
             == Some(true)
     }));
-    let operator_session = initialize(&client, &fixture.base_url, &fixture.operator_key).await?;
+    let operator_session = initialize(&client, &process.base_url, &fixture.operator_key).await?;
     initialized(
         &client,
-        &fixture.base_url,
+        &process.base_url,
         &fixture.operator_key,
         &operator_session,
     )
     .await?;
     let operator_list = tools_list(
         &client,
-        &fixture.base_url,
+        &process.base_url,
         &fixture.operator_key,
         &operator_session,
     )
@@ -448,8 +465,7 @@ async fn serve_exposes_health_web_and_viewer_filtered_mcp() -> TestResult {
 #[tokio::test]
 async fn startup_warns_once_when_outbound_names_no_network() -> TestResult {
     let fixture = Fixture::new(false).await?;
-    let mut process = fixture.spawn()?;
-    process.wait_listening()?;
+    let process = fixture.serve()?;
 
     let warnings = process
         .stderr
@@ -466,21 +482,20 @@ async fn startup_warns_once_when_outbound_names_no_network() -> TestResult {
 #[tokio::test]
 async fn disabled_http_mcp_still_serves_web_without_tools() -> TestResult {
     let fixture = Fixture::new(false).await?;
-    let mut process = fixture.spawn()?;
-    process.wait_listening()?;
+    let process = fixture.serve()?;
     let client = client()?;
 
     assert_eq!(
         client
-            .get(format!("{}/ui/login", fixture.base_url))
+            .get(format!("{}/ui/login", process.base_url))
             .send()
             .await?
             .status(),
         StatusCode::OK
     );
-    let session = initialize(&client, &fixture.base_url, &fixture.viewer_key).await?;
-    initialized(&client, &fixture.base_url, &fixture.viewer_key, &session).await?;
-    let listed = tools_list(&client, &fixture.base_url, &fixture.viewer_key, &session).await?;
+    let session = initialize(&client, &process.base_url, &fixture.viewer_key).await?;
+    initialized(&client, &process.base_url, &fixture.viewer_key, &session).await?;
+    let listed = tools_list(&client, &process.base_url, &fixture.viewer_key, &session).await?;
     assert!(
         listed
             .pointer("/result/tools")
@@ -497,8 +512,7 @@ async fn disabled_http_mcp_still_serves_web_without_tools() -> TestResult {
 #[tokio::test]
 async fn second_serve_fails_fast_while_first_stays_healthy() -> TestResult {
     let fixture = Fixture::new(true).await?;
-    let mut first = fixture.spawn()?;
-    first.wait_listening()?;
+    let first = fixture.serve()?;
     let second = fixture.spawn()?;
 
     let (status, stderr) = second.wait()?;
@@ -510,7 +524,7 @@ async fn second_serve_fails_fast_while_first_stays_healthy() -> TestResult {
     );
     assert_eq!(
         client()?
-            .get(format!("{}/healthz", fixture.base_url))
+            .get(format!("{}/healthz", first.base_url))
             .send()
             .await?
             .status(),
@@ -524,8 +538,7 @@ async fn second_serve_fails_fast_while_first_stays_healthy() -> TestResult {
 #[tokio::test]
 async fn enabled_stdio_runs_beside_serve_as_viewer() -> TestResult {
     let fixture = Fixture::new(true).await?;
-    let mut server = fixture.spawn()?;
-    server.wait_listening()?;
+    let server = fixture.serve()?;
     let mut stdio = fixture.spawn_command(&["mcp", "stdio"])?;
 
     stdio.write_line(&json!({"jsonrpc":"2.0","id":1_u32,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}))?;
@@ -656,8 +669,7 @@ async fn serve_starts_over_a_torn_audit_line_and_moves_it_aside() -> TestResult 
     let torn = kept.get(line_start..).ok_or("the torn line")?.to_vec();
     fs::write(&log, kept)?;
 
-    let mut process = fixture.spawn()?;
-    process.wait_listening()?;
+    let process = fixture.serve()?;
 
     let mut moved = Vec::new();
     for listed in fs::read_dir(state.dir())? {
@@ -687,16 +699,13 @@ async fn serve_starts_over_a_torn_audit_line_and_moves_it_aside() -> TestResult 
 #[tokio::test]
 async fn a_hangup_during_startup_is_applied_once_serving() -> TestResult {
     let fixture = Fixture::new(false).await?;
-    let mut process = fixture.spawn()?;
-    let first = process.stderr_rx.recv_timeout(PROCESS_TIMEOUT)?;
-    process.stderr.push_str(&first);
 
-    let sent = Command::new("kill")
-        .args(["-HUP", &process.child.id().to_string()])
-        .status()?;
+    let process = fixture.serve_with(|process| {
+        let first = process.stderr_rx.recv_timeout(PROCESS_TIMEOUT)?;
+        process.stderr.push_str(&first);
+        Ok(signal::send(&process.child, signal::Signal::Hangup)?)
+    })?;
 
-    assert!(sent.success(), "kill -HUP failed");
-    process.wait_listening()?;
     while !process
         .stderr_rx
         .recv_timeout(PROCESS_TIMEOUT)?
@@ -704,7 +713,7 @@ async fn a_hangup_during_startup_is_applied_once_serving() -> TestResult {
     {}
     assert_eq!(
         client()?
-            .get(format!("{}/healthz", fixture.base_url))
+            .get(format!("{}/healthz", process.base_url))
             .send()
             .await?
             .status(),
@@ -719,7 +728,7 @@ async fn a_hangup_during_startup_is_applied_once_serving() -> TestResult {
 fn disabled_stdio_exits_forbidden() -> TestResult {
     let directory = TempDir::new()?;
     let key_path = directory.path().join("master.key");
-    write_master_key(&key_path)?;
+    master_key::write(&key_path, [17_u8; 32])?;
     let config = directory.path().join("kcc.toml");
     fs::write(
         &config,
@@ -750,7 +759,7 @@ fn disabled_stdio_exits_forbidden() -> TestResult {
 fn non_loopback_plain_http_web_is_refused() -> TestResult {
     let directory = TempDir::new()?;
     let key_path = directory.path().join("master.key");
-    write_master_key(&key_path)?;
+    master_key::write(&key_path, [17_u8; 32])?;
     let config = directory.path().join("kcc.toml");
     fs::write(
         &config,

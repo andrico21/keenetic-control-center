@@ -209,24 +209,23 @@ async fn scoped_role_with_all_apply_permissions_shows_router_out_of_scope() -> T
 
     let run = pair.apply("scoped_operator", "save")?;
 
-    // Should exit 10 (forbidden)
     assert_eq!(run.code, 10_i32, "{run:?}");
-
-    // The refusal should contain the new router-out-of-scope message,
-    // not an empty "Missing permissions: ." message
-    let mut args = FluentArgs::new();
-    args.set("router", "lab-1");
-    let expected_message = tr(Locale::En, keys::CLI_ROUTER_OUT_OF_SCOPE, Some(&args));
-
+    let mut router = FluentArgs::new();
+    router.set("router", "lab-1");
+    let out_of_scope = tr(Locale::En, keys::CLI_ROUTER_OUT_OF_SCOPE, Some(&router));
     assert!(
-        run.stderr.contains(&expected_message),
-        "should contain out-of-scope message '{expected_message}': got {run:?}",
+        run.stderr.contains(&out_of_scope),
+        "the refusal names the router out of scope: {run:?}",
     );
-
-    // Verify it does NOT contain an empty permission list
+    let mut nothing_missing = FluentArgs::new();
+    nothing_missing.set("missing", "");
     assert!(
-        !run.stderr.contains("Missing permissions: ."),
-        "should not contain empty permission list: {run:?}"
+        !run.stderr.contains(&tr(
+            Locale::En,
+            keys::CLI_APPLY_RECOVERY_FORBIDDEN,
+            Some(&nothing_missing)
+        )),
+        "no refusal with an empty permission list: {run:?}"
     );
 
     pair.stop().await

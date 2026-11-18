@@ -20,6 +20,10 @@
 
 #[path = "support/live_gate.rs"]
 mod live_gate;
+#[path = "support/master_key.rs"]
+mod master_key;
+#[path = "support/spawning.rs"]
+mod spawning;
 #[path = "live_presets/twin.rs"]
 mod twin;
 
@@ -27,7 +31,7 @@ use core::{error::Error, time::Duration};
 use std::{
     env, fs, io,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::Stdio,
 };
 
 use kcc_app::{secrets::MASTER_KEY_FILE_ENV, settings::OutboundConfig};
@@ -143,22 +147,23 @@ async fn clean_running(client: &RciClient) -> Result<Zeroizing<String>, Box<dyn 
 
 /// Runs the built `kcc` with a hermetic home, state and master key.
 fn kcc(home: &Path, args: &[&str]) -> Result<(i32, String), Box<dyn Error>> {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_kcc"))
-        .arg("--config")
-        .arg(home.join("kcc.toml"))
-        .args(args)
-        .env_clear()
-        .env("PATH", env::var_os("PATH").unwrap_or_default())
-        .env("HOME", home.join("home"))
-        .env("XDG_CONFIG_HOME", home.join("home/config"))
-        .env("XDG_STATE_HOME", home.join("home/state"))
-        .env(MASTER_KEY_FILE_ENV, home.join("master.key"))
-        .env("USER", "tester")
-        .env("LANG", "C")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()?;
+    let mut child = spawning::spawn(
+        spawning::command(env!("CARGO_BIN_EXE_kcc"))
+            .arg("--config")
+            .arg(home.join("kcc.toml"))
+            .args(args)
+            .env_clear()
+            .env("PATH", env::var_os("PATH").unwrap_or_default())
+            .env("HOME", home.join("home"))
+            .env("XDG_CONFIG_HOME", home.join("home/config"))
+            .env("XDG_STATE_HOME", home.join("home/state"))
+            .env(MASTER_KEY_FILE_ENV, home.join("master.key"))
+            .env("USER", "tester")
+            .env("LANG", "C")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit()),
+    )?;
     let Some(status) = child.wait_timeout(PROCESS_TIMEOUT)? else {
         child.kill()?;
         return Err("kcc did not exit before the deadline".into());
@@ -190,13 +195,7 @@ fn outbound_table(outbound: &OutboundConfig) -> Result<String, Box<dyn Error>> {
 /// admitted configuration's outbound policy.
 fn hermetic(target: &Target, outbound: &OutboundConfig) -> Result<TempDir, Box<dyn Error>> {
     let home = TempDir::new()?;
-    let key = home.path().join("master.key");
-    fs::write(&key, [51_u8; 32])?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt as _;
-        fs::set_permissions(&key, fs::Permissions::from_mode(0o600))?;
-    }
+    master_key::write(&home.path().join("master.key"), [51_u8; 32])?;
     fs::write(
         home.path().join("kcc.toml"),
         format!(

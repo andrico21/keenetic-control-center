@@ -10,7 +10,7 @@ use kcc_domain::{
     dhcp::model::PoolConfig,
     interfaces, mesh, nat, segments, system,
 };
-use kcc_testkit::{FaultInjection, model::Firmware};
+use kcc_testkit::{FaultInjection, bracket::Recovery, model::Firmware};
 use serde_json::json;
 
 use crate::{
@@ -173,7 +173,7 @@ async fn configuration(firmware: Firmware, op: &str) -> TestResult {
     let faulted = matches!(op, "fail_safe_arm" | "fail_safe_keep_alive");
     let faults = if faulted {
         FaultInjection::default()
-            .silent_noop_path("system configuration fail-safe timer reboot 300")
+            .silent_noop_path(Recovery::FailSafeTimer.arm())
             .silent_noop_path("system configuration fail-safe keep-alive")
     } else {
         FaultInjection::default()

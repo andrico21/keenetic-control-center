@@ -35,7 +35,10 @@ use kcc_domain::{
     },
     system,
 };
-use kcc_testkit::{FaultInjection, model::Firmware};
+use kcc_testkit::{
+    bracket::{Fate, Recovery},
+    model::Firmware,
+};
 use tokio::{
     task::{JoinSet, yield_now},
     time::timeout,
@@ -56,22 +59,33 @@ enum Work {
     Fail,
 }
 
-/// Parser lines to refuse (`substring`, times), the work, and the failure's fate; `None`
-/// fate rows are not armed and must carry the original error.
-type Row = ((&'static str, usize), Work, Option<ArmedFate>);
+/// The shared bracket fate the router is made to give (`None`: no fault), the work, and
+/// the failure's fate; `None` fate rows are not armed and must carry the original error.
+type Row = (Option<Fate>, Work, Option<ArmedFate>);
 
 const ROWS: [Row; 5] = [
     // The arm is refused, the disarm accepted: nothing armed, nothing applied.
-    (("system", 1), Work::Apply, None),
+    (Some(Fate::ArmRefused), Work::Apply, None),
     // Arm and disarm refused: nothing sent, the timer may be armed.
-    (("system", 2), Work::Apply, Some(ArmedFate::NotSent)),
+    (Some(Fate::NotSent), Work::Apply, Some(ArmedFate::NotSent)),
     // The work fails, the disarm is accepted: the original error, not armed.
-    (("no such line", 1), Work::Fail, None),
+    (None, Work::Fail, None),
     // The work applied, the disarm is refused.
-    (("no system", 1), Work::Apply, Some(ArmedFate::Applied)),
+    (
+        Some(Fate::DisarmRefused),
+        Work::Apply,
+        Some(ArmedFate::Applied),
+    ),
     // The work failed, the disarm is refused.
-    (("no system", 1), Work::Fail, Some(ArmedFate::Unknown)),
+    (
+        Some(Fate::DisarmRefused),
+        Work::Fail,
+        Some(ArmedFate::Unknown),
+    ),
 ];
+
+/// The work's line; the work is sent over RCI, so no parser fault matches it.
+const WORK_LINE: &str = "system description bracketed";
 
 /// The parser lines the router saw after `before` requests.
 fn commands_after(fixture: &Fixture, before: usize) -> Vec<String> {
@@ -87,11 +101,8 @@ fn commands_after(fixture: &Fixture, before: usize) -> Vec<String> {
 /// The arm and disarm lines of `mode`.
 const fn lines(mode: SafetyMode) -> [&'static str; 2] {
     match mode {
-        SafetyMode::Router => [
-            "system configuration fail-safe timer reboot 300",
-            "no system configuration fail-safe timer",
-        ],
-        SafetyMode::ScheduledReboot => ["system reboot 300", "no system reboot"],
+        SafetyMode::Router => Recovery::FailSafeTimer.lines(),
+        SafetyMode::ScheduledReboot => Recovery::ScheduledReboot.lines(),
         _ => ["unknown arm", "unknown disarm"],
     }
 }
@@ -149,8 +160,10 @@ async fn run(
 async fn a_failure_says_whether_the_timer_may_still_be_armed() -> TestResult {
     for firmware in PROFILES {
         for system_mode in MODES {
-            for ((refused, times), work, fate) in ROWS {
-                let faults = FaultInjection::default().fail_parse_matching(refused, times);
+            for (refused, work, fate) in ROWS {
+                let recovery = Recovery::for_mode(system_mode);
+                let faults =
+                    refused.map_or_default(|injected| injected.faults(recovery, WORK_LINE));
                 let fixture = Fixture::spawn_mode(firmware, system_mode, faults).await?;
                 let mut changes = fixture.changes().await?;
                 let mode = SafetyMode::for_change(&changes)?;
@@ -158,7 +171,7 @@ async fn a_failure_says_whether_the_timer_may_still_be_armed() -> TestResult {
 
                 let outcome = run(&mut changes, &fixture, mode, work).await?;
 
-                let label = format!("{firmware} {system_mode} {mode:?} {refused} {work:?}");
+                let label = format!("{firmware} {system_mode} {mode:?} {refused:?} {work:?}");
                 let failure = outcome
                     .err()
                     .ok_or_else(|| format!("{label}: bracket succeeded"))?;

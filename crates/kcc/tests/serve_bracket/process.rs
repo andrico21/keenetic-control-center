@@ -11,12 +11,9 @@ use alloc::sync::Arc;
 use core::time::Duration;
 use std::{
     fs,
-    io::{BufRead as _, BufReader},
-    net::TcpListener,
     path::{Path, PathBuf},
-    process::{Child, Command, ExitStatus, Stdio},
+    process::{Child, ExitStatus, Stdio},
     sync::mpsc,
-    thread,
 };
 
 use kcc_app::{
@@ -35,7 +32,11 @@ use tempfile::TempDir;
 use wait_timeout::ChildExt as _;
 
 use crate::{
+    master_key,
     proxy::{self, Action},
+    serve_port::{Start, await_ready, start_on_free_ports, stderr_lines},
+    signal::{self, Signal},
+    spawning,
     support::{PASSWORD, TestResult},
     web::Browser,
 };
@@ -89,32 +90,37 @@ impl Served {
             hooks(home.join("state").join(AUDIT_FILE_NAME)),
         )
         .await?;
-        let port = TcpListener::bind(("127.0.0.1", 0))?.local_addr()?.port();
-        let (config, key) = write_config(
-            home,
-            &format!("http://{relay}"),
-            (port, server_extra, mcp_http),
-        )?;
-        let mut child = Command::new(env!("CARGO_BIN_EXE_kcc"))
-            .args(["serve", "--config", config.to_str().ok_or("path")?])
-            .env("HOME", home)
-            .env("XDG_CONFIG_HOME", home.join("config"))
-            .env("XDG_STATE_HOME", home.join("state-home"))
-            .env(MASTER_KEY_FILE_ENV, home.join("master.key"))
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let stderr = child.stderr.take().ok_or("child stderr")?;
-        let (sender, lines) = mpsc::channel();
-        drop(thread::spawn(move || {
-            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                if sender.send(line).is_err() {
-                    break;
+        let (password_file, key) = write_state(home)?;
+        let config = home.join("kcc.toml");
+        let url = format!("http://{relay}");
+        let ([port], (child, lines)) = start_on_free_ports(|[port]| -> TestResult<Start<_>> {
+            write_config(
+                (&config, &password_file),
+                &url,
+                (port, server_extra, mcp_http),
+            )?;
+            let mut child = spawning::spawn(
+                spawning::command(env!("CARGO_BIN_EXE_kcc"))
+                    .args(["serve", "--config", config.to_str().ok_or("path")?])
+                    .env("HOME", home)
+                    .env("XDG_CONFIG_HOME", home.join("config"))
+                    .env("XDG_STATE_HOME", home.join("state-home"))
+                    .env(MASTER_KEY_FILE_ENV, home.join("master.key"))
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::piped()),
+            )?;
+            let lines = stderr_lines(&mut child)?;
+            let started = await_ready(&lines, |line| line.contains("listening"), PROCESS_TIMEOUT)?;
+            Ok(match started {
+                Start::Ready(_seen) => Start::Ready((child, lines)),
+                Start::AddressInUse => {
+                    drop(child.kill());
+                    drop(child.wait());
+                    Start::AddressInUse
                 }
-            }
-        }));
-        wait_line(&lines, "listening")?;
+            })
+        })?;
         let _installed = default_provider().install_default();
         let http = Client::builder()
             .redirect(Policy::none())
@@ -159,13 +165,7 @@ impl Served {
 
     /// Sends SIGTERM.
     pub(crate) fn terminate(&self) -> TestResult {
-        let status = Command::new("kill")
-            .args(["-TERM", &self.child.id().to_string()])
-            .status()?;
-        if !status.success() {
-            return Err("kill -TERM failed".into());
-        }
-        Ok(())
+        Ok(signal::send(&self.child, Signal::Terminate)?)
     }
 
     /// The fake router.
@@ -190,13 +190,9 @@ pub(crate) fn wait_line(lines: &mpsc::Receiver<String>, needle: &str) -> TestRes
     Ok(())
 }
 
-/// Writes the state, the master key and `kcc.toml` for the router at `url`; returns the
-/// configuration's path and the administrator API key.
-fn write_config(
-    home: &Path,
-    url: &str,
-    (port, extra, mcp_http): (u16, &str, bool),
-) -> TestResult<(PathBuf, String)> {
+/// Writes the state with `alice` and an administrator API key, the master key and the
+/// router's password file under `home`; returns the password file and the API key.
+fn write_state(home: &Path) -> TestResult<(PathBuf, String)> {
     let password_file = kcc_testkit::write_secret_file(home, "router.password", DEFAULT_PASSWORD)?;
     let state = StateStore::open(&home.join("state"))?;
     let accounts = AccountStore::new(
@@ -220,21 +216,24 @@ fn write_config(
         "admin".to_owned(),
         1,
     )?;
-    let key = home.join("master.key");
-    fs::write(&key, [17_u8; 32])?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt as _;
-        fs::set_permissions(&key, fs::Permissions::from_mode(0o600))?;
-    }
-    let config = home.join("kcc.toml");
+    master_key::write(&home.join("master.key"), [17_u8; 32])?;
+    Ok((password_file, expose_created_key(&created).to_owned()))
+}
+
+/// Writes `kcc.toml` at `config` for the router at `url`, listening on `port`.
+fn write_config(
+    (config, password_file): (&Path, &Path),
+    url: &str,
+    (port, extra, mcp_http): (u16, &str, bool),
+) -> TestResult {
+    let state = config.with_file_name("state");
     fs::write(
-        &config,
+        config,
         format!(
             "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n{extra}\n[web]\nenabled = true\n\n[mcp]\nhttp_enabled = {mcp_http}\nallow_destructive = true\ntoolsets = [\"core\", \"raw\"]\n\n[outbound]\nallow_loopback = true\n\n[state]\ndir = {:?}\n\n[[routers]]\nname = \"router\"\nurl = \"{url}\"\nlogin = \"admin\"\npassword_file = {:?}\n",
-            state.dir().display().to_string(),
+            state.display().to_string(),
             password_file.display().to_string()
         ),
     )?;
-    Ok((config, expose_created_key(&created).to_owned()))
+    Ok(())
 }

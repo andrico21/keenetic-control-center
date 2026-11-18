@@ -48,6 +48,8 @@ mod health;
 mod interface_refusals;
 #[path = "cli/localized_failures.rs"]
 mod localized_failures;
+#[path = "support/master_key.rs"]
+mod master_key;
 #[path = "cli/migrate.rs"]
 mod migrate;
 #[path = "cli/migrate_finish.rs"]
@@ -88,6 +90,10 @@ mod runtime_management;
 #[cfg(unix)]
 #[path = "cli/secret_files.rs"]
 mod secret_files;
+#[path = "support/serve_port.rs"]
+mod serve_port;
+#[path = "support/spawning.rs"]
+mod spawning;
 #[path = "cli/support.rs"]
 mod support;
 #[path = "cli/unsaved.rs"]

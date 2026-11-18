@@ -10,12 +10,17 @@
 
 extern crate alloc;
 
+#[path = "support/master_key.rs"]
+mod master_key;
+#[path = "support/spawning.rs"]
+mod spawning;
+
 use alloc::sync::Arc;
 use core::{error::Error, time::Duration};
 use std::{
     env, fs,
     path::PathBuf,
-    process::{Command, Output},
+    process::{Output, Stdio},
 };
 
 use kcc_app::{
@@ -37,13 +42,7 @@ impl Env {
     fn new(role: &str) -> Result<Self, Box<dyn Error>> {
         let directory = TempDir::new()?;
         let env = Self { directory };
-        let key = env.path("master.key");
-        fs::write(&key, [17_u8; 32])?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt as _;
-            fs::set_permissions(&key, fs::Permissions::from_mode(0o600))?;
-        }
+        master_key::write(&env.path("master.key"), [17_u8; 32])?;
         let state = env.state_dir().display().to_string();
         fs::write(
             env.path("kcc.toml"),
@@ -61,27 +60,31 @@ impl Env {
     }
 
     fn reset(&self, password_file: &str) -> Result<Output, Box<dyn Error>> {
-        let output = Command::new(env!("CARGO_BIN_EXE_kcc"))
-            .args([
-                "--config",
-                self.path("kcc.toml")
-                    .to_str()
-                    .ok_or("non-UTF-8 config path")?,
-                "--password-file",
-                password_file,
-                "user",
-                "passwd",
-                "alice",
-            ])
-            .env_clear()
-            .env("PATH", env::var_os("PATH").unwrap_or_default())
-            .env("HOME", self.path("home"))
-            .env("XDG_CONFIG_HOME", self.path("home/config"))
-            .env("XDG_STATE_HOME", self.path("home/state"))
-            .env(MASTER_KEY_FILE_ENV, self.path("master.key"))
-            .env("USER", "tester")
-            .env("LANG", "C")
-            .output()?;
+        let output = spawning::spawn(
+            spawning::command(env!("CARGO_BIN_EXE_kcc"))
+                .args([
+                    "--config",
+                    self.path("kcc.toml")
+                        .to_str()
+                        .ok_or("non-UTF-8 config path")?,
+                    "--password-file",
+                    password_file,
+                    "user",
+                    "passwd",
+                    "alice",
+                ])
+                .env_clear()
+                .env("PATH", env::var_os("PATH").unwrap_or_default())
+                .env("HOME", self.path("home"))
+                .env("XDG_CONFIG_HOME", self.path("home/config"))
+                .env("XDG_STATE_HOME", self.path("home/state"))
+                .env(MASTER_KEY_FILE_ENV, self.path("master.key"))
+                .env("USER", "tester")
+                .env("LANG", "C")
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped()),
+        )?
+        .wait_with_output()?;
         Ok(output)
     }
 }

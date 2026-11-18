@@ -13,6 +13,10 @@ const METRICS_MD: &str = "docs/METRICS.md";
 ///
 /// Returns [`GateError::Command`] when `cargo run` fails and [`GateError::Write`] when the
 /// document cannot be written.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "xtask drives cargo to run the metric-docs example that regenerates the metrics document"
+)]
 pub(crate) fn generate<W>(root: &Path, out: &mut W) -> Result<Verdict, GateError>
 where
     W: io::Write,

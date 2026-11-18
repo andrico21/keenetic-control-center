@@ -11,7 +11,7 @@ use std::{
     env, fs,
     fs::File,
     os::unix::fs::{PermissionsExt as _, symlink},
-    process::{Command, ExitStatus, Stdio},
+    process::{ExitStatus, Stdio},
 };
 
 use kcc_app::secrets::MASTER_KEY_FILE_ENV;
@@ -19,7 +19,10 @@ use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter};
 use tempfile::TempDir;
 use wait_timeout::ChildExt as _;
 
-use super::markdown::{documents, fences};
+use super::{
+    markdown::{documents, fences},
+    spawning,
+};
 
 /// The info-string word that marks an executable block.
 const TAG: &str = "kcc-doc-test";
@@ -75,22 +78,23 @@ impl Sandbox {
                 .chain(env::split_paths(&env::var_os("PATH").unwrap_or_default())),
         )?;
         let home = root.join("home");
-        let mut child = Command::new("bash")
-            .args(["--noprofile", "--norc", "-euo", "pipefail", "-c", block])
-            .current_dir(root)
-            .env_clear()
-            .env("PATH", path)
-            .env("HOME", &home)
-            .env("XDG_CONFIG_HOME", home.join("config"))
-            .env("XDG_STATE_HOME", home.join("state"))
-            .env(MASTER_KEY_FILE_ENV, root.join("master.key"))
-            .env("USER", "tester")
-            .env("LANG", "C")
-            .env("ROUTER_URL", &self.router_url)
-            .stdin(Stdio::null())
-            .stdout(File::create(root.join("stdout.log"))?)
-            .stderr(File::create(root.join("stderr.log"))?)
-            .spawn()?;
+        let mut child = spawning::spawn(
+            spawning::command("bash")
+                .args(["--noprofile", "--norc", "-euo", "pipefail", "-c", block])
+                .current_dir(root)
+                .env_clear()
+                .env("PATH", path)
+                .env("HOME", &home)
+                .env("XDG_CONFIG_HOME", home.join("config"))
+                .env("XDG_STATE_HOME", home.join("state"))
+                .env(MASTER_KEY_FILE_ENV, root.join("master.key"))
+                .env("USER", "tester")
+                .env("LANG", "C")
+                .env("ROUTER_URL", &self.router_url)
+                .stdin(Stdio::null())
+                .stdout(File::create(root.join("stdout.log"))?)
+                .stderr(File::create(root.join("stderr.log"))?),
+        )?;
         let Some(status) = child.wait_timeout(BLOCK_TIMEOUT)? else {
             child.kill()?;
             let _: ExitStatus = child.wait()?;

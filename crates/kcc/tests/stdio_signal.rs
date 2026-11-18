@@ -9,8 +9,24 @@
     reason = "integration tests drive the built process"
 )]
 
+#[path = "support/master_key.rs"]
+mod master_key;
 #[path = "serve_bracket/proxy.rs"]
 mod proxy;
+#[expect(
+    dead_code,
+    reason = "a stdio session binds no port; only the stderr reader is shared"
+)]
+#[path = "support/serve_port.rs"]
+mod serve_port;
+#[expect(
+    dead_code,
+    reason = "this suite stops the session with SIGTERM and SIGINT only"
+)]
+#[path = "support/signal.rs"]
+mod signal;
+#[path = "support/spawning.rs"]
+mod spawning;
 #[expect(
     dead_code,
     reason = "the shared account password; this suite signs nobody in"
@@ -24,11 +40,10 @@ use alloc::sync::Arc;
 use core::time::Duration;
 use std::{
     fs,
-    io::{BufRead as _, BufReader, Write as _},
+    io::Write as _,
     path::Path,
-    process::{Child, ChildStdin, Command, Stdio},
+    process::{Child, ChildStdin, Stdio},
     sync::mpsc,
-    thread,
 };
 
 use kcc_app::{audit::verify_chain, secrets::MASTER_KEY_FILE_ENV};
@@ -38,7 +53,7 @@ use tempfile::TempDir;
 use tokio::{sync::Notify, task::block_in_place, time::timeout};
 use wait_timeout::ChildExt as _;
 
-use crate::{proxy::Action, support::TestResult};
+use crate::{proxy::Action, serve_port::stderr_lines, signal::Signal, support::TestResult};
 
 /// Upper bound for every wait on the child process.
 const PROCESS_TIMEOUT: Duration = Duration::from_secs(60);
@@ -71,11 +86,7 @@ impl StdioServer {
         let password_file =
             kcc_testkit::write_secret_file(home, "router.password", DEFAULT_PASSWORD)?;
         let key = home.join("master.key");
-        fs::write(&key, [17_u8; 32])?;
-        {
-            use std::os::unix::fs::PermissionsExt as _;
-            fs::set_permissions(&key, fs::Permissions::from_mode(0o600))?;
-        }
+        master_key::write(&key, [17_u8; 32])?;
         let config = home.join("kcc.toml");
         fs::write(
             &config,
@@ -85,26 +96,19 @@ impl StdioServer {
                 password_file.display().to_string()
             ),
         )?;
-        let mut child = Command::new(env!("CARGO_BIN_EXE_kcc"))
-            .args(["mcp", "stdio", "--config", config.to_str().ok_or("path")?])
-            .env("HOME", home)
-            .env("XDG_CONFIG_HOME", home.join("config"))
-            .env("XDG_STATE_HOME", home.join("state-home"))
-            .env(MASTER_KEY_FILE_ENV, &key)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()?;
+        let mut child = spawning::spawn(
+            spawning::command(env!("CARGO_BIN_EXE_kcc"))
+                .args(["mcp", "stdio", "--config", config.to_str().ok_or("path")?])
+                .env("HOME", home)
+                .env("XDG_CONFIG_HOME", home.join("config"))
+                .env("XDG_STATE_HOME", home.join("state-home"))
+                .env(MASTER_KEY_FILE_ENV, &key)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped()),
+        )?;
         let stdin = child.stdin.take().ok_or("child stdin")?;
-        let stderr = child.stderr.take().ok_or("child stderr")?;
-        let (sender, lines) = mpsc::channel();
-        drop(thread::spawn(move || {
-            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                if sender.send(line).is_err() {
-                    break;
-                }
-            }
-        }));
+        let lines = stderr_lines(&mut child)?;
         Ok(Self {
             child,
             stdin,
@@ -118,15 +122,9 @@ impl StdioServer {
         Ok(self.stdin.flush()?)
     }
 
-    /// Sends `signal` (`TERM`, `INT`) to the process.
-    fn signal(&self, signal: &str) -> TestResult {
-        let status = Command::new("kill")
-            .args([&format!("-{signal}"), &self.child.id().to_string()])
-            .status()?;
-        if !status.success() {
-            return Err(format!("kill -{signal} failed").into());
-        }
-        Ok(())
+    /// Sends `signal` to the process.
+    fn signal(&self, which: Signal) -> TestResult {
+        Ok(signal::send(&self.child, which)?)
     }
 
     /// Waits until a stderr line contains `needle`; fails once the process closed stderr.
@@ -138,7 +136,7 @@ impl StdioServer {
 
 /// Starts a management change over stdio whose disarm the relay holds back, sends
 /// `signal` once the process has taken it, then releases the disarm.
-async fn signalled_during_a_bracket(signal: &str) -> TestResult {
+async fn signalled_during_a_bracket(signal: Signal) -> TestResult {
     let (reached, released) = (Arc::new(Notify::new()), Arc::new(Notify::new()));
     let (at_disarm, gate) = (Arc::clone(&reached), Arc::clone(&released));
     let hold: Action = Box::new(move || {
@@ -195,11 +193,11 @@ async fn signalled_during_a_bracket(signal: &str) -> TestResult {
 /// waits for the disarm, flushes the audit log and exits 0.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn sigterm_waits_for_an_open_bracket() -> TestResult {
-    signalled_during_a_bracket("TERM").await
+    signalled_during_a_bracket(Signal::Terminate).await
 }
 
 /// F-05: SIGINT (Ctrl-C) behaves like SIGTERM.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn sigint_waits_for_an_open_bracket() -> TestResult {
-    signalled_during_a_bracket("INT").await
+    signalled_during_a_bracket(Signal::Interrupt).await
 }

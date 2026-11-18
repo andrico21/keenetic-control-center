@@ -215,9 +215,9 @@ impl RequestClassification {
             return;
         }
         let mut own_leaf = object.is_empty();
-        // These defensive checks guard future callers of capture. Validation already
-        // proves them today, so mutations of the proof and argument/child overlap
-        // branches are equivalent for currently reachable validated requests.
+        // These checks guard callers that capture an unvalidated request. Every request
+        // reaching this walk today is already validated, so the proof and the
+        // argument/child overlap branches give the same result as validation did.
         let mut proven = true;
         for (key, child) in object {
             if let Some(argument) = command.and_then(|entry| entry.arguments.get(key)) {

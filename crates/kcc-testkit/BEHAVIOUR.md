@@ -6,6 +6,17 @@ executing the command. These opt-in faults simulate loss of management connectiv
 they do not stop the simulated recovery timer or alter its state. This is assumed
 fault injection, not captured hardware behaviour.
 
+`kcc_testkit::bracket` holds the management safety bracket as the fake router sees it.
+`Recovery` names the mechanism kcc arms (`FailSafeTimer` on a router reporting the
+`router` system mode, `ScheduledReboot` otherwise) with its arm and disarm parser lines
+(`system configuration fail-safe timer reboot 300` / `no system configuration fail-safe
+timer`, `system reboot 300` / `no system reboot`). `Fate` is the shared table of
+the ways a bracket fails (`OutcomeUnknown`, `DisarmRefused`, `NotSent`, `ArmRefused`,
+`WorkRefused`, all listed in `Fate::ALL`); `Fate::faults(recovery, work)`
+builds the `FaultInjection` that causes it around the parser line `work`. The Web and MCP
+tests map each fate to their own code and message; the domain tests keep the
+full matrix.
+
 What `kcc-testkit`'s `FakeRouter` simulates, and where each behaviour comes from.
 
 Sources:

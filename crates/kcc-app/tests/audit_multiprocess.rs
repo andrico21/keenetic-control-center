@@ -41,6 +41,10 @@ fn event(child: u64, index: u64) -> AuditEvent {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "re-runs this test binary as concurrent child processes that append to one audit chain"
+)]
 async fn concurrent_processes_append_one_contiguous_chain() -> TestResult {
     if let Ok(child) = env::var(CHILD_ENV) {
         let state_dir = env::var_os(STATE_ENV).ok_or("child state directory missing")?;
@@ -125,6 +129,10 @@ struct LockHolder {
 impl LockHolder {
     /// Starts `test` again as a process that takes the append lock of `state_dir`, and
     /// returns once it holds the lock.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "re-runs this test binary as a child that holds the audit append lock"
+    )]
     fn spawn(state_dir: &Path, test: &str) -> Result<Self, Box<dyn Error>> {
         let mut child = Command::new(env::current_exe()?)
             .args(["--exact", test, "--nocapture"])

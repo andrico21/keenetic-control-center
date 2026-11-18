@@ -11,6 +11,12 @@
     reason = "integration tests drive the built process"
 )]
 
+#[path = "support/master_key.rs"]
+mod master_key;
+#[path = "support/serve_port.rs"]
+mod serve_port;
+#[path = "support/spawning.rs"]
+mod spawning;
 #[path = "serve_state_watch/support.rs"]
 mod support;
 #[path = "serve_refresh/web.rs"]

@@ -12,11 +12,11 @@ mod tests {
     use std::{fs::OpenOptions, io::Write as _};
 
     use kcc_app::{audit::AUDIT_FILE_NAME, persist::StateStore};
-    use kcc_testkit::FaultInjection;
+    use kcc_testkit::{FaultInjection, bracket::Recovery};
     use serde_json::{Value, json};
 
     use crate::{
-        bracket::{commands, edges, router},
+        bracket::{commands, router},
         lab::{Lab, TestResult, admin},
     };
 
@@ -50,7 +50,7 @@ mod tests {
 
         assert_eq!(reply.error(), Some("internal"), "{reply:?}");
         let sent = commands(&lab)?;
-        let [arm, disarm] = edges("router");
+        let [arm, disarm] = Recovery::FailSafeTimer.lines();
         assert_eq!(sent.first().map(String::as_str), Some(arm), "{sent:?}");
         assert_eq!(sent.last().map(String::as_str), Some(disarm), "{sent:?}");
         assert!(!lab.router("lab-1")?.recovery_armed(), "the timer is off");

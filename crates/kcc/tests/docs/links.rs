@@ -5,12 +5,15 @@ use core::error::Error;
 use std::{
     fs, io,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
 };
 
 use tempfile::TempDir;
 
-use super::markdown::{linked_documents, prose, root};
+use super::{
+    markdown::{linked_documents, prose, root},
+    spawning,
+};
 
 /// Link targets of `text` (inline links and images), outside fenced code.
 fn targets(text: &str) -> Vec<String> {
@@ -118,13 +121,15 @@ fn a_broken_link_or_anchor_is_reported() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn lychee_offline_passes_when_installed() -> Result<(), Box<dyn Error>> {
-    let mut command = Command::new("lychee");
+    let mut command = spawning::command("lychee");
     let _: &mut Command = command
         .args(["--offline", "--no-progress"])
         .args(linked_documents()?)
         .current_dir(root())
-        .stdin(Stdio::null());
-    let output = match command.output() {
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let output = match spawning::spawn(&mut command).and_then(Child::wait_with_output) {
         Ok(output) => output,
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
             tracing::info!("lychee is not installed; only the Rust link check ran");

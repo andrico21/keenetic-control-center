@@ -911,10 +911,12 @@ mod tests {
         Ok(())
     }
 
+    /// B-23: a start cancelled while it waits for the router write slots, after it took its
+    /// identifier and the job map, leaves no job entry and the router free for the next one.
     #[expect(
         clippy::missing_panics_doc,
         clippy::panic_in_result_fn,
-        reason = "the assertion proves the start future reached the held active lock"
+        reason = "the assertions prove the start future reached the held write-slot lock"
     )]
     #[tokio::test]
     async fn cancelled_start_releases_router_write_slot() -> Result<(), Box<dyn Error>> {
@@ -927,7 +929,7 @@ mod tests {
         )?);
         let runner = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
         {
-            let active = runner.active.lock().await;
+            let write_jobs = runner.write_jobs.lock().await;
             let start = runner.start(
                 "cancelled".to_owned(),
                 JobTarget::Write("router".to_owned()),
@@ -936,8 +938,17 @@ mod tests {
             tokio::pin!(start);
             let mut context = Context::from_waker(Waker::noop());
             assert!(matches!(start.as_mut().poll(&mut context), Poll::Pending));
-            drop(active);
+            assert!(
+                runner.active.try_lock().is_err(),
+                "the start holds the job map"
+            );
+            drop(write_jobs);
         }
+
+        assert!(
+            runner.active.lock().await.is_empty(),
+            "no job entry is left"
+        );
 
         drop(
             runner

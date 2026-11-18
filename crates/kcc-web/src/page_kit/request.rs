@@ -146,9 +146,8 @@ pub(crate) fn missing() -> Answer {
 )]
 mod tests {
     use axum::http::{HeaderMap, HeaderValue};
-    use serde_json::json;
 
-    use super::{Params, TableQuery, shown_query, shown_uri, with_query};
+    use super::{Params, shown_query, shown_uri, with_query};
 
     fn pair(name: &str, value: &str) -> (String, String) {
         (name.to_owned(), value.to_owned())
@@ -185,11 +184,9 @@ mod tests {
     #[test]
     fn the_shown_query_is_the_table_part_of_the_current_url_last_value_wins() {
         let headers = showing(b"http://kcc.test/ui/r/home/dns?q=a&q=b%20c&page=2&tab=x");
-        let expected: TableQuery =
-            serde_json::from_value(json!({"q": "b c", "page": "2"})).unwrap_or_default();
         assert_eq!(
-            format!("{:?}", shown_query(&headers)),
-            format!("{expected:?}")
+            shown_query(&headers).parts(),
+            [Some("b c"), None, None, Some("2")]
         );
         assert_eq!(
             shown_uri(&headers).map(|uri| uri.path().to_owned()),
@@ -199,9 +196,8 @@ mod tests {
 
     #[test]
     fn a_missing_or_unreadable_current_url_shows_the_default_view() {
-        let default = format!("{:?}", TableQuery::default());
         for headers in [HeaderMap::new(), showing(b"not a url"), showing(b"\xff")] {
-            assert_eq!(format!("{:?}", shown_query(&headers)), default);
+            assert_eq!(shown_query(&headers).parts(), [None; 4]);
         }
         assert!(shown_uri(&HeaderMap::new()).is_none(), "no header");
     }

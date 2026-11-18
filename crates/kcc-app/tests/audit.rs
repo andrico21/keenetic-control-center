@@ -309,6 +309,8 @@ mod tests {
         Ok(())
     }
 
+    /// B-23: a directory on the next archive name fails the append that would rotate onto
+    /// it; the caller gets the writer's failure and the writer stops.
     #[tokio::test]
     async fn liveness_turns_false_after_writer_failure() -> TestResult {
         let (_temp, state) = store()?;
@@ -320,8 +322,8 @@ mod tests {
         let result = audit.append(event(2)).await;
 
         assert!(
-            result.is_err(),
-            "forced rotation failure reaches the caller"
+            matches!(result, Err(AuditError::WriterUnavailable)),
+            "the failed append is answered as the writer's failure: {result:?}"
         );
         assert!(!audit.is_alive(), "terminated writer is not ready");
         Ok(())

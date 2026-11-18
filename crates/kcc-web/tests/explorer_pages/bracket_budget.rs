@@ -12,13 +12,13 @@ use kcc_app::{
     persist::{StateLock, StateStore},
 };
 use kcc_i18n::keys;
-use kcc_testkit::FaultInjection;
+use kcc_testkit::{FaultInjection, bracket::Recovery};
 use tokio::{
     task::JoinHandle,
     time::{Instant, sleep},
 };
 
-use super::{commands, edges, fixture};
+use super::{commands, fixture};
 use crate::support::{
     outcome::TestResult,
     page::{en, form, text},
@@ -43,7 +43,7 @@ fn hold_audit_lock(fixture: &Fixture, held: Duration) -> TestResult<JoinHandle<(
 
 /// Whether the router received the arm and then the disarm of `mode`.
 fn armed_then_disarmed(fixture: &Fixture, mode: &str) -> bool {
-    let [arm, disarm] = edges(mode);
+    let [arm, disarm] = Recovery::for_mode(mode).lines();
     let sent = commands(fixture);
     sent.iter()
         .position(|command| command == arm)

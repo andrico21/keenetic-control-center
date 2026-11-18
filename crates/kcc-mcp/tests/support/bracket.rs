@@ -32,18 +32,6 @@ pub(crate) fn commands(lab: &Lab) -> TestResult<Vec<String>> {
         .collect())
 }
 
-/// The arm and disarm lines of the recovery of `mode`.
-pub(crate) fn edges(mode: &str) -> [&'static str; 2] {
-    if mode == "router" {
-        [
-            "system configuration fail-safe timer reboot 300",
-            "no system configuration fail-safe timer",
-        ]
-    } else {
-        ["system reboot 300", "no system reboot"]
-    }
-}
-
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,
@@ -53,10 +41,10 @@ pub(crate) fn edges(mode: &str) -> [&'static str; 2] {
 )]
 mod tests {
     use kcc_app::permissions::{Permission, Role};
-    use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
+    use kcc_testkit::{FakeRouter, FaultInjection, bracket::Recovery, migration, model::Profile};
     use serde_json::json;
 
-    use super::{commands, edges, router};
+    use super::{commands, router};
     use crate::lab::{Lab, TestResult, admin};
 
     /// A raw management line: it moves the router's own web port.
@@ -90,7 +78,7 @@ mod tests {
         assert_eq!(commands(&lab)?, Vec::<String>::new());
         let reply = lab.call("kcc_cli_parse", parse, false).await?;
         assert_eq!(reply.error(), None, "{reply:?}");
-        let [arm, disarm] = edges("router");
+        let [arm, disarm] = Recovery::FailSafeTimer.lines();
         assert_eq!(commands(&lab)?, [arm, LINE, disarm]);
         assert!(!lab.router("lab-1")?.recovery_armed());
         lab.stop().await
@@ -121,8 +109,14 @@ mod tests {
             .await?;
         assert_eq!(reply.error(), None, "{reply:?}");
         let sent = commands(&lab)?;
-        assert_eq!(sent.first().map(String::as_str), Some(edges("router")[0]));
-        assert_eq!(sent.last().map(String::as_str), Some(edges("router")[1]));
+        assert_eq!(
+            sent.first().map(String::as_str),
+            Some(Recovery::FailSafeTimer.arm())
+        );
+        assert_eq!(
+            sent.last().map(String::as_str),
+            Some(Recovery::FailSafeTimer.disarm())
+        );
         lab.stop().await
     }
 

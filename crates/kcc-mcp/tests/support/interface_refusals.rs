@@ -9,7 +9,7 @@
 )]
 mod tests {
     use kcc_i18n::{bundle::tr, keys, locale::Locale};
-    use kcc_testkit::{FakeRouter, FaultInjection, model::Profile};
+    use kcc_testkit::{FakeRouter, FaultInjection, bracket::Recovery, model::Profile};
     use serde_json::json;
 
     use crate::lab::{Lab, TestResult, admin};
@@ -47,6 +47,8 @@ mod tests {
 
     /// Work and arm refusals close recovery when disarm remains reachable; a refused change
     /// whose disarm is refused too reports the timer as armed.
+    ///
+    /// E-23: a refusal whose disarm closed the timer answers `router_rejected`.
     // NOT cancel-safe: the fixture may arm recovery before refusing the interface change.
     #[tokio::test]
     async fn interface_refusals_preserve_armed_outcome() -> TestResult {
@@ -64,7 +66,7 @@ mod tests {
             (
                 FaultInjection::default()
                     .fail_parse_matching("interface Bridge0 security-level", 1)
-                    .fail_parse_matching("no system", 1),
+                    .fail_parse_matching(Recovery::FailSafeTimer.disarm(), 1),
                 true,
             ),
         ] {
@@ -100,7 +102,7 @@ mod tests {
                     "{reply:?}"
                 );
             } else {
-                assert!(reply.error().is_some(), "{reply:?}");
+                assert_eq!(reply.error(), Some("router_rejected"), "{reply:?}");
             }
             let entries = lab.audit()?;
             let failed = entries

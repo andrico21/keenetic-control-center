@@ -11,11 +11,8 @@
 mod support;
 
 use kcc_app::workflow::WorkflowError;
-use kcc_domain::{DomainError, system};
-use kcc_testkit::{
-    FakeRouter, FaultInjection,
-    model::{Model, Profile},
-};
+use kcc_domain::system;
+use kcc_testkit::FaultInjection;
 
 use crate::support::{Fixture, PROFILES, TestResult};
 
@@ -116,16 +113,28 @@ async fn timezone_plans_the_catalog_locality_argument() -> TestResult {
     Ok(())
 }
 
+/// C-25: a factory reset whose confirmation is not the router name is refused before any
+/// router request.
 #[tokio::test]
 async fn factory_reset_refusal_sends_no_request() -> TestResult {
     for firmware in PROFILES {
-        let profile = Profile::new(Model::Kn1811, firmware)?;
-        let router = FakeRouter::builder(profile).build()?;
-        assert!(matches!(
-            system::confirm_factory_reset("router", "wrong"),
-            Err(DomainError::ConfirmationMismatch)
-        ));
-        assert_eq!(router.request_count(), 0);
+        let fixture = Fixture::spawn(firmware).await?;
+        let mut changes = fixture.changes().await?;
+        let before = fixture.handle().request_count();
+
+        let refused =
+            system::factory_reset(&mut changes, fixture.context(), "router", "wrong").await;
+
+        assert!(
+            matches!(
+                refused,
+                Err(system::FactoryResetError::ConfirmationMismatch)
+            ),
+            "{firmware}: {refused:?}"
+        );
+        assert_eq!(fixture.handle().request_count(), before, "{firmware}");
+        drop(changes);
+        fixture.shutdown().await?;
     }
     Ok(())
 }

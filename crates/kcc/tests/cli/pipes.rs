@@ -2,7 +2,10 @@
 
 use std::io::pipe;
 
-use super::support::{Env, TestResult};
+use super::{
+    spawning,
+    support::{Env, TestResult},
+};
 
 #[test]
 fn closed_stdout_ends_with_status_zero_and_no_message() -> TestResult {
@@ -15,7 +18,7 @@ fn closed_stdout_ends_with_status_zero_and_no_message() -> TestResult {
     ] {
         let (reader, writer) = pipe()?;
         drop(reader);
-        let output = env.command(args).stdout(writer).output()?;
+        let output = spawning::spawn(env.command(args).stdout(writer))?.wait_with_output()?;
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert_eq!(output.status.code(), Some(0_i32), "{args:?}: {stderr}");
         assert!(stderr.is_empty(), "{args:?} printed: {stderr}");

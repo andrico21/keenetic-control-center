@@ -7,9 +7,9 @@ use std::{fs::OpenOptions, io::Write as _};
 use axum::http::StatusCode;
 use kcc_app::{audit::AUDIT_FILE_NAME, persist::StateStore};
 use kcc_i18n::keys;
-use kcc_testkit::FaultInjection;
+use kcc_testkit::{FaultInjection, bracket::Recovery};
 
-use super::{ARMED_KEYS, commands, edges, fixture};
+use super::{ARMED_KEYS, commands, fixture};
 use crate::support::{
     outcome::TestResult,
     page::{en, form, text},
@@ -59,12 +59,12 @@ async fn a_writer_dying_after_the_arm_still_disarms() -> TestResult {
     let sent = commands(&fixture);
     assert_eq!(
         sent.first().map(String::as_str),
-        Some(edges("router")[0]),
+        Some(Recovery::FailSafeTimer.arm()),
         "{sent:?}"
     );
     assert_eq!(
         sent.last().map(String::as_str),
-        Some(edges("router")[1]),
+        Some(Recovery::FailSafeTimer.disarm()),
         "{sent:?}"
     );
     assert!(!fixture.handle().recovery_armed(), "the timer is off");

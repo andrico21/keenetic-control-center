@@ -2,8 +2,9 @@
 //! management line that removes nothing, keep their own dialogs.
 
 use kcc_i18n::keys;
+use kcc_testkit::bracket::Recovery;
 
-use super::{CLI, NAME_FIELD, Raw, bracket, confirm, first_dialog, marker, signed_in};
+use super::{CLI, NAME_FIELD, Raw, confirm, first_dialog, marker, signed_in};
 use crate::support::outcome::TestResult;
 
 /// Each stake alone keeps its own dialog.
@@ -18,7 +19,7 @@ async fn single_stake_lines_keep_their_own_dialogs() -> TestResult {
     let management: Raw = (CLI, &[("line", "system mode extender")], "");
     for mode in ["router", "extender"] {
         let (fixture, admin, _) = signed_in(mode).await?;
-        let (arm, disarm) = bracket(mode);
+        let [arm, disarm] = Recovery::for_mode(mode).lines();
         let named = first_dialog(&fixture, &admin, destructive).await?;
         assert!(
             named.contains(&marker(keys::WEB_EXPLORER_CONFIRM_DESTRUCTIVE_TEXT))

@@ -2,6 +2,7 @@
 
 use kcc_app::audit::read_entries;
 use kcc_testkit::FaultInjection;
+use serde_json::Value;
 
 use super::{lab::Lab, support::TestResult};
 
@@ -12,7 +13,13 @@ async fn silent_schedule_noop_exits_six() -> TestResult {
     let run = lab.run(&["--json", "schedules", "create", "f4probe"])?;
     assert_eq!(run.code, 6_i32, "{run:?}");
     assert!(run.stderr.contains("/schedule"), "{run:?}");
-    assert!(!run.stdout.contains("\"applied\":true"), "{run:?}");
+    assert_eq!(run.stdout, "", "no result document: {run:?}");
+    let error: Value = serde_json::from_str(run.stderr.lines().last().ok_or("no stderr")?)?;
+    assert_eq!(
+        error.pointer("/error/exit_code"),
+        Some(&Value::from(6_i32)),
+        "{run:?}"
+    );
     assert!(
         !read_entries(&lab.env.state_dir())?
             .iter()

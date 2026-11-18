@@ -121,6 +121,10 @@ The first release, `0.1.0`, is in preparation and contains:
   `RequestRecord::command()` stays the last line of the request. The new
   `kcc_testkit::leak::contains_secret` finds a test secret in its JSON, `Debug` and
   CLI-quoted forms as well, and the secret-leak tests use it.
+- **Test kit: shared safety-bracket helpers.** The new `kcc_testkit::bracket` module holds
+  the arm and disarm lines of each recovery mechanism (`Recovery`) and the shared table of
+  bracket failure fates with the fault that causes each (`Fate`); the Web, MCP and
+  domain tests use it instead of their own copies.
 - **Container image tags and labels.** A prerelease tag (one with a `-`, such as
   `v0.2.0-rc.1`) is published only under its own tag and no longer moves `:latest`, so a
   Quadlet unit or `run.sh` on `:latest` stays on the last stable release. The image's

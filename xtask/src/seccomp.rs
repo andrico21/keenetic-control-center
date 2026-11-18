@@ -60,6 +60,10 @@ fn ensure_static(binary: &Path) -> Result<(), GateError> {
 ///
 /// [`GateError::Command`] when `strace` or the driver fails, [`GateError::Write`] when the
 /// trace directory cannot be prepared.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "xtask runs the e2e driver script with bash under strace to record the traced syscalls"
+)]
 pub(crate) fn trace<W>(
     root: &Path,
     binary: Option<&Path>,
@@ -119,6 +123,10 @@ where
 /// # Errors
 ///
 /// [`GateError::Command`] naming the missing tool.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "xtask probes that a required external tool (strace) can run"
+)]
 fn probe(program: &str, args: &[&str]) -> Result<(), GateError> {
     let status = Command::new(program)
         .args(args)

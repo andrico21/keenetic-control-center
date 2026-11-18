@@ -21,3 +21,5 @@ mod firmware;
 mod links;
 #[path = "docs/markdown.rs"]
 mod markdown;
+#[path = "support/spawning.rs"]
+mod spawning;

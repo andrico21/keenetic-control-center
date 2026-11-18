@@ -4,6 +4,7 @@ use kcc_domain::{
     DomainId, RouterCtx, components, keendns, logging, router_users, schedules, services, system,
 };
 use secrecy::SecretString;
+use serde_json::json;
 
 use crate::{support::TestResult, tests::checked};
 
@@ -129,20 +130,54 @@ fn component_plan(router: &RouterCtx, op: &str) -> TestResult {
 }
 
 /// Checks structured system requests from their actual planners.
+///
+/// C-25: the read-back checks the planned value at its field, not only that some
+/// expectation exists.
 fn system_plan(router: &RouterCtx, op: &str) -> TestResult {
-    let plan = match op {
-        "hostname" => system::plan_hostname(router, "coverage67")?,
-        "domainname" => system::plan_domainname(router, "coverage.invalid")?,
-        "description" => system::plan_description(router, "coverage67")?,
-        "timezone" => system::plan_timezone(router, "UTC")?,
-        "ntp_server" => system::plan_ntp_server(router, "192.0.2.67")?,
-        "ntp_master" => system::plan_ntp_master(router, true)?,
-        "ntp_sync_period" => system::plan_ntp_sync_period(router, 67)?,
+    let (request, field, value) = match op {
+        "hostname" => (
+            system::change_request(&system::plan_hostname(router, "coverage67")?)?,
+            "/name",
+            json!("coverage67"),
+        ),
+        "domainname" => (
+            system::change_request(&system::plan_domainname(router, "coverage.invalid")?)?,
+            "/domainname",
+            json!("coverage.invalid"),
+        ),
+        "description" => (
+            system::change_request(&system::plan_description(router, "coverage67")?)?,
+            "/description",
+            json!("coverage67"),
+        ),
+        "timezone" => (
+            system::change_request(&system::plan_timezone(router, "UTC")?)?,
+            "/tz/locality",
+            json!("UTC"),
+        ),
+        "ntp_server" => (
+            system::change_request(&system::plan_ntp_server(router, "192.0.2.67")?)?,
+            "/server",
+            json!("192.0.2.67"),
+        ),
+        "ntp_master" => (
+            system::change_request(&system::plan_ntp_master(router, true)?)?,
+            "/master",
+            json!(true),
+        ),
+        "ntp_sync_period" => (
+            system::change_request(&system::plan_ntp_sync_period(router, 67)?)?,
+            "/sync-period",
+            json!(67_u32),
+        ),
         _ => return Err("uncovered system operation".into()),
     };
     assert!(
-        !system::change_request(&plan)?.verify.is_empty(),
-        "system converter lost verification"
+        request
+            .verify
+            .iter()
+            .any(|spec| spec.field == field && spec.expected == value),
+        "{op}: the read-back does not check {value} at {field}"
     );
     Ok(())
 }

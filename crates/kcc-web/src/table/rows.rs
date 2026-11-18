@@ -194,5 +194,18 @@ impl<R: Row> Table<R> {
 }
 
 #[cfg(test)]
+impl TableQuery {
+    /// The parameters as read: `q`, `sort`, `dir` and `page`.
+    pub(crate) fn parts(&self) -> [Option<&str>; 4] {
+        [
+            self.filter.as_deref(),
+            self.sort.as_deref(),
+            self.dir.as_deref(),
+            self.page.as_deref(),
+        ]
+    }
+}
+
+#[cfg(test)]
 #[path = "rows_tests.rs"]
 mod tests;

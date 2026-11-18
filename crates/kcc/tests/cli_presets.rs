@@ -16,9 +16,13 @@ mod apply_permissions;
 mod copy;
 #[path = "cli_presets/fixture.rs"]
 mod fixture;
+#[path = "support/master_key.rs"]
+mod master_key;
 #[path = "cli_presets/presets.rs"]
 mod presets;
 #[path = "cli_presets/scope.rs"]
 mod scope;
+#[path = "support/spawning.rs"]
+mod spawning;
 #[path = "cli/support.rs"]
 mod support;

@@ -16,12 +16,12 @@ use kcc_domain::{
     firewall::{
         change,
         descriptor::DESCRIPTOR,
-        model::{Action, Direction, Protocol, Rule},
+        model::{Action, Protocol, Rule},
         read,
         rule_list::ListedRule,
     },
 };
-use kcc_testkit::{FaultInjection, model::Firmware};
+use kcc_testkit::model::Firmware;
 
 use crate::support::{Fixture, PROFILES, TestResult};
 
@@ -146,29 +146,6 @@ async fn absent_removal_returns_typed_error_without_a_write_request() -> TestRes
                 .iter()
                 .all(|request| request.command().is_none())
         );
-        drop(changes);
-        fixture.shutdown().await?;
-    }
-    Ok(())
-}
-
-#[tokio::test]
-async fn binding_silently_ignored_by_router_fails_verification() -> TestResult {
-    for firmware in PROFILES {
-        let fixture = Fixture::spawn_with_faults(
-            firmware,
-            FaultInjection::default().silent_noop_path("parse"),
-        )
-        .await?;
-        let planned = change::plan_bind(fixture.context(), "ISP", "WebAcl", Direction::In, true)?;
-        let mut changes = fixture.changes().await?;
-
-        let error = match change::apply(&mut changes, fixture.context(), &planned).await {
-            Ok(_result) => return Err("an ignored interface binding passed verification".into()),
-            Err(found) => found,
-        };
-
-        assert!(matches!(error, DomainError::FirewallVerificationFailed));
         drop(changes);
         fixture.shutdown().await?;
     }

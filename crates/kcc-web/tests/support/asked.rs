@@ -7,6 +7,7 @@
 
 use axum::http::StatusCode;
 use kcc_i18n::keys;
+use kcc_testkit::bracket::Recovery;
 
 use super::{
     outcome::TestResult,
@@ -72,14 +73,7 @@ pub(crate) async fn runs_in_timer(
     (path, pairs): (&str, &[(&str, &str)]),
     mode: &str,
 ) -> TestResult {
-    let (arm, disarm) = if mode == "router" {
-        (
-            "system configuration fail-safe timer reboot 300",
-            "no system configuration fail-safe timer",
-        )
-    } else {
-        ("system reboot 300", "no system reboot")
-    };
+    let [arm, disarm] = Recovery::for_mode(mode).lines();
     let before = fixture.handle().request_log().len();
     let confirmed: Vec<(&str, &str)> = pairs.iter().copied().chain([("confirm", "yes")]).collect();
     let response = fixture.post(path, browser, &form(&confirmed)).await?;

@@ -1,5 +1,5 @@
-//! Authentication guards first left unprotected by the mutation run: the ndw4 endpoint
-//! guard and key cache, and the digest scheme-name and `qop` checks.
+//! Authentication against a hostile or changed router: the ndw4 endpoint guard and key
+//! cache, and the digest scheme-name and `qop` checks.
 
 #![expect(
     clippy::missing_errors_doc,
@@ -72,7 +72,7 @@ fn lines(requests: &[Seen]) -> Vec<(Method, String)> {
         .collect()
 }
 
-/// A1: an endpoint that leaves the origin path, escapes or carries a fragment is refused
+/// An endpoint that leaves the origin path, escapes or carries a fragment is refused
 /// before any phase is posted; a well-formed endpoint is posted to (the recorder sees it).
 // NOT cancel-safe: owns a local router per table row.
 #[tokio::test]
@@ -98,7 +98,7 @@ async fn ndw4_endpoint_guard_refuses_before_sending() -> TestResult {
     Ok(())
 }
 
-/// A2: when the router changes its KDF parameters between logins, the second login
+/// When the router changes its KDF parameters between logins, the second login
 /// derives fresh keys and succeeds; reused keys would produce a proof the router refuses.
 // NOT cancel-safe: owns a local router through both logins.
 #[tokio::test]
@@ -126,7 +126,7 @@ async fn ndw4_key_cache_rederives_after_parameter_change() -> TestResult {
     Ok(())
 }
 
-/// A3/A4: the digest challenge must be named Digest and offer `qop=auth`.
+/// The digest challenge must be named Digest and offer `qop=auth`.
 // NOT cancel-safe: owns a local router per table row.
 #[tokio::test]
 async fn digest_requires_scheme_name_and_auth_qop() -> TestResult {

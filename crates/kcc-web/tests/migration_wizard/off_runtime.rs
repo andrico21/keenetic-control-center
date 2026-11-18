@@ -22,6 +22,10 @@ mod tests {
     /// while the read waits on a record nobody wrote yet (a FIFO), the single-threaded
     /// runtime still answers.
     #[tokio::test(flavor = "current_thread")]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "creates a FIFO with mkfifo, which std has no safe call for"
+    )]
     async fn a_wizard_page_reads_its_record_off_the_runtime() -> TestResult {
         let fixture = setup::fixture().await?;
         let admin = fixture.login("admin").await?;

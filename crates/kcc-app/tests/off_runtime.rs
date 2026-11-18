@@ -50,6 +50,10 @@ fn admin() -> Role {
 }
 
 /// Replaces `path` by a FIFO and returns a gate that writes `bytes` into it.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "creates a FIFO with mkfifo, which std has no safe call for"
+)]
 fn gate(path: &Path, bytes: Vec<u8>) -> Result<BlockingGate, Box<dyn Error>> {
     match fs::remove_file(path) {
         Ok(()) => {}

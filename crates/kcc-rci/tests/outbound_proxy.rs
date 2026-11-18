@@ -54,6 +54,10 @@ async fn detect_fake_router() -> TestResult {
 /// SEC2-01: with `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY` pointing at a listener, the
 /// router client still reaches the router directly and the listener sees no connection.
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "re-runs this test binary as a child with the proxy variables set"
+)]
 async fn router_client_ignores_proxy_environment() -> TestResult {
     if env::var_os(CHILD_ENV).is_some() {
         return detect_fake_router().await;

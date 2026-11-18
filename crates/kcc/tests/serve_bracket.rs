@@ -15,12 +15,24 @@
 
 #[path = "serve_bracket/disconnect.rs"]
 mod disconnect;
+#[path = "support/master_key.rs"]
+mod master_key;
 #[path = "serve_bracket/mcp.rs"]
 mod mcp;
 #[path = "serve_bracket/process.rs"]
 mod process;
 #[path = "serve_bracket/proxy.rs"]
 mod proxy;
+#[path = "support/serve_port.rs"]
+mod serve_port;
+#[expect(
+    dead_code,
+    reason = "the server suites stop the process with SIGTERM only"
+)]
+#[path = "support/signal.rs"]
+mod signal;
+#[path = "support/spawning.rs"]
+mod spawning;
 #[path = "serve_bracket/support.rs"]
 mod support;
 #[expect(
@@ -33,7 +45,7 @@ mod web;
 extern crate alloc;
 
 use alloc::sync::Arc;
-use core::{error::Error, time::Duration};
+use core::error::Error;
 use std::{fs, os::unix::fs::PermissionsExt as _, path::PathBuf};
 
 use kcc_app::audit::verify_chain;
@@ -56,6 +68,12 @@ const ARM: &[u8] = b"fail-safe timer reboot";
 
 /// The router-mode disarm line.
 const DISARM: &str = "no system configuration fail-safe timer";
+
+/// The log line of a listener drain that ran out of `shutdown_timeout`.
+const DRAIN_ENDED: &str = "shutdown timeout exceeded";
+
+/// The log line `kcc serve` writes after its open brackets closed, on its way to exit.
+const JOBS_DRAINED: &str = "jobs drained";
 
 /// `text` as askama escapes it.
 fn html(text: &str) -> String {
@@ -144,8 +162,11 @@ async fn a_bracket_outliving_the_drain_disarms_before_exit() -> TestResult {
     })
     .await?;
 
-    let forced = spawn_blocking(move || wait_line(&lines, "shutdown timeout exceeded"));
-    {
+    let forced = spawn_blocking(move || {
+        wait_line(&lines, DRAIN_ENDED)?;
+        Ok::<_, Box<dyn Error + Send + Sync>>(lines)
+    });
+    let after_drain = {
         let request = served.management_change();
         tokio::pin!(request);
         tokio::select! {
@@ -154,14 +175,17 @@ async fn a_bracket_outliving_the_drain_disarms_before_exit() -> TestResult {
             }
             waited = forced => waited??,
         }
-    }
-    let early = block_in_place(|| served.exit_within(Duration::from_secs(3)))?;
-    assert_eq!(early, None, "still running while the bracket is open");
+    };
+    assert!(!disarmed(&served), "the relay holds the disarm");
     released.notify_one();
+    spawn_blocking(move || wait_line(&after_drain, JOBS_DRAINED)).await??;
+
+    assert!(
+        disarmed(&served),
+        "the router had the disarm before the process went on to exit"
+    );
     let status =
         block_in_place(|| served.exit_within(PROCESS_TIMEOUT))?.ok_or("kcc serve did not exit")?;
-
-    assert!(disarmed(&served), "the disarm reached the router");
     assert!(
         !served.router().recovery_armed(),
         "the router's timer is off"
@@ -183,7 +207,7 @@ async fn an_mcp_bracket_disarms_before_a_terminated_server_exits() -> TestResult
             gate.notified().await;
         })
     });
-    let (mut served, _lines) = Served::start(("shutdown_timeout = \"1s\"\n", true), |_audit| {
+    let (mut served, lines) = Served::start(("shutdown_timeout = \"1s\"\n", true), |_audit| {
         vec![(DISARM.as_bytes(), hold)]
     })
     .await?;
@@ -201,14 +225,22 @@ async fn an_mcp_bracket_disarms_before_a_terminated_server_exits() -> TestResult
     .await??;
 
     served.terminate()?;
-    let early = block_in_place(|| served.exit_within(Duration::from_secs(3)))?;
-    assert_eq!(early, None, "still running while the bracket is open");
+    let after_drain = spawn_blocking(move || {
+        wait_line(&lines, DRAIN_ENDED)?;
+        Ok::<_, Box<dyn Error + Send + Sync>>(lines)
+    })
+    .await??;
+    assert!(!disarmed(&served), "the relay holds the disarm");
     released.notify_one();
+    spawn_blocking(move || wait_line(&after_drain, JOBS_DRAINED)).await??;
     let exited = block_in_place(|| served.exit_within(PROCESS_TIMEOUT))?;
     call.abort();
 
+    assert!(
+        disarmed(&served),
+        "the router had the disarm before the process went on to exit"
+    );
     assert!(exited.is_some(), "kcc serve exited");
-    assert!(disarmed(&served), "the disarm reached the router");
     assert!(
         !served.router().recovery_armed(),
         "the router's timer is off"

@@ -2,7 +2,7 @@
 //! firmware-update family, and the Web session gauge.
 
 use core::{error::Error, net::SocketAddr, time::Duration};
-use std::{fs, path::Path, process::Command, sync::Arc, time::Instant};
+use std::{path::Path, sync::Arc, time::Instant};
 
 use kcc_app::{
     accounts::{AccountStore, NewAccount, SystemClock},
@@ -19,7 +19,10 @@ use secrecy::SecretString;
 use tempfile::TempDir;
 use url::Url;
 
-use super::{PROCESS_TIMEOUT, Server, TestResult, reserve_port, write_master_key};
+use super::{
+    PROCESS_TIMEOUT, Server, TestResult, master_key,
+    signal::{self, Signal},
+};
 
 /// One `kcc serve` with metrics and the Web UI over the fake router `fake`.
 struct Running {
@@ -62,19 +65,18 @@ async fn start(update: Option<FirmwareUpdate>) -> Result<Running, Box<dyn Error>
         ),
     )?;
     let key = directory.path().join("master.key");
-    write_master_key(&key)?;
-    let (port, metrics_port) = (reserve_port()?, reserve_port()?);
-    let config = directory.path().join("kcc.toml");
-    fs::write(
-        &config,
-        format!(
-            "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n\n[web]\nenabled = true\n\n[metrics]\nenabled = true\nbind = \"127.0.0.1:{metrics_port}\"\n\n[outbound]\nallow_loopback = true\n\n[state]\ndir = {:?}\n\n[[routers]]\nname = \"fake\"\nurl = \"http://{address}\"\nlogin = \"admin\"\npassword_file = {:?}\n",
-            directory.path().join("state").display().to_string(),
-            password_file.display().to_string()
-        ),
+    master_key::write(&key, [17_u8; 32])?;
+    let state_dir = directory.path().join("state").display().to_string();
+    let password = password_file.display().to_string();
+    let ([port, metrics_port], server) = Server::start(
+        directory.path(),
+        &key,
+        |[port, metrics_port]| {
+            format!(
+                "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n\n[web]\nenabled = true\n\n[metrics]\nenabled = true\nbind = \"127.0.0.1:{metrics_port}\"\n\n[outbound]\nallow_loopback = true\n\n[state]\ndir = {state_dir:?}\n\n[[routers]]\nname = \"fake\"\nurl = \"http://{address}\"\nlogin = \"admin\"\npassword_file = {password:?}\n",
+            )
+        },
     )?;
-    let server = Server::spawn(&config, directory.path(), &key)?;
-    server.wait_for(&["metrics endpoint listening", "router metrics available"])?;
     Ok(Running {
         directory,
         server,
@@ -124,14 +126,7 @@ impl Running {
 
     /// Sends SIGHUP to the server.
     fn hangup(&self) -> TestResult {
-        let status = Command::new("kill")
-            .args(["-HUP", &self.server.child.id().to_string()])
-            .status()?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err("kill -HUP failed".into())
-        }
+        Ok(signal::send(&self.server.child, Signal::Hangup)?)
     }
 
     /// Replaces the state-defined routers with `routers`, as `kcc router add|remove` do.

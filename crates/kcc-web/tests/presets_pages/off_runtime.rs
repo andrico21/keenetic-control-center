@@ -34,6 +34,10 @@ mod tests {
     /// it waits on a record nobody wrote yet (a FIFO), the single-threaded runtime still
     /// answers.
     #[tokio::test(flavor = "current_thread")]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "creates a FIFO with mkfifo, which std has no safe call for"
+    )]
     async fn the_preset_list_reads_records_off_the_runtime() -> TestResult {
         let fixture = setup::fixture().await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;

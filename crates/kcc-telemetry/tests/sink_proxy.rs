@@ -80,6 +80,10 @@ async fn deliver_to_fake_sinks() -> TestResult {
 /// SEC2-01: with `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY` pointing at a listener, the
 /// Loki and Elasticsearch sinks still deliver directly and the listener sees no connection.
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "re-runs this test binary as a child with the proxy variables set"
+)]
 async fn log_sinks_ignore_proxy_environment() -> TestResult {
     if env::var_os(CHILD_ENV).is_some() {
         return deliver_to_fake_sinks().await;

@@ -220,6 +220,8 @@ mod tests {
     }
 
     /// B-21: a malformed file beside valid backups must not stop listing or retention.
+    ///
+    /// B-23: the log is checked by its `file` field, not by its wording.
     #[test]
     fn malformed_backup_file_does_not_stop_retention() -> TestResult {
         let capture = Capture(Arc::new(Mutex::new(Vec::new())));
@@ -261,8 +263,17 @@ mod tests {
                 .map_err(|_error| "capture poisoned")?
                 .clone(),
         )?;
-        assert!(!output.contains("retention failed"), "{output}");
-        assert!(output.contains("1-broken.txt"), "{output}");
+        let warnings: Vec<&str> = output
+            .lines()
+            .filter(|line| line.contains("WARN"))
+            .collect();
+        assert!(!warnings.is_empty(), "the skipped file is logged: {output}");
+        assert!(
+            warnings.iter().all(|line| line
+                .split_whitespace()
+                .any(|field| field == "file=1-broken.txt")),
+            "every warning is a skipped-file warning naming the broken file: {output}"
+        );
         Ok(())
     }
 }

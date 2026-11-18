@@ -6,7 +6,10 @@ use std::{fs, path::Path};
 use kcc_app::audit::read_entries;
 use kcc_testkit::{DEFAULT_LOGIN, FakeRouter, model::Profile};
 
-use super::support::{Env, TestResult};
+use super::{
+    spawning,
+    support::{Env, TestResult},
+};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn router_add_stores_only_sealed_bytes_and_authenticates() -> TestResult {
@@ -28,7 +31,7 @@ async fn router_add_stores_only_sealed_bytes_and_authenticates() -> TestResult {
         "--url",
         &format!("http://{address}"),
     ]);
-    let output = command.env("KCC_PASSWORD", &password).output()?;
+    let output = spawning::spawn(command.env("KCC_PASSWORD", &password))?.wait_with_output()?;
     let tested = env.kcc(&["--router", "home", "router", "test"])?;
 
     assert!(

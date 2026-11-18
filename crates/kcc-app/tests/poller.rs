@@ -124,11 +124,9 @@ fn count(log: &[kcc_testkit::RequestRecord], path: &str, name: Option<&str>) -> 
 )]
 #[tokio::test(start_paused = true)]
 async fn metrics_subscription_keeps_one_poller_at_its_own_cadence() -> Result<(), Box<dyn Error>> {
-    use std::time::Instant;
-
     use kcc_app::poller::MetricsCadence;
     use kcc_testkit::model::{Firmware, Model, Profile};
-    use tokio::{task, time::sleep};
+    use tokio::time::sleep;
 
     for firmware in [Firmware::V4_3, Firmware::V5_1] {
         let directory = TempDir::new()?;
@@ -145,15 +143,13 @@ async fn metrics_subscription_keeps_one_poller_at_its_own_cadence() -> Result<()
         timeout(Duration::from_secs(5), metrics.changed()).await??;
         // Rounds at 0, 30, 60, 90 and 120 s; heavy items at 0 and 120 s.
         sleep(Duration::from_secs(135)).await;
-        // Yielding keeps the paused clock at 135 s while the round at 120 s finishes its
-        // requests; real time bounds the wait.
-        let started = Instant::now();
-        while poller.light_rounds("router").await < 5 {
-            assert!(
-                started.elapsed() < Duration::from_secs(5),
-                "{firmware:?}: the round at 120 s never finished"
-            );
-            task::yield_now().await;
+        // Each round publishes after it is counted; the round at 120 s may still be reading,
+        // so wait for its publication. The first wait returns the earlier rounds' unseen one.
+        for _publication in 0..2 {
+            if poller.light_rounds("router").await >= 5 {
+                break;
+            }
+            metrics.changed().await?;
         }
         let completed = poller.light_rounds("router").await;
         assert_eq!(completed, 5, "{firmware:?}: one light round per 30 s");

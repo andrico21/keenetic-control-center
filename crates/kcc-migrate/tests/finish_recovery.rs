@@ -22,7 +22,7 @@ mod tests {
     use kcc_i18n::{bundle::tr, keys, locale::Locale};
     use kcc_migrate::apply::{Applier, ApplyError, ApplyReport, Clock};
     use kcc_testkit::{
-        FakeRouter, FaultInjection, migration,
+        DEFAULT_PASSWORD, FakeRouter, FaultInjection, migration,
         model::Profile,
         time::{Clock as _, MockClock},
     };
@@ -57,8 +57,7 @@ mod tests {
             .faults(faults)
             .build()?
             .with_migration(scenario);
-        let password: String = ['a', 'd', 'm', 'i', 'n'].into_iter().collect();
-        let fixture = Fixture::from_router(fake, &password).await?;
+        let fixture = Fixture::from_router(fake, DEFAULT_PASSWORD).await?;
         let mut request = fixture.request(1).await?;
         if let Some(selected_clock) = clock {
             request.options.clock = selected_clock;
@@ -69,7 +68,6 @@ mod tests {
     }
 
     /// A confirmed save followed by refused disarm reports saved configuration and recovery.
-    // NOT cancel-safe: the fixture applies and saves before requesting disarm.
     #[tokio::test]
     async fn saved_configuration_reports_armed_disarm_failure() -> Result<(), Box<dyn Error>> {
         let mut scenario = migration::Fixture::default();
@@ -78,8 +76,7 @@ mod tests {
             .faults(FaultInjection::default().fail_parse_matching("no system reboot", 1))
             .build()?
             .with_migration(scenario);
-        let password: String = ['a', 'd', 'm', 'i', 'n'].into_iter().collect();
-        let fixture = Fixture::from_router(fake, &password).await?;
+        let fixture = Fixture::from_router(fake, DEFAULT_PASSWORD).await?;
         let (_, done) = Applier::start(&fixture.runner, fixture.request(1).await?).await?;
         let mut applier = done.await??;
         assert!(applier.report().verified);
@@ -105,7 +102,6 @@ mod tests {
     }
 
     /// A refused save leaves the scheduled timer able to restore startup on expiry.
-    // NOT cancel-safe: the fixture applies settings under a scheduled reboot.
     #[tokio::test]
     async fn refused_save_retains_scheduled_recovery_until_expiry() -> Result<(), Box<dyn Error>> {
         let clock = Arc::new(MockClock::new());
@@ -116,8 +112,7 @@ mod tests {
             .faults(FaultInjection::default().fail_parse_matching("system configuration save", 1))
             .build()?
             .with_migration(scenario);
-        let password: String = ['a', 'd', 'm', 'i', 'n'].into_iter().collect();
-        let fixture = Fixture::from_router(fake, &password).await?;
+        let fixture = Fixture::from_router(fake, DEFAULT_PASSWORD).await?;
         let (_, done) = Applier::start(&fixture.runner, fixture.request(1).await?).await?;
         let mut applier = done.await??;
         assert!(applier.report().verified);
@@ -148,7 +143,6 @@ mod tests {
     }
 
     /// A refused explicit rollback remains an armed closing failure.
-    // NOT cancel-safe: the fixture applies settings before requesting rollback.
     #[tokio::test]
     async fn refused_rollback_reports_armed_recovery() -> Result<(), Box<dyn Error>> {
         let mut scenario = migration::Fixture::default();
@@ -157,8 +151,7 @@ mod tests {
             .faults(FaultInjection::default().fail_parse_matching("fail-safe rollback", 1))
             .build()?
             .with_migration(scenario);
-        let password: String = ['a', 'd', 'm', 'i', 'n'].into_iter().collect();
-        let fixture = Fixture::from_router(fake, &password).await?;
+        let fixture = Fixture::from_router(fake, DEFAULT_PASSWORD).await?;
         let (_, done) = Applier::start(&fixture.runner, fixture.request(1).await?).await?;
         let mut applier = done.await??;
 
@@ -182,7 +175,6 @@ mod tests {
     }
 
     /// An accepted rollback followed by silence has a mode-specific closing outcome.
-    // NOT cancel-safe: both fixtures apply settings before requesting rollback.
     #[tokio::test]
     async fn accepted_rollback_then_unreachable_reports_restarting_or_armed()
     -> Result<(), Box<dyn Error>> {

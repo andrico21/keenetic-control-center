@@ -21,7 +21,11 @@ async fn applied_firewall_binding_exits_zero_and_is_audited() -> TestResult {
     let run = env.kcc(&["firewall", "bind", "WebAcl", "--interface", "ISP"])?;
 
     assert_eq!(run.code, 0_i32, "{run:?}");
-    assert!(!run.stderr.contains("verification"), "{run:?}");
+    assert!(
+        !run.stderr
+            .contains(&tr(Locale::En, keys::CLI_ERROR_FIREWALL_VERIFICATION, None)),
+        "no failed read-back is reported: {run:?}"
+    );
     assert!(
         read_entries(&env.state_dir())?
             .iter()

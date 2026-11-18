@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use super::support::{Env, TestResult, router};
 
-/// The R-MCP2 incident payload: a positional array where RCI needs an object.
+/// A raw RCI payload with a positional array where RCI needs an object.
 const INCIDENT: &str = r#"{"ip":{"route":["10.0.5.0","255.255.255.255","Wireguard2"]}}"#;
 
 /// One fake KN-1811 router named `lab-1` with the right password.

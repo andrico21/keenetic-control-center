@@ -23,7 +23,7 @@ use kcc_domain::{
     interfaces::ManagementVerdict,
 };
 use kcc_rci::ObjectName;
-use kcc_testkit::FaultInjection;
+use kcc_testkit::{FaultInjection, bracket::Recovery};
 
 #[test]
 fn direct_origin_address_classifies_isp_and_excludes_other_interfaces() -> TestResult {
@@ -230,9 +230,7 @@ async fn unarmed_fail_safe_refuses_the_bracketed_change_unsent() -> TestResult {
         let log = fixture.handle().request_log();
         let arm_attempt = log
             .iter()
-            .position(|record| {
-                record.command() == Some("system configuration fail-safe timer reboot 300")
-            })
+            .position(|record| record.command() == Some(Recovery::FailSafeTimer.arm()))
             .ok_or("the fail-safe arming command was not sent")?;
         let read_back = log
             .iter()

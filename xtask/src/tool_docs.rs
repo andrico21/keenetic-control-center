@@ -13,6 +13,10 @@ const TOOLS_MD: &str = "docs/MCP_TOOLS.md";
 ///
 /// Returns [`GateError::Command`] when `cargo run` fails and [`GateError::Write`] when the
 /// document cannot be written.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "xtask drives cargo to run the tool-docs example that regenerates the tool document"
+)]
 pub(crate) fn generate<W>(root: &Path, out: &mut W) -> Result<Verdict, GateError>
 where
     W: io::Write,

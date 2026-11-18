@@ -10,7 +10,10 @@ use kcc_i18n::{
 };
 use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter};
 
-use super::support::{Env, TestResult, router};
+use super::{
+    spawning,
+    support::{Env, TestResult, router},
+};
 
 /// `key` in Russian with `args`, after checking it is translated at all.
 fn russian(key: MessageKey, args: &[(&str, &str)]) -> String {
@@ -158,10 +161,11 @@ fn local_refusals_are_in_the_output_language() -> TestResult {
 #[test]
 fn an_unsupported_lang_is_refused_in_the_environment_language() -> TestResult {
     let env = Env::new("")?;
-    let output: Output = env
-        .command(&["--lang", "xx", "router", "list"])
-        .env("KCC_LANG", "ru")
-        .output()?;
+    let output: Output = spawning::spawn(
+        env.command(&["--lang", "xx", "router", "list"])
+            .env("KCC_LANG", "ru"),
+    )?
+    .wait_with_output()?;
     assert_eq!(output.status.code(), Some(2_i32), "{output:?}");
     let tag = format!("{:?}", "xx");
     let refusal = russian(keys::CLI_LANG_UNSUPPORTED, &[("value", &tag)]);

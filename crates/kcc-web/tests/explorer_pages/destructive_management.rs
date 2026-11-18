@@ -21,7 +21,7 @@ use kcc_i18n::{
     keys,
     locale::Locale,
 };
-use kcc_testkit::{FakeRouter, migration, model::Profile};
+use kcc_testkit::{FakeRouter, bracket::Recovery, migration, model::Profile};
 
 use crate::support::{
     outcome::TestResult,
@@ -95,18 +95,6 @@ async fn signed_in(mode: &str) -> TestResult<(Fixture, Browser, Browser)> {
     let writer = fixture.login("raw-writer").await?;
     drop(fixture.get("/ui/r/home/console/cli", &admin).await?);
     Ok((fixture, admin, writer))
-}
-
-/// The recovery timer's arm and disarm lines in `mode`.
-fn bracket(mode: &str) -> (&'static str, &'static str) {
-    if mode == "router" {
-        (
-            "system configuration fail-safe timer reboot 300",
-            "no system configuration fail-safe timer",
-        )
-    } else {
-        ("system reboot 300", "no system reboot")
-    }
 }
 
 /// The marker of the dialog paragraph worded by `key`.
@@ -220,7 +208,7 @@ async fn confirm(
 #[tokio::test]
 async fn destructive_management_requests_ask_for_the_name_and_run_inside_the_timer() -> TestResult {
     for mode in ["router", "extender"] {
-        let (arm, disarm) = bracket(mode);
+        let [arm, disarm] = Recovery::for_mode(mode).lines();
         for raw in BOTH {
             let (fixture, admin, writer) = signed_in(mode).await?;
             refused(&fixture, &writer, raw).await?;

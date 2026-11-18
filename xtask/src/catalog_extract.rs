@@ -85,6 +85,10 @@ where
 }
 
 /// The version line of a locally installed `pdftotext`, or `None` when it is missing.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "xtask runs the local pdftotext to read its version for the catalog lock"
+)]
 fn native_poppler() -> Option<String> {
     let output = Command::new("pdftotext").arg("-v").output().ok()?;
     let text = String::from_utf8_lossy(&output.stderr);
@@ -96,6 +100,10 @@ fn native_poppler() -> Option<String> {
 /// # Errors
 ///
 /// Returns [`GateError::Command`] when `pdftotext` cannot run or fails.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "xtask runs the local pdftotext to convert the vendor PDFs for catalog extraction"
+)]
 fn native_text(pdfs: &[PathBuf]) -> Result<String, GateError> {
     for pdf in pdfs {
         let status = Command::new("pdftotext")
@@ -121,6 +129,10 @@ fn native_text(pdfs: &[PathBuf]) -> Result<String, GateError> {
 ///
 /// Returns [`GateError::Command`] when the container fails, [`GateError::Read`] when
 /// the version file is missing.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "xtask runs pdftotext in a podman container for reproducible catalog extraction"
+)]
 fn podman_text(cache: &Path) -> Result<String, GateError> {
     let mount = format!("{}:/w", cache.display());
     let status = Command::new("podman")

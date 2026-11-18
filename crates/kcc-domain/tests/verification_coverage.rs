@@ -44,6 +44,10 @@ mod vpn;
     reason = "integration assertions establish the verification contract"
 )]
 mod tests {
+    extern crate alloc;
+
+    use alloc::collections::BTreeSet;
+
     use kcc_app::workflow::{CliChangeRequest, WorkflowError};
     use kcc_catalog::Risk;
     use kcc_domain::{DomainError, DomainId, registry, services, verification};
@@ -83,8 +87,20 @@ mod tests {
     }
 
     /// Every available state-changing registry operation reaches its real planner or executor.
+    ///
+    /// C-25: a registry write that no profile's catalog has fails instead of being skipped.
     #[tokio::test]
     async fn registry_writes_require_verification_or_documented_action() -> TestResult {
+        let mut never_available: BTreeSet<String> = registry()
+            .iter()
+            .flat_map(|domain| {
+                domain
+                    .write_ops
+                    .iter()
+                    .filter(|operation| operation.risk != Risk::Read)
+                    .map(|operation| format!("{:?}/{}", domain.id, operation.name))
+            })
+            .collect();
         for firmware in PROFILES {
             let fixture = Fixture::spawn(firmware).await?;
             for domain in registry() {
@@ -94,6 +110,8 @@ mod tests {
                     {
                         continue;
                     }
+                    let _first: bool =
+                        never_available.remove(&format!("{:?}/{}", domain.id, operation.name));
                     if let Some(reason) = operation.action_without_state() {
                         assert!(!reason.is_empty(), "action requires a reason");
                         continue;
@@ -142,6 +160,10 @@ mod tests {
             }
             fixture.shutdown().await?;
         }
+        assert!(
+            never_available.is_empty(),
+            "registry writes no catalog has: {never_available:?}"
+        );
         Ok(())
     }
 }

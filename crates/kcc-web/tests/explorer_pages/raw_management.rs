@@ -7,7 +7,7 @@
 )]
 
 use axum::http::StatusCode;
-use kcc_testkit::{FakeRouter, migration, model::Profile};
+use kcc_testkit::{FakeRouter, bracket::Recovery, migration, model::Profile};
 
 use crate::support::{
     outcome::TestResult,
@@ -216,14 +216,7 @@ async fn raw_management_brackets_both_modes() -> TestResult {
                 .skip(before)
                 .filter_map(|record| record.command().map(str::to_owned))
                 .collect::<Vec<_>>();
-            let (arm, disarm) = if mode == "router" {
-                (
-                    "system configuration fail-safe timer reboot 300",
-                    "no system configuration fail-safe timer",
-                )
-            } else {
-                ("system reboot 300", "no system reboot")
-            };
+            let [arm, disarm] = Recovery::for_mode(mode).lines();
             assert_eq!(
                 commands.first().map(String::as_str),
                 Some(arm),

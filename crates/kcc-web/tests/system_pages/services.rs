@@ -5,7 +5,7 @@
 
 use axum::http::StatusCode;
 use kcc_i18n::keys;
-use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
+use kcc_testkit::{FakeRouter, FaultInjection, bracket::Recovery, migration, model::Profile};
 use serde_json::{Value, json};
 
 use crate::{
@@ -64,14 +64,7 @@ async fn management_service_stops_keep_the_web_bracket_in_both_modes() -> TestRe
                 .skip(before)
                 .filter_map(|record| record.command().map(str::to_owned))
                 .collect::<Vec<_>>();
-            let (arm, disarm) = if mode == "router" {
-                (
-                    "system configuration fail-safe timer reboot 300",
-                    "no system configuration fail-safe timer",
-                )
-            } else {
-                ("system reboot 300", "no system reboot")
-            };
+            let [arm, disarm] = Recovery::for_mode(mode).lines();
             assert_eq!(
                 commands.first().map(String::as_str),
                 Some(arm),

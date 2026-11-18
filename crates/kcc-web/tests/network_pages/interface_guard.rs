@@ -8,7 +8,7 @@
 use axum::http::StatusCode;
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
-use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
+use kcc_testkit::{FakeRouter, FaultInjection, bracket::Recovery, migration, model::Profile};
 use serde_json::{Value, json};
 
 use crate::{
@@ -201,14 +201,7 @@ async fn a_security_level_uses_the_mode_recovery_and_reports_it_armed() -> TestR
                 .skip(before)
                 .filter_map(|record| record.command().map(str::to_owned))
                 .collect::<Vec<_>>();
-            let (arm, disarm) = if mode == "router" {
-                (
-                    "system configuration fail-safe timer reboot 300",
-                    "no system configuration fail-safe timer",
-                )
-            } else {
-                ("system reboot 300", "no system reboot")
-            };
+            let [arm, disarm] = Recovery::for_mode(mode).lines();
             assert_eq!(
                 (
                     commands.first().map(String::as_str),

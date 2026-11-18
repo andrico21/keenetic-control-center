@@ -4,7 +4,7 @@ use core::net::Ipv4Addr;
 
 use axum::http::StatusCode;
 use kcc_i18n::keys;
-use kcc_testkit::{FakeRouter, model::Profile};
+use kcc_testkit::{FakeRouter, bracket::Recovery, model::Profile};
 use serde_json::json;
 
 use crate::{
@@ -194,12 +194,12 @@ async fn the_management_connection_password_is_confirmed_in_its_dialog() -> Test
     let sent = commands_since(&fixture, before);
     assert_eq!(
         sent.first().map(String::as_str),
-        Some("system configuration fail-safe timer reboot 300"),
+        Some(Recovery::FailSafeTimer.arm()),
         "armed first: {sent:?}"
     );
     assert_eq!(
         sent.last().map(String::as_str),
-        Some("no system configuration fail-safe timer"),
+        Some(Recovery::FailSafeTimer.disarm()),
         "disarmed last: {sent:?}"
     );
     let config = fixture.handle().running_config_text();

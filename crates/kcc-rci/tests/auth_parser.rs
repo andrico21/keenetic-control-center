@@ -15,7 +15,7 @@ use core::error::Error;
 
 use kcc_rci::auth::{Scheme, WwwAuthenticate};
 
-/// A5/A6: a scheme token containing `=` and malformed assignments are refused. The
+/// A scheme token containing `=` and malformed assignments are refused. The
 /// balanced-quote rows reach the inner-quote checks that unbalanced input never gets to.
 #[test]
 fn malformed_headers_are_refused() {
@@ -52,7 +52,7 @@ fn well_formed_assignments_parse() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// A7: an opaque scheme renders its parameters separated by `", "` and parses back.
+/// An opaque scheme renders its parameters separated by `", "` and parses back.
 #[test]
 fn opaque_scheme_round_trips() -> Result<(), Box<dyn Error>> {
     let header = "Custom first=\"one\", second=\"two\"";

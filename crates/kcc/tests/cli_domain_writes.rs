@@ -27,10 +27,14 @@ mod lab;
 mod lan;
 #[path = "cli_domain_writes/link.rs"]
 mod link;
+#[path = "support/master_key.rs"]
+mod master_key;
 #[path = "cli_domain_writes/own_accounts.rs"]
 mod own_accounts;
 #[path = "cli_domain_writes/secrets.rs"]
 mod secrets;
+#[path = "support/spawning.rs"]
+mod spawning;
 #[path = "cli/support.rs"]
 mod support;
 #[path = "cli_domain_writes/system.rs"]

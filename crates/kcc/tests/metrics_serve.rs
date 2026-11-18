@@ -9,20 +9,28 @@
     reason = "integration tests drive the built process and own temporary OS resources"
 )]
 
+#[path = "support/master_key.rs"]
+mod master_key;
+#[path = "support/serve_port.rs"]
+mod serve_port;
+#[expect(dead_code, reason = "the exporter tests only reload the configuration")]
+#[path = "support/signal.rs"]
+mod signal;
+#[path = "support/spawning.rs"]
+mod spawning;
+
 use core::{error::Error, time::Duration};
 use std::{
     collections::BTreeSet,
     env, fs,
-    io::{BufRead as _, BufReader},
-    net::TcpListener,
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::{Child, Stdio},
     sync::mpsc,
-    thread,
 };
 
 use kcc_app::secrets::MASTER_KEY_FILE_ENV;
 use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter};
+use serve_port::{Start, await_ready, start_on_free_ports, stderr_lines};
 use tempfile::TempDir;
 
 /// Test result.
@@ -47,70 +55,47 @@ impl Drop for Server {
 }
 
 impl Server {
-    /// Starts `kcc serve --config <config>` with a hermetic home and master key.
-    fn spawn(config: &Path, home: &Path, key: &Path) -> Result<Self, Box<dyn Error>> {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_kcc"))
-            .args([
-                "serve",
-                "--config",
-                config.to_str().ok_or("non-UTF-8 path")?,
-            ])
-            .env("HOME", home)
-            .env("XDG_CONFIG_HOME", home.join("config"))
-            .env("XDG_STATE_HOME", home.join("state-home"))
-            .env(MASTER_KEY_FILE_ENV, key)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let stderr = child.stderr.take().ok_or("child stderr unavailable")?;
-        let (sender, lines) = mpsc::channel();
-        drop(thread::spawn(move || {
-            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                if sender.send(line).is_err() {
-                    break;
-                }
-            }
-        }));
-        Ok(Self { child, lines })
-    }
-
-    /// Waits until every needle has appeared in a stderr line.
-    fn wait_for(&self, needles: &[&str]) -> Result<(), Box<dyn Error>> {
-        let deadline = std::time::Instant::now()
-            .checked_add(PROCESS_TIMEOUT)
-            .ok_or("deadline overflow")?;
-        let mut pending: BTreeSet<&str> = needles.iter().copied().collect();
-        let mut seen = String::new();
-        while !pending.is_empty() {
-            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-            let line = self
-                .lines
-                .recv_timeout(remaining)
-                .map_err(|error| format!("{error}; waiting for {pending:?}; stderr:\n{seen}"))?;
-            pending.retain(|needle| !line.contains(needle));
-            seen.push_str(&line);
-            seen.push('\n');
-        }
-        Ok(())
-    }
-}
-
-/// An unused loopback port at or above 1024.
-fn reserve_port() -> Result<u16, Box<dyn Error>> {
-    let listener = TcpListener::bind(("127.0.0.1", 0))?;
-    Ok(listener.local_addr()?.port())
-}
-
-/// Writes a 0600 master key.
-fn write_master_key(path: &Path) -> TestResult {
-    fs::write(path, [17_u8; 32])?;
-    #[cfg(unix)]
+    /// Writes `<home>/kcc.toml` from `config` on two free ports (listener, metrics), starts
+    /// `kcc serve` with a hermetic home and the master key `key`, and waits until both
+    /// listeners serve and the router's metrics are available. Returns the ports.
+    fn start<F>(home: &Path, key: &Path, config: F) -> Result<([u16; 2], Self), Box<dyn Error>>
+    where
+        F: Fn([u16; 2]) -> String,
     {
-        use std::os::unix::fs::PermissionsExt as _;
-        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        let path = home.join("kcc.toml");
+        start_on_free_ports(|ports| {
+            fs::write(&path, config(ports))?;
+            let mut child = spawning::spawn(
+                spawning::command(env!("CARGO_BIN_EXE_kcc"))
+                    .args(["serve", "--config", path.to_str().ok_or("non-UTF-8 path")?])
+                    .env("HOME", home)
+                    .env("XDG_CONFIG_HOME", home.join("config"))
+                    .env("XDG_STATE_HOME", home.join("state-home"))
+                    .env(MASTER_KEY_FILE_ENV, key)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::piped()),
+            )?;
+            let lines = stderr_lines(&mut child)?;
+            let server = Self { child, lines };
+            let mut pending: BTreeSet<&str> =
+                ["metrics endpoint listening", "router metrics available"]
+                    .into_iter()
+                    .collect();
+            let started = await_ready(
+                &server.lines,
+                |line| {
+                    pending.retain(|needle| !line.contains(needle));
+                    pending.is_empty()
+                },
+                PROCESS_TIMEOUT,
+            )?;
+            Ok::<_, Box<dyn Error>>(match started {
+                Start::Ready(_seen) => Start::Ready(server),
+                Start::AddressInUse => Start::AddressInUse,
+            })
+        })
     }
-    Ok(())
 }
 
 /// `promtool` from `KCC_PROMTOOL` or `PATH`.
@@ -130,10 +115,14 @@ fn promtool_check(text: &str, directory: &Path) -> TestResult {
     };
     let scrape = directory.join("scrape.prom");
     fs::write(&scrape, text)?;
-    let output = Command::new(binary)
-        .args(["check", "metrics"])
-        .stdin(fs::File::open(&scrape)?)
-        .output()?;
+    let output = spawning::spawn(
+        spawning::command(binary)
+            .args(["check", "metrics"])
+            .stdin(fs::File::open(&scrape)?)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped()),
+    )?
+    .wait_with_output()?;
     let report = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
@@ -156,19 +145,18 @@ async fn serve_exposes_router_metrics_on_the_kit_listener() -> TestResult {
     let password_file =
         kcc_testkit::write_secret_file(directory.path(), "router.password", DEFAULT_PASSWORD)?;
     let key = directory.path().join("master.key");
-    write_master_key(&key)?;
-    let (port, metrics_port) = (reserve_port()?, reserve_port()?);
-    let config = directory.path().join("kcc.toml");
-    fs::write(
-        &config,
-        format!(
-            "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n\n[metrics]\nenabled = true\nbind = \"127.0.0.1:{metrics_port}\"\ninterval = \"15s\"\n\n[outbound]\nallow_loopback = true\n\n[state]\ndir = {:?}\n\n[[routers]]\nname = \"fake\"\nurl = \"http://{router_address}\"\nlogin = \"admin\"\npassword_file = {:?}\n",
-            directory.path().join("state").display().to_string(),
-            password_file.display().to_string()
-        ),
+    master_key::write(&key, [17_u8; 32])?;
+    let state_dir = directory.path().join("state").display().to_string();
+    let password = password_file.display().to_string();
+    let ([_port, metrics_port], server) = Server::start(
+        directory.path(),
+        &key,
+        |[port, metrics_port]| {
+            format!(
+                "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n\n[metrics]\nenabled = true\nbind = \"127.0.0.1:{metrics_port}\"\ninterval = \"15s\"\n\n[outbound]\nallow_loopback = true\n\n[state]\ndir = {state_dir:?}\n\n[[routers]]\nname = \"fake\"\nurl = \"http://{router_address}\"\nlogin = \"admin\"\npassword_file = {password:?}\n",
+            )
+        },
     )?;
-    let server = Server::spawn(&config, directory.path(), &key)?;
-    server.wait_for(&["metrics endpoint listening", "router metrics available"])?;
     let _installed = rustls::crypto::ring::default_provider().install_default();
     let text = reqwest::Client::builder()
         .timeout(Duration::from_secs(5))

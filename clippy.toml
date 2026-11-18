@@ -13,6 +13,13 @@ cognitive-complexity-threshold = 25 # drives `cognitive_complexity`
 too-many-lines-threshold = 100 # drives `too_many_lines`
 max-fn-params-bools = 3 # drives `fn_params_excessive_bools`
 enum-variant-size-threshold = 200 # drives `large_enum_variant`
+disallowed-methods = [ # kcc never starts a process: an inherited capability bounding set stays unused
+    { path = "std::process::Command::new", reason = "kcc starts no process; a test or xtask item that must start one says why in an item-level expect, and the kcc suites go through crates/kcc/tests/support/spawning.rs" },
+    { path = "std::process::Command::spawn", reason = "kcc starts no process; a test or xtask item that must start one says why in an item-level expect, and the kcc suites go through crates/kcc/tests/support/spawning.rs" },
+    { path = "std::process::Command::output", reason = "kcc starts no process; a test or xtask item that must start one says why in an item-level expect, and the kcc suites go through crates/kcc/tests/support/spawning.rs" },
+    { path = "std::process::Command::status", reason = "kcc starts no process; a test or xtask item that must start one says why in an item-level expect, and the kcc suites go through crates/kcc/tests/support/spawning.rs" },
+    { path = "std::os::unix::process::CommandExt::exec", reason = "kcc replaces no process image", allow-invalid = true },
+]
 allowed-duplicate-crates = [ # each unavoidable duplicate, with a reason comment
     "bitflags", # =1.3.2: windows-permissions 0.2.4 -> rmcp-server-kit 3.21.1 (Windows-only)
     "getrandom", # =0.2.17: ring 0.17.14 -> rustls 0.23 -> reqwest 0.13.5 -> rmcp-server-kit; =0.3.4: governor 0.10.4 and rand_core 0.9.5 -> rmcp-server-kit

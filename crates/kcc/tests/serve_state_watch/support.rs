@@ -14,12 +14,9 @@ use alloc::sync::Arc;
 use core::{error::Error, time::Duration};
 use std::{
     env, fs,
-    io::{BufRead as _, BufReader},
-    net::TcpListener,
     path::PathBuf,
     process::{Child, Command, Stdio},
-    sync::mpsc,
-    thread,
+    sync::{OnceLock, mpsc},
     time::Instant,
 };
 
@@ -37,6 +34,12 @@ use serde_json::{Value, json};
 use tempfile::TempDir;
 use tokio::task::block_in_place;
 
+use crate::{
+    master_key,
+    serve_port::{Start, await_ready, start_on_free_ports, stderr_lines},
+    spawning,
+};
+
 /// Test result.
 pub(crate) type TestResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -51,6 +54,9 @@ pub(crate) const PROPAGATION: Duration = Duration::from_secs(5);
 
 /// Upper bound for starting the server and for each CLI run.
 const PROCESS_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Where the configuration template takes the listen port.
+const PORT_HOLE: &str = "{listen_port}";
 
 /// The log target of an applied change.
 pub(crate) const RELOAD: &str = "kcc::state_reload";
@@ -79,6 +85,16 @@ impl Drop for Server {
 pub(crate) fn about(event: &Value, target: &str, file: &str) -> bool {
     event.get("target").and_then(Value::as_str) == Some(target)
         && event.pointer("/fields/file").and_then(Value::as_str) == Some(file)
+}
+
+/// Whether the log line `line` is the JSON event of a listener that serves.
+fn listening(line: &str) -> bool {
+    serde_json::from_str::<Value>(line).is_ok_and(|event| {
+        event
+            .pointer("/fields/message")
+            .and_then(Value::as_str)
+            .is_some_and(|message| message.contains("listening"))
+    })
 }
 
 /// Whether `event` is a warning.
@@ -129,8 +145,10 @@ pub(crate) struct Fixture {
     directory: TempDir,
     /// `kcc.toml`.
     config: PathBuf,
-    /// Base URL of the listener.
-    base: String,
+    /// `kcc.toml` with [`PORT_HOLE`] for the listen port.
+    template: String,
+    /// Base URL of the listener, once it serves.
+    base: OnceLock<String>,
     /// The plaintext API key.
     key: String,
     /// HTTP client that does not follow redirects.
@@ -165,27 +183,19 @@ impl Fixture {
             "viewer".to_owned(),
             1,
         )?;
-        let master = directory.path().join("master.key");
-        fs::write(&master, [17_u8; 32])?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt as _;
-            fs::set_permissions(&master, fs::Permissions::from_mode(0o600))?;
-        }
-        let port = TcpListener::bind(("127.0.0.1", 0))?.local_addr()?.port();
+        master_key::write(&directory.path().join("master.key"), [17_u8; 32])?;
+        let template = format!(
+            "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {PORT_HOLE}\n\n[web]\nenabled = true\n\n[mcp]\nhttp_enabled = true\n\n[state]\ndir = {:?}\n\n[observability]\nlog_level = \"info,rmcp=warn,rmcp_server_kit=info,{RELOAD}=debug,{WATCH}=debug\"\nlog_format = \"json\"\n",
+            state.dir().display().to_string(),
+        );
         let config = directory.path().join("kcc.toml");
-        fs::write(
-            &config,
-            format!(
-                "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n\n[web]\nenabled = true\n\n[mcp]\nhttp_enabled = true\n\n[state]\ndir = {:?}\n\n[observability]\nlog_level = \"info,rmcp=warn,rmcp_server_kit=info,{RELOAD}=debug,{WATCH}=debug\"\nlog_format = \"json\"\n",
-                state.dir().display().to_string(),
-            ),
-        )?;
+        fs::write(&config, template.replace(PORT_HOLE, "1024"))?;
         let _installed = default_provider().install_default();
         Ok(Self {
             directory,
             config,
-            base: format!("http://127.0.0.1:{port}"),
+            template,
+            base: OnceLock::new(),
             key: expose_created_key(&created).to_owned(),
             http: Client::builder()
                 .redirect(Policy::none())
@@ -197,7 +207,7 @@ impl Fixture {
     /// `kcc` with this fixture's configuration and environment.
     fn kcc(&self, arguments: &[&str]) -> TestResult<Command> {
         let home = self.directory.path();
-        let mut command = Command::new(env!("CARGO_BIN_EXE_kcc"));
+        let mut command = spawning::command(env!("CARGO_BIN_EXE_kcc"));
         let _configured: &mut Command = command
             .args(["--config", self.config.to_str().ok_or("path")?])
             .args(arguments)
@@ -212,51 +222,59 @@ impl Fixture {
         Ok(command)
     }
 
-    /// Starts `kcc serve` and waits until it listens.
+    /// Starts `kcc serve` on a free port and waits until it listens and watches the state.
     pub(crate) fn serve(&self) -> TestResult<Server> {
-        let mut child = self
-            .kcc(&["serve"])?
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let stderr = child.stderr.take().ok_or("child stderr")?;
-        let (sender, lines) = mpsc::channel();
-        drop(thread::spawn(move || {
-            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                if sender.send(line).is_err() {
-                    break;
+        let ([port], mut server) = start_on_free_ports(|[port]| -> TestResult<Start<Server>> {
+            fs::write(
+                &self.config,
+                self.template.replace(PORT_HOLE, &port.to_string()),
+            )?;
+            let mut child = spawning::spawn(
+                self.kcc(&["serve"])?
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::piped()),
+            )?;
+            let lines = stderr_lines(&mut child)?;
+            let mut server = Server {
+                child,
+                lines,
+                events: Vec::new(),
+            };
+            let started = await_ready(&server.lines, listening, PROCESS_TIMEOUT)?;
+            Ok(match started {
+                Start::Ready(seen) => {
+                    server.events = seen
+                        .iter()
+                        .filter_map(|line| serde_json::from_str(line).ok())
+                        .collect();
+                    Start::Ready(server)
                 }
-            }
-        }));
-        let mut server = Server {
-            child,
-            lines,
-            events: Vec::new(),
-        };
-        let listening = server.wait_event(PROCESS_TIMEOUT, |event| {
-            event
-                .pointer("/fields/message")
-                .and_then(Value::as_str)
-                .is_some_and(|message| message.contains("listening"))
+                Start::AddressInUse => Start::AddressInUse,
+            })
         })?;
         let started = |event: &Value| {
             event.get("target").and_then(Value::as_str) == Some(WATCH)
                 && event.pointer("/fields/interval_ms").is_some()
         };
-        let watching = server.saw(started) || server.wait_event(PROCESS_TIMEOUT, started)?;
-        if !(listening && watching) {
-            return Err(format!(
-                "kcc serve did not start (listening {listening}, watching {watching})"
-            )
-            .into());
+        if !(server.saw(started) || server.wait_event(PROCESS_TIMEOUT, started)?) {
+            return Err("kcc serve listens but does not watch the state".into());
         }
+        self.base
+            .set(format!("http://127.0.0.1:{port}"))
+            .map_err(|_served| "the fixture serves once")?;
         Ok(server)
     }
 
     /// Runs the CLI with `arguments`; fails unless it exits 0.
     pub(crate) fn cli(&self, arguments: &[&str]) -> TestResult {
-        let output = self.kcc(arguments)?.stdin(Stdio::null()).output()?;
+        let output = spawning::spawn(
+            self.kcc(arguments)?
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped()),
+        )?
+        .wait_with_output()?;
         if !output.status.success() {
             return Err(format!(
                 "kcc {arguments:?} failed: {}",
@@ -292,16 +310,16 @@ impl Fixture {
         &self.http
     }
 
-    /// The listener's base URL.
+    /// The listener's base URL; empty until [`Self::serve`] started it.
     pub(crate) fn base(&self) -> &str {
-        &self.base
+        self.base.get().map_or("", String::as_str)
     }
 
     /// The status of an MCP `initialize` made with the API key.
     pub(crate) async fn mcp_status(&self) -> TestResult<StatusCode> {
         Ok(self
             .http
-            .post(format!("{}/mcp", self.base))
+            .post(format!("{}/mcp", self.base()))
             .bearer_auth(&self.key)
             .header(header::ACCEPT, "application/json, text/event-stream")
             .json(&json!({"jsonrpc":"2.0","id":1_u32,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"watch","version":"1"}}}))

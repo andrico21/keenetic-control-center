@@ -25,7 +25,7 @@ use kcc_domain::{
     system,
 };
 use kcc_i18n::keys;
-use kcc_testkit::{FaultInjection, model::Firmware};
+use kcc_testkit::{FaultInjection, bracket::Recovery, model::Firmware};
 
 use crate::support::{Fixture, PROFILES, TestResult};
 
@@ -46,11 +46,8 @@ fn commands_after(fixture: &Fixture, before: usize) -> Vec<String> {
 /// The arm and disarm lines of `mode`.
 const fn lines(mode: SafetyMode) -> [&'static str; 2] {
     match mode {
-        SafetyMode::Router => [
-            "system configuration fail-safe timer reboot 300",
-            "no system configuration fail-safe timer",
-        ],
-        SafetyMode::ScheduledReboot => ["system reboot 300", "no system reboot"],
+        SafetyMode::Router => Recovery::FailSafeTimer.lines(),
+        SafetyMode::ScheduledReboot => Recovery::ScheduledReboot.lines(),
         _ => ["unknown arm", "unknown disarm"],
     }
 }
@@ -74,7 +71,8 @@ async fn a_locally_refused_work_still_sends_the_disarm() -> TestResult {
         for system_mode in ["router", "extender"] {
             for disarm_refused in [false, true] {
                 let faults = if disarm_refused {
-                    FaultInjection::default().fail_parse_matching("no system", 1)
+                    FaultInjection::default()
+                        .fail_parse_matching(Recovery::for_mode(system_mode).disarm(), 1)
                 } else {
                     FaultInjection::default()
                 };

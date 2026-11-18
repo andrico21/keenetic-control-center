@@ -17,11 +17,14 @@ mod tests {
         keys,
         locale::Locale,
     };
-    use kcc_testkit::FaultInjection;
+    use kcc_testkit::{
+        FaultInjection,
+        bracket::{Fate, Recovery},
+    };
     use serde_json::{Value, json};
 
     use crate::{
-        bracket::{commands, edges, router},
+        bracket::{commands, router},
         lab::{Lab, TestResult, admin},
     };
 
@@ -37,77 +40,71 @@ mod tests {
         bool,
     );
 
-    /// The failed brackets, one per fate and code.
-    fn rows() -> Vec<Row> {
-        let port = json!({"host":"lab-1","line":"ip http port 8430","confirm":true});
-        let user = json!({"host":"lab-1","line":"no user unused","confirm":true});
-        let interface = json!({"host":"lab-1","op":"security_level","name":"Bridge0","level":"private","confirm":true});
-        let timer = "system configuration fail-safe timer";
-        let parse = "kcc_cli_parse";
-        vec![
-            (
+    /// The failed brackets: one per shared fate, and a disarm lost in the scheduled-reboot
+    /// mode.
+    fn rows() -> TestResult<Vec<Row>> {
+        let port = "ip http port 8430";
+        let mut rows = Vec::new();
+        for fate in Fate::ALL {
+            let (line, code, message, armed) = match fate {
+                Fate::OutcomeUnknown => (
+                    port,
+                    "management_outcome_unknown_fail_safe_armed",
+                    Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED),
+                    true,
+                ),
+                Fate::DisarmRefused => (
+                    port,
+                    "management_applied_fail_safe_armed",
+                    Some(keys::MANAGEMENT_DISARM_FAILED),
+                    true,
+                ),
+                Fate::NotSent => (
+                    port,
+                    "management_not_sent_fail_safe_armed",
+                    Some(keys::MANAGEMENT_NOT_SENT_ARMED),
+                    true,
+                ),
+                Fate::ArmRefused => (
+                    port,
+                    "router_rejected",
+                    Some(keys::MANAGEMENT_NOT_APPLIED),
+                    false,
+                ),
+                Fate::WorkRefused => ("no user unused", "router_rejected", None, false),
+                _ => return Err(format!("no MCP row for {fate:?}").into()),
+            };
+            rows.push((
                 "router",
-                parse,
-                port.clone(),
-                FaultInjection::default().disconnect_after_parse("ip http port".to_owned()),
-                "management_outcome_unknown_fail_safe_armed",
-                Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED),
-                true,
-            ),
-            (
-                "router",
-                parse,
-                port.clone(),
-                FaultInjection::default().fail_parse_matching("no system", 1),
-                "management_applied_fail_safe_armed",
-                Some(keys::MANAGEMENT_DISARM_FAILED),
-                true,
-            ),
-            (
-                "router",
-                parse,
-                port.clone(),
-                FaultInjection::default().fail_parse_matching(timer, 2),
-                "management_not_sent_fail_safe_armed",
-                Some(keys::MANAGEMENT_NOT_SENT_ARMED),
-                true,
-            ),
-            (
-                "router",
-                parse,
-                port,
-                FaultInjection::default().fail_parse_matching(timer, 1),
-                "router_rejected",
-                Some(keys::MANAGEMENT_NOT_APPLIED),
-                false,
-            ),
-            (
-                "router",
-                parse,
-                user,
-                FaultInjection::default().fail_parse_matching("no ", 1),
-                "router_rejected",
-                None,
-                false,
-            ),
-            (
-                "extender",
-                "kcc_interfaces_write",
-                interface,
-                FaultInjection::default().disconnect_before_parse("no system".to_owned()),
-                "management_applied_fail_safe_armed",
-                Some(keys::MANAGEMENT_DISARM_FAILED),
-                true,
-            ),
-        ]
+                "kcc_cli_parse",
+                json!({"host":"lab-1","line":line,"confirm":true}),
+                fate.faults(Recovery::FailSafeTimer, line),
+                code,
+                message,
+                armed,
+            ));
+        }
+        let disarm = Recovery::for_mode("extender").disarm();
+        rows.push((
+            "extender",
+            "kcc_interfaces_write",
+            json!({"host":"lab-1","op":"security_level","name":"Bridge0","level":"private","confirm":true}),
+            FaultInjection::default().disconnect_before_parse(disarm.to_owned()),
+            "management_applied_fail_safe_armed",
+            Some(keys::MANAGEMENT_DISARM_FAILED),
+            true,
+        ));
+        Ok(rows)
     }
 
     /// Each fate keeps its code and message on the wire and its flag in the audit entry;
     /// an applied change whose disarm failed is still reported unsaved.
+    ///
+    /// T-10: one row per shared bracket fate; the full matrix is the domain's.
     // NOT cancel-safe: the fixture owns router and MCP tasks.
     #[tokio::test]
     async fn a_failed_bracket_names_the_timer_fate() -> TestResult {
-        for (mode, tool, arguments, faults, code, message, armed) in rows() {
+        for (mode, tool, arguments, faults, code, message, armed) in rows()? {
             let lab = Lab::start(vec![("lab-1", router(mode, faults)?)], admin()).await?;
 
             let reply = lab.call(tool, arguments, false).await?;
@@ -121,7 +118,7 @@ mod tests {
             let running = armed && message != Some(keys::MANAGEMENT_NOT_SENT_ARMED);
             assert_eq!(lab.router("lab-1")?.recovery_armed(), running, "{label}");
             let sent = commands(&lab)?;
-            let [arm, disarm] = edges(mode);
+            let [arm, disarm] = Recovery::for_mode(mode).lines();
             assert_eq!(sent.first().map(String::as_str), Some(arm), "{label}");
             // The lost connection takes the disarm with it.
             let lost = message == Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED);

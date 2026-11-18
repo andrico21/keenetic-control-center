@@ -13,6 +13,8 @@ use kcc_app::secrets::MASTER_KEY_FILE_ENV;
 use tempfile::TempDir;
 use wait_timeout::ChildExt as _;
 
+use crate::{master_key, spawning};
+
 /// Fallible test result.
 pub(crate) type TestResult<T = ()> = Result<T, Box<dyn Error>>;
 
@@ -44,13 +46,7 @@ impl Env {
     pub(crate) fn new(body: &str) -> Result<Self, Box<dyn Error>> {
         let directory = TempDir::new()?;
         let env = Self { directory };
-        let key = env.path("master.key");
-        fs::write(&key, [17_u8; 32])?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt as _;
-            fs::set_permissions(&key, fs::Permissions::from_mode(0o600))?;
-        }
+        master_key::write(&env.path("master.key"), [17_u8; 32])?;
         env.write_config(body)?;
         Ok(env)
     }
@@ -94,14 +90,14 @@ impl Env {
 
     /// Runs `kcc <args>` without `--config`.
     pub(crate) fn kcc_bare(&self, args: &[&str]) -> Result<Run, Box<dyn Error>> {
-        let child = self.command(args).spawn()?;
+        let child = spawning::spawn(&mut self.command(args))?;
         finish(child)
     }
 
     /// The hermetic command line of `kcc <args>`, for long-running children.
     pub(crate) fn command(&self, args: &[&str]) -> Command {
         let home = self.path("home");
-        let mut command = Command::new(env!("CARGO_BIN_EXE_kcc"));
+        let mut command = spawning::command(env!("CARGO_BIN_EXE_kcc"));
         let _: &mut Command = command
             .args(args)
             .env_clear()

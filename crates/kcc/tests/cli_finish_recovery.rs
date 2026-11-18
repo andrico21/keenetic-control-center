@@ -13,5 +13,9 @@ mod closing;
 mod closing_modes;
 #[path = "cli/closing_saved.rs"]
 mod closing_saved;
+#[path = "support/master_key.rs"]
+mod master_key;
+#[path = "support/spawning.rs"]
+mod spawning;
 #[path = "cli/support.rs"]
 mod support;

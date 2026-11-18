@@ -13,12 +13,9 @@ use alloc::sync::Arc;
 use core::{error::Error, time::Duration};
 use std::{
     fs,
-    io::{BufRead as _, BufReader},
-    net::TcpListener,
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
-    sync::mpsc,
-    thread,
+    process::{Child, Stdio},
+    sync::{OnceLock, mpsc},
     time::{Instant, SystemTime},
 };
 
@@ -36,6 +33,13 @@ use secrecy::SecretString;
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
+use crate::{
+    master_key,
+    serve_port::{Start, await_ready, start_on_free_ports, stderr_lines},
+    signal::{self, Signal},
+    spawning,
+};
+
 /// Test result.
 pub(crate) type TestResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -44,6 +48,9 @@ pub(crate) const PASSWORD: &str = "correct horse battery staple";
 
 /// Upper bound for every wait on the child process.
 const PROCESS_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Where the configuration template takes the listen port.
+const PORT_HOLE: &str = "{listen_port}";
 
 /// The `ops` role with `permissions` on every router.
 pub(crate) fn ops(permissions: &[Permission]) -> Role {
@@ -89,12 +96,7 @@ impl Server {
 
     /// Sends SIGHUP and waits until the reload is applied.
     pub(crate) fn hangup(&self) -> TestResult {
-        let status = Command::new("kill")
-            .args(["-HUP", &self.child.id().to_string()])
-            .status()?;
-        if !status.success() {
-            return Err("kill -HUP failed".into());
-        }
+        signal::send(&self.child, Signal::Hangup)?;
         self.wait_for("configuration reloaded from SIGHUP")
     }
 }
@@ -105,8 +107,10 @@ pub(crate) struct Fixture {
     directory: TempDir,
     /// `kcc.toml`.
     config: PathBuf,
-    /// Base URL of the listener.
-    base_url: String,
+    /// `kcc.toml` with [`PORT_HOLE`] for the listen port.
+    template: String,
+    /// Base URL of the listener, once it serves.
+    base_url: OnceLock<String>,
     /// The plaintext `ops-key`.
     key: String,
     /// The fake router.
@@ -152,56 +156,56 @@ impl Fixture {
             "ops".to_owned(),
             1,
         )?;
-        let key = directory.path().join("master.key");
-        fs::write(&key, [17_u8; 32])?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt as _;
-            fs::set_permissions(&key, fs::Permissions::from_mode(0o600))?;
-        }
-        let port = TcpListener::bind(("127.0.0.1", 0))?.local_addr()?.port();
-        let config = directory.path().join("kcc.toml");
-        fs::write(
-            &config,
-            format!(
-                "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n\n[web]\nenabled = true\n\n[mcp]\nhttp_enabled = true\ntoolsets = [\"core\", \"vpn\"]\n\n[outbound]\nallow_loopback = true\n\n[state]\ndir = {:?}\n\n[[routers]]\nname = \"router\"\nurl = \"http://{address}\"\nlogin = \"admin\"\npassword_file = {:?}\n",
-                state.dir().display().to_string(),
-                password_file.display().to_string()
-            ),
-        )?;
+        master_key::write(&directory.path().join("master.key"), [17_u8; 32])?;
+        let template = format!(
+            "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {PORT_HOLE}\n\n[web]\nenabled = true\n\n[mcp]\nhttp_enabled = true\ntoolsets = [\"core\", \"vpn\"]\n\n[outbound]\nallow_loopback = true\n\n[state]\ndir = {:?}\n\n[[routers]]\nname = \"router\"\nurl = \"http://{address}\"\nlogin = \"admin\"\npassword_file = {:?}\n",
+            state.dir().display().to_string(),
+            password_file.display().to_string()
+        );
         Ok(Self {
             key: expose_created_key(&created).to_owned(),
+            config: directory.path().join("kcc.toml"),
             directory,
-            config,
-            base_url: format!("http://127.0.0.1:{port}"),
+            template,
+            base_url: OnceLock::new(),
             _router: router,
         })
     }
 
-    /// Starts `kcc serve` and waits until it listens.
+    /// Starts `kcc serve` on a free port and waits until it listens.
     pub(crate) fn serve(&self) -> TestResult<Server> {
         let home = self.directory.path();
-        let mut child = Command::new(env!("CARGO_BIN_EXE_kcc"))
-            .args(["serve", "--config", self.config.to_str().ok_or("path")?])
-            .env("HOME", home)
-            .env("XDG_CONFIG_HOME", home.join("config"))
-            .env("XDG_STATE_HOME", home.join("state-home"))
-            .env(MASTER_KEY_FILE_ENV, home.join("master.key"))
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let stderr = child.stderr.take().ok_or("child stderr")?;
-        let (sender, lines) = mpsc::channel();
-        drop(thread::spawn(move || {
-            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                if sender.send(line).is_err() {
-                    break;
-                }
-            }
-        }));
-        let server = Server { child, lines };
-        server.wait_for("listening")?;
+        let ([port], server) = start_on_free_ports(|[port]| -> TestResult<Start<Server>> {
+            fs::write(
+                &self.config,
+                self.template.replace(PORT_HOLE, &port.to_string()),
+            )?;
+            let mut child = spawning::spawn(
+                spawning::command(env!("CARGO_BIN_EXE_kcc"))
+                    .args(["serve", "--config", self.config.to_str().ok_or("path")?])
+                    .env("HOME", home)
+                    .env("XDG_CONFIG_HOME", home.join("config"))
+                    .env("XDG_STATE_HOME", home.join("state-home"))
+                    .env(MASTER_KEY_FILE_ENV, home.join("master.key"))
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::piped()),
+            )?;
+            let lines = stderr_lines(&mut child)?;
+            let server = Server { child, lines };
+            let started = await_ready(
+                &server.lines,
+                |line| line.contains("listening"),
+                PROCESS_TIMEOUT,
+            )?;
+            Ok(match started {
+                Start::Ready(_seen) => Start::Ready(server),
+                Start::AddressInUse => Start::AddressInUse,
+            })
+        })?;
+        self.base_url
+            .set(format!("http://127.0.0.1:{port}"))
+            .map_err(|_served| "the fixture serves once")?;
         Ok(server)
     }
 
@@ -215,9 +219,9 @@ impl Fixture {
         &self.key
     }
 
-    /// The listener's base URL.
+    /// The listener's base URL; empty until [`Self::serve`] started it.
     pub(crate) fn base_url(&self) -> &str {
-        &self.base_url
+        self.base_url.get().map_or("", String::as_str)
     }
 
     /// `api_keys.json`.

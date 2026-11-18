@@ -8,7 +8,12 @@
 )]
 use axum::http::StatusCode;
 use kcc_i18n::{bundle::MessageKey, keys};
-use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
+use kcc_testkit::{
+    FakeRouter, FaultInjection,
+    bracket::{Fate, Recovery},
+    migration,
+    model::Profile,
+};
 use serde_json::json;
 
 use crate::support::{
@@ -52,18 +57,6 @@ pub(crate) fn commands(fixture: &Fixture) -> Vec<String> {
         .collect()
 }
 
-/// The arm and disarm lines of the recovery of `mode`.
-pub(crate) fn edges(mode: &str) -> [&'static str; 2] {
-    if mode == "router" {
-        [
-            "system configuration fail-safe timer reboot 300",
-            "no system configuration fail-safe timer",
-        ]
-    } else {
-        ["system reboot 300", "no system reboot"]
-    }
-}
-
 /// The keys that say the timer may still be armed.
 const ARMED_KEYS: [MessageKey; 3] = [
     keys::MANAGEMENT_NOT_SENT_ARMED,
@@ -90,12 +83,12 @@ async fn management_bracket_without_write_permission() -> TestResult {
     let sent = commands(&fixture);
     assert_eq!(
         sent.first().map(String::as_str),
-        Some(edges("router")[0]),
+        Some(Recovery::FailSafeTimer.arm()),
         "{sent:?}"
     );
     assert_eq!(
         sent.last().map(String::as_str),
-        Some(edges("router")[1]),
+        Some(Recovery::FailSafeTimer.disarm()),
         "{sent:?}"
     );
     Ok(())
@@ -103,43 +96,22 @@ async fn management_bracket_without_write_permission() -> TestResult {
 
 /// Every failed bracket shows the message of its fate and flags its audit entry when the
 /// timer may be armed; a refusal whose disarm closed the timer keeps the router's words.
+///
+/// T-10: one row per shared bracket fate; the full matrix is the domain's.
 // NOT cancel-safe: the fixture owns router and HTTP tasks.
 #[tokio::test]
 async fn bracket_failure_matrix_retains_recovery() -> TestResult {
-    let timer = "system configuration fail-safe timer";
     let port = "ip http port 8430";
-    for (faults, line, key, armed) in [
-        (
-            FaultInjection::default().disconnect_after_parse("ip http port".to_owned()),
-            port,
-            Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED),
-            true,
-        ),
-        (
-            FaultInjection::default().fail_parse_matching("no system", 1),
-            port,
-            Some(keys::MANAGEMENT_DISARM_FAILED),
-            true,
-        ),
-        (
-            FaultInjection::default().fail_parse_matching(timer, 2),
-            port,
-            Some(keys::MANAGEMENT_NOT_SENT_ARMED),
-            true,
-        ),
-        (
-            FaultInjection::default().fail_parse_matching(timer, 1),
-            port,
-            Some(keys::MANAGEMENT_NOT_APPLIED),
-            false,
-        ),
-        (
-            FaultInjection::default().fail_parse_matching("no ", 1),
-            "no user unused",
-            None,
-            false,
-        ),
-    ] {
+    for fate in Fate::ALL {
+        let (line, key, armed) = match fate {
+            Fate::OutcomeUnknown => (port, Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED), true),
+            Fate::DisarmRefused => (port, Some(keys::MANAGEMENT_DISARM_FAILED), true),
+            Fate::NotSent => (port, Some(keys::MANAGEMENT_NOT_SENT_ARMED), true),
+            Fate::ArmRefused => (port, Some(keys::MANAGEMENT_NOT_APPLIED), false),
+            Fate::WorkRefused => ("no user unused", None, false),
+            _ => return Err(format!("no Web row for {fate:?}").into()),
+        };
+        let faults = fate.faults(Recovery::FailSafeTimer, line);
         let fixture = fixture("router", faults).await?;
         let browser = fixture.login("admin").await?;
         let request = form(&[("line", line), ("confirm", "yes"), ("confirm_name", "home")]);

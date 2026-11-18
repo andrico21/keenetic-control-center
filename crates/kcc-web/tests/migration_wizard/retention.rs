@@ -110,6 +110,10 @@ mod tests {
     /// W5-06: the list of a user's migrations reads only that user's runs: another
     /// run's record that cannot be read (a pipe nobody writes) does not hold it up.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "creates a FIFO with mkfifo, which std has no safe call for"
+    )]
     async fn the_list_reads_only_the_users_runs() -> TestResult {
         let fixture = setup::fixture().await?;
         let admin = fixture.login("admin").await?;

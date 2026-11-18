@@ -26,7 +26,10 @@ use kcc_testkit::{
 use secrecy::ExposeSecret as _;
 use serde_json::{Value, json};
 
-use super::support::{Env, TestResult};
+use super::{
+    spawning,
+    support::{Env, TestResult},
+};
 
 /// The CLI test master key (`Env` writes 32 bytes of 17).
 pub(super) fn store(env: &Env) -> Result<CredentialStore, Box<dyn Error>> {
@@ -86,7 +89,7 @@ pub(super) fn kcc_with(env: &Env, args: &[&str], secret: &str) -> Result<Output,
     let config = env.path("kcc.toml");
     let mut all = vec!["--config", config.to_str().ok_or("non-UTF-8 path")?];
     all.extend_from_slice(args);
-    Ok(env.command(&all).env("KCC_PASSWORD", secret).output()?)
+    Ok(spawning::spawn(env.command(&all).env("KCC_PASSWORD", secret))?.wait_with_output()?)
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
