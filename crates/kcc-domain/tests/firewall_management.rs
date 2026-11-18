@@ -178,7 +178,7 @@ mod tests {
             let name = ObjectName::try_from("ISP".to_owned())?;
             let verdict = interfaces::detect_management(fixture.context(), &name).await?;
             assert_eq!(
-                verdict.risk(&name),
+                verdict.risk(),
                 Risk::Management,
                 "interface show rc {keyword}"
             );

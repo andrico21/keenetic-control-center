@@ -200,8 +200,8 @@ pub(crate) async fn address(
                 async |checked, domain| {
                     let verdict = interfaces::detect_management(domain, &name).await?;
                     let operation = checked.map_or_else(
-                        || wan::plan_dhcp(domain, &name, verdict),
-                        |found| wan::plan_static_address(domain, &name, found, verdict),
+                        || wan::plan_dhcp(domain, verdict),
+                        |found| wan::plan_static_address(domain, found, verdict),
                     )?;
                     let request = wan::change_request(&name, &operation)?;
                     Ok(Planned::of(&[operation], Change::Cli(request)))

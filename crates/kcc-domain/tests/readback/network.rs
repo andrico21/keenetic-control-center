@@ -100,10 +100,9 @@ fn wan_addressing_and_delete(ctx: &RouterCtx, _firmware: Firmware) -> Steps<'_> 
         let name = "Bridge0".parse()?;
         let operations = [
             wan::plan_delete(ctx, &name).await?,
-            wan::plan_dhcp(ctx, &name, ManagementVerdict::NotManagement)?,
+            wan::plan_dhcp(ctx, ManagementVerdict::NotManagement)?,
             wan::plan_static_address(
                 ctx,
-                &name,
                 wan::StaticAddress::new(
                     Ipv4Addr::new(192, 0, 2, 67),
                     Ipv4Addr::new(255, 255, 255, 0),

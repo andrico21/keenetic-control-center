@@ -58,12 +58,8 @@ async fn non_secret_plans_execute_through_change_set() -> TestResult {
         let created = changes
             .apply_cli(wan::change_request(&name, &create)?)
             .await?;
-        let static_address = wan::plan_static_address(
-            fixture.context(),
-            &name,
-            address,
-            ManagementVerdict::NotManagement,
-        )?;
+        let static_address =
+            wan::plan_static_address(fixture.context(), address, ManagementVerdict::NotManagement)?;
         let configured = changes
             .apply_cli(wan::change_request(&name, &static_address)?)
             .await?;

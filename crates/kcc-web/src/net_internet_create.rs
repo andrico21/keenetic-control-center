@@ -214,11 +214,7 @@ async fn plan_create(checked: &Checked, domain: &RouterCtx) -> Result<Planned, D
     let name = &checked.name;
     let mut operations = vec![wan::plan_create(domain, name).await?];
     if checked.kind == Kind::Ipoe {
-        operations.push(wan::plan_dhcp(
-            domain,
-            name,
-            ManagementVerdict::NotManagement,
-        )?);
+        operations.push(wan::plan_dhcp(domain, ManagementVerdict::NotManagement)?);
     }
     if let Some(via) = &checked.via {
         operations.push(wan::plan_connect_via(domain, name, via).await?);

@@ -65,7 +65,12 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn curated_writes_under_a_held_lock_report_their_entry_pending() -> TestResult {
         let lab = Lab::start(
-            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            vec![(
+                "lab-1",
+                FakeRouter::builder(Profile::default())
+                    .reached_directly()
+                    .build()?,
+            )],
             admin(),
         )
         .await?;

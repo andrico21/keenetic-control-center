@@ -114,6 +114,21 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **Interface changes fail closed when kcc cannot tell which interface carries its
+  connection.** When no router interface owns the address kcc reaches the router at (a
+  relay, address translation or the cloud path), a change to any interface (taking it down,
+  its security level or address, the MTU, identity, PPP password, "connect via" or default
+  route of an internet connection, a firewall binding or Wi-Fi schedule on it, a segment or
+  VPN connection naming it) is now a management change: it asks for the fail-safe
+  confirmation on every surface (the Web dialog, MCP `confirm_required`, the CLI's `--yes`)
+  and runs inside the router's recovery timer. It used to run as a plain write except on
+  a bridge or a bridge member. When kcc does know the interface, creating a connection
+  stays a plain write. `ManagementVerdict::risk` no longer takes the interface name, and
+  `wan::plan_dhcp` and `wan::plan_static_address` no longer take the unused one.
+- **Test kit: `FakeRouterBuilder::reached_directly`.** It lists `Loopback0` owning
+  `127.0.0.1`, the address the fake router is reached on, so kcc can tell which interface
+  carries its connection, as on a router reached directly. Without it (the default, and
+  the `kcc-fake-router` binary) no interface owns that address.
 - **Test kit: the fake router's request log keeps every parser line.**
   `kcc_testkit::RequestRecord::commands()` (new) lists every root `parse` line of a request
   in body order, a batch included, with secret-bearing lines (now also `crypto ike key`) as

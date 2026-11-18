@@ -13,7 +13,10 @@ mod support;
 use core::net::Ipv4Addr;
 
 use kcc_catalog::Risk;
-use kcc_domain::interfaces::{self, ManagementVerdict};
+use kcc_domain::{
+    interfaces::{self, ManagementVerdict},
+    wan::{self, StaticAddress},
+};
 use kcc_rci::ObjectName;
 use serde_json::{Value, json};
 
@@ -31,7 +34,7 @@ async fn bridge0_members_stay_management_without_observed_sources() -> TestResul
         for name in ["GigabitEthernet0/1", "WifiMaster0/AccessPoint0"] {
             let object = ObjectName::try_from(name.to_owned())?;
             let verdict = interfaces::detect_management(fixture.context(), &object).await?;
-            assert_eq!(verdict.risk(&object), Risk::Management, "{name}");
+            assert_eq!(verdict.risk(), Risk::Management, "{name}");
         }
         let bridge = ObjectName::try_from("Bridge0".to_owned())?;
         let verdict = interfaces::detect_management(fixture.context(), &bridge).await?;
@@ -71,7 +74,7 @@ async fn bridge_verdicts_flow_to_the_named_bridge_and_its_members() -> TestResul
                 Risk::Management,
             ),
             ("Bridge7", ManagementVerdict::NotManagement, Risk::Write),
-            ("TestPort7", ManagementVerdict::Unknown, Risk::Write),
+            ("TestPort7", ManagementVerdict::Unknown, Risk::Management),
             ("Bridge8", ManagementVerdict::Management, Risk::Management),
             (
                 "AccessPort8",
@@ -82,7 +85,7 @@ async fn bridge_verdicts_flow_to_the_named_bridge_and_its_members() -> TestResul
             let object = ObjectName::try_from(name.to_owned())?;
             let verdict = interfaces::detect_management(fixture.context(), &object).await?;
             assert_eq!(verdict, expected_verdict, "{name}");
-            assert_eq!(verdict.risk(&object), expected_risk, "{name}");
+            assert_eq!(verdict.risk(), expected_risk, "{name}");
         }
 
         fixture.shutdown().await?;
@@ -118,7 +121,7 @@ async fn unresolvable_profile_host_is_classified_by_the_pinned_address() -> Test
             let object = ObjectName::try_from(name.to_owned())?;
             let verdict = interfaces::detect_management(&context, &object).await?;
             assert_eq!(verdict, expected_verdict, "{name}");
-            assert_eq!(verdict.risk(&object), expected_risk, "{name}");
+            assert_eq!(verdict.risk(), expected_risk, "{name}");
         }
 
         fixture.shutdown().await?;
@@ -149,7 +152,59 @@ async fn bridges_without_evidence_fail_closed_to_management() -> TestResult {
         for name in ["Bridge7", "TestPort7", "Bridge8"] {
             let object = ObjectName::try_from(name.to_owned())?;
             let verdict = interfaces::detect_management(fixture.context(), &object).await?;
-            assert_eq!(verdict.risk(&object), Risk::Management, "{name}");
+            assert_eq!(verdict.risk(), Risk::Management, "{name}");
+        }
+
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+/// C-05: when no interface owns kcc's pinned address, kcc cannot tell which interface
+/// carries its connection, so a change to any interface is a management change.
+///
+/// This is the deployment where kcc reaches the router through address translation or a
+/// relay: a PPPoE uplink and a plain Ethernet port both fail closed.
+#[tokio::test]
+async fn changes_fail_closed_when_no_interface_owns_the_pinned_address() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn_with_show(
+            firmware,
+            [(
+                "interface".to_owned(),
+                json!({
+                    "PPPoE0":{"id":"PPPoE0","type":"PPPoE","address":"203.0.113.7","mask":"255.255.255.255"},
+                    "ISP":{"id":"ISP","type":"GigabitEthernet","address":"203.0.113.2","mask":"255.255.255.0"},
+                    "GigabitEthernet1":{"id":"GigabitEthernet1","type":"GigabitEthernet"}
+                }),
+            )],
+        )
+        .await?;
+        let context = fixture.context();
+        let address = StaticAddress::new(
+            Ipv4Addr::new(198, 51, 100, 9),
+            Ipv4Addr::new(255, 255, 255, 0),
+        );
+
+        for name in ["PPPoE0", "GigabitEthernet1"] {
+            let object = ObjectName::try_from(name.to_owned())?;
+            let verdict = interfaces::detect_management(context, &object).await?;
+            let planned = [
+                ("mtu", wan::plan_mtu(context, &object, 1_400).await?),
+                (
+                    "identity",
+                    wan::plan_identity(context, &object, "subscriber").await?,
+                ),
+                (
+                    "static_address",
+                    wan::plan_static_address(context, address, verdict)?,
+                ),
+                ("down", interfaces::plan_down(context, &object, verdict)?),
+            ];
+            assert_eq!(verdict, ManagementVerdict::Unknown, "{name}");
+            for (setting, operation) in planned {
+                assert_eq!(operation.risk, Risk::Management, "{name} {setting}");
+            }
         }
 
         fixture.shutdown().await?;

@@ -522,7 +522,12 @@ mod tests {
     #[tokio::test]
     async fn firewall_binding_success_and_ignored_write_use_domain_read_back() -> TestResult {
         let applied = Lab::start(
-            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            vec![(
+                "lab-1",
+                FakeRouter::builder(Profile::default())
+                    .reached_directly()
+                    .build()?,
+            )],
             admin(),
         )
         .await?;
@@ -550,6 +555,7 @@ mod tests {
                 "lab-1",
                 FakeRouter::builder(Profile::default())
                     .faults(FaultInjection::default().silent_noop_path("parse"))
+                    .reached_directly()
                     .build()?,
             )],
             admin(),

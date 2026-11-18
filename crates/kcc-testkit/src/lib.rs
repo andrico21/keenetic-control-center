@@ -58,7 +58,12 @@ use alloc::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
-use core::{error::Error, fmt, net::SocketAddr, time::Duration};
+use core::{
+    error::Error,
+    fmt,
+    net::{Ipv4Addr, SocketAddr},
+    time::Duration,
+};
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -408,6 +413,8 @@ pub struct FakeRouterBuilder {
     faults: FaultInjection,
     /// Per-path show fixture replacements for focused integration scenarios.
     show_overrides: BTreeMap<String, Value>,
+    /// Whether an interface owns the loopback address the fake is reached on.
+    reached_directly: bool,
 }
 
 impl FakeRouterBuilder {
@@ -481,6 +488,18 @@ impl FakeRouterBuilder {
         self
     }
 
+    /// Lists `Loopback0` owning `127.0.0.1`, the address the fake is reached on, as a router
+    /// kcc reaches directly lists the interface whose address kcc connects to.
+    ///
+    /// Without it no interface owns that address, as on a router kcc reaches through address
+    /// translation or a relay, so kcc cannot tell which interface carries its connection. An
+    /// `interface` [`show_fixture`](Self::show_fixture) replaces the whole list either way.
+    #[inline]
+    pub const fn reached_directly(mut self) -> Self {
+        self.reached_directly = true;
+        self
+    }
+
     /// Builds the router state from the profile's fixtures.
     ///
     /// # Errors
@@ -501,6 +520,15 @@ impl FakeRouterBuilder {
             .unwrap_or_else(|| firmware.release().to_owned());
         let (settings, mut show, startup_config) =
             fixtures::load(self.profile, &title, &release).map_err(BuildError::Fixture)?;
+        if self.reached_directly
+            && let Some(Value::Object(interfaces)) = show.get_mut("interface")
+        {
+            drop(interfaces.insert(
+                "Loopback0".to_owned(),
+                serde_json::json!({"id":"Loopback0","interface-name":"Loopback0","type":"Loopback",
+                    "link":"up","state":"up","address":Ipv4Addr::LOCALHOST.to_string(),"mask":"255.0.0.0"}),
+            ));
+        }
         for (path, value) in self.show_overrides {
             drop(show.insert(path, value));
         }
@@ -614,6 +642,7 @@ impl FakeRouter {
             clock: Arc::new(SystemClock::new()),
             faults: FaultInjection::default(),
             show_overrides: BTreeMap::new(),
+            reached_directly: false,
         }
     }
 

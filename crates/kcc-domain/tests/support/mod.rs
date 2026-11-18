@@ -171,6 +171,7 @@ impl Fixture {
         scenario.mode = Some(mode.to_owned());
         let router = FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?)
             .faults(faults)
+            .reached_directly()
             .build()?
             .with_migration(scenario);
         Self::spawn_router(router, None).await
@@ -217,7 +218,7 @@ impl Fixture {
         builder: kcc_testkit::FakeRouterBuilder,
         clock: Option<Arc<MockClock>>,
     ) -> TestResult<Self> {
-        Self::spawn_router(builder.build()?, clock).await
+        Self::spawn_router(builder.reached_directly().build()?, clock).await
     }
 
     /// Serves one built fake router and connects the domain context.

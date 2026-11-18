@@ -28,7 +28,7 @@ async fn classify(router: &RouterCtx, names: &[String]) -> Risk {
         let found = match ObjectName::try_from(name.clone()) {
             Ok(object) => interfaces::detect_management(router, &object)
                 .await
-                .map_or(Risk::Management, |verdict| verdict.risk(&object)),
+                .map_or(Risk::Management, interfaces::ManagementVerdict::risk),
             Err(_error) => Risk::Management,
         };
         highest = highest.max(found);

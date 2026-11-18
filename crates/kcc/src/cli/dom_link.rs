@@ -162,13 +162,13 @@ pub(crate) async fn wan(ctx: &Ctx, command: WanCommand) -> Outcome {
             let object_name = object(&name)?;
             let verdict = interfaces::detect_management(router, &object_name).await?;
             let addressing = StaticAddress::new(address, mask);
-            let operation = wan::plan_static_address(router, &object_name, addressing, verdict)?;
+            let operation = wan::plan_static_address(router, addressing, verdict)?;
             (object_name, operation)
         }
         WanCommand::Dhcp { name } => {
             let object_name = object(&name)?;
             let verdict = interfaces::detect_management(router, &object_name).await?;
-            let operation = wan::plan_dhcp(router, &object_name, verdict)?;
+            let operation = wan::plan_dhcp(router, verdict)?;
             (object_name, operation)
         }
         WanCommand::ConnectVia { name, via } => {

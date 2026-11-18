@@ -45,6 +45,32 @@ fn direct_origin_address_classifies_isp_and_excludes_other_interfaces() -> TestR
     Ok(())
 }
 
+/// C-05: a known owner decides names the router does not list, and its alias stays the owner.
+///
+/// A connection that does not exist yet carries nothing; another spelling of the owner's
+/// name is still the owner; with no owner nothing is decided.
+#[test]
+fn a_known_owner_decides_unlisted_names_but_not_its_aliases() -> TestResult {
+    let interfaces = serde_json::from_value::<BTreeMap<String, interfaces::Interface>>(
+        serde_json::json!({
+            "GigabitEthernet1":{"id":"GigabitEthernet1","interface-name":"ISP","address":"203.0.113.11"}
+        }),
+    )?;
+    let owned = BTreeSet::from(["203.0.113.11".parse::<IpAddr>()?]);
+    let unowned = BTreeSet::from(["198.51.100.4".parse::<IpAddr>()?]);
+
+    for (name, hosts, expected) in [
+        ("PPPoE9", &owned, ManagementVerdict::NotManagement),
+        ("isp", &owned, ManagementVerdict::Management),
+        ("PPPoE9", &unowned, ManagementVerdict::Unknown),
+    ] {
+        let object = ObjectName::try_from(name.to_owned())?;
+        let verdict = interfaces::management::classify_direct(&object, hosts, &interfaces);
+        assert_eq!(verdict, expected, "{name}");
+    }
+    Ok(())
+}
+
 /// C-04: a generic interface read drops the credential blobs `show interface` carries
 /// under `authentication` and `ns3`; only which credentials are stored remains.
 #[test]
@@ -78,14 +104,16 @@ fn interface_reads_drop_credential_blobs() -> TestResult {
     Ok(())
 }
 
+/// C-05: only a decided "another interface carries kcc" verdict is a plain write.
 #[test]
-fn unknown_falls_back_to_bridge0_only() -> TestResult {
-    let bridge = ObjectName::try_from("Bridge0".to_owned())?;
-    let isp = ObjectName::try_from("ISP".to_owned())?;
-
-    assert_eq!(ManagementVerdict::Unknown.risk(&bridge), Risk::Management);
-    assert_eq!(ManagementVerdict::Unknown.risk(&isp), Risk::Write);
-    Ok(())
+fn only_a_decided_other_interface_is_a_plain_write() {
+    for (verdict, expected) in [
+        (ManagementVerdict::Management, Risk::Management),
+        (ManagementVerdict::Unknown, Risk::Management),
+        (ManagementVerdict::NotManagement, Risk::Write),
+    ] {
+        assert_eq!(verdict.risk(), expected, "{verdict:?}");
+    }
 }
 
 use crate::support::{Fixture, PROFILES, TestResult};

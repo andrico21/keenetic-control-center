@@ -23,7 +23,11 @@ your role: pages and buttons you have no permission for are hidden or answer
   route of the internet connection kcc reaches the router through, creating a segment on
   the interface or access point kcc uses, releasing the KeenDNS name kcc uses) ask first on every
   page and run under the router's fail-safe timer, which the change's own permission
-  authorizes; nothing is sent before you confirm. Rolling the timer back yourself needs
+  authorizes; nothing is sent before you confirm. When kcc cannot tell which interface
+  carries its connection (for example when it reaches the router through a relay or
+  address translation), it treats every interface as the one it reaches the router
+  through, so these changes ask first and run under the fail-safe timer on any interface.
+  Rolling the timer back yourself needs
   the Destructive permission. While a fail-safe timer you (or a migration) armed is
   running, a risky change is refused with nothing sent, so that it neither replaces
   nor stops that timer: commit or disarm it first. A router that reports neither a system

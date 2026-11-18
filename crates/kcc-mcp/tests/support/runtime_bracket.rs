@@ -212,6 +212,7 @@ mod tests {
         let mut scenario = migration::Fixture::default();
         scenario.mode = Some(mode.to_owned());
         let fake = FakeRouter::builder(Profile::default())
+            .reached_directly()
             .build()?
             .with_migration(scenario);
         let (address, seed_handle) = fake.clone().serve(([127, 0, 0, 1], 0).into()).await?;

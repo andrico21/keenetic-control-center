@@ -11,6 +11,7 @@ use super::support::{Env, TestResult, router};
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn applied_firewall_binding_exits_zero_and_is_audited() -> TestResult {
     let (address, handle) = FakeRouter::builder(Profile::default())
+        .reached_directly()
         .build()?
         .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
         .await?;
@@ -39,6 +40,7 @@ async fn applied_firewall_binding_exits_zero_and_is_audited() -> TestResult {
 async fn ignored_firewall_binding_reports_failed_read_back() -> TestResult {
     let (address, handle) = FakeRouter::builder(Profile::default())
         .faults(FaultInjection::default().silent_noop_path("parse"))
+        .reached_directly()
         .build()?
         .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
         .await?;

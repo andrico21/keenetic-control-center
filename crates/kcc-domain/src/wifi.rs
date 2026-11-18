@@ -226,9 +226,7 @@ pub async fn plan_up(router: &RouterCtx, name: &ObjectName, enabled: bool) -> Re
     let risk = if enabled {
         Risk::Write
     } else {
-        interfaces::detect_management(router, name)
-            .await?
-            .risk(name)
+        interfaces::detect_management(router, name).await?.risk()
     };
     plan::plan_with_risk(
         router,
@@ -261,9 +259,7 @@ pub async fn plan_schedule(
     name: &ObjectName,
     schedule: &str,
 ) -> Result<ChangeOp> {
-    let risk = interfaces::detect_management(router, name)
-        .await?
-        .risk(name);
+    let risk = interfaces::detect_management(router, name).await?.risk();
     plan::plan_with_risk(
         router,
         name,

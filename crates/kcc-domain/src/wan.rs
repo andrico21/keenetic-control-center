@@ -143,17 +143,13 @@ pub async fn plan_delete(router: &RouterCtx, name: &ObjectName) -> Result<Change
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
 #[inline]
-pub fn plan_dhcp(
-    router: &RouterCtx,
-    name: &ObjectName,
-    verdict: ManagementVerdict,
-) -> Result<ChangeOp> {
+pub fn plan_dhcp(router: &RouterCtx, verdict: ManagementVerdict) -> Result<ChangeOp> {
     plan_with_risk(
         router,
         "interface ip address dhcp",
         &json!({}),
         Vec::new(),
-        verdict.risk(name),
+        verdict.risk(),
     )
 }
 
@@ -166,7 +162,6 @@ pub fn plan_dhcp(
 #[inline]
 pub fn plan_static_address(
     router: &RouterCtx,
-    name: &ObjectName,
     address: StaticAddress,
     verdict: ManagementVerdict,
 ) -> Result<ChangeOp> {
@@ -175,7 +170,7 @@ pub fn plan_static_address(
         "interface ip address",
         &json!({"address": address.address, "mask": address.mask}),
         Vec::new(),
-        verdict.risk(name),
+        verdict.risk(),
     )
 }
 
@@ -386,9 +381,7 @@ async fn classified(
     name: &ObjectName,
     operation: ChangeOp,
 ) -> Result<ChangeOp> {
-    let risk = interfaces::detect_management(router, name)
-        .await?
-        .risk(name);
+    let risk = interfaces::detect_management(router, name).await?.risk();
     Ok(ChangeOp { risk, ..operation })
 }
 

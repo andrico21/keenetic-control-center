@@ -248,7 +248,7 @@ pub fn plan_security_level(
         &json!({level.as_str(): true}),
         "/security-level",
         Value::String(level.as_str().to_owned()),
-        verdict.risk(name),
+        verdict.risk(),
     )
 }
 
@@ -290,7 +290,7 @@ fn plan_state(
         (
             "interface down",
             Value::String("down".to_owned()),
-            verdict.risk(name),
+            verdict.risk(),
         )
     };
     plan_interface(router, name, path, &json!({}), "/state", expected, risk)

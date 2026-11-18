@@ -177,13 +177,13 @@ async fn plan_wan(
             let verdict = interfaces::detect_management(ctx, name)
                 .await
                 .map_err(map_domain)?;
-            wan::plan_static_address(ctx, name, address, verdict)
+            wan::plan_static_address(ctx, address, verdict)
         }
         "address_dhcp" => {
             let verdict = interfaces::detect_management(ctx, name)
                 .await
                 .map_err(map_domain)?;
-            wan::plan_dhcp(ctx, name, verdict)
+            wan::plan_dhcp(ctx, verdict)
         }
         "identity" => wan::plan_identity(ctx, name, text(input.value.as_deref())?).await,
         "password" => wan::plan_password(ctx, name, secret(input.secret)?).await,

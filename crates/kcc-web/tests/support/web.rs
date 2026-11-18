@@ -86,6 +86,7 @@ impl Fixture {
         Self::with_router(
             FakeRouter::builder(Profile::default())
                 .faults(faults)
+                .reached_directly()
                 .build()?,
         )
         .await

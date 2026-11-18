@@ -16,6 +16,7 @@ async fn ordinary_firewall_writer_needs_no_recovery_permission() -> TestResult {
         let mut scenario = migration::Fixture::default();
         scenario.mode = Some(mode.to_owned());
         let (address, handle) = FakeRouter::builder(Profile::default())
+            .reached_directly()
             .build()?
             .with_migration(scenario)
             .serve(([127, 0, 0, 1], 0).into())

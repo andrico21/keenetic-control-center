@@ -27,14 +27,14 @@ pub enum ManagementVerdict {
 }
 
 impl ManagementVerdict {
-    /// Maps the verdict to operation risk, applying the conservative Bridge0 fallback.
+    /// Maps the verdict to operation risk. A verdict that cannot tell which interface
+    /// carries kcc's connection fails closed: the change may cut kcc off.
     #[inline]
     #[must_use]
-    pub fn risk(self, name: &ObjectName) -> Risk {
+    pub const fn risk(self) -> Risk {
         match self {
-            Self::Management => Risk::Management,
-            Self::Unknown if name.as_str() == "Bridge0" => Risk::Management,
-            Self::NotManagement | Self::Unknown => Risk::Write,
+            Self::Management | Self::Unknown => Risk::Management,
+            Self::NotManagement => Risk::Write,
         }
     }
 }
@@ -137,7 +137,7 @@ pub(crate) async fn classify_generated(router: &RouterCtx, lines: &[&str]) -> Re
     }
     for name in names {
         let object = ObjectName::try_from(name).map_err(|_error| DomainError::InvalidResponse)?;
-        if detect(router, &object).await?.risk(&object) == Risk::Management {
+        if detect(router, &object).await?.risk() == Risk::Management {
             return Ok(Risk::Management);
         }
     }
@@ -173,33 +173,47 @@ fn classify_bridge(
 }
 
 /// Classifies direct router-origin ownership from already-read interface data.
+///
+/// Once an interface owns an address kcc is pinned to, every other name is decided, a name
+/// the router does not list yet included. A name is the owner when it equals the owner's key,
+/// `id` or `interface-name` regardless of case, so an alias of the owner still counts as it.
 #[inline]
+#[must_use]
 pub fn classify_direct(
     name: &ObjectName,
     hosts: &BTreeSet<IpAddr>,
     interfaces: &BTreeMap<String, Interface>,
 ) -> ManagementVerdict {
-    let Some(selected) = interfaces.get(name.as_str()) else {
+    let mut owners = interfaces
+        .iter()
+        .filter(|(_key, interface)| {
+            interface
+                .address
+                .as_deref()
+                .and_then(parse_ip_without_prefix)
+                .is_some_and(|address| hosts.contains(&address))
+        })
+        .peekable();
+    if owners.peek().is_none() {
         return ManagementVerdict::Unknown;
-    };
-    if selected
-        .address
-        .as_deref()
-        .and_then(parse_ip_without_prefix)
-        .is_some_and(|address| hosts.contains(&address))
-    {
-        return ManagementVerdict::Management;
     }
-    if interfaces.values().any(|interface| {
-        interface
-            .address
-            .as_deref()
-            .and_then(parse_ip_without_prefix)
-            .is_some_and(|address| hosts.contains(&address))
-    }) {
-        ManagementVerdict::NotManagement
+    let named = owners.any(|(key, interface)| {
+        [
+            Some(key.as_str()),
+            interface.id.as_deref(),
+            interface
+                .extra
+                .get("interface-name")
+                .and_then(Value::as_str),
+        ]
+        .into_iter()
+        .flatten()
+        .any(|alias| alias.eq_ignore_ascii_case(name.as_str()))
+    });
+    if named {
+        ManagementVerdict::Management
     } else {
-        ManagementVerdict::Unknown
+        ManagementVerdict::NotManagement
     }
 }
 

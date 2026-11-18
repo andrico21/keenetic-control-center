@@ -107,6 +107,7 @@ fn routers(mode: &str, faults: FaultInjection) -> TestResult<Vec<(&'static str, 
         (
             "prod-1",
             FakeRouter::builder(Profile::default())
+                .reached_directly()
                 .build()?
                 .with_migration(router_mode()),
         ),

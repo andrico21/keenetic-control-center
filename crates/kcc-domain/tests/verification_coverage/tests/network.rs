@@ -88,14 +88,13 @@ async fn wan_plan(router: &RouterCtx, op: &str) -> TestResult {
         "delete" => wan::plan_delete(router, &name).await?,
         "address_static" => wan::plan_static_address(
             router,
-            &name,
             wan::StaticAddress::new(
                 Ipv4Addr::new(192, 0, 2, 67),
                 Ipv4Addr::new(255, 255, 255, 0),
             ),
             ManagementVerdict::NotManagement,
         )?,
-        "address_dhcp" => wan::plan_dhcp(router, &name, ManagementVerdict::NotManagement)?,
+        "address_dhcp" => wan::plan_dhcp(router, ManagementVerdict::NotManagement)?,
         "identity" => wan::plan_identity(router, &name, "coverage67").await?,
         "password" => wan::plan_password(router, &name, secret()).await?,
         "connect_via" => wan::plan_connect_via(router, &name, &"ISP".parse()?).await?,

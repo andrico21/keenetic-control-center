@@ -47,7 +47,11 @@ impl Lab {
 
     /// Serves the router `builder` describes and writes `kcc.toml` with `cli`.
     async fn serve(cli: &str, builder: FakeRouterBuilder) -> Result<Self, Box<dyn Error>> {
-        let (address, fake) = builder.build()?.serve(([127, 0, 0, 1], 0).into()).await?;
+        let (address, fake) = builder
+            .reached_directly()
+            .build()?
+            .serve(([127, 0, 0, 1], 0).into())
+            .await?;
         let env = Env::new("")?;
         let password = env.write("router.password", DEFAULT_PASSWORD)?;
         let section = if cli.is_empty() {

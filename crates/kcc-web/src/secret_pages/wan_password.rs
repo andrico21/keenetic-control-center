@@ -57,7 +57,7 @@ fn dialog(router: &str, name: &ObjectName, locale: Locale) -> SecretDialog {
 async fn carries_management(domain: &RouterCtx, name: &ObjectName) -> bool {
     interfaces::detect_management(domain, name)
         .await
-        .map_or(true, |verdict| verdict.risk(name) == Risk::Management)
+        .map_or(true, |verdict| verdict.risk() == Risk::Management)
 }
 
 /// `GET /ui/r/{router}/internet/password?name=`: the dialog; it never holds the stored
