@@ -6,11 +6,7 @@ use std::{env, path::PathBuf};
 use kcc_rci::capabilities::{AuthSchemeKind, RouterInfo};
 use kcc_testkit::live_matrix::{self, Outcome, Run, Suite};
 
-use super::{
-    TestResult,
-    campaign::{Options, WriteMode},
-    gate,
-};
+use super::{TestResult, campaign::Options, gate};
 
 /// Suite name of the authentication matrix.
 pub(crate) const AUTH_SUITE: &str = "live_auth_matrix";
@@ -62,7 +58,7 @@ fn expected_scheme(info: &RouterInfo) -> &'static str {
 /// Returns refusals and transport failures; the outcome is recorded either way.
 // cancel-safe: reads only.
 pub(crate) async fn auth(mut options: Options) -> TestResult {
-    options.write = WriteMode::ReadOnly;
+    options.write = false;
     let result: Result<(Run, String), Box<dyn Error>> = async {
         let opened = gate::open(&options).await?;
         let info =

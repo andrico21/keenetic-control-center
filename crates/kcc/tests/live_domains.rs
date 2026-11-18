@@ -2,11 +2,11 @@
 //!
 //! The live tests are `#[ignore]`d; run them with
 //! `cargo test -p kcc --test live_domains -- --ignored`. They need `KCC_LIVE_URL`,
-//! `KCC_LIVE_LOGIN`, `KCC_LIVE_PASSWORD_FILE` and `KCC_LIVE_ALLOW_SERIAL`; a missing variable
-//! logs `live-skip:<reason>` and returns `Ok(())`. Every read follows the serial check. Writes
-//! additionally need `KCC_LIVE_ALLOW_WRITE=1` and `KCC_LIVE_TARGET_CONFIG`, a kcc
-//! configuration whose `[[routers]]` entry for `KCC_LIVE_URL` has `test_device = true`; the
-//! profile is checked before the router is contacted. Each reversible write is verified by a
+//! `KCC_LIVE_LOGIN`, `KCC_LIVE_PASSWORD_FILE`, `KCC_LIVE_ALLOW_SERIAL` and
+//! `KCC_LIVE_TARGET_CONFIG`, a kcc configuration whose `[[routers]]` entry for `KCC_LIVE_URL`
+//! has `test_device = true`; a missing variable logs `live-skip:<reason>` and returns
+//! `Ok(())`. The profile is checked before the router is contacted, and every read follows
+//! the serial check. Writes additionally need `KCC_LIVE_ALLOW_WRITE=1`. Each reversible write is verified by a
 //! fresh read and reverted; the suite snapshots the running configuration, arms the fail-safe
 //! timer for 900 s, compares the normalized running configuration at the end and disarms the
 //! timer only on an exact match. It never saves.
@@ -29,6 +29,8 @@ mod campaign;
 mod gate;
 #[path = "live_domains/harness.rs"]
 mod harness;
+#[path = "support/live_gate.rs"]
+mod live_gate;
 #[path = "live_domains/matrix.rs"]
 mod matrix;
 #[path = "live_domains/reads.rs"]
@@ -49,7 +51,7 @@ use kcc_testkit::live_matrix::{Outcome, Run, Suite};
 use secrecy::SecretString;
 use zeroize::Zeroizing;
 
-use self::campaign::{Options, WriteMode};
+use self::campaign::Options;
 
 /// Fallible test result.
 type TestResult = Result<(), Box<dyn Error>>;
@@ -67,8 +69,10 @@ struct LiveEnv {
     password_file: PathBuf,
     /// Allowed serials.
     allowed: Vec<String>,
-    /// Write gate.
-    write: WriteMode,
+    /// kcc configuration holding the router's `test_device = true` profile.
+    config: PathBuf,
+    /// Run the reversible writes.
+    write: bool,
 }
 
 /// Reads one non-empty variable or names it in the skip reason.
@@ -89,23 +93,17 @@ fn live_env() -> Result<LiveEnv, &'static str> {
         .map(|serial| serial.trim().to_owned())
         .filter(|serial| !serial.is_empty())
         .collect();
-    let write = if read("KCC_LIVE_ALLOW_WRITE", "").as_deref() == Ok("1") {
-        match read("KCC_LIVE_TARGET_CONFIG", "") {
-            Ok(config) => WriteMode::Requested(PathBuf::from(config)),
-            Err(_unset) => {
-                tracing::warn!("live-skip:kcc_live_target_config-unset (writes skipped)");
-                WriteMode::ReadOnly
-            }
-        }
-    } else {
+    let config = read("KCC_LIVE_TARGET_CONFIG", "kcc_live_target_config-unset")?;
+    let write = read("KCC_LIVE_ALLOW_WRITE", "").as_deref() == Ok("1");
+    if !write {
         tracing::warn!("live-skip:kcc_live_allow_write-not-1 (writes skipped)");
-        WriteMode::ReadOnly
-    };
+    }
     Ok(LiveEnv {
         url,
         login,
         password_file: PathBuf::from(password_file),
         allowed,
+        config: PathBuf::from(config),
         write,
     })
 }
@@ -119,6 +117,7 @@ fn options(live: LiveEnv) -> Result<Options, Box<dyn Error>> {
         password: SecretString::from(raw.trim_end_matches(['\r', '\n']).to_owned()),
         password_file: live.password_file,
         allowed: live.allowed,
+        config: live.config,
         write: live.write,
         allow_loopback: false,
         leave_unreverted: None,

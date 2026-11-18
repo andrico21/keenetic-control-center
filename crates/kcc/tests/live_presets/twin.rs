@@ -5,7 +5,8 @@ use std::fs;
 
 use kcc_rci::{ConfigKind, RciBody, RciPath};
 use kcc_testkit::{
-    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, capture::connect, migration, model::Profile,
+    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle, capture::connect, migration,
+    model::Profile,
 };
 use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::Value;
@@ -13,9 +14,27 @@ use tempfile::TempDir;
 
 use super::{Target, TestResult, rehearse};
 
-/// The twin: `fake-a`'s saved configuration is the source file, `fake-b` the target.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn presets_rehearsal_runs_against_two_fake_routers() -> TestResult {
+/// An `[outbound]` table admitting the fakes on loopback.
+///
+/// The documentation network keeps the copied `allowed_networks` non-empty.
+const LOOPBACK: &str =
+    "[outbound]\nallow_loopback = true\nallowed_networks = [\"198.51.100.0/24\"]\n\n";
+
+/// Two fake routers: `fake-a`'s saved configuration is the source file, `fake-b` the target.
+struct Twin {
+    /// Temporary files.
+    _files: TempDir,
+    /// The live contract pointed at `fake-b`.
+    lab: Target,
+    /// `fake-a`.
+    source: Handle,
+    /// `fake-b`.
+    target: Handle,
+}
+
+/// Starts both fakes and writes a configuration whose `[outbound]` table is `outbound`.
+// NOT cancel-safe: starts background routers and writes temporary files.
+async fn twin(outbound: &str) -> Result<Twin, Box<dyn Error>> {
     let local = ([127, 0, 0, 1], 0).into();
     let (source_address, source) = FakeRouter::spawn().await?;
     let mut scenario = migration::Fixture::default();
@@ -47,11 +66,10 @@ async fn presets_rehearsal_runs_against_two_fake_routers() -> TestResult {
     fs::write(
         files.path().join("kcc.toml"),
         format!(
-            "[[routers]]\nname = \"lab\"\nurl = \"{url}\"\nlogin = \"{DEFAULT_LOGIN}\"\npassword_file = {:?}\ntest_device = true\n",
+            "{outbound}[[routers]]\nname = \"lab\"\nurl = \"{url}\"\nlogin = \"{DEFAULT_LOGIN}\"\npassword_file = {:?}\ntest_device = true\n",
             password_file.display().to_string()
         ),
     )?;
-    let identification = target.request_count();
     let lab = Target {
         url,
         login: DEFAULT_LOGIN.to_owned(),
@@ -60,17 +78,58 @@ async fn presets_rehearsal_runs_against_two_fake_routers() -> TestResult {
         allowed: vec![fake_serial(&target_address.to_string()).await?],
         source: files.path().join("source.txt"),
     };
-    rehearse(&lab, true).await?;
-    assert!(target.request_count() > identification, "target untouched");
+    Ok(Twin {
+        _files: files,
+        lab,
+        source,
+        target,
+    })
+}
+
+/// The twin: capture, apply, verify and fail-safe rollback against `fake-b`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn presets_rehearsal_runs_against_two_fake_routers() -> TestResult {
+    let twin = twin(LOOPBACK).await?;
+    let identification = twin.target.request_count();
+    rehearse(&twin.lab, true).await?;
     assert!(
-        target
+        twin.target.request_count() > identification,
+        "target untouched"
+    );
+    assert!(
+        twin.target
             .request_log()
             .iter()
             .any(|record| record.command() == Some("system configuration fail-safe rollback")),
         "the run did not roll back through the fail-safe"
     );
-    source.shutdown().await?;
-    target.shutdown().await?;
+    twin.source.shutdown().await?;
+    twin.target.shutdown().await?;
+    Ok(())
+}
+
+/// T-02: the built `kcc` runs under the admitted `[outbound]` policy, not a test flag.
+///
+/// A configuration that refuses the target's address stops the apply before the target
+/// receives any parser line.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn presets_rehearsal_follows_the_admitted_outbound_policy() -> TestResult {
+    let twin = twin("").await?;
+    let outcome = rehearse(&twin.lab, true).await;
+    assert!(outcome.is_err(), "a refused target was rehearsed");
+    let lines = twin
+        .target
+        .request_log()
+        .iter()
+        .filter_map(|record| record.command().map(ToOwned::to_owned))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        lines,
+        Vec::<String>::new(),
+        "the target received parser lines"
+    );
+    twin.source.shutdown().await?;
+    twin.target.shutdown().await?;
     Ok(())
 }
 

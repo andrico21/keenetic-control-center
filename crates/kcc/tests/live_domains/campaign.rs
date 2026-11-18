@@ -22,19 +22,12 @@ use tempfile::TempDir;
 use url::Url;
 
 use super::{
-    gate::{self, WriteAdmission},
+    gate,
+    live_gate::Admission,
     reads::{self, ReadOutcome},
     safety,
     writes::{self, WriteOutcome, Writer},
 };
-
-/// Whether the campaign may write.
-pub(crate) enum WriteMode {
-    /// Reads only; the router receives no write.
-    ReadOnly,
-    /// Writes requested; admitted only by a `test_device = true` profile in this config.
-    Requested(PathBuf),
-}
 
 /// Inputs shared by the live run and the hermetic twin.
 pub(crate) struct Options {
@@ -48,8 +41,10 @@ pub(crate) struct Options {
     pub password_file: PathBuf,
     /// Allowed serials.
     pub allowed: Vec<String>,
-    /// Write gate.
-    pub write: WriteMode,
+    /// kcc configuration holding the router's `test_device = true` profile.
+    pub config: PathBuf,
+    /// Run the reversible writes after the reads; `false` reads only.
+    pub write: bool,
     /// Permits loopback routers (hermetic tests only).
     pub allow_loopback: bool,
     /// Leaves this domain's write applied (the safety-net mutation check only).
@@ -92,14 +87,14 @@ pub(crate) async fn run(options: Options) -> Result<Report, Box<dyn Error>> {
         Catalog::for_router(&info)?,
     );
     let reads = reads::read_all(&ctx).await?;
-    let Some(admission) = opened.write else {
+    if !options.write {
         return Ok(Report {
             run,
             reads,
             writes: Vec::new(),
         });
-    };
-    let workflow = Workflow::open(&options, &admission).await?;
+    }
+    let workflow = Workflow::open(&options, &opened.admission).await?;
     let before = safety::snapshot(&ctx.client).await?;
     drop(ctx.client.parse(safety::ARM).await?);
     let mut changes = workflow
@@ -150,7 +145,7 @@ impl Workflow {
     /// # Errors
     /// Returns state, registry or key failures.
     // NOT cancel-safe: writes temporary state.
-    async fn open(options: &Options, admission: &WriteAdmission) -> Result<Self, Box<dyn Error>> {
+    async fn open(options: &Options, admission: &Admission) -> Result<Self, Box<dyn Error>> {
         let directory = TempDir::new()?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let registry = Arc::new(RouterRegistry::new(

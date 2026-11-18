@@ -16,7 +16,7 @@ use tempfile::TempDir;
 
 use super::{
     TestResult,
-    campaign::{self, Options, WriteMode},
+    campaign::{self, Options},
     safety::{ARM, DISARM, SnapshotMismatch},
     writes::WriteResult,
 };
@@ -49,7 +49,7 @@ impl Lab {
         fs::write(
             directory.path().join("kcc.toml"),
             format!(
-                "[outbound]\nallow_loopback = true\n\n[[routers]]\nname = \"lab\"\nurl = \"{url}\"\nlogin = \"{DEFAULT_LOGIN}\"\npassword_file = \"{}\"\ntest_device = {test_device}\n",
+                "[outbound]\nallow_loopback = true\nallowed_networks = [\"198.51.100.0/24\"]\n\n[[routers]]\nname = \"lab\"\nurl = \"{url}\"\nlogin = \"{DEFAULT_LOGIN}\"\npassword_file = \"{}\"\ntest_device = {test_device}\n",
                 password_file.display()
             ),
         )?;
@@ -70,11 +70,8 @@ impl Lab {
             password: SecretString::from(DEFAULT_PASSWORD.to_owned()),
             password_file: self.directory.path().join("password"),
             allowed,
-            write: if write {
-                WriteMode::Requested(self.directory.path().join("kcc.toml"))
-            } else {
-                WriteMode::ReadOnly
-            },
+            config: self.directory.path().join("kcc.toml"),
+            write,
             allow_loopback: true,
             leave_unreverted: None,
         }

@@ -3,7 +3,7 @@
 
 use kcc_testkit::Handle;
 
-use super::{TestResult, campaign, gate::Refusal, harness::Lab};
+use super::{TestResult, campaign, harness::Lab, live_gate::Refusal};
 
 /// Requests that could change the router: anything but a GET, the login exchange, or a
 /// `show` read; plus every parser line.
@@ -53,6 +53,27 @@ async fn profile_without_test_device_is_refused_before_contact() -> TestResult {
     let lab = Lab::start(false).await?;
     let contacts = lab.handle.request_count();
     let outcome = campaign::run(lab.options(true, vec![lab.serial.clone()])).await;
+    let refusal = outcome
+        .err()
+        .and_then(|error| error.downcast_ref::<Refusal>().copied());
+    assert_eq!(refusal, Some(Refusal::NotTestDevice));
+    assert_eq!(
+        lab.handle.request_count(),
+        contacts,
+        "gate contacted router"
+    );
+    lab.handle.shutdown().await?;
+    Ok(())
+}
+
+/// T-08: a read-only campaign refuses a profile without `test_device = true`.
+///
+/// The refusal comes before the router receives a single request.
+#[tokio::test]
+async fn read_only_campaign_refuses_a_profile_without_test_device_before_contact() -> TestResult {
+    let lab = Lab::start(false).await?;
+    let contacts = lab.handle.request_count();
+    let outcome = campaign::run(lab.options(false, vec![lab.serial.clone()])).await;
     let refusal = outcome
         .err()
         .and_then(|error| error.downcast_ref::<Refusal>().copied());

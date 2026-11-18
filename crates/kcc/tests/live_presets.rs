@@ -18,6 +18,8 @@
     reason = "integration tests drive the built process and assert router state"
 )]
 
+#[path = "support/live_gate.rs"]
+mod live_gate;
 #[path = "live_presets/twin.rs"]
 mod twin;
 
@@ -28,18 +30,17 @@ use std::{
     process::{Command, Stdio},
 };
 
-use kcc_app::{secrets::MASTER_KEY_FILE_ENV, settings::Config};
+use kcc_app::{secrets::MASTER_KEY_FILE_ENV, settings::OutboundConfig};
 use kcc_config::config_text::normalize;
 use kcc_rci::{ConfigKind, RciBody, RciClient, RciPath};
-use kcc_testkit::{
-    capture::{connect, verify_serial},
-    live_matrix,
-};
+use kcc_testkit::{capture::connect, live_matrix};
 use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::Value;
 use tempfile::TempDir;
 use wait_timeout::ChildExt as _;
 use zeroize::Zeroizing;
+
+use self::live_gate::{admission, allowlisted};
 
 /// Fallible test result.
 type TestResult = Result<(), Box<dyn Error>>;
@@ -103,18 +104,14 @@ fn live_env() -> Result<Target, &'static str> {
     })
 }
 
-/// Connects after the profile check and the serial check; nothing is written.
+/// Connects after the profile check and the serial check; nothing is written. Returns the
+/// client and the admitted configuration's outbound policy.
 // cancel-safe: reads only.
-async fn admit(target: &Target, allow_loopback: bool) -> Result<RciClient, Box<dyn Error>> {
-    let wanted = target.url.trim_end_matches('/');
-    let profile = Config::load(&target.config)?
-        .routers
-        .into_iter()
-        .find(|profile| profile.url.as_str().trim_end_matches('/') == wanted)
-        .ok_or("target URL has no router profile")?;
-    if !profile.test_device {
-        return Err("target profile is not marked test_device = true".into());
-    }
+async fn admit(
+    target: &Target,
+    allow_loopback: bool,
+) -> Result<(RciClient, OutboundConfig), Box<dyn Error>> {
+    let admitted = admission(&target.config, &target.url)?;
     let raw = Zeroizing::new(fs::read_to_string(&target.password_file)?);
     let password = SecretString::from(raw.trim_end_matches(['\r', '\n']).to_owned());
     let connection = connect(
@@ -124,8 +121,8 @@ async fn admit(target: &Target, allow_loopback: bool) -> Result<RciClient, Box<d
         allow_loopback,
     )
     .await?;
-    drop(verify_serial(&connection.client, &target.allowed).await?);
-    Ok(connection.client)
+    drop(allowlisted(&connection.client, &target.allowed).await?);
+    Ok((connection.client, admitted.outbound))
 }
 
 /// The normalized running configuration, refusing a target with unsaved changes (a fail-safe
@@ -173,8 +170,25 @@ fn kcc(home: &Path, args: &[&str]) -> Result<(i32, String), Box<dyn Error>> {
     ))
 }
 
-/// Writes the hermetic kcc configuration registering only the admitted target.
-fn hermetic(target: &Target, allow_loopback: bool) -> Result<TempDir, Box<dyn Error>> {
+/// The `[outbound]` table of `outbound` in TOML; JSON string arrays are TOML arrays.
+fn outbound_table(outbound: &OutboundConfig) -> Result<String, Box<dyn Error>> {
+    let networks = outbound
+        .allowed_networks
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    Ok(format!(
+        "[outbound]\nallowed_networks = {}\nallowed_suffixes = {}\nallow_loopback = {}\nargon2_max_iterations = {}\n",
+        serde_json::to_string(&networks)?,
+        serde_json::to_string(&outbound.allowed_suffixes)?,
+        outbound.allow_loopback,
+        outbound.argon2_max_iterations,
+    ))
+}
+
+/// Writes the hermetic kcc configuration registering only the admitted target under the
+/// admitted configuration's outbound policy.
+fn hermetic(target: &Target, outbound: &OutboundConfig) -> Result<TempDir, Box<dyn Error>> {
     let home = TempDir::new()?;
     let key = home.path().join("master.key");
     fs::write(&key, [51_u8; 32])?;
@@ -186,7 +200,8 @@ fn hermetic(target: &Target, allow_loopback: bool) -> Result<TempDir, Box<dyn Er
     fs::write(
         home.path().join("kcc.toml"),
         format!(
-            "[outbound]\nallow_loopback = {allow_loopback}\n\n[state]\ndir = {:?}\n\n[[routers]]\nname = \"target\"\nurl = {:?}\nlogin = {:?}\npassword_file = {:?}\ntest_device = true\n",
+            "{}\n[state]\ndir = {:?}\n\n[[routers]]\nname = \"target\"\nurl = {:?}\nlogin = {:?}\npassword_file = {:?}\ntest_device = true\n",
+            outbound_table(outbound)?,
             home.path().join("state").display().to_string(),
             target.url,
             target.login,
@@ -199,15 +214,17 @@ fn hermetic(target: &Target, allow_loopback: bool) -> Result<TempDir, Box<dyn Er
 /// Captures, applies in Merge mode, verifies, rolls back, and compares running configs.
 // NOT cancel-safe: mutates the admitted test router under its fail-safe timer.
 async fn rehearse(target: &Target, allow_loopback: bool) -> TestResult {
-    let client = admit(target, allow_loopback).await?;
+    let (client, outbound) = admit(target, allow_loopback).await?;
     let before = clean_running(&client).await?;
     drop(client);
-    let home = hermetic(target, allow_loopback)?;
+    let home = hermetic(target, &outbound)?;
     let from = format!("file:{}", target.source.display());
     let groups = "dns-secure,static-routes";
     let capture = ["preset", "capture", "--from", &from, "--groups", groups];
     let (captured, _) = kcc(home.path(), &[&capture[..], &["--name", "live51"]].concat())?;
-    assert_eq!(captured, 0_i32, "preset capture failed");
+    if captured != 0_i32 {
+        return Err("preset capture failed".into());
+    }
     let apply = [
         "--router",
         "target",
@@ -224,7 +241,9 @@ async fn rehearse(target: &Target, allow_loopback: bool) -> TestResult {
         "rollback",
     ];
     let (applied, stdout) = kcc(home.path(), &apply)?;
-    assert_eq!(applied, 0_i32, "preset apply failed: {stdout}");
+    if applied != 0_i32 {
+        return Err(format!("preset apply failed: {stdout}").into());
+    }
     let result: Value = serde_json::from_str(&stdout)?;
     assert_eq!(result.get("verified"), Some(&Value::Bool(true)), "{result}");
     assert_eq!(
@@ -232,7 +251,7 @@ async fn rehearse(target: &Target, allow_loopback: bool) -> TestResult {
         Some("rollback"),
         "{result}"
     );
-    let after = admit(target, allow_loopback).await?;
+    let (after, _outbound) = admit(target, allow_loopback).await?;
     let restored = clean_running(&after).await?;
     assert!(
         restored.as_str() == before.as_str(),

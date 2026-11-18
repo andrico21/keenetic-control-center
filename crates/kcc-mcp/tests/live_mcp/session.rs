@@ -6,7 +6,7 @@
 
 use alloc::sync::Arc;
 use core::{error::Error, str::from_utf8};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use kcc_app::{
     audit::AuditLog,
@@ -17,16 +17,13 @@ use kcc_app::{
     poller::Poller,
     registry::{ManagedRouterProfile, RouterRegistry},
     secrets::MasterKey,
-    settings::{Config, McpConfig, OutboundConfig, PrivacyConfig},
+    settings::{McpConfig, OutboundConfig, PrivacyConfig},
     workflow::ChangeWorkflow,
 };
 use kcc_config::config_text::normalize;
 use kcc_mcp::KccMcp;
 use kcc_rci::{ConfigKind, RciBody, RciClient, RciPath, capabilities::RouterInfo};
-use kcc_testkit::{
-    capture::{connect, verify_serial},
-    live_matrix::Run,
-};
+use kcc_testkit::{capture::connect, live_matrix::Run};
 use rmcp::{
     ServiceExt as _,
     model::CallToolRequestParams,
@@ -37,6 +34,8 @@ use serde_json::{Value, json};
 use tempfile::TempDir;
 use tokio::io::duplex;
 use url::Url;
+
+use super::live_gate::{admission, allowlisted};
 
 /// Test result.
 pub(crate) type TestResult<T = ()> = Result<T, Box<dyn Error>>;
@@ -56,9 +55,12 @@ pub(crate) struct Target {
     pub password_file: PathBuf,
     /// Allowed serials.
     pub allowed: Vec<String>,
-    /// kcc configuration holding the `test_device = true` profile; `None` reads only.
-    pub write_config: Option<PathBuf>,
-    /// Permits loopback routers (hermetic tests only).
+    /// kcc configuration holding the router's `test_device = true` profile.
+    pub config: PathBuf,
+    /// Run the guarded write segment.
+    pub write: bool,
+    /// Permits a loopback router for the gate's own connection (hermetic tests only);
+    /// the MCP registry follows the configuration's `[outbound]` table.
     pub allow_loopback: bool,
 }
 
@@ -70,23 +72,11 @@ pub(crate) struct Smoke {
     pub wrote: bool,
 }
 
-/// Whether the profile for `url` in `config` is a test device.
-fn test_device(config: &Path, url: &str) -> TestResult<bool> {
-    let wanted = url.trim_end_matches('/');
-    Ok(Config::load(config)?
-        .routers
-        .iter()
-        .any(|profile| profile.url.as_str().trim_end_matches('/') == wanted && profile.test_device))
-}
-
-/// Runs the smoke: profile check, serial check, reads, then the write segment if admitted.
+/// Runs the smoke: profile check, serial check, reads, then the write segment if requested.
 // NOT cancel-safe: the admitted write segment mutates the router under its fail-safe timer.
 pub(crate) async fn smoke(target: Target) -> TestResult<Smoke> {
-    let write = match &target.write_config {
-        Some(config) if test_device(config, &target.url)? => true,
-        Some(_config) => return Err("router profile is not marked test_device = true".into()),
-        None => false,
-    };
+    let admitted = admission(&target.config, &target.url)?;
+    let write = target.write;
     let connection = connect(
         target.url.parse()?,
         target.login.clone(),
@@ -94,9 +84,9 @@ pub(crate) async fn smoke(target: Target) -> TestResult<Smoke> {
         target.allow_loopback,
     )
     .await?;
-    let serial = verify_serial(&connection.client, &target.allowed).await?;
+    let serial = allowlisted(&connection.client, &target.allowed).await?;
     let info = RouterInfo::detect(&connection.session, &connection.router).await?;
-    let (_directory, session) = open(&target, write).await?;
+    let (_directory, session) = open(&target, &admitted.outbound).await?;
     for (tool, arguments) in [
         ("kcc_router_info", json!({"host": "lab"})),
         ("kcc_system_read", json!({"host": "lab", "op": "version"})),
@@ -209,15 +199,14 @@ async fn call(session: &Session, tool: &str, arguments: Value) -> TestResult<Val
     Ok(serde_json::from_str(&text)?)
 }
 
-/// Registers the router as `lab` on temporary state and connects a session; write toolsets
-/// are enabled only for an admitted test device.
+/// Registers the admitted test device as `lab` on temporary state under the configuration's
+/// outbound policy and connects a session; write toolsets are enabled only when requested.
 // NOT cancel-safe: writes temporary state and spawns the server task.
-async fn open(target: &Target, write: bool) -> TestResult<(TempDir, Session)> {
+async fn open(target: &Target, outbound: &OutboundConfig) -> TestResult<(TempDir, Session)> {
+    let write = target.write;
     let directory = TempDir::new()?;
     let state = StateStore::open(&directory.path().join("state"))?;
-    let mut outbound = OutboundConfig::default();
-    outbound.allow_loopback = target.allow_loopback;
-    let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
+    let registry = Arc::new(RouterRegistry::new(state.clone(), &[], outbound)?);
     let admin = Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]);
     let mut profile = ManagedRouterProfile::new(
         "lab".to_owned(),

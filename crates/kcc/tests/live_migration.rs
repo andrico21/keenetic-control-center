@@ -25,23 +25,31 @@ extern crate alloc;
 mod evidence;
 #[path = "live_migration/guard.rs"]
 mod guard;
+#[path = "support/live_gate.rs"]
+mod live_gate;
 #[path = "live_migration/probe.rs"]
 mod probe;
+#[path = "live_migration/probe_cleanup.rs"]
+mod probe_cleanup;
 #[path = "live_migration/refusal.rs"]
 mod refusal;
 #[path = "live_migration/rehearsal.rs"]
 mod rehearsal;
 
 use core::error::Error;
-use std::{env, fs, io, path::PathBuf};
+use std::{
+    env, fs, io,
+    path::{Path, PathBuf},
+};
 
-use kcc_testkit::live_matrix::record_skip;
+use kcc_testkit::{capture::connect, live_matrix::record_skip};
 use secrecy::SecretString;
 use zeroize::Zeroizing;
 
 use self::{
     evidence::Evidence,
     guard::{Gate, admit},
+    live_gate::allowlisted,
     rehearsal::{Rehearsal, SourceInput},
 };
 
@@ -111,11 +119,19 @@ fn live_env() -> Result<LiveEnv, &'static str> {
     })
 }
 
-/// Admits the target through the write gate, then rehearses; nothing writes before admission.
+/// Reads a password file without its line ending.
+fn read_password(path: &Path) -> Result<SecretString, Box<dyn Error>> {
+    let raw = Zeroizing::new(fs::read_to_string(path)?);
+    Ok(SecretString::from(
+        raw.trim_end_matches(['\r', '\n']).to_owned(),
+    ))
+}
+
+/// Admits the target through the write gate and a live source through the serial allowlist,
+/// then rehearses; nothing writes before admission and the source is read only once listed.
 // NOT cancel-safe: an admitted rehearsal mutates the test router under fail-safe protection.
 async fn rehearse(live: LiveEnv, allow_loopback: bool) -> TestResult {
-    let raw = Zeroizing::new(fs::read_to_string(&live.password_file)?);
-    let password = SecretString::from(raw.trim_end_matches(['\r', '\n']).to_owned());
+    let password = read_password(&live.password_file)?;
     let admitted = admit(Gate {
         config: &live.config,
         url: &live.url,
@@ -125,6 +141,17 @@ async fn rehearse(live: LiveEnv, allow_loopback: bool) -> TestResult {
         allow_loopback,
     })
     .await?;
+    if let SourceInput::Live {
+        url,
+        login,
+        password_file,
+    } = &live.source
+    {
+        let router = url.parse()?;
+        let source_password = read_password(password_file)?;
+        let source = connect(router, login.clone(), source_password, allow_loopback).await?;
+        drop(allowlisted(&source.client, &live.allowed).await?);
+    }
     let mut evidence = Evidence::open()?;
     rehearsal::run(
         Rehearsal {

@@ -5,11 +5,15 @@ use core::error::Error;
 use std::{fs, path::Path};
 
 use kcc_rci::{RciBody, RciPath};
-use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle, capture::connect};
+use kcc_testkit::{
+    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle,
+    capture::connect,
+    model::{Model, Profile},
+};
 use secrecy::SecretString;
 use tempfile::TempDir;
 
-use super::{LiveEnv, SourceInput, TestResult, guard::Refusal, rehearse};
+use super::{LiveEnv, SourceInput, TestResult, live_gate::Refusal, rehearse};
 
 /// One fake target with its kcc configuration and password file.
 struct Target {
@@ -135,6 +139,41 @@ async fn unlisted_serial_is_refused_before_any_write() -> TestResult {
     let before = target.handle.running_config_text();
     let outcome = rehearse(env(&target, vec!["S0000000000NOT".to_owned()]), true).await;
     assert_refused(outcome, Refusal::SerialNotAllowed, &target, &before);
+    target.handle.shutdown().await?;
+    Ok(())
+}
+
+/// T-05: a live source router whose serial is not allowlisted is refused.
+///
+/// The source sees only its identification read, and the target receives no write.
+#[tokio::test]
+async fn unlisted_live_source_is_refused_before_it_is_read() -> TestResult {
+    let target = target(true).await?;
+    let before = target.handle.running_config_text();
+    let (source_address, source) = FakeRouter::builder(Profile::latest(Model::Kn1010))
+        .build()?
+        .serve(([127, 0, 0, 1], 0).into())
+        .await?;
+    let mut live = env(&target, vec![serial(&target.url).await?]);
+    live.source = SourceInput::Live {
+        url: format!("http://{source_address}"),
+        login: DEFAULT_LOGIN.to_owned(),
+        password_file: target.directory.path().join("password"),
+    };
+    let outcome = rehearse(live, true).await;
+    assert_refused(outcome, Refusal::SerialNotAllowed, &target, &before);
+    let reads = source
+        .request_log()
+        .iter()
+        .filter(|record| record.path() != "/auth")
+        .map(|record| record.path().to_owned())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        reads,
+        ["/rci/show/identification"],
+        "source read beyond the serial"
+    );
+    source.shutdown().await?;
     target.handle.shutdown().await?;
     Ok(())
 }

@@ -1,35 +1,14 @@
 //! Write gate of the live migration rehearsal: test-device profile, then serial allowlist.
 
-use core::{error::Error, fmt};
+use core::error::Error;
 use std::path::Path;
 
-use kcc_app::settings::{Config, OutboundConfig, RouterProfile};
+use kcc_app::settings::{OutboundConfig, RouterProfile};
 use kcc_rci::RouterUrl;
-use kcc_testkit::capture::{CaptureError, Connection, connect, verify_serial};
+use kcc_testkit::capture::{Connection, connect};
 use secrecy::SecretString;
 
-/// Why the rehearsal refuses a target before any write.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Refusal {
-    /// The kcc configuration has no `[[routers]]` entry for the target URL.
-    ProfileMissing,
-    /// The target profile lacks `test_device = true`.
-    NotTestDevice,
-    /// The serial from `show identification` is not in `KCC_LIVE_ALLOW_SERIAL`.
-    SerialNotAllowed,
-}
-
-impl fmt::Display for Refusal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::ProfileMissing => "target URL has no router profile",
-            Self::NotTestDevice => "target profile is not marked test_device = true",
-            Self::SerialNotAllowed => "target serial is not in KCC_LIVE_ALLOW_SERIAL",
-        })
-    }
-}
-
-impl Error for Refusal {}
+use super::live_gate::{admission, allowlisted};
 
 /// Inputs to the write gate.
 pub(crate) struct Gate<'gate> {
@@ -60,20 +39,10 @@ pub(crate) struct Admitted {
 /// Checks the profile before contacting the router, then the serial with one read.
 ///
 /// # Errors
-/// Returns a [`Refusal`], or configuration and transport failures; never writes.
+/// Returns a refusal, or configuration and transport failures; never writes.
 // cancel-safe: reads configuration and one router show only.
 pub(crate) async fn admit(gate: Gate<'_>) -> Result<Admitted, Box<dyn Error>> {
-    let config = Config::load(gate.config)?;
-    let wanted = normalized(gate.url);
-    let outbound = config.outbound;
-    let profile = config
-        .routers
-        .into_iter()
-        .find(|profile| normalized(profile.url.as_str()) == wanted)
-        .ok_or(Refusal::ProfileMissing)?;
-    if !profile.test_device {
-        return Err(Refusal::NotTestDevice.into());
-    }
+    let admitted = admission(gate.config, gate.url)?;
     let router = gate.url.parse::<RouterUrl>()?;
     let connection = connect(
         router,
@@ -82,18 +51,10 @@ pub(crate) async fn admit(gate: Gate<'_>) -> Result<Admitted, Box<dyn Error>> {
         gate.allow_loopback,
     )
     .await?;
-    match verify_serial(&connection.client, gate.allowed).await {
-        Ok(_serial) => Ok(Admitted {
-            profile,
-            outbound,
-            connection,
-        }),
-        Err(CaptureError::SerialNotAllowed) => Err(Refusal::SerialNotAllowed.into()),
-        Err(error) => Err(error.into()),
-    }
-}
-
-/// Compares origins without a trailing slash.
-fn normalized(url: &str) -> &str {
-    url.trim_end_matches('/')
+    drop(allowlisted(&connection.client, gate.allowed).await?);
+    Ok(Admitted {
+        profile: admitted.profile,
+        outbound: admitted.outbound,
+        connection,
+    })
 }

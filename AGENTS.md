@@ -74,10 +74,15 @@ Models: `KN-1811`, `KN-1010`, `KN-3810`, `NC-3013`.
 - `KCC_LIVE_TARGET_URL`/`_LOGIN`/`_PASSWORD_FILE` for the migration and preset rehearsal
   target.
 - `KCC_LIVE_ALLOW_SERIAL`: comma-separated router serials. Every live test reads the
-  serial via `show identification` and refuses any router not listed.
+  serial via `show identification` of every router it contacts (the live migration source
+  included) and refuses any router not listed.
 - `KCC_LIVE_ALLOW_REBOOT=1`: only for probes that may reboot a test router.
-- `KCC_LIVE_TARGET_CONFIG`: path of a `kcc.toml` whose `[[routers]]` entry for `KCC_LIVE_TARGET_URL`
-  has `test_device = true`; the live migration rehearsal checks it before contacting the router.
+- `KCC_LIVE_TARGET_CONFIG`: path of a `kcc.toml` whose `[[routers]]` entry for the suite's
+  router (`KCC_LIVE_URL`, or `KCC_LIVE_TARGET_URL` for the migration and preset rehearsals)
+  has `test_device = true`. Every live suite, read-only ones included, requires it and checks
+  the profile before contacting the router; the serial check follows. kcc's own clients in
+  the suites (the `kcc` child, the MCP registry, the migration probe) use this file's
+  `[outbound]` table, so its `allowed_networks` must admit the router.
 - `KCC_LIVE_COMMIT=1`: the live migration rehearsal commits instead of its default rollback.
 
 A missing variable makes the live test log `live-skip:<reason>` through `tracing` and

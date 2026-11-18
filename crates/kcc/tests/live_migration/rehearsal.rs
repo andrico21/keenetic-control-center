@@ -131,7 +131,23 @@ pub(crate) async fn run(
         evidence.record(&json!({"event":"finish","action":"rollback"}))?;
     }
     drop(applier);
-    probe::password_hash(&rehearsal, &source, inventory.realm.as_deref(), evidence).await?;
+    match probe::realms(&source, inventory.realm.as_deref()) {
+        None => evidence.record(&json!({"event":"password-hash","outcome":"realm-unknown"}))?,
+        Some(realms) => {
+            let target = probe::Probe {
+                client: &rehearsal.admitted.connection.client,
+                url: &rehearsal.url,
+                outbound: &rehearsal.admitted.outbound,
+            };
+            let observed = probe::password_hash(&target, realms).await?;
+            evidence.record(&json!({
+                "event":"password-hash",
+                "cross_model":!realms.source.eq_ignore_ascii_case(realms.target),
+                "source_realm_hash_accepted":observed.source_accepted,
+                "target_realm_hash_accepted":true,
+            }))?;
+        }
+    }
     if let Some(failure) = report.failure {
         return Err(format!("migration failed: {failure:?}").into());
     }
