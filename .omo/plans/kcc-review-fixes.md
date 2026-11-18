@@ -1521,7 +1521,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
 > 3. At most two finding rounds. The second round's blocker list is frozen.
 > 4. One confirmation round (G1 plus the frozen rows' proving scenarios), then stop and report to the owner.
 
-- [ ] F1. Plan compliance audit
+- [x] F1. Plan compliance audit
   Recommended task executor category: unspecified-high.
   - For every todo 1-75, confirm that each instruction and each listed finding fix exists in code (file:line).
   - Confirm the Must NOTs hold:
@@ -1533,7 +1533,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   - Spot-check at least 40 ledger rows by reading the commit diff against the finding text: all highs, all mediums of waves 1-4, and 10 random lows/infos.
   - Every todo's evidence file exists, with red and green runs.
   - Output `.omo/evidence/F1-kcc-review-fixes.md`, APPROVE/REJECT per todo.
-- [ ] F2. Code quality review
+- [x] F2. Code quality review
   Recommended task executor category: unspecified-high.
   - Run gate G1 in full on a clean checkout (`cargo clean` first; target dir on `/`; gate tools installed at the `ci.yml` pins) and capture `.omo/evidence/F2-kcc-review-fixes.log`.
   - Review the diff from `349b7fb` against the vendored core checklist (§11), the http-services and mcp-servers checklists and the project overlay. Specifically:
@@ -1544,7 +1544,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
     - record-typed AAD is enforced on every seal/open site, with no legacy fallback for the associated data (the existing plaintext-to-sealed path `CredentialStore::migrate`, `credentials.rs:241`, is unrelated and stays).
   - Run `cargo mutants` on `crates/kcc-config/src/mask.rs`, the audit writer and the bracket. Install it with `cargo install cargo-mutants --locked` if missing; if that's impossible, record a non-blocking note.
   - APPROVE only if G1 is fully green.
-- [ ] F3. Real manual QA
+- [x] F3. Real manual QA
   Recommended task executor category: unspecified-high (load skills `playwright`, `visual-qa`).
   - Start `kcc-fake-router` (router mode and `--mode extender`) and `kcc serve`.
   - Verify with Playwright and curl:
@@ -1559,7 +1559,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
     - Logs forward to the fake sinks, and recover after a sink outage.
   - Save screenshots as `.omo/evidence/F3-<area>.png`.
   - Classify defects by the convergence rule.
-- [ ] F4. Ideal-state fidelity
+- [x] F4. Ideal-state fidelity
   Recommended task executor category: unspecified-high.
   - For each row IS-1..IS-14, re-run the proving scenario named in `## Success criteria`. Judge IS-13's dependency part against todo 75's evidence: a version published or past the cooldown after todo 75's commit is not a FAIL.
   - Record PASS/FAIL with the evidence path in `.omo/evidence/F4-kcc-review-fixes.md`.
