@@ -129,6 +129,22 @@ The first release, `0.1.0`, is in preparation and contains:
   `127.0.0.1`, the address the fake router is reached on, so kcc can tell which interface
   carries its connection, as on a router reached directly. Without it (the default, and
   the `kcc-fake-router` binary) no interface owns that address.
+- **A password typed for a router user wins over a same-realm hash.** When a migration or
+  preset source carries `user <name> password md5|nt` made on a router with the target's
+  realm and you typed a password for that user (CLI `--user-password <user>=<file>`), kcc
+  now sends `user <name> password plain` with it instead of copying the hash. Before, the
+  hash was copied and the typed password ignored; a run that changed kcc's own login then
+  reconnected with a password the router did not have and ended only when the fail-safe
+  timer restored the router. Without a typed password a same-realm hash is still copied,
+  and for kcc's own login the run is still refused with "router password required" before
+  anything is sent.
+- **A stopped migration says how many lines it applied.** `kcc migrate apply` and
+  `kcc preset apply` report a run that failed after its first migrated line with the
+  failure's exit code (6 for a router failure or a router-side rollback) and how many lines
+  were applied before it stopped. Rolling back a run that is already back on its saved
+  configuration (the router restored itself) sends nothing and succeeds on every surface;
+  before, it was refused as invalid input, so the CLI printed "The request was rejected
+  before anything was sent." with exit 4 after lines had been applied.
 - **Test kit: the fake router's request log keeps every parser line.**
   `kcc_testkit::RequestRecord::commands()` (new) lists every root `parse` line of a request
   in body order, a batch included, with secret-bearing lines (now also `crypto ike key`) as

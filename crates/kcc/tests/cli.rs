@@ -54,6 +54,8 @@ mod master_key;
 mod migrate;
 #[path = "cli/migrate_finish.rs"]
 mod migrate_finish;
+#[path = "cli/migrate_stopped.rs"]
+mod migrate_stopped;
 #[path = "cli/nested_risk.rs"]
 mod nested_risk;
 #[path = "cli/outbound.rs"]

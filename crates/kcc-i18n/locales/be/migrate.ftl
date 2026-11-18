@@ -31,3 +31,4 @@ migrate-report-plan = План
 migrate-report-counts = Колькасць
 migrate-report-items = Элементы
 migrate-report-residual = Астатнія налады мэтавага роўтара
+migrate-apply-stopped-after = Налад ужыта да спынення пераносу: { $count }. Роўтар вярнуўся да захаванай канфігурацыі, таму ніводнай з іх не засталося. Ухіліце прычыну і складзіце план пераносу нанова.

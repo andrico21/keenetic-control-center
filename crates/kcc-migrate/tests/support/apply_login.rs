@@ -7,7 +7,7 @@
     clippy::panic_in_result_fn,
     reason = "acceptance assertions establish the login credential order"
 )]
-mod tests {
+pub(crate) mod tests {
     use alloc::sync::Arc;
     use core::{error::Error, future::ready, pin::Pin, time::Duration};
 
@@ -36,7 +36,14 @@ mod tests {
 
     /// Recovery waits advance the router's clock instead of sleeping.
     #[derive(Debug)]
-    struct Advancing(Arc<MockClock>);
+    pub(crate) struct Advancing(Arc<MockClock>);
+
+    impl Advancing {
+        /// Advances `time` on every wait.
+        pub(crate) const fn new(time: Arc<MockClock>) -> Self {
+            Self(time)
+        }
+    }
 
     impl Clock for Advancing {
         fn now(&self) -> Duration {
@@ -49,12 +56,12 @@ mod tests {
     }
 
     /// A run-time password distinct from every router's current one.
-    fn fresh(user: &str) -> String {
+    pub(crate) fn fresh(user: &str) -> String {
         [user, "replacement", "pw"].join("-")
     }
 
     /// A fake router in router mode whose timers follow `time`.
-    fn router(
+    pub(crate) fn router(
         builder: FakeRouterBuilder,
         time: &Arc<MockClock>,
     ) -> Result<FakeRouter, Box<dyn Error>> {
@@ -85,7 +92,7 @@ mod tests {
     }
 
     /// Starts `request` with the advancing clock and the login's new password.
-    async fn run(
+    pub(crate) async fn run(
         fixture: &Fixture,
         mut request: ApplyRequest,
         (time, login): (&Arc<MockClock>, &str),

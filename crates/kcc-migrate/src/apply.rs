@@ -228,6 +228,8 @@ impl Applier {
 
     /// Explicitly restores startup state and checks its pre-apply identity.
     ///
+    /// A failed run whose startup state was already restored and proven sends nothing.
+    ///
     /// # Errors
     /// Returns rollback, reconnect, or verification failures.
     // NOT cancel-safe: a transmitted rollback may reboot before cancellation.

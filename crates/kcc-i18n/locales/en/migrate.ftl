@@ -31,3 +31,4 @@ migrate-report-plan = Plan
 migrate-report-counts = Counts
 migrate-report-items = Items
 migrate-report-residual = Residual target settings
+migrate-apply-stopped-after = Settings applied before the run stopped: { $count }. The router is back on its saved configuration, so none of them remain. Fix the cause, then plan the migration again.

@@ -727,6 +727,9 @@ pub const MIGRATE_REPORT_ITEMS: MessageKey = MessageKey::new("migrate-report-ite
 /// `migrate-report-residual` in `migrate.ftl`.
 pub const MIGRATE_REPORT_RESIDUAL: MessageKey = MessageKey::new("migrate-report-residual");
 
+/// `migrate-apply-stopped-after` in `migrate.ftl`.
+pub const MIGRATE_APPLY_STOPPED_AFTER: MessageKey = MessageKey::new("migrate-apply-stopped-after");
+
 /// `web-nav-dashboard` in `web.ftl`.
 pub const WEB_NAV_DASHBOARD: MessageKey = MessageKey::new("web-nav-dashboard");
 
@@ -6762,7 +6765,7 @@ pub const WEB_ADMIN_ERROR_PERMISSION_UNKNOWN: MessageKey =
     MessageKey::new("web-admin-error-permission-unknown");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2152] = [
+pub static ALL: [MessageKey; 2153] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -6996,6 +6999,7 @@ pub static ALL: [MessageKey; 2152] = [
     MIGRATE_REPORT_COUNTS,
     MIGRATE_REPORT_ITEMS,
     MIGRATE_REPORT_RESIDUAL,
+    MIGRATE_APPLY_STOPPED_AFTER,
     WEB_NAV_DASHBOARD,
     WEB_NAV_WIFI,
     WEB_NAV_CLIENTS,

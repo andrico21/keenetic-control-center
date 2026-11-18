@@ -48,7 +48,7 @@ pub(super) fn source_item(
             changed = true;
         }
     }
-    if let Some(user) = realm_password_user(&mapped, preset, target) {
+    if let Some(user) = realm_password_user(&mapped, preset, target, choices) {
         if let Some(password) = choices.new_passwords.get(user) {
             rules::replace_password(&mut mapped.tokens, password.expose_secret());
             changed = true;
@@ -116,11 +116,13 @@ pub(super) fn mapping_table(maps: &MigrationMaps) -> BTreeMap<&str, Option<&str>
         .collect()
 }
 
-/// Identifies a realm-bound router-user hash requiring replacement on this target.
+/// Identifies a router-user hash to replace on this target: one bound to another realm, or
+/// one whose user has a typed password, which wins over copying a same-realm hash.
 fn realm_password_user<'line>(
     line: &'line CliLine,
     preset: &Preset,
     target: &TargetInventory,
+    choices: &Choices,
 ) -> Option<&'line str> {
     let [
         Token::Word(command),
@@ -135,10 +137,11 @@ fn realm_password_user<'line>(
     (command == "user"
         && password == "password"
         && matches!(kind.as_str(), "md5" | "nt")
-        && target
-            .realm
-            .as_deref()
-            .is_none_or(|realm| !realm.eq_ignore_ascii_case(&preset.source.model)))
+        && (choices.new_passwords.contains_key(user.as_str())
+            || target
+                .realm
+                .as_deref()
+                .is_none_or(|realm| !realm.eq_ignore_ascii_case(&preset.source.model))))
     .then_some(user)
 }
 

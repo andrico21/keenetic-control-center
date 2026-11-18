@@ -18,6 +18,8 @@ mod progress;
 mod raw;
 #[path = "support/apply_reconnect.rs"]
 mod reconnect;
+#[path = "support/apply_same_realm.rs"]
+mod same_realm;
 #[path = "support/apply_secrets.rs"]
 mod secrets;
 #[path = "support/apply_fixture.rs"]

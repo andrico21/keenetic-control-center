@@ -24,7 +24,7 @@ use super::{
 use crate::cli::{
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome, denied},
-    migrate_apply::{apply_failure, reserve},
+    migrate_apply::{apply_failure, reserve, stopped_failure},
     secret::confirm,
 };
 
@@ -134,7 +134,7 @@ pub(super) async fn apply(
                 return Err(apply_failure(error));
             }
         }
-        return Err(apply_failure(failure));
+        return Err(stopped_failure(failure, report.applied.len()));
     }
     let action = choose(ctx, finish, (target, &run))?;
     let mut rollback_restarting = false;

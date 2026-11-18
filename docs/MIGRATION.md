@@ -195,7 +195,8 @@ Router-user passwords are stored as hashes bound to the device's authentication 
 are `needs-input`: you type each password (CLI: `--user-password <user>=<file>`) and kcc
 sends it as `user <name> password plain`, encrypted in kcc until the migration ends.
 kcc asks even for the same model, because realm equality hasn't been confirmed on
-hardware.
+hardware. A password you type for a user always wins: kcc sends it even when the
+source's hash was made for the target's realm and would otherwise be copied.
 
 ### Management phase and reconnect
 
@@ -281,6 +282,10 @@ rollback` or a rollback button) and a plan that installs components also need
 not confirm it), as `finish rollback` does.
 When a verification failure causes the router to roll back, apply prints
 "Migration verification failed. kcc rolled back automatically and restored the startup configuration." and exits 6.
+Any other failure after the first migrated line is rolled back too (by kcc, or by the
+router's timer when kcc lost it); apply then says how many lines were applied before the
+run stopped and exits with the failure's code (6 for a router failure). Rolling back a run
+that is already back on its saved configuration sends nothing and succeeds.
 In router mode, migration commit, preset save and `kcc config failsafe commit` use the
 native commit, which saves the startup configuration; in other modes they save and cancel
 the scheduled reboot.

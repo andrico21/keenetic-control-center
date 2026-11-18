@@ -348,7 +348,8 @@ struct Rule {
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 enum Condition {
-    /// Source and target authentication realms differ.
+    /// Source and target authentication realms differ, or a password was typed for the
+    /// line's router user: that password wins over copying a same-realm hash.
     RealmDiffers,
     /// The line contains a typed NS3 payload.
     ContainsNs3,
@@ -426,7 +427,7 @@ fn classify_line(
                 source_realm,
                 target.realm,
                 target_lines,
-                choices.overwrite_scalars,
+                choices,
                 mappings,
             )
         {
@@ -656,15 +657,21 @@ fn condition_matches(
     source_realm: Option<&str>,
     target_realm: Option<&str>,
     target_lines: &[CliLine],
-    overwrite_scalars: &BTreeSet<String>,
+    choices: &ClassificationChoices<'_>,
     mappings: &BTreeMap<&str, &str>,
 ) -> bool {
     match condition {
         None => true,
-        Some(Condition::RealmDiffers) => match (source_realm, target_realm) {
-            (Some(source), Some(target)) => !source.eq_ignore_ascii_case(target),
-            (Some(_) | None, Some(_) | None) => true,
-        },
+        Some(Condition::RealmDiffers) => {
+            line.tokens
+                .get(1)
+                .and_then(word)
+                .is_some_and(|user| choices.new_passwords.contains_key(user))
+                || match (source_realm, target_realm) {
+                    (Some(source), Some(target)) => !source.eq_ignore_ascii_case(target),
+                    (Some(_) | None, Some(_) | None) => true,
+                }
+        }
         Some(Condition::ContainsNs3) => line
             .tokens
             .iter()
@@ -674,7 +681,7 @@ fn condition_matches(
             .iter()
             .any(|token| word(token).is_some_and(|value| mapped(mappings, value) != value)),
         Some(Condition::ScalarConflict) => {
-            scalar_conflict(line, line, target_lines, overwrite_scalars)
+            scalar_conflict(line, line, target_lines, choices.overwrite_scalars)
         }
     }
 }

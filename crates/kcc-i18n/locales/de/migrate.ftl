@@ -31,3 +31,4 @@ migrate-report-plan = Plan
 migrate-report-counts = Anzahl
 migrate-report-items = Einträge
 migrate-report-residual = Verbleibende Einstellungen des Zielrouters
+migrate-apply-stopped-after = Vor dem Anhalten übernommene Einstellungen: { $count }. Der Router läuft wieder mit seiner gespeicherten Konfiguration, keine davon ist mehr vorhanden. Beheben Sie die Ursache und planen Sie die Migration neu.

@@ -73,13 +73,20 @@ pub(super) async fn keep_unsaved(applier: &mut Applier) -> Result<(), ApplyError
 /// [`SafetyNet::CONTROL_PERMISSION`]; rolling back a failed run is the run's own recovery
 /// and is sent under its `Migrate`.
 ///
+/// A failed run that already ended (the router or kcc restored the saved configuration
+/// and kcc proved it) has nothing left to roll back: it succeeds and sends nothing.
+///
 /// # Errors
-/// Returns [`ApplyError::FinishFailed`] (still armed) when the rollback could not be sent
-/// or confirmed, or reconnect and identity mismatch errors after it.
+/// Returns [`ApplyError::Validation`] for a finished successful run,
+/// [`ApplyError::FinishFailed`] (still armed) when the rollback could not be sent or
+/// confirmed, or reconnect and identity mismatch errors after it.
 // NOT cancel-safe: rollback may reboot before its response is received.
 pub(super) async fn rollback(applier: &mut Applier) -> Result<(), ApplyError> {
     if applier.report.finished {
-        return Err(ApplyError::Validation);
+        return match applier.report.failure {
+            Some(_) => Ok(()),
+            None => Err(ApplyError::Validation),
+        };
     }
     let permission = if applier.report.failure.is_some() {
         Permission::Migrate

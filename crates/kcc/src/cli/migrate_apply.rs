@@ -120,9 +120,23 @@ pub(crate) async fn apply(
                 keys::MIGRATE_APPLY_RESTORED,
             ))
         } else {
-            Err(apply_failure(failure))
+            Err(stopped_failure(failure, report.applied.len()))
         }
     })
+}
+
+/// The failure of a run that stopped after `applied` lines, which its finish rolled back:
+/// the exit code of `failure`, and how many lines were applied before it stopped.
+pub(crate) fn stopped_failure(failure: ApplyError, applied: usize) -> Failure {
+    let mapped = apply_failure(failure);
+    if failure.fate().is_some() {
+        return mapped;
+    }
+    Failure::message(
+        mapped.exit(),
+        keys::MIGRATE_APPLY_STOPPED_AFTER,
+        &[("count", &applied.to_string())],
+    )
 }
 
 /// Takes the target's lease for `request` before its job is created; a busy router is

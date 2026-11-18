@@ -31,3 +31,4 @@ migrate-report-plan = Жоспар
 migrate-report-counts = Саны
 migrate-report-items = Элементтер
 migrate-report-residual = Мақсатты роутердің қалған параметрлері
+migrate-apply-stopped-after = Көшіру тоқтағанға дейін қолданылған баптаулар: { $count }. Роутер сақталған конфигурациясына қайтты, сондықтан олардың ешқайсысы қалмады. Себебін жойып, көшіруді қайта жоспарлаңыз.
