@@ -83,8 +83,8 @@
    dependency be the version `cargo update` selects. Both workspaces (`/` and `xtask/`)
    now resolve with a plain `cargo update` under the cooldown, every crates.io
    requirement is written as its locked version, and a `cargo update --dry-run --verbose`
-   changes nothing. Held back on 2026-11-18 (re-checked 17:45 UTC), all inside the
-   cooldown unless named: brotli 9.1.3, bytes 1.12.2, clap/clap_derive 4.6.8,
+   changes nothing. Held back on 2026-11-18 (re-checked 18:16 UTC), all inside the
+   cooldown unless named: bytes 1.12.2, clap/clap_derive 4.6.8,
    clap_complete 4.6.12, clap_lex 1.1.2, jiff/jiff-static 0.2.46 and jiff-core 0.1.8
    (xtask), regex-automata 0.4.19, regex-syntax 0.8.12, rmcp/rmcp-macros 3.11.0,
    smallvec 1.16.6, uuid 1.29.3, zeroize 1.9.2; matchit 0.8.6 is held by axum 0.8.9's
