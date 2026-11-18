@@ -123,9 +123,8 @@ impl Dispatch<'_> {
     }
 
     /// Runs `request` against the shared client and shows its answer.
-    // cancel-safe when `request` only reads.
-    // cancel-safe: it awaits only the client lookup and `request`, which every caller passes as a
-    // read.
+    // NOT cancel-safe: the request it awaits may sign in first, and a sign-in dropped mid-way can
+    // leave an orphaned router session. Apart from that, a read.
     pub(crate) async fn read_with<F, Fut>(self, request: F) -> Reply
     where
         F: FnOnce(Arc<RciClient>) -> Fut,
