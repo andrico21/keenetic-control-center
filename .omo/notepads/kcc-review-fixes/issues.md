@@ -415,3 +415,7 @@ Sites: rci outbound_proxy (1 fn), telemetry sink_proxy (1), app registry/client_
 APPROVE: F1r2 BLOCKER 1 closed for migrate and preset (silent extender rollback now prints the restarting sentence, exit 6; proven rollback unchanged). Notes: restarting sentence printed twice on migrate (stdout+stderr); commit body says three preset rollback sites, there are two. Report: .omo/evidence/F1c2-kcc-review-fixes.md
 
 ## [2026-11-18] F2c G1 confirmation on 47801a5f: 48/48 steps EXIT=0, workspace tests passed=1805 failed=0 ignored=7; evidence .omo/evidence/F2c-kcc-review-fixes.log
+
+## [2026-11-18] F3c (final-tree manual QA, tree 47801a5f)
+- Items 1-9 PASS, item 10 PASS with cosmetic notes; no BLOCKER. Report: .omo/evidence/F3c-kcc-review-fixes.md. Undecided ISP MTU/static edits ask and run under the timer (arm, line, disarm); decided (.reached_directly) MTU is an ordinary write; same-realm migration with --user-password completes in 0.54 s; negative refused with nothing sent (message reason gap = BACKLOG.md:85).
+- [2026-11-18] F4c (final tree 47801a5f): APPROVE, 14/14 IS rows PASS; golden-after-r56 predates 0dd10389 (stock fake = undecided case, interface POSTs now show the management dialog), re-baseline needed for future golden diffs; root cargo update dry run shows brotli 9.1.2 (eligible after todo 75, not a FAIL).
