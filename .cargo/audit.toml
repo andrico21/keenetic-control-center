@@ -4,7 +4,18 @@
 # Every ignore entry must name the advisory, state why it does not apply to this
 # workspace, and note whether an upstream fix exists. No entry without a reason.
 [advisories]
-ignore = []
+# RUSTSEC-2026-0542: humantime is unmaintained (a notice, not a vulnerability).
+# kcc uses it directly (kcc-app for duration settings through humantime_serde and
+# humantime::parse_duration for environment overrides; kcc-web for RFC 3339 formatting
+# and parsing); rmcp-server-kit 3.21.1 also requires it (directly and through
+# humantime-serde), so removing kcc's own use would not clear the notice. No upstream
+# fix exists. Owner decision 2026-11-18, review by 2027-02-18.
+# RUSTSEC-2026-0543: chrono is unmaintained (a notice, not a vulnerability).
+# kcc uses it directly (kcc-telemetry for parsing and formatting log timestamps);
+# rmcp 3.10.0, rmcp-server-kit 3.21.1 and schemars 1.2.3 also require it, so removing
+# kcc's own use would not clear the notice. No upstream fix exists. Owner decision
+# 2026-11-18, review by 2027-02-18.
+ignore = ["RUSTSEC-2026-0542", "RUSTSEC-2026-0543"]
 
 # No `path` here: cargo-audit does not expand `~` in this file and would clone into
 # a literal `./~` directory inside the checkout. It uses its default location

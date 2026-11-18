@@ -10,6 +10,12 @@ db-urls = ["https://github.com/rustsec/advisory-db"]
 unmaintained = "all"
 unsound = "all"
 yanked = "deny"
+# Only these two advisory ids are ignored; any other advisory still fails the gate.
+# Keep in sync with .cargo/audit.toml. Review by 2027-02-18.
+ignore = [
+    { id = "RUSTSEC-2026-0542", reason = "humantime is an unmaintained notice, not a vulnerability, and no safe upgrade exists; kcc uses it directly (kcc-app for duration settings through humantime_serde and humantime::parse_duration for environment overrides; kcc-web for RFC 3339 formatting and parsing); rmcp-server-kit 3.21.1 also requires it (directly and through humantime-serde), so removing kcc's own use would not clear the notice; no upstream fix exists; owner decision 2026-11-18, review by 2027-02-18" },
+    { id = "RUSTSEC-2026-0543", reason = "chrono is an unmaintained notice, not a vulnerability, and no safe upgrade exists; kcc uses it directly (kcc-telemetry for log timestamp parsing and formatting); rmcp 3.10.0, rmcp-server-kit 3.21.1 and schemars 1.2.3 also require it, so removing kcc's own use would not clear the notice; no upstream fix exists; owner decision 2026-11-18, review by 2027-02-18" },
+]
 
 [licenses]
 confidence-threshold = 0.93

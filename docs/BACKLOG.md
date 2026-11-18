@@ -30,6 +30,7 @@ rest on the manuals and the fake router only:
 - The kit's HTTP listener has no header read timeout, so a connection that sends a request line and then goes silent stays open for more than 70 seconds. It cannot be set from `crates/kcc/src/server.rs:59-67`.
 - The kit logs a transport-level 403 (an MCP request refused before any tool runs) itself; it is not written to `audit.jsonl` (`crates/kcc-mcp/src/support/audit.rs`, module doc, audits tool-level refusals only).
 - The kit inserts `Cache-Control` on every response or on none, so kcc turns it off to keep the immutable policy of hash-addressed assets (`crates/kcc-web/src/csp.rs`), and the kit's own routes (`/mcp`, health, version) go without it. A mode that sets the header only when the route has not set one would let kcc keep `no-store` on those routes (project overlay deviation 5).
+- RUSTSEC-2026-0542 (`humantime`) and RUSTSEC-2026-0543 (`chrono`) are unmaintained notices, ignored in `deny.toml` and `.cargo/audit.toml` by owner decision on 2026-11-18 until 2027-02-18. kcc also uses them directly (kcc-app and kcc-web for humantime; kcc-telemetry for chrono), but rmcp-server-kit, rmcp and schemars also require them, so removing kcc's own use would not clear the notice. The fix is upstream (a release that stops depending on `chrono` and `humantime`), after which the ignore entries are removed.
 - `docs/rust-guidelines/UPSTREAM.md` lists the guideline changes the owner still has to propose by hand.
 
 ## Known gaps
@@ -78,7 +79,6 @@ rest on the manuals and the fake router only:
 ## Open questions for the maintainer
 
 - The migration source router has no marker of its own. Every live suite now requires a `test_device = true` profile for the router it writes to, but marking the migration source that way would wrongly admit it to the write suites; a read-only marker is undecided. The migration probe also writes after its rollback under its own timer, because running it before would trip the workflow's conflict check.
-- `cargo deny check` fails on RUSTSEC-2026-0542 (`humantime`) and RUSTSEC-2026-0543 (`chrono`), both unmaintained with no safe upgrade. Options: replace `humantime` and `humantime-serde` with hand parsing, or add a dated ignore to `deny.toml`.
 - `cargo xtask lint-completeness` runs `rustup run stable clippy-driver` (`xtask/src/lint_completeness.rs`); using the active toolchain's driver instead is an owner call.
 - Some wordings in the `kk`, `be` and `de` locales need a native speaker (for example the German "Audit-Schreiber" and "Bindung an ... fehlgeschlagen", and the Kazakh and Belarusian words for the stdio role, "bind", "initial configuration" and the UTF-8 messages), and so do the KiB abbreviations in `ru`, `uk` and `be`. Clap's own argument errors and the messages `main` prints before a locale exists stay English.
 - `rand` 0.10.4 leaves the three-day dependency cooldown on 2026-11-18 13:54 UTC; a later `cargo update` takes it.
