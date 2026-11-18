@@ -1470,7 +1470,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | build(xtask): check lint levels against the vendored profile
   Recommended task executor category: quick - small, local change
 
-- [ ] 73. Scripts: e2e steps fail on errors; no passwords on command lines
+- [x] 73. Scripts: e2e steps fail on errors; no passwords on command lines
   What to do / Must NOT do: the `step()` helpers of `deploy/podman/e2e.sh` and `deploy/podman/live-e2e.sh` run each step with `set -e` semantics (a subshell with `set -euo pipefail`, status propagated); `scripts/live/web-smoke.sh` passes the password with `--env-file` on a 0600 file (X-10). `shellcheck` must pass on all three scripts. The stricter `step()` can expose failures that were masked before, so run the real drive once: `cargo build --release -p kcc && bash deploy/podman/e2e.sh --native "${CARGO_TARGET_DIR:-target}/release/kcc"` must pass (fix any exposed failure in this todo; never set `KCC_LIVE_*`). Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `X-03` (medium; critic confirmed) e2e step functions ignore `set -e`, so failures in the middle of a step pass. Evidence: `deploy/podman/e2e.sh:74-77`, `e2e.sh:327-332`, `e2e.sh:414-421`, `live-e2e.sh:72-75`. Fix: In both `step()` helpers, run `set +e; ( set -e; "$@" ) >"$log" 2>&1; rc=$?; set -e`, then test `rc`. I verified this form returns 1 on a failure in the middle of the function.
   - `X-10` (low; critic confirmed) `web-smoke.sh` puts the admin Web password on a command line. Evidence: `scripts/live/web-smoke.sh:157-161`. Fix: Export `WEB_PASSWORD` in the environment and pass `-e WEB_PASSWORD` without a value, or use `--env-file` on a 0600 file.

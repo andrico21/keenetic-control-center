@@ -52,10 +52,45 @@ SECRETS=(master-key tls-cert tls-key router-password user-password)
 PIDS=()
 FAILED=0
 
-cleanup() {
-  local pid
-  for pid in "${PIDS[@]}"; do kill -INT "${pid}" 2>/dev/null || true; done
+# Prints the PIDs of every descendant of $1, deepest first.
+descendants() {
+  local child
+  for child in $(pgrep -P "$1" 2>/dev/null || true); do
+    descendants "${child}"
+    echo "${child}"
+  done
+}
+
+# True while process $1 exists and is not a zombie waiting to be reaped.
+is_running() {
+  local state
+  state="$(ps -o stat= -p "$1" 2>/dev/null)" || return 1
+  [[ "${state}" != Z* ]]
+}
+
+# Stops every background process. A traced server runs under a bash wrapper whose
+# SIGINT is ignored (background jobs), so the whole process tree gets SIGTERM, then
+# SIGKILL after a bounded wait.
+stop_background() {
+  local pid tree=() alive i
+  for pid in "${PIDS[@]}"; do
+    mapfile -t -O "${#tree[@]}" tree < <(descendants "${pid}")
+    tree+=("${pid}")
+  done
+  ((${#tree[@]} > 0)) || return 0
+  kill -TERM "${tree[@]}" 2>/dev/null || true
+  for ((i = 0; i < 40; i++)); do
+    alive=0
+    for pid in "${tree[@]}"; do ! is_running "${pid}" || alive=1; done
+    ((alive == 1)) || break
+    sleep 0.25
+  done
+  kill -KILL "${tree[@]}" 2>/dev/null || true
   for pid in "${PIDS[@]}"; do wait "${pid}" 2>/dev/null || true; done
+}
+
+cleanup() {
+  stop_background
   if [[ "${MODE}" == container ]]; then
     podman rm -f -t 5 "${CTR}" >/dev/null 2>&1 || true
     podman volume rm -f "${VOLUME}" >/dev/null 2>&1 || true
@@ -70,18 +105,26 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Runs one named step; its output goes to a log that is shown when it fails.
+# Runs one named step; its output goes to a log that is shown when it fails. The step
+# runs in a subshell with errexit on: a function called from an `if` condition would
+# ignore `set -e`, so only its last command would decide the result. A step therefore
+# cannot set variables for later steps (the server is launched by launch_server).
 step() {
-  local name="$1"
+  local name="$1" log rc
   shift
-  if "$@" >"${WORK}/step-${name}.log" 2>&1; then
+  log="${WORK}/step-${name}.log"
+  set +e
+  ( set -e; "$@" ) >"${log}" 2>&1
+  rc=$?
+  set -e
+  if ((rc == 0)); then
     echo "PASS ${name}"
     if [[ "${KCC_E2E_VERBOSE:-0}" == 1 ]]; then
-      sed 's/^/    /' "${WORK}/step-${name}.log" | tail -n 12
+      sed 's/^/    /' "${log}" | tail -n 12
     fi
   else
     echo "FAIL ${name}"
-    sed 's/^/    /' "${WORK}/step-${name}.log" | tail -n 40
+    sed 's/^/    /' "${log}" | tail -n 40
     FAILED=$((FAILED + 1))
     ((KEEP_GOING == 1)) || exit 1
   fi
@@ -111,7 +154,7 @@ for side in a b; do
     >"${WORK}/router-${side}.log" 2>&1 &
   PIDS+=("$!")
 done
-"${TARGET_DIR}/debug/kcc-fake-sinks" >"${WORK}/sinks.out" 2>"${WORK}/sinks.log" &
+NO_COLOR=1 "${TARGET_DIR}/debug/kcc-fake-sinks" >"${WORK}/sinks.out" 2>"${WORK}/sinks.log" &
 PIDS+=("$!")
 wait_line 30 "${WORK}/router-a.log" "fake router listening"
 wait_line 30 "${WORK}/router-b.log" "fake router listening"
@@ -274,18 +317,28 @@ accounts() {
   kcc_once --json apikey create e2e-mcp --role operator >"${WORK}/apikey.json"
 }
 
-startup() {
+# Starts the server in the background. It runs at the top level, not inside a step, so
+# that PIDS stays visible to cleanup.
+launch_server() {
   if [[ "${MODE}" == native ]]; then
-    kcc serve >"${WORK}/serve.log" 2>&1 &
-    SERVE_PID=$!
-    PIDS+=("${SERVE_PID}")
+    # The exit status goes to a file: a step runs in a subshell and cannot `wait` for it.
+    {
+      local code=0
+      kcc serve >"${WORK}/serve.log" 2>&1 || code=$?
+      echo "${code}" >"${WORK}/serve.exit"
+    } &
+    PIDS+=("$!")
   else
     podman run -d --name "${CTR}" "${RUNTIME[@]}" \
-      -p "127.0.0.1:${WEB_PORT}:8443" -p "127.0.0.1:${METRICS_PORT}:9090" "${IMAGE}" >/dev/null
+      -p "127.0.0.1:${WEB_PORT}:8443" -p "127.0.0.1:${METRICS_PORT}:9090" "${IMAGE}" >/dev/null \
+      || return 1
     podman logs -f "${CTR}" >"${WORK}/serve.log" 2>&1 &
     PIDS+=("$!")
     podman inspect --format 'user={{.Config.User}} read_only={{.HostConfig.ReadonlyRootfs}} cap_add={{.HostConfig.CapAdd}} cap_drop={{.HostConfig.CapDrop}} security_opt={{.HostConfig.SecurityOpt}} memory={{.HostConfig.Memory}} memory_swap={{.HostConfig.MemorySwap}} pids_limit={{.HostConfig.PidsLimit}} ports={{.HostConfig.PortBindings}}' "${CTR}"
   fi
+}
+
+startup() {
   if ! wait_line 60 "${WORK}/serve.log" "metrics endpoint listening" \
     || ! wait_line 60 "${WORK}/serve.log" "Web UI\|listening on\|\"listening\""; then
     tail -n 40 "${WORK}/serve.log"
@@ -431,7 +484,8 @@ graceful_sigterm() {
     local pid
     pid="$(pgrep -f "^${BIN} --config ${CONF} serve" | head -n 1)"
     kill -TERM "${pid}"
-    wait "${SERVE_PID}" || code=$?
+    wait_line 30 "${WORK}/serve.exit" '^[0-9]'
+    code="$(<"${WORK}/serve.exit")"
   else
     podman stop -t 30 "${CTR}" >/dev/null
     code="$(podman inspect --format '{{.State.ExitCode}}' "${CTR}")"
@@ -453,6 +507,11 @@ denials() {
 
 step privilege-floor privilege_floor
 step accounts accounts
+if ! launch_server >"${WORK}/step-startup-launch.log" 2>&1; then
+  echo "FAIL startup"
+  tail -n 40 "${WORK}/step-startup-launch.log" | sed 's/^/    /'
+  exit 1
+fi
 step startup startup
 step healthz healthz
 step tls-handshake tls_handshake

@@ -55,6 +55,7 @@ cleanup() {
   local pid
   for pid in "${PIDS[@]}"; do kill -INT "${pid}" 2>/dev/null || true; done
   for pid in "${PIDS[@]}"; do wait "${pid}" 2>/dev/null || true; done
+  rm -f "${WORK}/web.password" "${WORK}/web.env"
   if [[ "${KCC_WEB_KEEP:-0}" == 1 ]]; then echo "kept ${WORK}"; else rm -rf "${WORK}"; fi
 }
 trap cleanup EXIT
@@ -146,7 +147,12 @@ if [[ "${MODE}" == live ]]; then
 fi
 echo "router serial allowlisted (sha256 $(printf '%s' "${SERIAL}" | sha256sum | cut -c1-16))"
 
-head -c 18 /dev/urandom | base64 | tr -d '\n/+=' >"${WORK}/web.password"
+# The password reaches the runner through a 0600 env file, never through argv.
+(
+  umask 077
+  head -c 18 /dev/urandom | base64 | tr -d '\n/+=' >"${WORK}/web.password"
+  printf 'WEB_PASSWORD=%s\n' "$(<"${WORK}/web.password")" >"${WORK}/web.env"
+)
 "${KCC[@]}" --password-file "${WORK}/web.password" user add smoke --role admin >/dev/null
 
 "${KCC[@]}" serve >"${WORK}/serve.log" 2>&1 &
@@ -157,7 +163,7 @@ wait_line 60 "${WORK}/serve.log" "kcc listening"
 podman run --rm --network host --ipc host \
   -v "${HERE}:/qa:ro" -v "${MODULES}:/qa/node_modules:ro" -v "${EVIDENCE}:/evidence" \
   -e "BASE=http://127.0.0.1:${PORT}" -e "ROUTER=lab" -e "INTERFACE=${INTERFACE}" \
-  -e "WEB_USER=smoke" -e "WEB_PASSWORD=$(cat "${WORK}/web.password")" \
+  -e "WEB_USER=smoke" --env-file "${WORK}/web.env" \
   -e "OUT=/evidence/${PREFIX}" -w /qa "${IMAGE}" node web-smoke.mjs
 "${RCI[@]}" parse "no system configuration fail-safe timer"
 "${KCC[@]}" --router lab --json config state | jq -c '{unsaved, fail_safe: ."fail-safe"}'

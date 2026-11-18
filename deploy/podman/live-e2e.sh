@@ -68,15 +68,23 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Runs one named step; its output goes to a log that is shown when it fails.
+# Runs one named step; its output goes to a log that is shown when it fails. The step
+# runs in a subshell with errexit on: a function called from an `if` condition would
+# ignore `set -e`, so only its last command would decide the result. A step therefore
+# cannot set variables for later steps (the container is launched by launch_container).
 step() {
-  local name="$1"
+  local name="$1" log rc
   shift
-  if "$@" >"${WORK}/step-${name}.log" 2>&1; then
+  log="${WORK}/step-${name}.log"
+  set +e
+  ( set -e; "$@" ) >"${log}" 2>&1
+  rc=$?
+  set -e
+  if ((rc == 0)); then
     echo "PASS ${name}"
   else
     echo "FAIL ${name}"
-    sed 's/^/    /' "${WORK}/step-${name}.log" | tail -n 40
+    sed 's/^/    /' "${log}" | tail -n 40
     exit 1
   fi
 }
@@ -111,7 +119,7 @@ echo "router serial allowlisted (sha256 $(printf '%s' "${SERIAL}" | sha256sum | 
 
 # ---------------------------------------------------------------- fake Loki (host loopback)
 cargo build --quiet --locked -p kcc-testkit --bin kcc-fake-sinks --manifest-path "${ROOT}/Cargo.toml"
-"${TARGET_DIR}/debug/kcc-fake-sinks" >"${WORK}/sinks.out" 2>"${WORK}/sinks.log" &
+NO_COLOR=1 "${TARGET_DIR}/debug/kcc-fake-sinks" >"${WORK}/sinks.out" 2>"${WORK}/sinks.log" &
 PIDS+=("$!")
 wait_line 30 "${WORK}/sinks.out" "^loki "
 LOKI_PORT="$(sed -n 's|^loki http://127.0.0.1:||p' "${WORK}/sinks.out")"
@@ -188,11 +196,17 @@ accounts() {
   kcc_once --password-file /etc/kcc/smoke.password user add smoke --role admin
 }
 
-startup() {
+# Starts the container. It runs at the top level, not inside a step, so that PIDS stays
+# visible to cleanup.
+launch_container() {
   podman run -d --name "${CTR}" "${RUNTIME[@]}" \
-    -p "127.0.0.1:${WEB_PORT}:8443" -p "127.0.0.1:${METRICS_PORT}:9090" "${IMAGE}" >/dev/null
+    -p "127.0.0.1:${WEB_PORT}:8443" -p "127.0.0.1:${METRICS_PORT}:9090" "${IMAGE}" >/dev/null \
+    || return 1
   podman logs -f "${CTR}" >"${WORK}/serve.log" 2>&1 &
   PIDS+=("$!")
+}
+
+startup() {
   wait_line 60 "${WORK}/serve.log" "metrics endpoint listening"
   wait_line 60 "${WORK}/serve.log" "kcc listening"
 }
@@ -260,6 +274,11 @@ denials() {
 }
 
 step accounts accounts
+if ! launch_container >"${WORK}/step-startup-launch.log" 2>&1; then
+  echo "FAIL startup"
+  tail -n 40 "${WORK}/step-startup-launch.log" | sed 's/^/    /'
+  exit 1
+fi
 step startup startup
 step web-login-dashboard web_login_dashboard
 step reversible-write reversible_write
