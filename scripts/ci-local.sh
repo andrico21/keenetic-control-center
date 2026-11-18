@@ -49,13 +49,14 @@ step msrv
 cargo +1.100.0 build --workspace --all-features
 
 step gates
-cargo xtask lint-completeness
 cargo xtask allow-gate
 cargo xtask profile-eq
 cargo xtask i18n-check
 cargo xtask assets-check
+cargo xtask cancel-safety
 shellcheck deploy/podman/*.sh scripts/*.sh scripts/live/*.sh
 actionlint .github/workflows/*.yml
+cargo xtask lint-completeness
 
 step xtask
 cargo clippy --manifest-path xtask/Cargo.toml --all-targets --all-features -- -D warnings

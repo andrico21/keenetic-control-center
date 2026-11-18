@@ -2,10 +2,10 @@ name: Container
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: ["v*"]
   pull_request:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 # Least privilege: every job reads the repository; only `push` (tags only) writes packages.
@@ -19,6 +19,15 @@ env:
 # Action pins: actions/checkout v7.0.1, dtolnay/rust-toolchain (master, `toolchain:`
 # selects the compiler), actions/upload-artifact v7.0.2, actions/download-artifact v8.0.2.
 jobs:
+  # Every CI gate (ci.yml) must pass before a tag is published. Branch pushes and pull
+  # requests already run ci.yml on their own, so only tag builds call it here.
+  gates:
+    name: CI gates
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
   image:
     name: Build and e2e (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
@@ -40,7 +49,7 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
         with:
-          toolchain: 1.100.0
+          toolchain: "1.100.0"
       - name: Install strace, podman and promtool
         env:
           PROMETHEUS_SHA256: ${{ matrix.prometheus_sha256 }}
@@ -63,7 +72,14 @@ jobs:
           VCS_REF: ${{ github.sha }}
           ARCH: ${{ matrix.arch }}
         run: |
+          # A tag build labels the image with the tag's version; other builds are never
+          # pushed and keep the Containerfile default.
+          version=()
+          if [[ "${GITHUB_REF_TYPE}" == tag ]]; then
+            version=(--build-arg VERSION="${GITHUB_REF_NAME#v}")
+          fi
           podman build --format docker --platform "linux/${ARCH}" \
+            "${version[@]}" \
             --build-arg VCS_REF="${VCS_REF}" \
             --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -t kcc:test .
@@ -83,12 +99,13 @@ jobs:
           test "${code}" = 77
       - name: Container e2e under the seccomp profile
         run: bash deploy/podman/e2e.sh --container --image kcc:test
-      - name: Seccomp drift report (fresh trace vs committed profile)
+      # Blocks only when a freshly traced syscall is missing from the committed profile;
+      # extra names vary between traces and do not fail the job.
+      - name: Seccomp drift check (fresh trace vs committed profile)
         if: matrix.arch == 'amd64'
-        continue-on-error: true
         run: |
           cargo xtask seccomp trace --binary "${RUNNER_TEMP}/kcc-musl"
-          cargo xtask seccomp gen --check
+          cargo xtask seccomp gen --check-missing
       - name: Export the image
         if: startsWith(github.ref, 'refs/tags/v')
         env:
@@ -105,7 +122,7 @@ jobs:
   push:
     name: Push the multi-arch image
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: image
+    needs: [gates, image]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -129,5 +146,8 @@ jobs:
             podman manifest add "${IMAGE}:${TAG}" "oci-archive:${RUNNER_TEMP}/images/kcc-${arch}.tar"
           done
           podman manifest push --all "${IMAGE}:${TAG}" "docker://${IMAGE}:${TAG}"
-          podman manifest push --all "${IMAGE}:${TAG}" "docker://${IMAGE}:latest"
+          # A prerelease tag (v1.2.3-rc.1) never moves :latest.
+          if [[ "${TAG}" != *-* ]]; then
+            podman manifest push --all "${IMAGE}:${TAG}" "docker://${IMAGE}:latest"
+          fi
           podman logout ghcr.io

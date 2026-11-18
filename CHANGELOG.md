@@ -121,6 +121,17 @@ The first release, `0.1.0`, is in preparation and contains:
   `RequestRecord::command()` stays the last line of the request. The new
   `kcc_testkit::leak::contains_secret` finds a test secret in its JSON, `Debug` and
   CLI-quoted forms as well, and the secret-leak tests use it.
+- **Container image tags and labels.** A prerelease tag (one with a `-`, such as
+  `v0.2.0-rc.1`) is published only under its own tag and no longer moves `:latest`, so a
+  Quadlet unit or `run.sh` on `:latest` stays on the last stable release. The image's
+  `org.opencontainers.image.version` label carries the tag's version instead of always
+  `0.1.0`. Images and release archives are published only after every CI gate passes.
+- **The seccomp profile filters only `x86_64` and `aarch64`.** The 32-bit `x86`, `x32`
+  and `arm` ABIs, which the image never uses, are no longer allowed. The profile is
+  regenerated from the union of two traces (`deploy/podman/README.md`).
+- **`cargo xtask seccomp gen --check-missing`** fails only when a freshly traced syscall
+  is missing from the committed profile; CI's container drift check now runs it and
+  blocks instead of only reporting.
 - **`kcc.toml` router profiles follow the same rules as the others.** A `[[routers]]`
   `url` must be an origin (no path, query or fragment) and is refused by `kcc.toml`
   validation with the field named, where it was accepted and then failed when the

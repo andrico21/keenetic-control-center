@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Keenetic Control Center (rootless Podman)
-Documentation=https://github.com/andrico21/keenetic-control-center/blob/main/deploy/podman/README.md
+Documentation=https://github.com/andrico21/keenetic-control-center/blob/master/deploy/podman/README.md
 Wants=network-online.target
 After=network-online.target
 

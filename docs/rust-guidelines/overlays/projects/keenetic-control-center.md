@@ -81,12 +81,10 @@
    `Cargo.lock`. **Task:** the shared-version work in `[workspace.dependencies]` re-checks
    every version with a plain `cargo update` under the cooldown and reviews the lockfile
    diff.
-4. **Rust versions in workflow files are unquoted** (opened 2026-11-14, open). Core
-   Section 11 (Tooling) asks to quote every Rust version in YAML. Every workflow uses the
-   three-component `toolchain: 1.100.0`, which YAML already reads as a string (checked with
-   `yaml.safe_load`), so nothing misparses today. **Task:** quote them (`"1.100.0"`) in the
-   next change to `ci.yml`, `container.yml` and `release.yml`, and before any two-component
-   pin.
+4. **Rust versions in workflow files are unquoted** (opened 2026-11-14, resolved
+   2026-11-18). Core Section 11 (Tooling) asks to quote every Rust version in YAML.
+   `ci.yml`, `container.yml` and `release.yml` now quote every toolchain
+   (`toolchain: "1.100.0"`, `toolchain: "nightly-2026-10-03"`); keep any new pin quoted.
 5. **No `Cache-Control` on the kit's own routes** (opened 2026-11-16, open). The
    http-services rule on response headers wants `Cache-Control: no-store` on every
    authenticated response. kcc turns the kit's `Cache-Control` off in

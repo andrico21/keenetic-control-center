@@ -27,6 +27,11 @@ G0 plus `cargo deny check`, `cargo audit`, `cargo vet`, `cargo machete`,
 the MSRV build `cargo +1.100.0 build --workspace --all-features`. A new dependency needs
 `cargo vet` and `cargo deny` to pass.
 
+CI (`.github/workflows/ci.yml`) runs these gates on every push to `master` and every pull
+request against it. The release and container workflows call the same `ci.yml` first,
+so a tag is built and published only after every gate passes.
+`scripts/ci-local.sh` runs the same commands on a Linux host.
+
 ## Dependency cooldown
 
 `.cargo/config.toml` sets a 3-day publish-age cooldown: `cargo add` and `cargo update`

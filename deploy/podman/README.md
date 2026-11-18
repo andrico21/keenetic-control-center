@@ -117,20 +117,40 @@ remote access.
 rather than killing the process. `clone` is allowed only without namespace flags;
 `clone3` answers `ENOSYS` (38) because seccomp cannot inspect its flags, and `ENOSYS`
 makes any caller fall back to `clone` (the static musl binary never calls `clone3`).
-The profile names `x86_64`, `x86`, `x32`, `aarch64` and `arm`.
+The profile names only `x86_64` and `aarch64`, the two architectures the image is built
+for; the kernel refuses a syscall made through any other ABI (32-bit `x86`, `x32`, `arm`)
+as if no rule allowed it.
 
 ### How it was derived
 
-By tracing, not by reasoning. The profile is generated and must not be edited by hand:
+By tracing, not by reasoning. The profile is generated and must not be edited by hand.
+One trace can miss a syscall a timing-dependent path makes only sometimes, so the
+profile is generated from the union of two traces:
 
 ```sh
-# 1. the static binary that ships: build it, or copy it out of the image
-podman create --name kcc-extract kcc:test && podman cp kcc-extract:/kcc ./kcc-musl && podman rm kcc-extract
-# 2. run it natively under `strace -f -qq -ff` while e2e.sh drives every I/O path
-cargo xtask seccomp trace --binary ./kcc-musl
-# 3. union the traces with the container-runtime exec prologue into the profile
-cargo xtask seccomp gen            # or --check to compare with the committed file
+T="${CARGO_TARGET_DIR:-target}"
+# 1. the static binary that ships: build the image and copy it out
+podman build --format docker -t kcc:test .
+podman create --name kcc-extract kcc:test && podman cp kcc-extract:/kcc "$T/kcc-musl" && podman rm kcc-extract
+# 2. run it natively under `strace -f -qq -ff` while e2e.sh drives every I/O path, twice
+cargo xtask seccomp trace --binary "$T/kcc-musl"                              # -> $T/seccomp-trace
+cargo xtask seccomp trace --binary "$T/kcc-musl" --out "$T/seccomp-trace-2"
+# 3. union both traces; `gen` reads every file whose name starts with `trace`, so the
+#    suffixes keep the two sets apart
+rm -rf "$T/seccomp-trace-union" && mkdir "$T/seccomp-trace-union"
+for f in "$T"/seccomp-trace/trace*; do cp "$f" "$T/seccomp-trace-union/$(basename "$f").1"; done
+for f in "$T"/seccomp-trace-2/trace*; do cp "$f" "$T/seccomp-trace-union/$(basename "$f").2"; done
+# 4. review what changes (exits 1 when the profile differs), then write the profile
+cargo xtask seccomp gen --check --traces "$T/seccomp-trace-union"
+cargo xtask seccomp gen --traces "$T/seccomp-trace-union"
 ```
+
+Name every added and removed syscall from step 4 in the commit message, then prove the
+new profile with the container run under [Verification](#verification).
+
+`cargo xtask seccomp gen --check-missing` is the drift check CI runs after a fresh trace
+(`container.yml`, amd64): it fails only when a traced syscall is missing from the
+committed profile. Names only the profile allows pass, because they vary between traces.
 
 `deploy/podman/e2e.sh` drives: startup including the privilege floor and the root
 refusal, the TLS handshake, Web login, the dashboard SSE stream, a domain read, write
@@ -187,7 +207,7 @@ A missing syscall shows up as an `Operation not permitted` (os error 1) in
    syscall it would have refused (to the audit log / `journalctl -k`, `type=SECCOMP`)
    instead of failing it. Use it on a test instance only, and never ship it.
 2. Or reproduce natively: `cargo xtask seccomp trace` and `cargo xtask seccomp gen
-   --check` print the names a fresh trace adds.
+   --check-missing` print the traced names the profile lacks.
 3. Assign the new syscall a group in `xtask/src/seccomp_groups.rs`, regenerate, review
    the diff, and rerun the container e2e.
 

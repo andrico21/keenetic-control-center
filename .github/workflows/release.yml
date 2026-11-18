@@ -29,8 +29,16 @@ defaults:
 # actions/checkout v7.0.1, dtolnay/rust-toolchain (master, `toolchain:` selects
 # the compiler), taiki-e/install-action v2, mlugg/setup-zig v2.2.1,
 # actions/upload-artifact v7.0.2, actions/download-artifact v8.0.2.
-# No build cache is restored here, so a poisoned cache cannot reach a release.
+# No build cache is restored by the build jobs, so a poisoned cache cannot reach a
+# release archive (the called ci.yml gates use their own caches on their own runners).
 jobs:
+  # Every CI gate (ci.yml) must pass before anything is built for a release.
+  gates:
+    name: CI gates
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
   meta:
     name: Version
     runs-on: ubuntu-latest
@@ -58,7 +66,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.target }})
-    needs: meta
+    needs: [gates, meta]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
@@ -90,7 +98,7 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
         with:
-          toolchain: 1.100.0
+          toolchain: "1.100.0"
           targets: ${{ matrix.target }}
       - if: matrix.zigbuild
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1

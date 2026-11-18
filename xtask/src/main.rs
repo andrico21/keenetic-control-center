@@ -21,6 +21,7 @@ mod manifest;
 mod metric_docs;
 mod profile_eq;
 mod seccomp;
+mod seccomp_check;
 mod seccomp_gen;
 mod seccomp_groups;
 mod tool_docs;
@@ -34,7 +35,7 @@ use std::{
 
 use clap::{Parser, Subcommand};
 
-use crate::failure::GateError;
+use crate::{failure::GateError, seccomp_gen::GenMode};
 
 /// Project gates and generators for keenetic-control-center.
 #[derive(Debug, Parser)]
@@ -118,6 +119,10 @@ enum SeccompTask {
         /// Compare with the committed profile instead of writing it.
         #[arg(long)]
         check: bool,
+        /// Fail only when a traced syscall is missing from the committed profile (names
+        /// only the profile allows pass: they vary between traces); writes nothing.
+        #[arg(long, conflicts_with = "check")]
+        check_missing: bool,
     },
 }
 
@@ -199,8 +204,17 @@ where
         Task::Seccomp(SeccompTask::Trace { binary, out: dir }) => {
             seccomp::trace(&root, binary.as_deref(), dir.as_deref(), out)
         }
-        Task::Seccomp(SeccompTask::Gen { traces, check }) => {
-            seccomp_gen::generate(&root, traces.as_deref(), *check, out)
+        Task::Seccomp(SeccompTask::Gen {
+            traces,
+            check,
+            check_missing,
+        }) => {
+            let mode = match (*check, *check_missing) {
+                (true, _) => GenMode::Check,
+                (false, true) => GenMode::CheckMissing,
+                (false, false) => GenMode::Write,
+            };
+            seccomp_gen::generate(&root, traces.as_deref(), mode, out)
         }
     }
 }
