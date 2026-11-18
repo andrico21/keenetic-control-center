@@ -186,3 +186,271 @@
 - D-08 behaviour change: removing a route that is not configured now succeeds (its command is absent), instead of RouteCountMismatch.
 - D-09: failed create step is rolled back when the error is `VerificationFailed`, `UndecodableConfig`, `UnexpectedBody`, `Audit`, or a transport/timeout/HTTP/decode `RciError`; NOT for local validation, permission/conflict/backup/lease refusals or a router-reported refusal (`RciError::Rci`), whose delete line could remove pre-existing configuration.
 - D-20: a bad record is skipped with `tracing::warn!(line = N, "skipped an invalid segment ownership record")` (no description text, no interface name).
+
+## [2026-11-17] Todo 52 (wt/r52; C-17, D-19, D-13, D-21, D-22, C-18, C-14, C-10)
+- C-10: removed rather than mapped to `media partition` (binding row). Removed: MCP `kcc_storage_write` ops `partition_check`/`partition_format` (now `eject` only, description "Eject storage media"; old ops answer `invalid_arguments`), CLI `kcc storage check|format` (StorageWriteCommand gone, `Storage(StorageCommand)`), the hidden Web routes `POST .../storage/check`, `GET|POST .../storage/format` with their handlers, dialog, unused `FormDialog::danger` and four i18n keys (`web-system-storage-check`, `-format`, `-format-title`, `-format-text`, all six locales), domain `MaintenanceAction`/`MaintenanceRequest`/`plan_maintenance` and the `media partition check` action exemption. docs/MCP_TOOLS.md regenerated, USER_GUIDE/FIRMWARE lines updated, CHANGELOG `### Removed` created under Unreleased.
+- D-22: the binding row says remove both; `ipv6_rule` left the firewall write inventory, so the kcc CLI exclusion table became empty and was deleted with its coverage branch (`every_registry_write_has_a_subcommand`).
+- D-13: the VPN credential walker is deleted (duplicate of kcc-app's ConfigSecret check that already runs inside apply_cli); parsing secrets into `Token` strings was rejected because kcc-app's own evaluator deliberately avoids allocating credentials. Segments compare commands as parsed tokens (`config_tree`).
+- C-14: every module-level `missing_errors_doc`/`missing_inline_in_public_items`/`needless_pass_by_value`/`module_name_repetitions` expect and the crate-root `missing_errors_doc` expect removed; also the 12 module-level `cfg_attr(not(test), expect(missing_docs_in_private_items))` (78 private items documented). Kept: `lib.rs` `cfg_attr(test, expect(dead_code_pub_in_binary))` (guideline form), `segments.rs` `pub_use` facade expect (guideline form), test-module expects. 15 item-level `module_name_repetitions` expects (public names used by every front end). `# Errors` sections were generated per function from the error paths in its body and spot-checked.
+- C-18: also removed (finding text, beyond the plan's short evidence list) `wifi::ns3_presence`/`Ns3Presence` and the `SafetyNet::commit`/`configuration::save` forwards; `interfaces::apply` lost its unused `router` parameter (6 callers updated).
+
+## Todo 53 (orchestrator decision before dispatch)
+- C-22: the before/after marker comparison treats an unchanged marker as a verification failure. An md5 password hash is deterministic, so a same-value rewrite is indistinguishable from an ignored write and is reported as "the stored value did not change"; salted/encrypted ns3 blobs differ per write so a same-secret rewrite passes there. The worker verifies which case applies to each of the three secrets against fixtures. Real-router behaviour for a same-value rewrite is not proven on hardware (backlog).
+
+## [2026-11-17] Todo 53 design (C-22: secret read-back proves the new value), written before coding
+- (a) WHERE: a kcc-app mechanism, not domain-only. The domain plans are built long before dispatch (Web previews, MCP confirm,
+  CLI), so a plan-time snapshot would be stale and would put secret-derived data into a printable `ChangeOp`. New
+  `PresencePredicate::ConfigSecretReplaced` + constructor `VerificationSpec::replaced(prefix)`; `workflow_verify::Baseline::capture`
+  runs inside the change workflow right before dispatch (after authorization, conflict check and backup) on all three
+  send paths (`apply`, `apply_batch`, `send_cli`), so Web, MCP and CLI all get it through `ChangeSet::apply_cli`.
+  It downloads the running configuration ONLY when the request carries such a spec (no extra request elsewhere) and
+  keeps it as the `SecretBytes` the RCI client returns (zeroized on drop; no copy of a payload is ever made).
+  Baseline read failure: the error is returned BEFORE the write is sent (fail closed; nothing sent, so no audit entry,
+  like a failed conflict check). A spec of this kind verified without a captured baseline fails (fail closed).
+  Terminal requests skip verification, so they skip the capture too. Audit entry format and hash rule untouched.
+- (b) WHAT is compared: the stored credential payload of the line `<prefix> <payload>` in the running configuration
+  (the same context-aware line walk the VPN `ConfigSecret` check uses, now shared as `stored(text, prefix) -> Option<&str>`):
+  `user <login> password` -> `md5 <hash>`; `interface <ap> authentication wpa-psk` -> the `ns3` blob;
+  `interface <wan> authentication password` -> the `ns3` blob. Before and after payloads are borrowed slices of the two
+  `SecretBytes` buffers and compared with `subtle::ConstantTimeEq` (workspace dependency already in Cargo.lock, now
+  also a kcc-app dependency); only the boolean leaves the function. The error is `VerificationFailed { field: <prefix> }`
+  (key-free: login or interface name and command words only). Running config is the source because its real-router
+  format is known (anonymizer and migration fixtures: `authentication wpa-psk ns3 ...`, `user X password md5 ...`); the
+  `show interface` reply for secrets is NOT known from real hardware (the fake answers `{"ns3":true}` for the PSK, a
+  constant for the WAN password), so it cannot prove a change. The existing presence/length specs stay as they are
+  (a first-time secret still passes on presence+length; the new spec only adds "and it differs from before, when there
+  was a before").
+- (c) SAME SECRET: md5 is deterministic and `ns3` (kcc-config `ns3::encode`, the router's NDM Secure v3) is a
+  deterministic, unsalted, reversible scrambling: the same plaintext gives the same blob. So all three secrets
+  (router user, Wi-Fi PSK, WAN password) behave the same: re-setting the identical value leaves the stored payload
+  unchanged and is reported as a verification failure ("reading <prefix> back still shows the old value"). No secret is
+  stored salted, so no case passes a same-value rewrite naturally. Documented in USER_GUIDE and CHANGELOG. NOT proven on
+  real hardware: whether a real router rewrites the same payload byte for byte (it should, by the algorithm).
+- Rejected alternative: a new `WorkflowError::SecretUnchanged` variant. It would need a new Web key, a CLI exit mapping
+  and an MCP mapping, while `VerificationFailed` already says exactly this ("still shows the old value") on all surfaces
+  and keeps the MCP `verification_failed` code.
+
+## [2026-11-17] Todo 54 decisions
+- G-06: management interface = `show interface` entry whose `address` is a pinned address of the RCI client; unknown -> `None`. Verification fails only when the identified interface's link is not `up`; unknown is reported (`ApplyReport.management_interface = None`), Internet is reported (`ApplyReport.internet`) and never fails. Planner/wizard with unknown management treat every bridge's address/security-level line as management (`TargetInventory::may_carry_management`), the conservative direction.
+- G-06 inventory reads `show interface` (one extra request); the existing `interface` config read (`interface_inventory`) is unchanged.
+- G-15: report JSON shape and `schema_version` 1 unchanged; `to_markdown`/`to_html` take `Locale`. Preset report items: redacted preset line (`kcc_config::mask::redact_text`), or for Mirror removals the redacted command; an unsupported Mirror removal has no stored line, so its `before` is empty. Preset reason ids now map to the existing migrate reason keys (they all rendered as "unsupported" before).
+- G-21 drift: kept the preset classifier's behaviour (password always a plain `Word`). The migration copy wrote the plaintext into an `Ns3` token for an ns3-encoded hash (`user admin password plain ns3 replacement`), which `apply::command` would ns3-decode; regression test `encoded_realm_bound_hash_becomes_a_plain_word` was red on that. The shared helper keeps the migration copy's structural guard (`password` + `md5|nt`). `words()` kept the identical body, single copy in `presets::selection`.
+- G-23: removed (not wired up): `StopPolicy`, `ApplyOptions::stop_policy`, `PlannedLine::non_critical`, `execute::retry_lines`.
+- [todo 61] backup diff over-budget differences are refused (exit 4) instead of falling back to set semantics (fail closed); F-16 is structural per critic, no behavioural test.
+
+## [2026-11-17] Todo 55 decisions (wt/r55)
+- W3-05: POST handlers that read before their `Submission` end through `net_change::unread_change(action, &error)` (network pages) or the existing `routing_page::reply::refused(action, unread(..))` (routing, firewall, NAT): audited `unreachable`, outcome region, nothing planned. Dialog GETs answer `net_change::unusable`/`net_change::unread` (no audit, like `net_internet_settings`). No `Action::unread` in page_kit: the two page families already had their own helpers, and page_kit is another todo's area.
+- W3-05 tests: `fail_read_matching("show/interface")` also breaks router detection (`kcc_rci::capabilities` reads `/rci/show/interface` by GET, page facts fail -> every request "unreachable" before the handler runs). Tests add `show_requires_post("show/interface")`: detection's GET gets 404 and goes on without the inventory, the domain read falls back to POST, where the read fault hits.
+- `route_remove`'s post-wipe `after` read keeps `unwrap_or_default()` (the guard banner then names nothing restored); not a cited site.
+- W3-10: `Report` has route-specific variants (`RoutesWiped`, `RouteCountMismatch`) next to `Note`: one typed enum is simpler than a generic report through `Planned`/`Submission`/`Form`.
+- W3-11 scope: port check, netmask contiguity, net-pages `TabLink`, `PRIORITY` and segment object names deduplicated. Not done: the five `TabLink` copies in system_pages/admin/dns_vpn (other todos' areas), `said()`/`CLASS` one-liners and the dashboard's netmask->prefix (`network.rs`, not a network page, slightly different empty-address rule).
+- W3-14: `AccessPoint::psk_present` is `serde(skip_serializing)` so MCP/CLI JSON output is unchanged.
+
+## [2026-11-17] Todo 57 decisions
+- W2-06: `REASON_ROOM` is now the store's own 48 (no copy number follows), so an uploaded file name keeps 41 characters instead of 38 (CHANGELOG). `web-config-backup-taken` removed in all six locales (unused keys fail i18n-check).
+- W2-09: one `with_timer(action, Timer::{Running, Idle})` serves commit/rollback (Running) and Save (Idle); Save refused while armed is audited `armed`, answered like the commit's `not_armed` refusal (200 outcome fragment, error tone), new key `web-config-save-armed`.
+- W2-12: the wizard's `ask` calls `Guard::Destructive.check`; the only visible change is that `confirm=yes` without a typed name no longer shows the mismatch error (as the kit). No audit was written on a refused confirmation before or after.
+- W2-18: `Action::run` refuses a `Change::Batch` before anything is sent (logged error, failure "internal", audited `internal`) instead of running it; `ending::finished` still matches `Applied::Batch` for exhaustiveness (the router-answer enum is shared with the command pages), now unreachable from a domain page.
+- W2-14: the two finish-recovery suites became `tests/finish_recovery.rs` + `tests/finish_recovery/wizard.rs` (`Wizard::{Migration, Preset}`), each scenario looping both wizards; the budget test asserts 200 + HX-Redirect to the run and the keep audited `done` after the lock frees.
+- W2-16: `table` and its `pager`/`rows` are `pub(crate)`; `#[inline]`/`#[non_exhaustive]` dropped there and on `Rejected`/`Unplanned` (kept `#[must_use]`).
+
+## [2026-11-17] Todo 62 decisions
+- F-26: kept `kcc log read` (removed `kcc diagnostics log`) and `kcc wan password` (removed the `ppp` kind of
+  `kcc vpn secret`): `wan::plan_password` classifies a management interface and verifies the replaced secret;
+  the coverage table maps `VpnClients ppp_password` to `wan password`.
+- F-24: the shared label list lives in `kcc_domain::labels::permissions` (kcc-domain already depends on kcc-app
+  and kcc-i18n; Permission is `#[non_exhaustive]` cross-crate, so a `match` would need a wildcard). The key array
+  is typed `[MessageKey; Permission::ALL.len()]`: a permission added to `ALL` without a label fails to compile.
+  kcc-web's `admin_roles::PERMISSIONS` was NOT switched (todos 57-60 edit kcc-web in parallel); follow-up.
+- F-20/F-21: `Family<B, W>` deleted; each domain is one clap enum (old base variants, then writes, then secrets,
+  so `--help` order is unchanged). Domains whose writes go through a typed planner (dns, vpn) use a private
+  `Request` enum (read | import | secret | Change(typed change)) built by an exhaustive `request(command)`.
+  Top-level `Command` = `Local(LocalCommand)` (flatten) + Serve + Mcp + Completions + Domain (flatten).
+  `domains::run` is one 24-arm match with `#[expect(clippy::cognitive_complexity)]` (a flat dispatch table).
+- F-09: `kcc_app::composition::{Core, CoreSetup, CoreError}`; `server.rs` split into server_services,
+  server_web, server_metrics, server_reload, server_error (all <= 210 pure LOC).
+
+## [2026-11-17] Todo 58
+- W1-16: render the plaintext dialog when the table refresh fails (binding row), not revoke: the key works, and a
+  revoke is another write that can fail the same way. The dialog drops the out-of-band table; reload-warning
+  toasts are rendered by the dialog itself (no longer inside the region).
+- W1-12: `router_form.rs::Draft::from_profile` keeps `RouterTls::Verify | _` (critic: the stricter mode; a form
+  label, not an audit value or a privilege). No test can build an unknown variant of a foreign non_exhaustive enum.
+- W1-11: an unknown role-form field is refused with a new localized permission error (422 dialog) instead of
+  axum's plain-text 422; missing `name`/`scope` now reach the dialog's own field errors.
+- admin_users `administer` takes the caller (`&CurrentUser`) for the error page's locale (4 parameters).
+
+## [2026-11-17] Todo 60 decisions
+- W5-07: the apply hooks live on a new Flow subtrait `wizard::applying::Applying` (record-end hook `record_end` with a
+  default that ends the run; presets override it to record the WireGuard keys) so each wizard's impl sits in its own
+  `apply.rs`. Engine: `wizard/apply.rs` (handler), `wizard/launch.rs` (start/settle/watch). Both `launch.rs` deleted.
+  Shared helpers moved into `crate::wizard`: `names` (+`map_of`), `source` (Source, source_text, the step-1 panel,
+  Field, refuse), `source_read`, `filters`, `passwords::typed`, `screen::fact`, `report::attachment`,
+  `analysis::{mode_text, model_text}`. Left: the target-continue handlers (their panels are different types; not in the
+  fix text) and the poison-tolerant `lock` copies (not in the fix text; system_pages is todo 59's area).
+- `Finishing::discard` became `fn -> impl Future + Send` (the generic settle/expiry spawn needs a Send future).
+- W5-08: typed `Reason`/`NeededInput`/`PresetReason` with `#[expect(clippy::exhaustive_enums)]` (not non_exhaustive:
+  the wizards must match every variant). Wire names unchanged (plan/report JSON, MCP `reason`). `ClassifiedItem`
+  keeps `needed_input: Option<String>` beside the typed `input` because the CLI (off limits) reads it.
+- W5-10: the preview/inputs panels return `Result<_, StoreError>` (internal error); apply over unopenable passwords is
+  `Failure::Broken` (internal + audit `failed`); reveal: permission check first, read error -> internal + `failed`,
+  NotFound -> 404. `Applier::start` error: `ApplyError::Job` stays "busy" (it also covers a busy router), others are
+  internal + `failed`.
+- W5-15 (binding row): UpdateCache deleted; `UpdateCheck::cached(router) -> (UpdateStatus, bool due)`.
+
+## [2026-11-17] Todo 63
+- Signal ends stdio with `Outcome::Ok` (exit 0), the `kcc serve` code after a signal. SIGHUP left at its default for stdio (serve's SIGHUP is an HTTP-transport reload that stdio has no counterpart for).
+- Bound the runtime's exit wait for blocking threads to 1 s in `main.rs` (affects every command, but only a blocking thread that outlives the command is affected; before, such a thread hung the exit forever).
+
+## [2026-11-17] Todo 64
+- ServerError keeps its English `#[error]` Display (logs/Debug); the CLI localizes it at the one boundary (`server_code` -> `Failure::from(ServerError)`), exhaustive match without wildcard. Wrapping variants stay `Failure::text` (typed error Display of other crates).
+- Unsupported `--lang` is now reported in the env locale (KCC_LANG/LC_ALL/LANG, else en) instead of always English. CHANGELOG Fixed line names it.
+- `TlsKeyReadable` now renders `errors-secret-file-permissions` in the output locale on the CLI (Display still English for logs).
+
+## [2026-11-17] Todo 56: HtmlSafe marker instead of a `|safe` name allowlist
+- Chosen: `markup::Rendered` (private String, only constructor `Rendered::of(&impl Template) -> Result<_, askama::Error>`,
+  `request::rendered` = log-and-None wrapper returning Option<Rendered>) implements `askama::filters::HtmlSafe`; child templates
+  embedded by a page are marked with `fragment!` (lib.rs; `impl HtmlSafe for T where T: Template`). Every `|safe` is gone (29 in
+  templates + 1 inline source). The type decides escaping: a String anywhere is escaped by askama. A name allowlist would let a new
+  `String` field that happens to be called `region` through; the marker cannot be put on String (orphan rule) or on a non-template.
+- Lint `assets-check` (xtask/src/assets/escaping.rs) rejects any `|safe`, `filter safe`, `escape("none")`/`e("none")`,
+  `escape = "none"` in templates and kcc-web sources, and `HtmlSafe` outside crates/kcc-web/src/{markup.rs,lib.rs}.
+- Failure semantics kept: child templates still render lazily inside the page (a failing child = 500 page, as before); the String
+  producers keep their existing error paths (`errors::internal` for presets/wizard panels, log + None for regions).
+
+## [2026-11-18] Todo 65 decisions
+- B-13: one rule set `registry/rules.rs::check` (ProfileFault enum with field()/reason()); `kcc.toml` validation runs it on
+  `rules::from_config(profile)` (moved from registry.rs `convert_config_profile`). Merged toward the stricter copy on each
+  rule: URL origin shape from the registry (settings only checked the scheme), TLS pin from settings (the registry only
+  refused a bad pin at connect). Reason texts name their key, so the registry message is the reason itself (the existing
+  `token_file_with_ndw4_names_the_field` expectation is unchanged).
+- B-24: new `RegistryError::ConfigRoute { id, url }` (#[non_exhaustive] variant), checked in `transition` before any
+  write; a same-URL transition of a kcc.toml router (password change, restore) still rewrites its password_file as
+  documented. No i18n key: the text is the error's Display (CLI detail, server log), like `ConfigDefined`; Web maps it to
+  the generic check key, workflow wraps it in `WorkflowError::Registry`.
+- B-11: module-level `pub_use` facade expect stays in workflow.rs (guideline exception); everything else is item-level or
+  fixed in code.
+
+## [2026-11-18] Todo 66 decisions (cancel-safety)
+- Login rule (A-18, plan text binding): a sign-in dropped mid-way can leave an orphaned router session -> NOT cancel-safe; every caller that can reach `Manager::exchange` follows. Reach computed exactly with rust-analyzer call hierarchy (`callHierarchy/incomingCalls`, spawn-only call sites excluded): 760 async fns. Consequence: router READS are NOT cancel-safe too (reason text says "it only reads ..., but it may sign in first ..."); `cancel-safe` remains for fns that never reach a sign-in. This conflicts with the plan's other sentence "read-only handlers are cancel-safe"; the specific A-18 rule ("callers follow") was applied. Alternative (one comment change in kcc-rci): declare a dropped sign-in cancel-safe (kcc already abandons router sessions routinely, A-07) - then all reads go back to cancel-safe; the reversal is mechanical with the evidence table.
+- 292 existing `cancel-safe:` comments on fns that reach a sign-in were rewritten to `NOT cancel-safe: <login clause>. Apart from that, <old reason>`.
+- Audit rule: a queued audit entry may be written after the future is dropped (AuditLog::append, Record::append are NOT) -> callers NOT (dialogs whose refusal is audited, as the wizard code already did).
+- "NOT cancel-safe ... but nothing happens" comments (DNS resolution abandoned) flipped to cancel-safe: outbound resolve/client_builder, engine connect_with, registry client/poll_client/connect_client.
+- Gate: any visibility; test code rule unchanged (tests/ paths, #[cfg(test)] items and out-of-line test modules skipped, now also `#[path = ...]` test modules and `#[cfg(test)]` followed by a multi-argument attribute).
+
+## [2026-11-18] Todo 67
+- T-01: one approach for all five suites: keep a secret with both `"` and `\` and search every sink with `kcc_testkit::leak::contains_secret` (a testkit public fn, so kcc-app and kcc-domain share one owner), not a second quote-free secret.
+- T-03: `RequestRecord::command()` kept (last line) so the ~98 consumers, including live_* files owned by todo 68, need no change; `commands()` added for batches. Parse lines are now recorded in `rci_post_root` from the request body (every `parse` item, including one refused by `refuse_batch_pointer` fault injection, which was previously not logged).
+- T-04: conversions only documented as assumed in BEHAVIOUR.md (critic: drop "tests check the fake"); md5-vs-HA1 documented, behaviour unchanged. Note: `password md5 <x>` DOES set the fake's HA1 to `<x>` (critic text said it never updates auth); replaying the stored `md5(password)` therefore breaks sign-in on the fake.
+
+## [2026-11-18] Todo 68 decisions
+- One shared live gate `crates/kcc/tests/support/live_gate.rs` (`Refusal`, `admission`, `allowlisted`), included by `#[path]` in live_smoke, live_domains, live_migration, live_presets and (cross-crate) kcc-mcp's live_mcp. The per-suite `Refusal` enums of live_domains/gate.rs and live_migration/guard.rs are gone; `WriteMode` became `config: PathBuf` + `write: bool`.
+- Every live suite requires `KCC_LIVE_TARGET_CONFIG` with a `test_device = true` profile, read-only runs included (missing variable -> `live-skip:kcc_live_target_config-unset`). No owner exemption recorded in the overlay: rule (g) holds as written.
+- The gate's own connection keeps testkit `connect` (lan_policy + the hermetic loopback flag, the existing pattern); everything kcc builds for the suite (child `kcc.toml`, MCP registry, probe login) takes the admitted `[outbound]`. Twins carry `allow_loopback = true` plus `allowed_networks = ["198.51.100.0/24"]`.
+- T-09: the probe arms the fail-safe timer itself (after rollback/commit, because a probe write before the applier's finish would trip the workflow's own conflict check), removes the account on every path, disarms only after the removal succeeded, then requires the target-realm control (`ControlRefused` otherwise). Each probe parser line is preceded by a `show identification` read so a session ended by the password change is renewed (parser lines are never replayed after a 401).
+- live_presets `rehearse` returns errors instead of asserting on the child's exit codes, so a refused apply is a test-visible `Err`.
+
+## [2026-11-18] Todo 70 decisions (wt/r70)
+- X-02: kept `rustup run stable clippy-driver` in lint_completeness.rs (critic: mirrors the vendored core script; orchestrator prompt: drop the sub-claim). The "Alternatives resolved" row asks for sysroot clippy-driver; not done, flagged for the owner. Gates job gets `components: clippy, rust-docs`; lint-completeness is the last step.
+- X-04: container.yml's `gates` job runs only for `v*` tag refs (branch pushes/PRs already run ci.yml directly); `push` needs [gates, image], `image` does not wait for gates (keeps PR e2e fast). release.yml's `build` needs [gates, meta]; checksums/release wait transitively. Both caller jobs set `permissions: contents: read`; no secrets passed; ci.yml declares bare `workflow_call:`.
+- X-09: VERSION build-arg only on tag refs (non-tag images are never pushed). kcc.container/run.sh keep `:latest` (now always the last stable tag); no hard-coded 0.1.0 exists in them (only the Containerfile ARG default, which stays as the non-tag default).
+- X-13: `--check-missing` compares the fully rendered fresh profile (traces + runtime prologue + aarch64 equivalents) against the committed names, so a missing aarch64 equivalent also fails. Comparison code moved to new xtask/src/seccomp_check.rs (seccomp_gen.rs stays near the size ceiling).
+[todo 73] web-smoke.sh: chose --env-file on a 0600 file (umask 077 subshell) over `-e WEB_PASSWORD` valueless: the plan text names --env-file. Both files removed in cleanup.
+[todo 73] live-e2e.sh cleanup left as is (SIGINT+wait): it has no traced server, only `podman logs -f` children.
+
+## [2026-11-18] Todo 69 part A (r69a) decisions
+- Port race (T-07/F-30): no product change. `crates/kcc/tests/support/serve_port.rs` picks free loopback ports and retries a
+  start (max 5) whose stderr carries the OS's own address-in-use text (provoked at run time by a second bind on a held port),
+  so no wording is pinned. Fixtures write `listen_port` per attempt; base URLs come from the started process.
+- Signals: `kill` subprocesses replaced by `rustix::process::kill_process` (rustix `process` is already a unix dependency of kcc)
+  in `support/signal.rs`; non-unix returns `Unsupported` (the old `kill` command failed there too).
+- F-30 window: the "still running for 3 s" checks became an ordering check on log lines: disarm held until the drain line,
+  then at `jobs drained` (logged only after `wait_for_brackets`) the router must already have the disarm.
+- T-11: `disallowed-methods` in the root clippy.toml (Command::new/spawn/output/status, CommandExt::exec with allow-invalid);
+  kcc tests start processes only through `support/spawning.rs` (2 `#[expect(clippy::disallowed_methods)]` items).
+
+## [2026-11-18] Todo 69 part B (r69b) decisions
+- T-10: shared helpers live in the public `kcc_testkit::bracket` module (`Recovery` with the arm/disarm lines, `Fate` with `ALL` and `faults(recovery, work)`), documented in `crates/kcc-testkit/BEHAVIOUR.md` and a CHANGELOG "Changed" line. Web and MCP map every `Fate` with a wildcard arm that fails the test (the enum is `#[non_exhaustive]`), so a new fate breaks each surface's test until it has its row. The batch table stays per surface (critic: per-surface rows are justified).
+- T-12: binding alternative "compare the fields, no PartialEq derive": a `#[cfg(test)] impl TableQuery { fn parts() }` (the type had no inherent impl).
+- B-23 audit: the caller cannot see the rotation's I/O error (only `WriterUnavailable`), so the test asserts that structured variant and its doc names the setup instead of claiming a rotation failure.
+- E-23 random: `internal` stays allowed for change tools: `kcc_config_save` on an unregistered router answers `internal` (production defect, reported in issues.md, not fixed here).
+- A-21: the cookie-name pin in `kcc-i18n/src/locale.rs` is kept (critic); the source-grep test is deleted in favour of the `ConfigurationAnswer` type.
+
+## [2026-11-18] Todo 71
+- `cargo vet import isrg|zcash` resolved via the registry to divviup/libprio-rs and zcash/rust-ecosystem audits.toml URLs (written by cargo vet, not by hand).
+- `cargo vet import` already pruned the 25 newly covered root exemptions; the following `cargo vet prune` removed 0 more (307 -> 282). Nothing added, nothing certified.
+- xtask store: `cargo vet init` wrote 127 exemptions (init's own baseline), the six imports covered 24 -> 103 remain; prune removed 0. Same six imports as root.
+- getrandom 0.2.17 skip reason now says ring 0.17.14 is its only dependent (via rustls / rustls-webpki / rcgen), from `cargo tree -i getrandom@0.2.17`.
+- .taplo.toml also excludes xtask/supply-chain/** (cargo-vet owned, same as supply-chain/**).
+
+## Todos 69, 73, 71, 72 landed (gate fx45, master 04a8b590)
+- 69 is ONE commit (6280c5ea): 69a + 69b + the xtask expects (69x) + the other-crates expects (69y). The disallowed-methods lint is carried by 20 item-level expects: 2 in kcc/tests/support/spawning.rs, 8 in xtask, 10 in test files of kcc-app, kcc-rci, kcc-telemetry, kcc-web.
+- 71 added no exemption and pruned 25 that the isrg and zcash imports (with the four existing sets) cover; the xtask store has 103 exemptions left (127 after init, 24 crates covered by imports).
+- 72: profile-eq compares the root lint tables to the TOML block of the vendored guidelines; the root equals it today, no allowlist needed.
+- The four commits were gated as one tree (fx45); the intermediate trees of 69, 73, 71 were not separately gated (batched gates, disclosed).
+
+## Todo 75 landed (gate fx46, master 4f1d45d6)
+- sha3 0.12 drops the block-level API: HMAC-SHA3-512 now runs through hmac::SimpleHmac. I verified the output against Python's hmac/hashlib sha3_512 (64-byte and 10/100-byte keys, empty and multi-block messages) because production code and its two fixtures share the primitive, so the handshake tests alone could not catch a wrong block size.
+- rand 0.10.4 leaves the cooldown at 2026-11-18 13:54 UTC; a dry run after that shows `Updating rand` (F4 judges IS-13 against todo 75's evidence, as the plan says).
+- gate.sh wipes the main target above 45G; the next worker copies a cold target.
+
+## D-DENY (owner decision 2026-11-18, reply "ignore")
+- cargo deny failed on RUSTSEC-2026-0542 (humantime) and -0543 (chrono): unmaintained notices, "No safe upgrade". Both crates stay in the tree through upstream (rmcp-server-kit 3.21.1 depends on humantime and humantime-serde directly; chrono comes through rmcp 3.10.0, rmcp-server-kit, schemars and kcc-telemetry), so replacing our own uses cannot clear the advisory; the earlier recommendation to replace humantime was wrong and is withdrawn.
+- Decision: a narrow ignore for exactly these two ids in deny.toml and .cargo/audit.toml (the vendored guideline's own mechanism: name the advisory, why it does not apply, whether an upstream fix exists), with a review date; any other advisory still fails the gate. One extra commit outside the plan's todo list.
+
+## [2026-11-18] Undecided management verdict fails closed (worktree r77)
+- Seam: `ManagementVerdict::risk` in kcc-domain `interfaces/management.rs`. `Unknown` maps to `Risk::Management`
+  for every interface; the `Bridge0` name special case goes (the name parameter with it). `NotManagement` stays Write.
+- `classify_direct` is reordered so that "another interface owns kcc's pinned address" decides NotManagement even
+  when the target does not exist yet (a connection being created); otherwise every create in a decided topology
+  would turn into Management, which the evidence does not support.
+- Callers reviewed: every verdict reaches risk through `risk()` (wan `classified`/`plan_dhcp`/`plan_static_address`,
+  interfaces `plan_down`/`plan_security_level`, wifi `plan_up(false)`/`plan_schedule`, firewall `interfaces_risk`,
+  `classify_generated` for segments and VPN clients, kcc-web wan_password, kcc-web/kcc-mcp/kcc CLI through the
+  planners). Fixed `NotManagement` stays where the interface cannot carry kcc yet (`interfaces::plan_up` is always
+  Write; kcc-web `net_internet_create` plans DHCP on the connection it is creating). kcc-migrate has its own rule
+  (`management::may_carry`) that is not part of this seam: reported, not changed (another worker owns kcc-migrate).
+- Fixture strategy: measure first. Step 1: run the affected suites with no fixture change and list what flips.
+  Step 2: choose the smallest fixture that makes the normal deployment decided (an interface of the fake owns the
+  address kcc reaches it on) and keep explicit undecided fixtures in the new tests. Rejected up front: changing
+  `Bridge0`'s fake address to the loopback one (79 test references to its LAN address, DHCP subnet checks), and a
+  flag that restores Write (hides the behaviour).
+
+## [2026-11-18] Same-realm typed password and the stopped-run message (worktree r78)
+- Planner: a password typed for a router user (`new_passwords`) now wins over copying that user's `password md5|nt` hash even when source and target realms match. The `realm-differs` rule condition matches when the realms differ OR a password was typed for the line's user; the line then becomes `user <name> password plain <typed>` (Remap), exactly as for a foreign realm. Same fix in the preset classifier (`realm_password_user`). Without a typed password the same-realm hash is still copied; for kcc's own login that copy is still refused before anything is sent (`PasswordRequired`, preflight `validate_credentials`), unchanged.
+- Root of the misleading "rejected before anything was sent": after the router restored itself (`RolledBackByRouter`, `report.finished`), the CLI finish still called `Applier::rollback`, which refuses a finished run with `ApplyError::Validation` (exit 4). Fix at the shared seam: `finish::rollback` on a run that already failed and was restored (finished + failure) returns Ok without sending anything (the requested end state already holds and was proven by `wait_restored`). Covers CLI migrate apply, CLI preset run, MCP finish rollback and the Web rollback button in one place. A finished successful run (commit/keep) still refuses rollback.
+- CLI message: a run that failed during apply now reports its own failure headline plus a localized detail naming how many lines were applied before it stopped and that they were rolled back, with the next step (plan again). Exit code stays the failure's existing family (RolledBackByRouter/Stopped -> 6 router). New key `migrate-apply-stopped-after` in 6 locales.
+- Measured (r77, risk fix alone, default fake unchanged): 28 tests flip Write -> Management (kcc-domain 6, kcc-mcp 3,
+  kcc-web 13, kcc CLI 6): creating WAN/VPN/WireGuard connections, firewall bindings on ISP, ISP priority/password,
+  and an AP outside Bridge0. Cause: kcc reaches the fake on 127.0.0.1, which no fake interface owns.
+- Default fake cannot become "decided" cleanly: (1) Bridge0 owning the loopback address breaks LAN logic that reads
+  Bridge0's `show interface` address and mask (DHCP `interface_subnet`, segment rows, 79 test references);
+  (2) any other default owner flips kcc-migrate, whose tests assert the default fake is the "management interface
+  unknown" fixture (planner.rs, inventory.rs, apply_verification.rs) and whose planning then stops treating Bridge0
+  lines as management (giga_bridge_address_is_last_management_phase); it would also make the reviewer's undecided
+  scenario impossible with the stock `kcc-fake-router` binary.
+- Chosen: the default fake stays the explicit undecided fixture. A FakeRouterBuilder opt-in (`reached_directly`)
+  lists `Loopback0` owning 127.0.0.1, the address the fake is reached on, i.e. a router reached directly at an
+  address of its own. Shared normal-deployment fixtures opt in (kcc-domain support, kcc-web support, kcc CLI lab)
+  and the inline builders of the flipping MCP/CLI tests. An explicit `interface` override still replaces the map.
+- `classify_direct` also decides a target that is absent from `show interface` (a connection being created) as
+  NotManagement once another interface provably owns the pinned address; names are matched against the key, `id` and
+  `interface-name` without regard to case so an alias of the owner is still the owner (fails closed).
+
+## [2026-11-18] Stopped run whose rollback is still restarting (worktree r80)
+- One pure rule for both CLIs: `stopped_report(failure, applied, rollback_restarting) -> Failure` in `cli/migrate_apply.rs`
+  (replaces `stopped_failure`). Order: an armed fate keeps `apply_failure` unchanged; a rollback that came back
+  `RollbackRestarting` keeps the failure's exit family and headline but its detail is `migrate-rollback-saved` (the router
+  is restarting with its saved configuration, which may already include the migrated settings); only a proven rollback
+  says `migrate-apply-stopped-after` (count, "back on its saved configuration"). No new i18n key (smallest fix).
+- migrate: the Verification + rollback special case (`migrate-apply-restored`, "restored the startup configuration") is
+  also a proven-restore claim, so it applies only when the rollback was not restarting; otherwise `stopped_report`.
+- preset: `run.rs` remembers `RollbackRestarting` from the failure-path rollback and passes it to `stopped_report`.
+- Red: add `stopped_report` first as a pass-through to the old rule, write the unit tests, capture (b) failing; then fix.
+  Scratch CLI reproduction runs in a file copy of the tree (`/home/andrico/r80-scratch`), never in the worktree.
+
+## Final wave outcome (orchestrator, master 47801a5f)
+- 75/75 plan todos committed, one commit each (todo 8 has two, todo 69 is one merged commit). F1-F4 are NOT ticked: they wait for the owner's explicit okay.
+- Five extra commits outside the plan's todo list (plan edits stay checkbox-only): b457d99a (D-DENY, owner said "ignore"), 0dd10389 (B1), 299dfc04 (B2), ce2f70f5 (non-blocking findings to BACKLOG, one false cancel-safety comment), 47801a5f (B3, a regression of 299dfc04 found by round 2).
+- Convergence: round 1 found B1 and B2, round 2 found B3 (frozen list), the confirmation round (F1c2 + F2c on 47801a5f) approved with G1 fully green.
+- Known limits stay in docs/BACKLOG.md; not proven on hardware: everything listed in its "Not proven on hardware" section (all live suites are #[ignore]d and were never run against a real router).
