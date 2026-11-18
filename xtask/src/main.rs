@@ -26,6 +26,7 @@ mod seccomp_gen;
 mod seccomp_groups;
 mod tool_docs;
 mod tool_output;
+mod vendored_profile;
 
 use std::{
     io::{self, Write as _},

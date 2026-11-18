@@ -1,16 +1,20 @@
-//! `profile-eq`: the xtask `[lints]` tables must equal the root `[workspace.lints]`, and
-//! every workspace member must inherit them with `[lints] workspace = true`.
+//! `profile-eq`: the lint profile must be the same everywhere.
 //!
-//! Both manifests are parsed with `toml` and compared as data: a scalar level
-//! (`x = "deny"`) equals the table form (`x = { level = "deny" }`), and an absent
-//! `priority` equals `priority = 0`, as Cargo reads them.
+//! The root `[workspace.lints]` must equal the profile vendored in
+//! `docs/rust-guidelines/RUST_GUIDELINES.md`, the xtask `[lints]` tables must equal the
+//! root `[workspace.lints]`, and every workspace member must inherit them with
+//! `[lints] workspace = true`.
+//!
+//! The manifests and the vendored block are parsed with `toml` and compared as data: a
+//! scalar level (`x = "deny"`) equals the table form (`x = { level = "deny" }`), and an
+//! absent `priority` equals `priority = 0`, as Cargo reads them.
 
 use alloc::collections::BTreeMap;
 use std::{io, path::Path};
 
 use toml::{Table, Value};
 
-use crate::{Verdict, failure::GateError, lint_inheritance, manifest};
+use crate::{Verdict, failure::GateError, lint_inheritance, manifest, vendored_profile};
 
 /// One lint's level and priority, normalised from either manifest form.
 type Setting = (Value, Value);
@@ -18,11 +22,13 @@ type Setting = (Value, Value);
 /// Lint settings keyed by `(tool table, lint name)`.
 type Profile = BTreeMap<(String, String), Setting>;
 
-/// Runs the gate against `<root>/Cargo.toml` and `<root>/xtask/Cargo.toml`.
+/// Runs the gate against `<root>/Cargo.toml`, `<root>/xtask/Cargo.toml` and the vendored
+/// guidelines.
 ///
 /// # Errors
 ///
-/// Returns a [`GateError`] when a manifest cannot be read or lacks its lint table.
+/// Returns a [`GateError`] when a manifest cannot be read or lacks its lint table, or when
+/// the vendored guidelines have no readable profile block.
 pub(crate) fn run<W>(root: &Path, out: &mut W) -> Result<Verdict, GateError>
 where
     W: io::Write,
@@ -33,7 +39,9 @@ where
     let xtask_doc = manifest::read(&xtask_path)?;
     let expected = manifest::table_at(&root_doc, &manifest::WORKSPACE_LINTS, &root_path)?;
     let actual = manifest::table_at(&xtask_doc, &manifest::PACKAGE_LINTS, &xtask_path)?;
-    let mut diffs = compare(expected, actual);
+    let vendored = vendored_profile::read(root)?;
+    let mut diffs = compare(&vendored, expected, ("vendored profile", "root"));
+    diffs.extend(compare(expected, actual, ("root", "xtask")));
     diffs.extend(lint_inheritance::violations(root, &root_doc)?);
     for diff in &diffs {
         writeln!(out, "profile-eq: {diff}")?;
@@ -41,7 +49,8 @@ where
     if diffs.is_empty() {
         writeln!(
             out,
-            "profile-eq: xtask/Cargo.toml [lints] equals Cargo.toml [workspace.lints], \
+            "profile-eq: Cargo.toml [workspace.lints] equals the vendored profile, \
+             xtask/Cargo.toml [lints] equals Cargo.toml [workspace.lints], \
              and every member sets [lints] workspace = true"
         )?;
         Ok(Verdict::Pass)
@@ -52,15 +61,19 @@ where
 }
 
 /// Describes every difference between two lint tables, sorted by table and lint.
-pub(crate) fn compare(expected: &Table, actual: &Table) -> Vec<String> {
+///
+/// `names` are the labels of `(expected, actual)` in the report.
+pub(crate) fn compare(expected: &Table, actual: &Table, names: (&str, &str)) -> Vec<String> {
+    let (left, right) = names;
+    let pair = format!("{left} vs {right}");
     let want = normalise(expected);
     let got = normalise(actual);
     let mut diffs = Vec::new();
     for (key, setting) in &want {
         match got.get(key) {
-            None => diffs.push(format!("{}.{}: missing in xtask", key.0, key.1)),
+            None => diffs.push(format!("{pair}: {}.{}: missing in {right}", key.0, key.1)),
             Some(other) if other != setting => diffs.push(format!(
-                "{}.{}: root = {} xtask = {}",
+                "{pair}: {}.{}: {left} = {} {right} = {}",
                 key.0,
                 key.1,
                 describe(setting),
@@ -72,7 +85,7 @@ pub(crate) fn compare(expected: &Table, actual: &Table) -> Vec<String> {
     for (key, setting) in &got {
         if !want.contains_key(key) {
             diffs.push(format!(
-                "{}.{}: extra in xtask ({})",
+                "{pair}: {}.{}: extra in {right} ({})",
                 key.0,
                 key.1,
                 describe(setting)
@@ -127,7 +140,7 @@ fn describe(setting: &Setting) -> String {
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 mod tests {
     use core::error::Error;
-    use std::fs;
+    use std::{fs, path::Path};
 
     use tempfile::TempDir;
 
@@ -146,18 +159,51 @@ mod tests {
         [lints.rustdoc]\nall = { level = \"deny\", priority = -1 }\n\n\
         [lints.clippy]\nall = { level = \"deny\", priority = -1 }\nunwrap_used = \"deny\"\n";
 
-    /// Writes the fixture pair into a temp root and runs the gate.
+    /// Guidelines fixture: an unrelated TOML block, then the block with the profile.
+    const GUIDELINES: &str = "# Guidelines\n\n```toml\n[profile.release]\nlto = true\n```\n\n\
+        ```toml\n[workspace.lints.rust]\nunused = { level = \"deny\", priority = -1 }\nunsafe_code = \"forbid\"\n\n\
+        [workspace.lints.rustdoc]\nall = { level = \"deny\", priority = -1 }\n\n\
+        [workspace.lints.clippy]\nall = { level = \"deny\", priority = -1 }\nunwrap_used = \"deny\"\n```\n";
+
+    /// Writes the three fixture files into `root`.
+    fn write_fixture(
+        root: &Path,
+        root_manifest: &str,
+        xtask_manifest: &str,
+        guidelines: &str,
+    ) -> Result<(), Box<dyn Error>> {
+        fs::create_dir_all(root.join("xtask"))?;
+        fs::create_dir_all(root.join("docs").join("rust-guidelines"))?;
+        fs::write(root.join("Cargo.toml"), root_manifest)?;
+        fs::write(root.join("xtask").join("Cargo.toml"), xtask_manifest)?;
+        fs::write(
+            root.join("docs")
+                .join("rust-guidelines")
+                .join("RUST_GUIDELINES.md"),
+            guidelines,
+        )?;
+        Ok(())
+    }
+
+    /// Writes the fixtures into a temp root and runs the gate.
+    fn gate_with(
+        root_manifest: &str,
+        xtask_manifest: &str,
+        guidelines: &str,
+    ) -> Result<(Verdict, String), Box<dyn Error>> {
+        let dir = TempDir::new()?;
+        write_fixture(dir.path(), root_manifest, xtask_manifest, guidelines)?;
+        let mut out = Vec::new();
+        let verdict = run(dir.path(), &mut out)?;
+        Ok((verdict, String::from_utf8(out)?))
+    }
+
+    /// Runs the gate with the matching guidelines fixture.
     fn gate(
         root_manifest: &str,
         xtask_manifest: &str,
     ) -> Result<(Verdict, String), Box<dyn Error>> {
-        let dir = TempDir::new()?;
-        fs::create_dir_all(dir.path().join("xtask"))?;
-        fs::write(dir.path().join("Cargo.toml"), root_manifest)?;
-        fs::write(dir.path().join("xtask").join("Cargo.toml"), xtask_manifest)?;
-        let mut out = Vec::new();
-        let verdict = run(dir.path(), &mut out)?;
-        Ok((verdict, String::from_utf8(out)?))
+        gate_with(root_manifest, xtask_manifest, GUIDELINES)
     }
 
     /// Identical tables pass, and a scalar level equals the `{ level }` table form.
@@ -220,10 +266,8 @@ mod tests {
     /// (`(name, [lints] table body)`).
     fn gate_members(members: &[(&str, &str)]) -> Result<(Verdict, String), Box<dyn Error>> {
         let dir = TempDir::new()?;
-        fs::create_dir_all(dir.path().join("xtask"))?;
         let root = ROOT.replace("members = []", "members = [\"crates/*\"]");
-        fs::write(dir.path().join("Cargo.toml"), root)?;
-        fs::write(dir.path().join("xtask").join("Cargo.toml"), XTASK)?;
+        write_fixture(dir.path(), &root, XTASK, GUIDELINES)?;
         for (name, lints) in members {
             let crate_dir = dir.path().join("crates").join(name);
             fs::create_dir_all(&crate_dir)?;
@@ -264,6 +308,80 @@ mod tests {
         );
         assert!(!report.contains("crates/good/"), "{report}");
         Ok(())
+    }
+
+    /// X-05: a level changed identically in root and xtask still fails, because
+    /// the vendored profile keeps the old level; the lint is named.
+    #[test]
+    fn level_changed_identically_in_root_and_xtask_fails() -> Result<(), Box<dyn Error>> {
+        let warn = |text: &str| text.replace("unwrap_used = \"deny\"", "unwrap_used = \"warn\"");
+        let (verdict, report) = gate(&warn(ROOT), &warn(XTASK))?;
+        assert_eq!(verdict, Verdict::Fail, "{report}");
+        assert!(
+            report.contains("vendored profile vs root: clippy.unwrap_used: vendored profile = "),
+            "{report}"
+        );
+        assert!(!report.contains("root vs xtask"), "{report}");
+        Ok(())
+    }
+
+    /// A changed priority in the root against the vendored block fails.
+    #[test]
+    fn root_priority_differs_from_vendored() -> Result<(), Box<dyn Error>> {
+        let (verdict, report) = gate(
+            &ROOT.replace(
+                "unused = { level = \"deny\", priority = -1 }",
+                "unused = \"deny\"",
+            ),
+            &XTASK.replace(
+                "unused = { level = \"deny\", priority = -1 }",
+                "unused = \"deny\"",
+            ),
+        )?;
+        assert_eq!(verdict, Verdict::Fail, "{report}");
+        assert!(
+            report.contains("vendored profile vs root: rust.unused"),
+            "{report}"
+        );
+        Ok(())
+    }
+
+    /// A lint missing from the root and one extra in the root are both reported.
+    #[test]
+    fn root_missing_and_extra_lints_fail_against_vendored() -> Result<(), Box<dyn Error>> {
+        let swap =
+            |text: &str| text.replace("unsafe_code = \"forbid\"", "unused_results = \"deny\"");
+        let (verdict, report) = gate(&swap(ROOT), &swap(XTASK))?;
+        assert_eq!(verdict, Verdict::Fail, "{report}");
+        assert!(
+            report.contains("vendored profile vs root: rust.unsafe_code: missing in root"),
+            "{report}"
+        );
+        assert!(
+            report.contains("vendored profile vs root: rust.unused_results: extra in root"),
+            "{report}"
+        );
+        Ok(())
+    }
+
+    /// Guidelines without a TOML block holding `[workspace.lints.rust]` error out.
+    #[test]
+    fn guidelines_without_profile_block_is_an_error() {
+        let text = "# Guidelines\n\n```toml\n[profile.release]\nlto = true\n```\n";
+        assert!(
+            gate_with(ROOT, XTASK, text).is_err(),
+            "no profile block must error"
+        );
+    }
+
+    /// A profile block that is not valid TOML is an error, not a pass.
+    #[test]
+    fn invalid_profile_block_is_an_error() {
+        let text = "```toml\n[workspace.lints.rust]\nunused = = deny\n```\n";
+        assert!(
+            gate_with(ROOT, XTASK, text).is_err(),
+            "invalid TOML must error"
+        );
     }
 
     /// A manifest without a lint table is an error, not a pass.
