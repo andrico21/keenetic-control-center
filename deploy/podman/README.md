@@ -44,7 +44,7 @@ The `[web] public_url` host is the SNI `kcc healthcheck` sends, so the certifica
 carry it. kcc derives its browser Origin allowlist from that URL and the listener;
 `[server] allowed_origins` adds any other trusted proxy origins. The unit's `HealthCmd`
 uses the exec (JSON) form: the plain-string form becomes `CMD-SHELL`, which needs
-`/bin/sh`, and distroless has no shell. The unit's `StopTimeout=80` covers the server shutdown (30 s) plus the bracket grace (10 s), job drain (30 s), and audit flush (5 s); keep it at least this value.
+`/bin/sh`, and distroless has no shell. The unit's `StopTimeout=80` covers the server shutdown (30 s) plus the bracket grace (10 s), job drain (30 s), audit flush (5 s) and a 5 s margin; keep it at least this value.
 
 ### Secrets
 
@@ -152,8 +152,13 @@ new profile with the container run under [Verification](#verification).
 (`container.yml`, amd64): it fails only when a traced syscall is missing from the
 committed profile. Names only the profile allows pass, because they vary between traces.
 
-`deploy/podman/e2e.sh` drives: startup including the privilege floor and the root
-refusal, the TLS handshake, Web login, the dashboard SSE stream, a domain read, write
+`deploy/podman/e2e.sh --native <kcc> [--trace-dir <dir>]` or `--container [--image <ref>]
+[--seccomp <profile.json>]` runs named steps. Each step runs with `set -e`, so a command
+that fails in the middle of a step fails it: the script prints `FAIL <step>` and its log and
+exits 1 at the first failure, or after every step with `--keep-going`. kcc refuses a
+password file others can read, so the script writes the web user's password file with mode
+0600 and, in container mode, delivers it as a Podman secret. It drives: startup including
+the privilege floor and the root refusal, the TLS handshake, Web login, the dashboard SSE stream, a domain read, write
 and save against a fake router, a migration plan/apply/commit between two fake
 routers, a backup download, the `/metrics` scrape, log forwarding to fake Loki and fake
 Elasticsearch, MCP over HTTP (`tools/list` and one call), `kcc healthcheck`, router URLs
@@ -217,7 +222,10 @@ syscall becomes a reportable error, not an instant kill without a diagnosis.
 ## Image signing
 
 Release images are pushed to `ghcr.io/andrico21/keenetic-control-center` by
-`.github/workflows/container.yml` on `v*` tags. They are not signed yet; until they are,
+`.github/workflows/container.yml` on `v*` tags, after every CI gate passes. A prerelease
+tag (one with a `-`, such as `v0.2.0-rc.1`) is published only under its own tag and does
+not move `:latest`, so a unit or `run.sh` on `:latest` stays on the last stable release.
+The image's `org.opencontainers.image.version` label carries the tag's version. They are not signed yet; until they are,
 pin the image by digest (`Image=ghcr.io/...@sha256:...`) after verifying it, or build
 it yourself from a tagged checkout. When signing is added (`cosign sign --yes` with the
 workflow's OIDC identity), verify with `cosign verify` and enforce it with a

@@ -106,7 +106,7 @@ kcc preset plan lan --router home --mode mirror
 Copying straight from one router to another, then rolling back:
 
 ```text
-kcc copy --from home --to lab --groups dns-secure --finish rollback
+kcc copy --from home --to lab --groups dns-secure --finish rollback --confirm-destructive lab
 ```
 
 ## Migration
@@ -222,10 +222,10 @@ remove that password is refused.
   admin password first.
 - If a step before the first migrated line fails (accepting an agreement, installing a
   component), kcc disarms the timer again; when it can't confirm the disarm, it reports
-  that the timer may still be armed. Installing components reboots the target onto its
+  that the timer may still be armed (MCP `management_not_sent_fail_safe_armed`). Installing components reboots the target onto its
   saved configuration, which clears the timer, and the run ends asking for a fresh plan.
-- Lines are sent one at a time, so a critical rejection stops the run before later
-  lines execute.
+- Lines are sent one at a time, so a rejected line stops the run before later lines
+  execute.
 - On failure, or Stop, kcc rolls back. If kcc stops or loses the router, the timer
   restores the saved configuration by itself.
 - Encrypted (`ns3`) secrets are sent as they are; only an explicit rejection makes kcc

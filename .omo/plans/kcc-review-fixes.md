@@ -1494,7 +1494,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | build(deps): every dependency at the latest version past the cooldown
   Recommended task executor category: deep-low - correctness reasoning across files, settled by reading the code
 
-- [ ] 74. Docs, changelog, backlog and the finding-coverage ledger
+- [x] 74. Docs, changelog, backlog and the finding-coverage ledger
   What to do / Must NOT do: Sweep README, docs/{SECURITY,PRIVACY,CONFIG,MONITORING,ARCHITECTURE,USER_GUIDE,MIGRATION}.md and deploy/podman/README.md against the delivered behaviour; audit that every behaviour-changing todo added its CHANGELOG `Unreleased` line (each todo owns its own line; add only what is missing); remove closed items from docs/BACKLOG.md and add the new backlog lines the todos produced; write the committed ledger `docs/review-ledger-2026-11-15.md` (`.omo/evidence/` is git-ignored) as a table `| finding id | commit | note |` mapping EVERY finding id from `.omo/reviews/kcc-full-review-2026-11-15/VALIDATED.md` (and N-items, H4a) to the commit that closed it, and run the coverage check command in this todo's acceptance. (No review finding; the scope is stated above.)
   Must NOT: change unrelated behaviour, add a crate that is not already in `[workspace.dependencies]` or `Cargo.lock`, weaken a security control, change the audit entry format or hash rule, or touch files owned by another open todo of the same wave beyond what this todo needs; keep routes, MCP tool names/schemas and CLI flags except where a finding above changes them on purpose (name each such change in the commit body).
   Closes: GAP-14

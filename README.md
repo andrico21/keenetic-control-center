@@ -58,7 +58,8 @@ secrets, volumes, the Quadlet unit and the seccomp profile.
 
 **Privilege floor.** kcc refuses to run as root, under sudo or elevated on Windows: it
 exits with code 77 before doing anything else. On Linux it also drops every capability
-and sets `no_new_privs`. Run it as an ordinary user.
+and sets `no_new_privs`. A process whose only root identity is group ID 0 (as in some
+container platforms) starts with a warning. Run it as an ordinary user.
 
 ## Quick start
 
@@ -137,7 +138,8 @@ kcc audit verify
 ```
 
 Global options: `--router <id>` picks the router when more than one is configured,
-`--json` prints one JSON document, `--lang` picks the output language. Changes that
+`--json` prints one JSON document, `--lang` picks the output language (`en`, `ru`, `uk`,
+`de`, `be` or `kk`; without it `KCC_LANG`, `LC_ALL` or `LANG`, else English). Changes that
 can cut kcc off from the router need `--yes`; destructive ones need
 `--confirm-destructive <router-id>`. Settings copy and migration commands are in
 [docs/MIGRATION.md](docs/MIGRATION.md).
@@ -217,7 +219,9 @@ described in [docs/PRIVACY.md](docs/PRIVACY.md).
   explicit step.
 - **Secrets stay out of output.** Reports, logs, audit entries and MCP results carry
   redacted values; revealing a secret needs the `RevealSecrets` permission and is
-  audited.
+  audited. Router answers shown by `kcc show`, `kcc rci`, the MCP raw read tools and the
+  Web command explorer are redacted the same way unless the role holds `RevealSecrets` on
+  that router.
 - **Managed router credentials are sealed.** Every router password, login token and
   read-only polling password given to the Web UI or to `kcc router add/edit` (from a
   file, `KCC_PASSWORD` or a prompt) is encrypted under the master key in

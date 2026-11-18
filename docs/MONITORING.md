@@ -64,7 +64,7 @@ still disarms the timer and reports, or reports that the timer stays armed. Afte
 listener has stopped, on either path, `kcc serve` waits up to 10 more seconds for such
 requests, as `kcc mcp stdio` does once its input closes, and logs `requests still
 closing a router fail-safe bracket at exit` with their number if any remain; their
-routers then roll back on their own timers. Set the Quadlet `StopTimeout` to at least `server.shutdown_timeout` plus 45 seconds: the bracket grace period (10 s), the job drain (30 s), and the audit flush wait (5 s). This is 80 s as shipped.
+routers then roll back on their own timers. Set the Quadlet `StopTimeout` to at least `server.shutdown_timeout` plus 45 seconds: the bracket grace period (10 s), the job drain (30 s), and the audit flush wait (5 s). The unit ships 80 s: that is the default `shutdown_timeout` of 30 s plus 45 s and a 5 s margin.
 
 Example scrape job:
 

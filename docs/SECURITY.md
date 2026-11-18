@@ -68,8 +68,11 @@ either.
   once and never stored).
 - **Operator-managed files**: `password_file`, `read_password_file` and `token_file`
   paths of `kcc.toml` routers remain files controlled by the operator and are read
-  unchanged; kcc does not copy them into state, and a migration that changes such a
-  router's password rewrites its `password_file` (mode 0600). CLI `--password-file`,
+  unchanged; kcc does not copy them into state. A migration that changes such a
+  router's password rewrites its `password_file` (mode 0600) while the router stays at
+  its address; one that would move it to another address is refused before anything is
+  written, because the new address could be kept in memory only. Set the `url` in
+  `kcc.toml` and reload instead. CLI `--password-file`,
   `--token-file` and `--read-password-file` given to `kcc router add/edit` are input
   only: the contents are sealed and the file is never referenced again. A Web UI or CLI
   router stored by an older kcc that still names an external password file keeps
@@ -172,6 +175,9 @@ either.
   (15 minutes). Failed logins answer with one generic message, HTTP 422, in the sign-in
   page's language. An unknown name, a disabled account and a locked one run the same
   Argon2id work as a wrong password, so the answer's timing does not tell them apart.
+  A username that breaks the account name rule (1 to 64 bytes of `a-z`, `0-9`, `.`, `_`,
+  `-`) is refused like an unknown name; its audit entry names the fixed
+  actor `<invalid-username>`, so a failed login cannot write submitted text to the log.
 - A login checks the password without holding the `users.json` lock and writes the file
   only when the account's failure count or lockout changes; simultaneous failed logins
   each count once. At most one Argon2id run per CPU kcc may use goes on at a time (each
@@ -493,7 +499,8 @@ the capability bounding set was cleared, and the bounding mask that remains.
 The OCI image ([deploy/podman/README.md](../deploy/podman/README.md)) runs a static
 binary on a distroless base as UID 65532 with a read-only root file system, no
 capabilities, `no-new-privileges`, memory and process limits, and a seccomp allowlist
-traced from the binary's real system calls (`deploy/podman/seccomp-kcc.json`). The
+traced from the binary's real system calls (`deploy/podman/seccomp-kcc.json`), which
+names only the `x86_64` and `aarch64` system call ABIs. The
 Prometheus listener is unauthenticated and stays on loopback unless
 `[metrics] allow_non_loopback = true`.
 

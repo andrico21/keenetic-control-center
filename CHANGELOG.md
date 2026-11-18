@@ -136,6 +136,35 @@ The first release, `0.1.0`, is in preparation and contains:
 - **`cargo xtask seccomp gen --check-missing`** fails only when a freshly traced syscall
   is missing from the committed profile; CI's container drift check now runs it and
   blocks instead of only reporting.
+- **Every live suite needs a test-device profile.** Each `live_*` suite, read-only ones
+  included, requires `KCC_LIVE_TARGET_CONFIG`: a `kcc.toml` whose profile for the router
+  has `test_device = true` and whose `[outbound] allowed_networks` admits it. The profile
+  is checked before the router is contacted, and `KCC_LIVE_ALLOW_SERIAL` now covers every
+  router a suite contacts, the migration source included. A missing variable still logs
+  `live-skip:<reason>` and returns (`AGENTS.md`, "Live env contract").
+- **`cargo xtask cancel-safety` covers every async function.** It checked only fully
+  `pub` ones; it now fails for any async function without a `// cancel-safe:` or
+  `// NOT cancel-safe:` comment, whatever its visibility. A function that can reach a
+  router sign-in is NOT cancel-safe, because a cancelled sign-in can leave an orphaned
+  router session, so router reads are marked that way.
+- **`cargo xtask assets-check` rejects every way around HTML escaping.** The `safe`
+  filter, `{% filter safe %}`, the `none` escaper and the safe-HTML marker outside
+  `markup.rs` and `lib.rs` fail the gate. Pre-rendered HTML travels as a child template
+  marked with `fragment!` or as `markup::Rendered`, never as a `String`.
+- **`cargo xtask profile-eq` compares lint levels with the vendored profile.** The root
+  `[workspace.lints]` must equal the `[workspace.lints.rust]` block of
+  `docs/rust-guidelines/RUST_GUIDELINES.md`, levels and priorities included, so a lint
+  lowered from `deny` to `warn` fails the gate; a missing block is an error.
+- **Dependency vetting uses imported audits.** `cargo vet` imports the audits of
+  bytecode-alliance, embark-studios, google, mozilla, ISRG and Zcash, `xtask/` has its own
+  `supply-chain/` checked by the CI xtask job, and a bump adds an exemption only for a
+  crate no imported set covers (`CONTRIBUTING.md`, "Dependency bumps"). `kcc-rci` uses
+  `getrandom` 0.4.
+- **The end-to-end scripts fail on any error.** Each step of `deploy/podman/e2e.sh` and
+  `live-e2e.sh` runs with `set -e`, so a failure in the middle of a step fails it, and
+  the clean-up stops the processes it started instead of hanging.
+  `scripts/live/web-smoke.sh` passes the password through a 0600 `--env-file`, not a
+  command-line argument.
 - **`kcc.toml` router profiles follow the same rules as the others.** A `[[routers]]`
   `url` must be an origin (no path, query or fragment) and is refused by `kcc.toml`
   validation with the field named, where it was accepted and then failed when the
@@ -1254,6 +1283,8 @@ The first release, `0.1.0`, is in preparation and contains:
   that still names an external password file keeps working and is warned about once.
 - **Fix router names**: a `[[routers]] name` or `[logs] routers` entry with uppercase
   letters, dots or more than 32 characters now fails config validation; rename it.
+- **Router `url` values in `kcc.toml` must be origins**: a `[[routers]] url` with a path,
+  query or fragment now fails config validation; remove the extra part.
 - **Copy the new Quadlet unit** (`StopTimeout=80`) when you deploy with Podman.
 - **Machine consumers**: new MCP error codes `router_mode_unknown`,
   `management_not_sent_fail_safe_armed`, `management_saved_fail_safe_armed` and

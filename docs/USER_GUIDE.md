@@ -20,13 +20,14 @@ your role: pages and buttons you have no permission for are hidden or answer
 - **Risky changes.** Changes that can cut kcc off from the router (disabling or
   re-zoning the interface or access point kcc reaches the router through, its Wi-Fi
   schedule, firewall rules on it, the MTU, identity, password, "connect via" or default
-  route of the internet connection kcc reaches the router through, releasing the KeenDNS
-  name kcc uses) ask first on every
+  route of the internet connection kcc reaches the router through, creating a segment on
+  the interface or access point kcc uses, releasing the KeenDNS name kcc uses) ask first on every
   page and run under the router's fail-safe timer, which the change's own permission
   authorizes; nothing is sent before you confirm. Rolling the timer back yourself needs
   the Destructive permission. While a fail-safe timer you (or a migration) armed is
   running, a risky change is refused with nothing sent, so that it neither replaces
-  nor stops that timer: commit or disarm it first. Deletions ask for confirmation; the most dangerous ones
+  nor stops that timer: commit or disarm it first. A router that reports neither a system
+  mode kcc knows nor a fail-safe timer refuses risky changes before anything is sent. Deletions ask for confirmation; the most dangerous ones
   need the router or object name typed, and a destructive change from any page asks for
   the router name unless the page already asked for a name.
 - **Tables** sort by a column header, filter with the search field and page at the
@@ -36,8 +37,8 @@ your role: pages and buttons you have no permission for are hidden or answer
   never shows the stored one. Leaving both fields empty keeps the stored value and sends
   nothing. The new value goes only to the router, never into a page, a toast, the audit
   log (it records field names only) or the server log, and kcc verifies it by reading
-  back that the router reports a stored value of a plausible length, never the value
-  itself. Reading a stored secret is a separate Reveal action where a page offers one:
+  back that the router stores a value, never the value itself (for router account, PPP
+  and Wi-Fi passwords it also requires the stored value to have changed, see Network). Reading a stored secret is a separate Reveal action where a page offers one:
   it needs the RevealSecrets permission, is audited whether allowed or not, and shows
   the value only in its own dialog.
 
@@ -76,8 +77,8 @@ can be deleted afterwards. `KCC_PASSWORD` supplies one secret per command: a com
 that needs two secrets without files is refused. An edit seals its new secrets only for
 a valid profile, and an edit that fails keeps the previous sealed secrets. Changing a router's address, login or certificate pin needs
 its password or token again (`--new-password` or `--new-token`) and drops the read-only
-login unless it is given again. Only `password_file` paths in `kcc.toml` stay under
-operator control and are read in place. Back up the master
+login unless it is given again. Only the `password_file`, `token_file` and `read_password_file` paths in `kcc.toml`
+stay under operator control and are read in place. Back up the master
 key selected by `KCC_MASTER_KEY_FILE` separately from state; without it, restored sealed
 credentials and encrypted backups cannot be opened.
 
@@ -238,7 +239,9 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
   change, tag change and deletion of a router account. When the router cannot be read
   to check whether an account, component, medium or KeenDNS name exists, the change
   answers that the router did not answer and sends nothing.
-- **Services**: turn router services on or off.
+- **Services**: turn router services on or off. kcc refuses to move, close or redirect the
+  HTTP or HTTPS listener that its own router address uses; change it on the router, then
+  the address in kcc.
 - **Components**: installed components; check for updates, queue installs or
   removals, commit (a background job that reboots the router). The job completes only
   after the router went down and came back with every queued change in place, and fails
@@ -252,7 +255,8 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
   all viewers of a router share one reader that asks the router at most every 5 seconds
   and stops when the last viewer leaves.
 - **Diagnostics**: ping and traceroute as background jobs with live output and Stop; a
-  running diagnostic asks the router for its progress every half second.
+  running diagnostic asks the router for its progress every half second. Only the user who
+  started a job, or an admin, can follow or stop it.
 
 ## Configuration and backups
 
@@ -341,13 +345,15 @@ show secrets as `********` unless you hold RevealSecrets on that router. On the 
   (sign-ins, account changes) are shown only to a role scoped to all routers.
 - **Server**: the running configuration summary and catalog versions.
 
-Your own account page (`/ui/account`) changes your password and language. After
+Your own account page (`/ui/account`) changes your password and language; a password
+change signs your other sessions out and keeps the one you made it in. After
 `kcc admin init`, or an administrative reset, the first sign-in must change the
 password.
 
 Changes made with the CLI (`kcc apikey revoke`, `kcc user disable`, `kcc user passwd`)
 reach a running `kcc serve` within about 2 seconds: a revoked key is refused, and the
-account's signed-in sessions end when it is disabled or its password is reset.
+account's signed-in sessions end when it is disabled or its password is reset; their open
+live views end within 5 seconds after that.
 
 ## Metrics
 

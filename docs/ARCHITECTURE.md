@@ -10,7 +10,7 @@ the command catalog and the test tiers.
 |---|---|
 | `kcc-rci` | RCI HTTP client: outbound policy and DNS pinning, TLS verification and pinning, ndw2/ndw4/digest sign-in, sessions, background commands, firmware and capability detection |
 | `kcc-catalog` | the command catalog per firmware line and model, request and CLI-line validation |
-| `kcc-config` | router configuration text: parsing, flattening, `ns3` secrets, redaction |
+| `kcc-config` | router configuration text: parsing, flattening, `ns3` secrets, and the one secret masker (`mask.rs`) that the Web UI, MCP and CLI all use to redact answers |
 | `kcc-domain` | curated domains (system, interfaces, Wi-Fi, clients, DHCP, segments, routing, policies, NAT, firewall, DNS, VPN, services, components, ...): typed reads and planners for writes |
 | `kcc-migrate` | migration sources, target inventory, classification rules, planner, applier, presets |
 | `kcc-app` | `kcc.toml`, the state store, encryption, accounts, API keys, roles, router registry, change workflow, backups, jobs, audit log, shared poller |
@@ -40,7 +40,10 @@ kcc <command> ──┴──────── CLI ──────┤
 
 - `kcc serve` runs one HTTP listener (rmcp-server-kit) that carries MCP on `/mcp`, the
   Web UI under `/ui`, and `/healthz`, `/readyz`, `/version`. It holds the state
-  directory's server lock, so only one server runs per state directory.
+  directory's server lock, so only one server runs per state directory. A state watcher
+  (`crates/kcc/src/state_watch.rs`) checks `api_keys.json` and `users.json` every 2 s, so a
+  key revoked or an account changed by the CLI reaches the running server without a
+  `SIGHUP` ([SECURITY.md](SECURITY.md)).
 - `kcc mcp stdio` and CLI runs share the same state directory without that lock;
   per-file locks, per-router leases and the audit append lock keep them consistent.
 - One shared **poller** issues all periodic router reads. Web live views and the

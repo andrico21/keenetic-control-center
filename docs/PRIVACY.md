@@ -28,10 +28,14 @@ directories 0700 and files 0600 on Unix. "Encrypted" means sealed with the maste
 Audit pruning never splits a rotated file and removes only the oldest run of fully expired
 files. The first retained entry keeps the original
 `prev_hash` of the deleted prefix as an external chain anchor, and `kcc audit verify`
-reports that anchor while checking every retained entry. Deleting the oldest rotated files by hand is indistinguishable from retention
+reports that anchor while checking every retained entry. A last audit line cut short by
+a crash is moved, unchanged, to `audit.jsonl.torn-<unix-ts>` in the state directory (owner-only,
+kept until you delete it), and the audit log records its name and size, never its content.
+Deleting the oldest rotated files by hand is indistinguishable from retention
 pruning: the chain proves the integrity of what is kept, not that nothing older ever existed.
 
-In memory only, lost on restart: Web sessions, the live traffic history (30 minutes),
+In memory only, lost on restart: Web sessions (each holds a SHA-256 fingerprint of its
+account's stored password hash, which lets kcc end it when the password changes), the live traffic history (30 minutes),
 poller caches, Web UI preset drafts, MCP migration plans and transient MCP presets.
 
 ## What kcc never stores

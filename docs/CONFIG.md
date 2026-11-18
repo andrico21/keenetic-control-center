@@ -230,7 +230,7 @@ with `kcc router add` or the Web UI, which live in the state directory.
 | `token_file` | path | unset | file holding an API token |
 | `auth` | string | `"auto"` | `auto`, `ndw2`, `ndw4`, `token` or `digest` |
 | `tls` | string or table | `"verify"` | `"verify"` against trusted roots, or `{ pin_sha256 = "<64 hex digits>" }`, the SHA-256 of the certificate's public key |
-| `test_device` | bool | `false` | live test suites may read and change this router |
+| `test_device` | bool | `false` | live test suites, read-only ones included, contact only a router with this set |
 | `tags` | list of strings | `[]` | free-form labels |
 
 `auth` selects the sign-in scheme of the router: `auto` takes ndw4 when the router
@@ -264,7 +264,7 @@ Policy) and `extra_route_rate_limit` (600 per minute for the Web UI).
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `listen_addr` | IP literal | `"127.0.0.1"` | listen address; IPv6 in brackets |
-| `listen_port` | integer | `8443` | listen port |
+| `listen_port` | integer | `8443` | listen port, 1024 or more |
 | `tls_cert_path` | path | unset | PEM certificate; with `tls_key_path` enables TLS |
 | `tls_key_path` | path | unset | PEM private key |
 | `tls_handshake_timeout` | duration | `"10s"` | per-handshake deadline |
