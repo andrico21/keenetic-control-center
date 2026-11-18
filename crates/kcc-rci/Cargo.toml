@@ -10,7 +10,7 @@ publish = false
 argon2 = { workspace = true, features = ["alloc", "zeroize"] }
 base64 = { workspace = true, features = ["std", "simd-unsafe"] }
 bytes = "1.12.1"
-getrandom = "0.2.17"
+getrandom = "0.4.3"
 hmac = { workspace = true, features = ["zeroize"] }
 md-5 = { workspace = true }
 reqwest = { workspace = true, features = ["json", "multipart", "rustls-no-provider"] }

@@ -85,7 +85,7 @@ impl Exchange<'_> {
         let url = format!("{}{}", self.origin, challenge.endpoint);
         let mut pending = parse_set_cookie(initial.headers(), None)?.map(Session::from);
         let mut nonce_bytes = [0_u8; 16];
-        getrandom::getrandom(&mut nonce_bytes).map_err(|_error| RciError::Transport)?;
+        getrandom::fill(&mut nonce_bytes).map_err(|_error| RciError::Transport)?;
         let client_nonce = STANDARD.encode(nonce_bytes);
         let login = self.credentials.login.as_str();
         let first = self

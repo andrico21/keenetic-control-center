@@ -200,7 +200,7 @@ impl Challenge {
             .checked_add(1)
             .ok_or(RciError::Auth(AuthError::Rejected))?;
         let mut bytes = [0_u8; 16];
-        getrandom::getrandom(&mut bytes).map_err(|_error| RciError::Transport)?;
+        getrandom::fill(&mut bytes).map_err(|_error| RciError::Transport)?;
         let cnonce = STANDARD.encode(bytes);
         let ha1 = hash(
             self.algorithm,

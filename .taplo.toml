@@ -12,6 +12,7 @@ exclude = [
     "spikes/**",
     # cargo-vet owns and regenerates these
     "supply-chain/**",
+    "xtask/supply-chain/**",
     # fetched/generated catalog data
     "catalog/.cache/**",
     # root manifest is pinned byte-for-byte to the R-GUIDE template (trailing-comment alignment differs)

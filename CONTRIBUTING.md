@@ -41,6 +41,22 @@ A RUSTSEC fix younger than the cooldown takes the emergency path in the vendored
 `docs/rust-guidelines/RUST_GUIDELINES.md` Section 10 ("Hold new dependency versions back
 with a publish-age cooldown"), in one commit.
 
+## Dependency bumps
+
+`cargo vet` checks the root workspace (`supply-chain/`) and the xtask workspace
+(`xtask/supply-chain/`) against audits imported from public sets (bytecode-alliance,
+embark-studios, google, isrg, mozilla, zcash). In the commit that changes a lockfile:
+
+1. Run `cargo vet` (and `cargo vet --manifest-path xtask/Cargo.toml` for xtask). It
+   fetches the imported sets and updates `imports.lock`.
+2. For each crate it reports that no imported set covers, add a targeted
+   `cargo vet add-exemption <crate> <version> --criteria safe-to-deploy`, and name every
+   added exemption in the commit body. Never re-create exemptions in bulk, and never
+   `cargo vet certify` a crate you have not actually reviewed.
+3. Run `cargo vet prune` to drop exemptions the imports now cover.
+
+CI runs `cargo vet --locked` for both workspaces.
+
 ## Lint rules
 
 - The workspace lint profile is strict (Clippy pedantic, nursery and most of

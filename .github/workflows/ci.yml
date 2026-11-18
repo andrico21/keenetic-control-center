@@ -162,9 +162,12 @@ jobs:
       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
         with:
           tool: cargo-vet@0.10.3
-      # Cargo.lock is committed and exemptions pin exact versions, so this is
-      # deterministic. Bump dependencies and run `cargo vet regenerate
-      # exemptions` in the same commit.
+      # Cargo.lock and supply-chain/imports.lock are committed, so this is
+      # deterministic and offline. On a bump run `cargo vet` (fetches the
+      # imported audit sets), add `cargo vet add-exemption <crate> <version>
+      # --criteria safe-to-deploy` only for a crate no imported set covers,
+      # name each one in the commit body, then run `cargo vet prune`
+      # (CONTRIBUTING.md, "Dependency bumps").
       - run: cargo vet --locked
 
   machete:
@@ -242,10 +245,11 @@ jobs:
           workspaces: xtask
       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
         with:
-          tool: cargo-deny@0.19.9
+          tool: cargo-deny@0.19.9,cargo-vet@0.10.3
       - run: cargo clippy --manifest-path xtask/Cargo.toml --all-targets --all-features -- -D warnings
       - run: cargo test --manifest-path xtask/Cargo.toml --all-features
       - run: cargo deny --manifest-path xtask/Cargo.toml check
+      - run: cargo vet --locked --manifest-path xtask/Cargo.toml
 
   taplo:
     name: TOML format (taplo)

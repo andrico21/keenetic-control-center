@@ -37,7 +37,7 @@ highlight = "all"
 # Unavoidable duplicates, all inherited from rmcp-server-kit 3.21.1 (incl. its `metrics` prometheus 0.14); mirrors clippy.toml `allowed-duplicate-crates`.
 skip = [
     { crate = "bitflags@1.3.2", reason = "windows-permissions 0.2.4 -> rmcp-server-kit 3.21.1 (Windows-only)" },
-    { crate = "getrandom@0.2.17", reason = "ring 0.17.14 -> rustls 0.23 -> reqwest 0.13.5 -> rmcp-server-kit" },
+    { crate = "getrandom@0.2.17", reason = "only ring 0.17.14 -> rustls 0.23 / rustls-webpki 0.103 / rcgen 0.14 -> reqwest 0.13.5, rmcp-server-kit and kcc" },
     { crate = "getrandom@0.3.4", reason = "governor 0.10.4 and rand_core 0.9.5 -> rmcp-server-kit" },
     { crate = "hashbrown@0.14.5", reason = "dashmap 6.2.1 -> governor 0.10.4 -> rmcp-server-kit" },
     { crate = "hashbrown@0.16.1", reason = "governor 0.10.4 -> rmcp-server-kit" },
