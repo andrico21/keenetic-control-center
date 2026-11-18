@@ -238,6 +238,10 @@ criteria = "safe-to-deploy"
 version = "6.0.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.rand]]
+version = "0.10.4"
+criteria = "safe-to-deploy"
+
 [[exemptions.rangemap]]
 version = "1.8.0"
 criteria = "safe-to-deploy"

@@ -139,11 +139,11 @@ version = "1.8.1"
 criteria = "safe-to-run"
 
 [[exemptions.brotli]]
-version = "9.1.1"
+version = "9.1.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.brotli-decompressor]]
-version = "6.3.1"
+version = "6.3.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.bytes]]
@@ -604,6 +604,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.rand]]
 version = "0.9.5"
+criteria = "safe-to-deploy"
+
+[[exemptions.rand]]
+version = "0.10.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.rand_xorshift]]

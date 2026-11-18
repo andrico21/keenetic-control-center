@@ -91,7 +91,6 @@ rest on the manuals and the fake router only:
 - The migration source router has no marker of its own. Every live suite now requires a `test_device = true` profile for the router it writes to, but marking the migration source that way would wrongly admit it to the write suites; a read-only marker is undecided. The migration probe also writes after its rollback under its own timer, because running it before would trip the workflow's conflict check.
 - `cargo xtask lint-completeness` runs `rustup run stable clippy-driver` (`xtask/src/lint_completeness.rs`); using the active toolchain's driver instead is an owner call.
 - Some wordings in the `kk`, `be` and `de` locales need a native speaker (for example the German "Audit-Schreiber" and "Bindung an ... fehlgeschlagen", and the Kazakh and Belarusian words for the stdio role, "bind", "initial configuration" and the UTF-8 messages), and so do the KiB abbreviations in `ru`, `uk` and `be`. Clap's own argument errors and the messages `main` prints before a locale exists stay English.
-- `rand` 0.10.4 leaves the three-day dependency cooldown on 2026-11-18 13:54 UTC; a later `cargo update` takes it.
 
 ## Decisions kept on purpose
 
