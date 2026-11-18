@@ -20,8 +20,9 @@
   `cargo +1.100.0 build --workspace --all-features`.
 - **CI:** `.github/workflows/ci.yml` (jobs fmt, clippy, test, rustdoc, deny, audit, vet,
   machete, msrv, gates, xtask, taplo, guidelines) and `.github/dependabot.yml`. Gate tools
-  are installed at pinned versions: cargo-deny 0.19.9, cargo-audit 0.22.2, cargo-vet
-  0.10.3, cargo-machete 0.9.2, taplo 0.10.0 (see deviation 2). Dependabot carries a 3-day
+  are installed at pinned versions: cargo-deny 0.20.2, cargo-audit 0.23.0, cargo-vet
+  0.10.3, cargo-machete 0.9.2, taplo 0.10.0 (see deviation 2); `release.yml` installs
+  cargo-zigbuild 0.24.1. Dependabot carries a 3-day
   `cooldown` for both cargo ecosystems (`/`, `/xtask`).
 - **Notable dependencies:** `rmcp-server-kit`, `axum`, `askama`, `reqwest`/`rustls`,
   `secrecy`, `zeroize`, `chacha20poly1305`, `serde`, `tokio`, `tracing`, `proptest`
@@ -74,13 +75,20 @@
    Section 12 pins cargo-deny, cargo-audit and cargo-vet and says "the other tools stay
    unpinned". Here cargo-machete and taplo also run as merge-blocking CI jobs, so the
    core's reason (an unpinned install decides a merge and bypasses the cooldown) applies
-   to them as well. Bump all five pins deliberately, together with this overlay.
+   to them as well. Bump all five pins deliberately, together with this overlay, each to
+   the newest non-yanked release at least three days old by its crates.io `created_at`
+   (`cargo install` ignores the cooldown); last bumped 2026-11-18.
 3. **Dependency versions not re-checked against "latest past the cooldown"** (opened
-   2026-11-14, open). Core Section 11 (Supply Chain) asks that every dependency be the
-   version `cargo update` selects. Adopting the cooldown changed no version and no
-   `Cargo.lock`. **Task:** the shared-version work in `[workspace.dependencies]` re-checks
-   every version with a plain `cargo update` under the cooldown and reviews the lockfile
-   diff.
+   2026-11-14, resolved 2026-11-18). Core Section 11 (Supply Chain) asks that every
+   dependency be the version `cargo update` selects. Both workspaces (`/` and `xtask/`)
+   now resolve with a plain `cargo update` under the cooldown, every crates.io
+   requirement is written as its locked version, and a `cargo update --dry-run --verbose`
+   changes nothing. Held back on 2026-11-18, all inside the cooldown unless named:
+   brotli 9.1.3, brotli-decompressor 6.3.2, bytes 1.12.2, clap/clap_derive 4.6.8,
+   clap_complete 4.6.12, clap_lex 1.1.2, jiff/jiff-static 0.2.46 and jiff-core 0.1.8
+   (xtask), rand 0.10.4, regex-automata 0.4.19, regex-syntax 0.8.12, rmcp/rmcp-macros
+   3.11.0, uuid 1.29.3, zeroize 1.9.2; matchit 0.8.6 is held by axum 0.8.9's
+   `matchit = "=0.8.4"`. Repeat the check at least monthly (core Section 12).
 4. **Rust versions in workflow files are unquoted** (opened 2026-11-14, resolved
    2026-11-18). Core Section 11 (Tooling) asks to quote every Rust version in YAML.
    `ci.yml`, `container.yml` and `release.yml` now quote every toolchain

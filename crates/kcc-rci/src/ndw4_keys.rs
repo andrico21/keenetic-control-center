@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 
 use argon2::{Algorithm, Argon2, Params, Version};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use hmac::{Hmac, KeyInit as _, Mac as _};
+use hmac::{KeyInit as _, Mac as _, SimpleHmac};
 use secrecy::ExposeSecret as _;
 use sha3::{Digest as _, Sha3_512};
 use tokio::{sync::Semaphore, task};
@@ -133,7 +133,7 @@ fn salted_password(
 /// # Errors
 /// Returns rejection if HMAC initialization fails.
 fn mac(key: &[u8; 64], message: &[u8]) -> Result<Zeroizing<[u8; 64]>, RciError> {
-    let mut hmac = Hmac::<Sha3_512>::new_from_slice(key)
+    let mut hmac = SimpleHmac::<Sha3_512>::new_from_slice(key)
         .map_err(|_error| RciError::Auth(AuthError::Rejected))?;
     hmac.update(message);
     Ok(Zeroizing::new(hmac.finalize().into_bytes().into()))

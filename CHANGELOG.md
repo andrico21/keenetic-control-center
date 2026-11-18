@@ -563,6 +563,11 @@ The first release, `0.1.0`, is in preparation and contains:
   of the check is gone: `UpdateCheck::cached` returns the latest result and whether a
   check is due, and the dashboard starts a check only then. A check that reached the
   router but got no answer is not repeated until the six hours pass.
+- **Dependencies at the latest version past the three-day cooldown**: `sha3` 0.11 -> 0.12
+  (the only semver-incompatible update; ndw4 sign-in now computes HMAC-SHA3-512 with
+  `hmac::SimpleHmac`, same output), `rmcp` 3.9.0 -> 3.10.0 and the compatible updates
+  `cargo update` selects, in both workspaces; the CI gate tools cargo-deny 0.20.2 and
+  cargo-audit 0.23.0. No behaviour change.
 
 ### Removed
 

@@ -16,7 +16,7 @@ kcc-migrate = { version = "0.1.0", path = "../kcc-migrate" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
 rmcp = { workspace = true, features = ["server"] }
 rmcp-server-kit = { workspace = true }
-schemars = "1.2.1"
+schemars = "1.2.3"
 secrecy = { workspace = true, features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

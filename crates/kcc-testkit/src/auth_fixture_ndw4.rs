@@ -12,7 +12,7 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use hmac::{Hmac, KeyInit as _, Mac as _};
+use hmac::{KeyInit as _, Mac as _, SimpleHmac};
 use serde_json::{Value, json};
 use sha3::{Digest as _, Sha3_512};
 use subtle::ConstantTimeEq as _;
@@ -86,7 +86,7 @@ fn reply(value: &Value, status: StatusCode) -> Response {
 
 /// Computes the fixture's HMAC without exposing failures or key material.
 fn mac(key: &[u8], data: &[u8]) -> Option<Zeroizing<[u8; 64]>> {
-    let mut hasher = Hmac::<Sha3_512>::new_from_slice(key).ok()?;
+    let mut hasher = SimpleHmac::<Sha3_512>::new_from_slice(key).ok()?;
     hasher.update(data);
     Some(Zeroizing::new(hasher.finalize().into_bytes().into()))
 }

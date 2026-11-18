@@ -22,7 +22,7 @@ use axum::{
     routing::{get, post},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use hmac::{Hmac, KeyInit as _, Mac as _};
+use hmac::{KeyInit as _, Mac as _, SimpleHmac};
 use serde_json::{Value, json};
 use sha3::{Digest as _, Sha3_512};
 use tokio::{net::TcpListener, task::JoinHandle};
@@ -94,7 +94,7 @@ fn lock(state: &Mutex<Inner>) -> MutexGuard<'_, Inner> {
 
 /// HMAC-SHA3-512, the ndw4 MAC; HMAC accepts any key length, so the fallback is never used.
 fn mac(key: &[u8], data: &[u8]) -> [u8; 64] {
-    let Ok(mut hasher) = Hmac::<Sha3_512>::new_from_slice(key) else {
+    let Ok(mut hasher) = SimpleHmac::<Sha3_512>::new_from_slice(key) else {
         return [0_u8; 64];
     };
     hasher.update(data);
