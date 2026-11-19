@@ -4,6 +4,8 @@ extern crate alloc;
 
 mod auth;
 mod budgets;
+#[cfg(test)]
+mod local_socket_tests;
 mod read_pool;
 pub(crate) mod rules;
 pub mod sealed_edit;
@@ -12,6 +14,8 @@ mod stored;
 mod transition_tests;
 
 use alloc::{collections::BTreeMap, sync::Arc};
+#[cfg(unix)]
+use core::net::SocketAddr;
 use core::{fmt, str::FromStr as _};
 use std::{
     io,
@@ -459,6 +463,24 @@ impl RouterRegistry {
     #[inline]
     pub fn with_credentials(mut self, credentials: Arc<CredentialStore>) -> Self {
         self.credentials = Some(credentials);
+        self
+    }
+
+    /// Dials `address` over the Unix socket at `path` instead of TCP, for every client and
+    /// check this registry builds (`kcc_rci::OutboundPolicy::with_local_socket`). The
+    /// outbound policy still admits or refuses the address first.
+    ///
+    /// This hook exists only for tests that serve a fake router on a Unix socket; no
+    /// configuration key, environment variable or Cargo feature reaches it.
+    #[cfg(unix)]
+    #[doc(hidden)]
+    #[must_use]
+    #[inline]
+    pub fn with_local_socket<P>(mut self, address: SocketAddr, path: P) -> Self
+    where
+        P: Into<PathBuf>,
+    {
+        self.outbound = self.outbound.with_local_socket(address, path);
         self
     }
 

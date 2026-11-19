@@ -196,7 +196,10 @@ Tests fail when a committed copy differs from what its generator produces.
 - **Unit**: inline `#[cfg(test)] mod tests` in each crate.
 - **Integration**: each crate's `tests/*.rs`, always against the fake router in
   `kcc-testkit` (`FakeRouter::spawn()`), never a real router. Process tests drive the
-  built `kcc` binary with a hermetic home, config and master key.
+  built `kcc` binary with a hermetic home, config and master key. Tests under a paused
+  tokio clock reach the fake over a Unix socket (`FakeRouter::serve_local` with the
+  test-only `with_local_socket` hook of the outbound policy or registry), never over
+  loopback TCP.
 - **Documentation**: `crates/kcc/tests/docs.rs` runs the tagged shell examples in the
   README and `docs/`, checks that [CONFIG.md](CONFIG.md) documents exactly the keys
   `kcc.toml` accepts, checks relative links, and compares the hardware-verified lines in

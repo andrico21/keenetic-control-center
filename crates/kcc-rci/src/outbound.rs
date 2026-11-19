@@ -6,6 +6,8 @@ use core::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
 };
 use std::net::ToSocketAddrs as _;
+#[cfg(unix)]
+use std::path::{Path, PathBuf};
 
 use reqwest::{Client, redirect::Policy};
 use rustls::{
@@ -87,6 +89,9 @@ pub struct OutboundPolicy {
     allowed_suffixes: Vec<String>,
     /// Whether loopback networks are admitted.
     allow_loopback: bool,
+    /// Admitted addresses dialled over a Unix socket instead of TCP; set only by tests.
+    #[cfg(unix)]
+    local_sockets: Vec<(SocketAddr, Arc<Path>)>,
 }
 
 impl OutboundPolicy {
@@ -113,7 +118,54 @@ impl OutboundPolicy {
         {
             return Err(RciError::Policy);
         }
-        Self::pinned_builder(host, resolved, tls_mode, timeouts)
+        let pinned = Self::pinned_builder(host, resolved, tls_mode, timeouts)?;
+        #[cfg(unix)]
+        let transport = self.local_transport(pinned, resolved);
+        #[cfg(not(unix))]
+        let transport = pinned;
+        Ok(transport)
+    }
+
+    /// Dials `address` over the Unix socket at `path` instead of TCP, when a router URL
+    /// resolves to exactly that address. The admission check still runs first and
+    /// unchanged, so a refused address stays refused; the URL, `Host` header, TLS and
+    /// timeouts stay as they are.
+    ///
+    /// This hook exists only for tests that serve a fake router on a Unix socket: a
+    /// paused tokio clock can jump ahead of loopback TCP delivery, Unix sockets deliver
+    /// within the sender's write. No configuration key, environment variable or Cargo
+    /// feature reaches it.
+    #[cfg(unix)]
+    #[doc(hidden)]
+    #[inline]
+    #[must_use]
+    pub fn with_local_socket<P>(mut self, address: SocketAddr, path: P) -> Self
+    where
+        P: Into<PathBuf>,
+    {
+        self.local_sockets.push((address, Arc::from(path.into())));
+        self
+    }
+
+    /// Points `builder` at the Unix socket registered for a resolution of exactly one
+    /// registered address, and leaves it on TCP otherwise.
+    #[cfg(unix)]
+    fn local_transport(
+        &self,
+        builder: reqwest::ClientBuilder,
+        resolved: &[SocketAddr],
+    ) -> reqwest::ClientBuilder {
+        let [only] = resolved else {
+            return builder;
+        };
+        let Some((_address, path)) = self
+            .local_sockets
+            .iter()
+            .find(|(address, _path)| address == only)
+        else {
+            return builder;
+        };
+        builder.unix_socket(Arc::clone(path))
     }
 
     /// Replaces the admitted CIDR networks.

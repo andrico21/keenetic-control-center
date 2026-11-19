@@ -2,7 +2,6 @@
 
 use alloc::sync::Arc;
 use core::{
-    net::SocketAddr,
     pin::Pin,
     sync::atomic::{AtomicBool, Ordering},
     task::{Context, Poll},
@@ -10,33 +9,30 @@ use core::{
 use std::io;
 
 use axum::serve::Listener as AxumListener;
-use tokio::{
-    io::{AsyncRead, AsyncWrite, ReadBuf},
-    net::{TcpListener, TcpStream},
-};
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 /// Listener whose connections share the simulated management outage.
-pub(crate) struct Listener {
-    /// Bound TCP listener.
-    inner: TcpListener,
+pub(crate) struct Listener<L> {
+    /// Bound TCP or Unix listener.
+    inner: L,
     /// Whether management connections have been lost.
     lost: Arc<AtomicBool>,
 }
 
-impl Listener {
+impl<L> Listener<L> {
     /// Wraps a bound listener with its fault state.
-    pub(crate) const fn new(inner: TcpListener, lost: Arc<AtomicBool>) -> Self {
+    pub(crate) const fn new(inner: L, lost: Arc<AtomicBool>) -> Self {
         Self { inner, lost }
     }
 }
 
-impl AxumListener for Listener {
-    type Io = Stream;
-    type Addr = SocketAddr;
+impl<L: AxumListener> AxumListener for Listener<L> {
+    type Io = Stream<L::Io>;
+    type Addr = L::Addr;
 
-    // cancel-safe: TCP accept creates no connection until it returns.
+    // cancel-safe: the inner accept creates no connection until it returns.
     async fn accept(&mut self) -> (Self::Io, Self::Addr) {
-        let (inner, address) = AxumListener::accept(&mut self.inner).await;
+        let (inner, address) = self.inner.accept().await;
         (
             Stream {
                 inner,
@@ -51,15 +47,15 @@ impl AxumListener for Listener {
     }
 }
 
-/// TCP connection that resets once the management command triggers its outage.
-pub(crate) struct Stream {
+/// Connection that resets once the management command triggers its outage.
+pub(crate) struct Stream<S> {
     /// Accepted socket.
-    inner: TcpStream,
+    inner: S,
     /// Shared outage flag.
     lost: Arc<AtomicBool>,
 }
 
-impl AsyncRead for Stream {
+impl<S: AsyncRead + Unpin> AsyncRead for Stream<S> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -72,7 +68,7 @@ impl AsyncRead for Stream {
     }
 }
 
-impl AsyncWrite for Stream {
+impl<S: AsyncWrite + Unpin> AsyncWrite for Stream<S> {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,

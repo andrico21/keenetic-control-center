@@ -43,6 +43,8 @@ mod fixtures;
 mod inflight;
 pub mod leak;
 pub mod live_matrix;
+#[cfg(unix)]
+mod local_socket;
 pub mod migration;
 pub mod model;
 pub mod ndw2;
@@ -70,9 +72,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use axum::http::{HeaderValue, Method};
+use axum::{
+    http::{HeaderValue, Method},
+    serve::Listener as AxumListener,
+};
 use kcc_config::config_text::ParseError;
 use serde_json::Value;
+#[cfg(unix)]
+use tokio::runtime;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use zeroize::Zeroizing;
 
@@ -672,11 +679,53 @@ impl FakeRouter {
     pub async fn serve(self, addr: SocketAddr) -> io::Result<(SocketAddr, Handle)> {
         let listener = TcpListener::bind(addr).await?;
         let local = listener.local_addr()?;
+        Ok((local, self.serve_on(listener, ())))
+    }
+
+    /// Serves this router on a Unix socket in a fresh private temporary directory, for
+    /// tests under a paused tokio clock, and returns a loopback TCP address for the router
+    /// profile's URL, the socket's path and the handle.
+    ///
+    /// The client dials the socket for that address through
+    /// `kcc_rci::OutboundPolicy::with_local_socket` (or the registry's hook of the same
+    /// name). Unix sockets deliver within the sender's write, so a paused clock cannot
+    /// jump over a reply that is written but not yet readable, as it can over loopback TCP
+    /// on macOS.
+    ///
+    /// The TCP address still answers: a relay passes every connection on to the socket and
+    /// delays each chunk by 2 ms. That delay is a deliberate network fault of the fake, not
+    /// a wait: it makes a paused-clock client that bypasses the socket fail on Linux as it
+    /// would on macOS. Never remove it to make a test pass.
+    ///
+    /// Must be called inside a tokio runtime. Stopping or dropping the handle stops both
+    /// listeners and removes the directory.
+    ///
+    /// # Errors
+    ///
+    /// I/O errors from creating the directory or binding either listener, or an
+    /// [`io::ErrorKind::Other`] error outside a tokio runtime.
+    #[cfg(unix)]
+    #[inline]
+    pub fn serve_local(self) -> io::Result<(SocketAddr, PathBuf, Handle)> {
+        drop(runtime::Handle::try_current().map_err(io::Error::other)?);
+        let (listener, transport) = local_socket::Transport::bind()?;
+        let (address, socket) = (transport.address(), transport.socket());
+        Ok((address, socket, self.serve_on(listener, transport)))
+    }
+
+    /// Serves this router on `listener` with the management-outage fault until the
+    /// handle stops it, then drops `transport`.
+    fn serve_on<L, T>(self, listener: L, transport: T) -> Handle
+    where
+        L: AxumListener,
+        L::Addr: fmt::Debug,
+        T: Send + 'static,
+    {
         let (stop, stopped) = oneshot::channel::<()>();
         let shared = Arc::clone(&self.shared);
         let app = self.router();
         let task = tokio::spawn(async move {
-            axum::serve(
+            let served = axum::serve(
                 connection_fault::Listener::new(listener, self.shared.connection_lost()),
                 app,
             )
@@ -685,16 +734,15 @@ impl FakeRouter {
                     Ok(()) | Err(_) => {}
                 }
             })
-            .await
+            .await;
+            drop(transport);
+            served
         });
-        Ok((
-            local,
-            Handle {
-                router: Some(shared),
-                stop,
-                task,
-            },
-        ))
+        Handle {
+            router: Some(shared),
+            stop,
+            task,
+        }
     }
 
     /// The axum router, for in-process requests without a socket.
