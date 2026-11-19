@@ -25,6 +25,8 @@ use serde_json::{Map, Value, error::Category};
 use crate::settings::is_valid_name;
 
 pub mod private_file;
+#[cfg(windows)]
+mod windows_acl;
 
 /// Key holding the schema version in every state file.
 const SCHEMA_KEY: &str = "schema";
@@ -614,7 +616,7 @@ pub fn create_private_dir(dir: &Path) -> Result<(), StateError> {
     }
     builder.create(dir).map_err(|error| io_error(dir, error))?;
     #[cfg(windows)]
-    restrict_windows(dir)?;
+    windows_acl::restrict_directory(dir)?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt as _;
@@ -654,28 +656,7 @@ fn restrict_file(file: &File, path: &Path) -> Result<(), StateError> {
         let _: (&File, &Path) = (file, path);
     }
     #[cfg(windows)]
-    restrict_windows(path)?;
-    Ok(())
-}
-
-/// Applies a protected owner-only DACL on Windows.
-///
-/// # Errors
-/// Returns [`StateError::Io`] when Windows rejects the descriptor or DACL update.
-#[cfg(windows)]
-fn restrict_windows(path: &Path) -> Result<(), StateError> {
-    use core::str::FromStr as _;
-
-    use windows_permissions::{LocalBox, SecurityDescriptor, WindowsSecure as _};
-
-    let descriptor = LocalBox::<SecurityDescriptor>::from_str("D:P(A;;GA;;;OW)")
-        .map_err(|source| io_error(path, source))?;
-    let dacl = descriptor
-        .dacl()
-        .ok_or_else(|| io_error(path, io::Error::other("owner-only DACL was not created")))?;
-    let mut name = path.as_os_str().to_owned();
-    name.set_dacl(dacl)
-        .map_err(|source| io_error(path, source))?;
+    windows_acl::restrict_file(path)?;
     Ok(())
 }
 

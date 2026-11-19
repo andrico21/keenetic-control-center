@@ -671,6 +671,11 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **kcc can create its state on Windows.** Creating the state directory or any owner-only
+  file failed with "The parameter is incorrect" (Windows error 87). The entry now gets the
+  process user as owner and a protected DACL whose only ACE gives OWNER RIGHTS full access;
+  nothing is inherited from the parent directory, and a directory passes its ACE on to the
+  entries created inside it.
 - **A migration cannot half-move a router defined in `kcc.toml`.** When the management
   phase moved such a router to another address, kcc kept the new URL only in memory
   (a reload brought the old one back) but already wrote the new password into the

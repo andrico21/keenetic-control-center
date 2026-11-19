@@ -102,9 +102,11 @@ either.
 - **Backup and restore**: back up the master key separately from state. Restoring only
   state makes sealed credentials, backups and presets unrecoverable; restoring only the
   key provides no secrets. `KCC_MASTER_KEY_FILE` selects the key location.
-- **Windows ACLs**: kcc requests protected owner-only DACLs for the key and every state
-  file/directory. This Windows-only path is not executable or verified on the Linux host
-  used for this change.
+- **Windows ACLs**: kcc makes the process user the owner of the key and of every state
+  file and directory and gives each a protected DACL with one ACE: full access for OWNER
+  RIGHTS. Nothing is inherited from the parent directory; a state directory's ACE is
+  inherited by the entries created inside it. A failure to apply this is an error, never
+  a fallback to the default permissions.
 
 ## Secrets in transit
 
