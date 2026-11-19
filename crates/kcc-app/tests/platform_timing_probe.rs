@@ -14,6 +14,8 @@
 )]
 
 use core::{error::Error, hint::spin_loop, net::SocketAddr, time::Duration};
+#[cfg(unix)]
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::{
     fs::{File, OpenOptions},
     io::{self, ErrorKind, Read as _, Write as _},
@@ -22,6 +24,8 @@ use std::{
 };
 
 use tempfile::TempDir;
+#[cfg(unix)]
+use tokio::net::{UnixListener as TokioUnixListener, UnixStream as TokioUnixStream};
 use tokio::{
     io::{AsyncReadExt as _, AsyncWriteExt as _},
     net,
@@ -127,6 +131,7 @@ async fn paused_clock_over_loopback_io() -> Result<(), Box<dyn Error>> {
     let address = listener.local_addr()?;
     let echo = tokio::spawn(async move {
         let (mut stream, _peer) = listener.accept().await?;
+        stream.set_nodelay(true)?;
         let mut byte = [0_u8; 1];
         while stream.read_exact(&mut byte).await.is_ok() {
             stream.write_all(&byte).await?;
@@ -151,6 +156,88 @@ async fn paused_clock_over_loopback_io() -> Result<(), Box<dyn Error>> {
     }
     println!(
         "probe paused_clock: {elapsed} of {ROUNDS} round trips timed out; virtual {:?} in real {:?}",
+        virtual_start.elapsed(),
+        real_start.elapsed()
+    );
+    drop(client);
+    echo.await??;
+    Ok(())
+}
+
+/// Whether a byte written on a Unix domain socket is readable by the peer as soon as
+/// `write` returns, and how the slowest delivery time compares to TCP loopback.
+#[test]
+#[cfg(unix)]
+#[ignore = "diagnostic: run through the Probe workflow with -- --ignored"]
+fn unix_loopback_delivery() -> Result<(), Box<dyn Error>> {
+    let directory = TempDir::new()?;
+    let sock_path = directory.path().join("p.sock");
+    let listener = UnixListener::bind(&sock_path)?;
+    let mut client = UnixStream::connect(&sock_path)?;
+    let (mut server, _peer) = listener.accept()?;
+    server.set_nonblocking(true)?;
+    let mut late = 0_u32;
+    let mut slowest = Duration::ZERO;
+    let mut byte = [0_u8; 1];
+    for _round in 0..ROUNDS {
+        client.write_all(&[1])?;
+        let written = RealInstant::now();
+        let mut first = true;
+        loop {
+            match server.read(&mut byte) {
+                Ok(_read) => break,
+                Err(error) if error.kind() == ErrorKind::WouldBlock => {
+                    if first {
+                        late = late.saturating_add(1);
+                        first = false;
+                    }
+                    spin_loop();
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+        slowest = slowest.max(written.elapsed());
+    }
+    println!(
+        "probe unix_delivery: {late} of {ROUNDS} bytes not readable right after write, slowest {slowest:?}"
+    );
+    Ok(())
+}
+
+/// How often a paused clock auto-advances past a 30 s virtual timeout while a Unix domain
+/// socket echo round trip is in flight; each such advance is a spurious timeout in the suites.
+#[tokio::test(start_paused = true)]
+#[cfg(unix)]
+#[ignore = "diagnostic: run through the Probe workflow with -- --ignored"]
+async fn paused_clock_over_unix_io() -> Result<(), Box<dyn Error>> {
+    let directory = TempDir::new()?;
+    let sock_path = directory.path().join("p.sock");
+    let listener = TokioUnixListener::bind(&sock_path)?;
+    let echo = tokio::spawn(async move {
+        let (mut stream, _peer) = listener.accept().await?;
+        let mut byte = [0_u8; 1];
+        while stream.read_exact(&mut byte).await.is_ok() {
+            stream.write_all(&byte).await?;
+        }
+        Ok::<(), io::Error>(())
+    });
+    let mut client = TokioUnixStream::connect(&sock_path).await?;
+    let virtual_start = Instant::now();
+    let real_start = RealInstant::now();
+    let mut elapsed = 0_u32;
+    let mut byte = [0_u8; 1];
+    for _round in 0..ROUNDS {
+        client.write_all(&[1]).await?;
+        if timeout(Duration::from_secs(30), client.read_exact(&mut byte))
+            .await
+            .is_err()
+        {
+            elapsed = elapsed.saturating_add(1);
+            let _read: usize = client.read_exact(&mut byte).await?;
+        }
+    }
+    println!(
+        "probe paused_clock_unix: {elapsed} of {ROUNDS} round trips timed out; virtual {:?} in real {:?}",
         virtual_start.elapsed(),
         real_start.elapsed()
     );
