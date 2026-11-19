@@ -95,7 +95,8 @@ gh workflow run probe.yml -f os=macos-latest -f command='-p kcc-app --test platf
 ```
 
 `-f token_probe=true` adds a job that prints, for each way of starting a de-elevated
-child on `windows-latest`, whether its token is elevated and its integrity level.
+child on `windows-latest`, whether its token is elevated, its integrity level, and the
+groups and privileges that keep it elevated.
 
 ## Documentation checks
 

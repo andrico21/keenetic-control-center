@@ -127,18 +127,20 @@ jobs:
             "$OS" "'$COMMAND'" "$REPEAT" "${EXIT_CODE:-none}" "$OUTCOME"
 
   # Prints, for each way of starting a child process, whether the child's token is
-  # elevated (the check kcc refuses on) and its integrity level. Every method step
-  # succeeds only when its child is not elevated; the Summary step lists them all.
+  # elevated (the check kcc refuses on), its integrity level, and the groups and
+  # privileges that keep it elevated. Every method step succeeds only when its child
+  # is not elevated and can build; the Summary step lists them all.
   windows-token:
     name: Windows token probe
     if: inputs.token_probe
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # A directory the de-elevated children can read the script from and write to.
+      # A directory the de-elevated children can read the script from and write to,
+      # and the same grants the test leg gives before it runs the launcher.
       - name: Prepare the probe directory
         shell: pwsh
         run: |
@@ -151,101 +153,145 @@ jobs:
           Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber | Format-List
           Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' |
             Select-Object EnableLUA, ConsentPromptBehaviorAdmin, FilterAdministratorToken | Format-List
-          whoami /groups /fo list | Select-String -Pattern 'Administrators|Mandatory Label' -Context 0, 3
+          & whoami.exe /groups
+          & whoami.exe /priv
+          ./.github/scripts/deelevate.ps1 -GrantAccess
       - name: (a) job token
         id: job
         continue-on-error: true
         shell: pwsh
         run: ./.github/scripts/deelevate.ps1 -Report -Label job-token
-      - name: (b) runas /trustlevel:0x20000
-        id: runas
+      - name: (b) launcher, own token with integrity Medium
+        id: medium
         continue-on-error: true
         shell: pwsh
-        run: |
-          $dir = Join-Path $env:RUNNER_TEMP 'kcc-token-probe'
-          $out = Join-Path $dir 'runas.txt'
-          & runas.exe /showtrustlevels
-          # runas starts the child and returns at once, without its exit code, so the
-          # child writes its line to a file and this step waits for that file.
-          & runas.exe /trustlevel:0x20000 "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $dir\deelevate.ps1 -Report -Label runas-trustlevel -OutFile $out"
-          Write-Output "runas exit=$LASTEXITCODE"
-          if ($LASTEXITCODE -ne 0) { Write-Output 'method=runas-trustlevel verdict=launch-error'; exit 1 }
-          $deadline = (Get-Date).AddSeconds(90)
-          while (-not (Test-Path -LiteralPath $out) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
-          if (-not (Test-Path -LiteralPath $out)) {
-            Write-Output 'method=runas-trustlevel verdict=no-output (the child wrote nothing within 90 s)'
-            exit 1
-          }
-          $line = Get-Content -LiteralPath $out -Raw
-          Write-Output $line.Trim()
-          if ($line -notmatch ' elevated=0 ') { exit 1 }
-      - name: (c1) launcher, SAFER normal-user token
+        run: ./.github/scripts/deelevate.ps1 -Method medium -CommandLine 'cmd.exe /d /c exit 0'
+      - name: (c) launcher, SAFER normal-user token with integrity Medium
+        id: safer_medium
+        continue-on-error: true
+        shell: pwsh
+        run: ./.github/scripts/deelevate.ps1 -Method safer-medium -CommandLine 'cmd.exe /d /c exit 0'
+      - name: (d) launcher, restricted token without privileges, integrity Medium
+        id: restricted_medium
+        continue-on-error: true
+        shell: pwsh
+        run: ./.github/scripts/deelevate.ps1 -Method restricted-medium -CommandLine 'cmd.exe /d /c exit 0'
+      - name: (d2) launcher, elevated groups deny-only, integrity Medium
+        id: filtered
+        continue-on-error: true
+        shell: pwsh
+        run: ./.github/scripts/deelevate.ps1 -Method filtered -CommandLine 'cmd.exe /d /c exit 0'
+      - name: (d3) launcher, elevated groups deny-only, integrity unchanged
+        id: filtered_high
+        continue-on-error: true
+        shell: pwsh
+        run: ./.github/scripts/deelevate.ps1 -Method filtered-high -CommandLine 'cmd.exe /d /c exit 0'
+      - name: (e) launcher, SAFER normal-user token unchanged (expected elevated)
         id: safer
         continue-on-error: true
         shell: pwsh
         run: ./.github/scripts/deelevate.ps1 -Method safer -CommandLine 'cmd.exe /d /c exit 0'
-      - name: (c2) launcher, CreateRestrictedToken LUA token
-        id: restricted
-        continue-on-error: true
-        shell: pwsh
-        run: ./.github/scripts/deelevate.ps1 -Method restricted -CommandLine 'cmd.exe /d /c exit 0'
-      # Heavier fallback, only when no token of the runner user works: a fresh
-      # standard (non-admin) local user started through Task Scheduler. Windows
-      # PowerShell for the LocalAccounts and ScheduledTasks modules. The random
-      # password is never printed.
-      - name: (d) standard local user through Task Scheduler
-        id: task
-        if: steps.runas.outcome == 'failure' && steps.safer.outcome == 'failure' && steps.restricted.outcome == 'failure'
+      # A fresh standard (non-admin) local user started through the secondary logon
+      # service (CreateProcessWithLogonW). Windows PowerShell for the LocalAccounts
+      # module. The random password is never printed; the next step removes the user.
+      - name: (f) standard local user through Start-Process -Credential
+        id: standard_user
         continue-on-error: true
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $dir = Join-Path $env:RUNNER_TEMP 'kcc-token-probe'
-          $out = Join-Path $dir 'task.txt'
-          $bytes = New-Object byte[] 24
-          [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-          $password = [Convert]::ToBase64String($bytes) + 'a1!A'
-          $secure = ConvertTo-SecureString $password -AsPlainText -Force
-          New-LocalUser -Name kccci -Password $secure -AccountNeverExpires -PasswordNeverExpires | Out-Null
-          $dirs = @($dir, $env:GITHUB_WORKSPACE, $env:CARGO_HOME, $env:RUSTUP_HOME) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
-          foreach ($d in $dirs) {
-            & icacls.exe $d /grant 'kccci:(OI)(CI)M' /T /C /Q
-            if ($LASTEXITCODE -ne 0) { throw "icacls $d exited $LASTEXITCODE" }
-          }
-          $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File $dir\deelevate.ps1 -Report -Label standard-user-task -OutFile $out"
-          $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
-          Register-ScheduledTask -TaskName kcc-token-probe -Action $action -User kccci -Password $password -RunLevel Limited | Out-Null
-          Start-ScheduledTask -TaskName kcc-token-probe
-          # The first logon creates the user's profile from C:\Users\Default, which on
-          # this image holds a whole Rust install, so the wait is generous.
-          $deadline = (Get-Date).AddSeconds(300)
-          while (-not (Test-Path -LiteralPath $out) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
-          if (-not (Test-Path -LiteralPath $out)) {
-            $info = Get-ScheduledTaskInfo -TaskName kcc-token-probe
-            Write-Output ('method=standard-user-task verdict=no-output last_task_result=0x{0:X8}' -f $info.LastTaskResult)
+          $out = Join-Path $dir 'standard-user.txt'
+          $temp = Join-Path $dir 'standard-user-temp'
+          function Stop-Probe([string] $verdict) {
+            Write-Output "method=standard-user verdict=$verdict"
             exit 1
           }
-          $line = Get-Content -LiteralPath $out -Raw
-          Write-Output $line.Trim()
-          if ($line -notmatch ' elevated=0 ') { exit 1 }
+          function Format-Error($record) { return ($record.Exception.Message -replace '\s+', ' ').Trim() }
+          function Quote([string] $text) { return "'" + $text.Replace("'", "''") + "'" }
+          $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
+          $rustupHome = if ($env:RUSTUP_HOME) { $env:RUSTUP_HOME } else { Join-Path $env:USERPROFILE '.rustup' }
+          try {
+            $bytes = New-Object byte[] 24
+            [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+            $secure = ConvertTo-SecureString ([Convert]::ToBase64String($bytes) + 'a1!A') -AsPlainText -Force
+            New-LocalUser -Name kccci -Password $secure -AccountNeverExpires -PasswordNeverExpires | Out-Null
+          } catch { Stop-Probe "user-error error=$(Format-Error $_)" }
+          New-Item -ItemType Directory -Force -Path $temp | Out-Null
+          $dirs = @($dir, $env:GITHUB_WORKSPACE, $cargoHome, $rustupHome, $env:RUNNER_TEMP) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+          foreach ($d in $dirs) {
+            & icacls.exe $d /grant 'kccci:(OI)(CI)M' /T /C /Q
+            if ($LASTEXITCODE -ne 0) { Stop-Probe "grant-error dir=$d icacls_exit=$LASTEXITCODE" }
+          }
+          # The child's environment comes from the new user's profile, so the wrapper
+          # sets what the report and cargo need. Paths only, no secrets.
+          $wrapper = Join-Path $dir 'standard-user.ps1'
+          Set-Content -LiteralPath $wrapper -Encoding Ascii -Value @(
+            "`$env:GITHUB_WORKSPACE = $(Quote $env:GITHUB_WORKSPACE)",
+            "`$env:RUNNER_TEMP = $(Quote $env:RUNNER_TEMP)",
+            "`$env:CARGO_HOME = $(Quote $cargoHome)",
+            "`$env:RUSTUP_HOME = $(Quote $rustupHome)",
+            "`$env:TEMP = $(Quote $temp)",
+            "`$env:TMP = $(Quote $temp)",
+            "`$env:Path = $(Quote (Join-Path $cargoHome 'bin')) + ';' + `$env:Path",
+            "& $(Quote (Join-Path $dir 'deelevate.ps1')) -Report -Label standard-user -OutFile $(Quote $out)",
+            'exit $LASTEXITCODE'
+          )
+          $credential = New-Object System.Management.Automation.PSCredential ("$env:COMPUTERNAME\kccci", $secure)
+          $shell = (Get-Process -Id $PID).Path
+          try {
+            $child = Start-Process -FilePath $shell -Credential $credential -LoadUserProfile -WorkingDirectory $dir `
+              -WindowStyle Hidden -PassThru -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', "`"$wrapper`"")
+          } catch { Stop-Probe "launch-error error=$(Format-Error $_)" }
+          # The first logon builds the user's profile, so the report can take a while.
+          # The wait ends when the report file exists, the child exits, or after 120 s.
+          # WaitForExit needs a handle the new user's process DACL may refuse; then the
+          # loop polls the file once a second.
+          $deadline = (Get-Date).AddSeconds(120)
+          $canWait = $true
+          while (-not (Test-Path -LiteralPath $out)) {
+            if ((Get-Date) -ge $deadline) { Stop-Probe 'timeout no-report-within=120s' }
+            $exited = $false
+            if ($canWait) {
+              try { $exited = $child.WaitForExit(1000) } catch { $canWait = $false }
+            }
+            if (-not $canWait) { Start-Sleep -Seconds 1 }
+            if ($exited -and -not (Test-Path -LiteralPath $out)) {
+              $code = try { '0x{0:X8}' -f $child.ExitCode } catch { 'unknown' }
+              Stop-Probe "no-output child_exit=$code"
+            }
+          }
+          $line = (Get-Content -LiteralPath $out -Raw).Trim()
+          Write-Output $line
+          if ($line -notmatch '(^| )verdict=ok( |$)') { exit 1 }
+      - name: (g) launcher, auto, as the test leg runs it
+        id: auto
+        continue-on-error: true
+        shell: pwsh
+        run: ./.github/scripts/deelevate.ps1 -CommandLine 'cargo --version'
       - name: Remove the probe user
-        if: always() && steps.task.outcome != 'skipped'
+        if: always()
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          if (Get-ScheduledTask -TaskName kcc-token-probe -ErrorAction SilentlyContinue) {
-            Unregister-ScheduledTask -TaskName kcc-token-probe -Confirm:$false
+          Get-Process -IncludeUserName | Where-Object { $_.UserName -like '*\kccci' } | Stop-Process -Force -ErrorAction SilentlyContinue
+          if (Get-LocalUser -Name kccci -ErrorAction SilentlyContinue) {
+            Remove-LocalUser -Name kccci
+            Write-Output 'removed the probe user kccci'
           }
-          if (Get-LocalUser -Name kccci -ErrorAction SilentlyContinue) { Remove-LocalUser -Name kccci }
       - name: Summary
         if: always()
         shell: bash
         env:
           JOB: ${{ steps.job.outcome }}
-          RUNAS: ${{ steps.runas.outcome }}
+          MEDIUM: ${{ steps.medium.outcome }}
+          SAFER_MEDIUM: ${{ steps.safer_medium.outcome }}
+          RESTRICTED_MEDIUM: ${{ steps.restricted_medium.outcome }}
+          FILTERED: ${{ steps.filtered.outcome }}
+          FILTERED_HIGH: ${{ steps.filtered_high.outcome }}
           SAFER: ${{ steps.safer.outcome }}
-          RESTRICTED: ${{ steps.restricted.outcome }}
-          TASK: ${{ steps.task.outcome }}
+          STANDARD_USER: ${{ steps.standard_user.outcome }}
+          AUTO: ${{ steps.auto.outcome }}
         run: |
-          echo "token-summary: success = that method's child is not elevated"
-          echo "token-summary: job_token=$JOB runas_trustlevel=$RUNAS launcher_safer=$SAFER launcher_restricted=$RESTRICTED standard_user_task=$TASK"
+          echo "token-summary: success = that method's child is not elevated and can build"
+          echo "token-summary: job_token=$JOB medium=$MEDIUM safer_medium=$SAFER_MEDIUM restricted_medium=$RESTRICTED_MEDIUM filtered=$FILTERED filtered_high=$FILTERED_HIGH safer=$SAFER standard_user=$STANDARD_USER auto=$AUTO"

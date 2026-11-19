@@ -145,7 +145,7 @@ jobs:
       # floor") and the Windows runner runs every job elevated, so the Windows leg runs
       # the same two commands through a launcher that drops the elevation. The floor
       # stays as it is. The launcher first gives the runner user (not Administrators)
-      # Modify on the checkout and the cargo dirs, and before each command it checks
+      # Modify on the checkout, the cargo dirs and RUNNER_TEMP, and before each command it checks
       # the child token and fails the step at once if it is still elevated.
       - name: Test (de-elevated)
         if: runner.os == 'Windows'
