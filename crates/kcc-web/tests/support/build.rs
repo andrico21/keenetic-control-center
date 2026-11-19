@@ -4,6 +4,8 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use core::{net::SocketAddr, time::Duration};
+#[cfg(unix)]
+use std::path::PathBuf;
 
 use kcc_app::{
     accounts::Clock,
@@ -104,12 +106,22 @@ impl Setup {
         let roles = RoleSource::new(self.roles.clone());
         let state = core.state.clone();
         let credentials = Arc::new(CredentialStore::new(state.clone(), MasterKey::generate()?));
-        let unsealed = RouterRegistry::new(state.clone(), &[], &self.outbound)?;
+        let mut served = Vec::new();
+        for (id, fake) in self.routers {
+            #[cfg(unix)]
+            served.push(Served::start(id, fake)?);
+            #[cfg(not(unix))]
+            served.push(Served::start(id, fake).await?);
+        }
+        let unsealed = Served::reach(
+            RouterRegistry::new(state.clone(), &[], &self.outbound)?,
+            &served,
+        );
         let registry = Arc::new(match self.wiring {
             Wiring::Fleet => unsealed.with_credentials(Arc::clone(&credentials)),
             Wiring::Pages | Wiring::Wizards => unsealed,
         });
-        let handles = register(&core, &registry, self.routers).await?;
+        let handles = register(&core, &registry, served).await?;
         let backups = Arc::new(BackupStore::new(state.clone(), master_key()));
         let audit = core.audit.clone();
         let workflow = ChangeWorkflow::new(
@@ -155,27 +167,81 @@ impl Setup {
     }
 }
 
-/// Serves `routers` and registers each with the fixture's router password file.
-// NOT cancel-safe: a router may be served before cancellation.
+/// One served fake router: its profile id, the address of its profile URL and its
+/// handle, and on Unix the socket the registry dials for that address.
+struct Served {
+    /// The profile id.
+    id: &'static str,
+    /// The address of the profile URL.
+    address: SocketAddr,
+    /// The Unix socket that serves the router.
+    #[cfg(unix)]
+    socket: PathBuf,
+    /// The running fake router.
+    handle: Handle,
+}
+
+impl Served {
+    /// Serves `fake` on a Unix socket, so a paused tokio clock cannot outrun a reply
+    /// that is written but not yet readable, as it can over loopback TCP.
+    #[cfg(unix)]
+    fn start(id: &'static str, fake: FakeRouter) -> TestResult<Self> {
+        let (address, socket, handle) = fake.serve_local()?;
+        Ok(Self {
+            id,
+            address,
+            socket,
+            handle,
+        })
+    }
+
+    /// Serves `fake` on loopback TCP.
+    // NOT cancel-safe: the router may be served before cancellation.
+    #[cfg(not(unix))]
+    async fn start(id: &'static str, fake: FakeRouter) -> TestResult<Self> {
+        let (address, handle) = fake.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
+        Ok(Self {
+            id,
+            address,
+            handle,
+        })
+    }
+
+    /// `registry` dialing each of `served` over its Unix socket.
+    #[cfg(unix)]
+    fn reach(registry: RouterRegistry, served: &[Self]) -> RouterRegistry {
+        served.iter().fold(registry, |reached, router| {
+            reached.with_local_socket(router.address, router.socket.clone())
+        })
+    }
+
+    /// `registry` as it is: TCP reaches every served router.
+    #[cfg(not(unix))]
+    fn reach(registry: RouterRegistry, _served: &[Self]) -> RouterRegistry {
+        registry
+    }
+}
+
+/// Registers each `served` router with the fixture's router password file.
+// NOT cancel-safe: some routers may be registered before cancellation.
 async fn register(
     core: &Core,
     registry: &RouterRegistry,
-    routers: Vec<(&'static str, FakeRouter)>,
+    served: Vec<Served>,
 ) -> TestResult<Vec<(&'static str, Handle)>> {
     let password_file =
         kcc_testkit::write_secret_file(core.directory.path(), "router-password", DEFAULT_PASSWORD)?;
     let admin = admin()?;
     let mut handles = Vec::new();
-    for (id, fake) in routers {
-        let (address, handle) = fake.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
+    for router in served {
         let profile = ManagedRouterProfile::new(
-            id.to_owned(),
-            Url::parse(&format!("http://{address}"))?,
+            router.id.to_owned(),
+            Url::parse(&format!("http://{}", router.address))?,
             DEFAULT_LOGIN.to_owned(),
             password_file.clone(),
         );
         registry.create(&admin, profile).await?;
-        handles.push((id, handle));
+        handles.push((router.id, router.handle));
     }
     Ok(handles)
 }
