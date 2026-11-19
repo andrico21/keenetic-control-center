@@ -1,0 +1,250 @@
+name: Probe
+
+# A fast diagnostic loop for one runner: dispatch it with a filtered `cargo test`
+# instead of waiting for the whole CI matrix, for example
+#   gh workflow run probe.yml -f os=macos-latest -f command='-p kcc-app --test poller' -f repeat=3
+# Only repository writers can dispatch a workflow. The inputs still reach the
+# scripts through `env:` only, never through `${{ }}` inside a script.
+on:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: Runner image for the `cargo test` probe
+        type: choice
+        options: [ubuntu-latest, macos-latest, windows-latest]
+        default: macos-latest
+      command:
+        description: Arguments after `cargo test` (split on spaces, no quoting, no globbing)
+        type: string
+        default: -p kcc-app --test poller
+      repeat:
+        description: How many times to run the command (a positive integer)
+        type: string
+        default: "1"
+      token_probe:
+        description: Also run the Windows token diagnostic job (ignores `os`)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# The literal `probe-` prefix keeps this group apart from ci.yml (`ci-...`),
+# release.yml and container.yml. A newer probe of the same ref and runner image
+# cancels the older one; probes of different images run side by side.
+concurrency:
+  group: probe-${{ github.ref }}-${{ inputs.os }}
+  cancel-in-progress: true
+
+# Same action pins as ci.yml.
+jobs:
+  probe:
+    name: Probe (${{ inputs.os }})
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 60
+    # Same settings as ci.yml's `test` job.
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_BUILD_WARNINGS: deny
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Same free-up as ci.yml's `test` job.
+      - name: Free runner disk
+        if: runner.os == 'Linux'
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: "1.100.0"
+      # A probe usually fails (that is what it is for), so its dependency cache is
+      # saved on failure too; the default job-based key keeps it apart from ci.yml's.
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          cache-on-failure: "true"
+      # Same launcher as ci.yml's Windows leg: kcc refuses an elevated token.
+      - name: Grant the de-elevated child access
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./.github/scripts/deelevate.ps1 -GrantAccess
+      - name: cargo test
+        id: run
+        shell: bash
+        env:
+          COMMAND: ${{ inputs.command }}
+          REPEAT: ${{ inputs.repeat }}
+        run: |
+          set -uo pipefail
+          set -f
+          case "$REPEAT" in
+            '' | *[!0-9]* | 0) echo "::error::repeat must be a positive integer, got '$REPEAT'"; exit 2 ;;
+          esac
+          run_once() {
+            if [ "$RUNNER_OS" = Windows ]; then
+              pwsh -NoProfile -NonInteractive -File .github/scripts/deelevate.ps1 \
+                -CommandLine "cargo test $COMMAND -- --nocapture"
+            else
+              # shellcheck disable=SC2086 # COMMAND is a list of cargo arguments.
+              cargo test $COMMAND -- --nocapture
+            fi
+          }
+          df -h .
+          final=0
+          failures=0
+          for i in $(seq 1 "$REPEAT"); do
+            start=$(date +%s)
+            rc=0
+            run_once || rc=$?
+            echo "probe: run=$i/$REPEAT exit=$rc seconds=$(( $(date +%s) - start ))"
+            df -h .
+            if [ "$rc" -ne 0 ]; then
+              final=$rc
+              failures=$((failures + 1))
+            fi
+          done
+          echo "probe: failures=$failures/$REPEAT"
+          echo "exit_code=$final" >> "$GITHUB_OUTPUT"
+          exit "$final"
+      - name: Summary
+        if: always()
+        shell: bash
+        env:
+          OS: ${{ inputs.os }}
+          COMMAND: ${{ inputs.command }}
+          REPEAT: ${{ inputs.repeat }}
+          EXIT_CODE: ${{ steps.run.outputs.exit_code }}
+          OUTCOME: ${{ steps.run.outcome }}
+        run: |
+          printf 'probe-summary: os=%s command=%s repeat=%s exit=%s outcome=%s\n' \
+            "$OS" "'$COMMAND'" "$REPEAT" "${EXIT_CODE:-none}" "$OUTCOME"
+
+  # Prints, for each way of starting a child process, whether the child's token is
+  # elevated (the check kcc refuses on) and its integrity level. Every method step
+  # succeeds only when its child is not elevated; the Summary step lists them all.
+  windows-token:
+    name: Windows token probe
+    if: inputs.token_probe
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # A directory the de-elevated children can read the script from and write to.
+      - name: Prepare the probe directory
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'kcc-token-probe'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Copy-Item -LiteralPath .github/scripts/deelevate.ps1 -Destination $dir
+          $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+          & icacls.exe $dir /grant "*${sid}:(OI)(CI)M" /T /C /Q
+          if ($LASTEXITCODE -ne 0) { throw "icacls exited $LASTEXITCODE" }
+          Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber | Format-List
+          Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' |
+            Select-Object EnableLUA, ConsentPromptBehaviorAdmin, FilterAdministratorToken | Format-List
+          whoami /groups /fo list | Select-String -Pattern 'Administrators|Mandatory Label' -Context 0, 3
+      - name: (a) job token
+        id: job
+        continue-on-error: true
+        shell: pwsh
+        run: ./.github/scripts/deelevate.ps1 -Report -Label job-token
+      - name: (b) runas /trustlevel:0x20000
+        id: runas
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'kcc-token-probe'
+          $out = Join-Path $dir 'runas.txt'
+          & runas.exe /showtrustlevels
+          # runas starts the child and returns at once, without its exit code, so the
+          # child writes its line to a file and this step waits for that file.
+          & runas.exe /trustlevel:0x20000 "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $dir\deelevate.ps1 -Report -Label runas-trustlevel -OutFile $out"
+          Write-Output "runas exit=$LASTEXITCODE"
+          if ($LASTEXITCODE -ne 0) { Write-Output 'method=runas-trustlevel verdict=launch-error'; exit 1 }
+          $deadline = (Get-Date).AddSeconds(90)
+          while (-not (Test-Path -LiteralPath $out) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
+          if (-not (Test-Path -LiteralPath $out)) {
+            Write-Output 'method=runas-trustlevel verdict=no-output (the child wrote nothing within 90 s)'
+            exit 1
+          }
+          $line = Get-Content -LiteralPath $out -Raw
+          Write-Output $line.Trim()
+          if ($line -notmatch ' elevated=0 ') { exit 1 }
+      - name: (c1) launcher, SAFER normal-user token
+        id: safer
+        continue-on-error: true
+        shell: pwsh
+        run: ./.github/scripts/deelevate.ps1 -Method safer -CommandLine 'cmd.exe /d /c exit 0'
+      - name: (c2) launcher, CreateRestrictedToken LUA token
+        id: restricted
+        continue-on-error: true
+        shell: pwsh
+        run: ./.github/scripts/deelevate.ps1 -Method restricted -CommandLine 'cmd.exe /d /c exit 0'
+      # Heavier fallback, only when no token of the runner user works: a fresh
+      # standard (non-admin) local user started through Task Scheduler. Windows
+      # PowerShell for the LocalAccounts and ScheduledTasks modules. The random
+      # password is never printed.
+      - name: (d) standard local user through Task Scheduler
+        id: task
+        if: steps.runas.outcome == 'failure' && steps.safer.outcome == 'failure' && steps.restricted.outcome == 'failure'
+        continue-on-error: true
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:RUNNER_TEMP 'kcc-token-probe'
+          $out = Join-Path $dir 'task.txt'
+          $bytes = New-Object byte[] 24
+          [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+          $password = [Convert]::ToBase64String($bytes) + 'a1!A'
+          $secure = ConvertTo-SecureString $password -AsPlainText -Force
+          New-LocalUser -Name kccci -Password $secure -AccountNeverExpires -PasswordNeverExpires | Out-Null
+          $dirs = @($dir, $env:GITHUB_WORKSPACE, $env:CARGO_HOME, $env:RUSTUP_HOME) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+          foreach ($d in $dirs) {
+            & icacls.exe $d /grant 'kccci:(OI)(CI)M' /T /C /Q
+            if ($LASTEXITCODE -ne 0) { throw "icacls $d exited $LASTEXITCODE" }
+          }
+          $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File $dir\deelevate.ps1 -Report -Label standard-user-task -OutFile $out"
+          $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
+          Register-ScheduledTask -TaskName kcc-token-probe -Action $action -User kccci -Password $password -RunLevel Limited | Out-Null
+          Start-ScheduledTask -TaskName kcc-token-probe
+          # The first logon creates the user's profile from C:\Users\Default, which on
+          # this image holds a whole Rust install, so the wait is generous.
+          $deadline = (Get-Date).AddSeconds(300)
+          while (-not (Test-Path -LiteralPath $out) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
+          if (-not (Test-Path -LiteralPath $out)) {
+            $info = Get-ScheduledTaskInfo -TaskName kcc-token-probe
+            Write-Output ('method=standard-user-task verdict=no-output last_task_result=0x{0:X8}' -f $info.LastTaskResult)
+            exit 1
+          }
+          $line = Get-Content -LiteralPath $out -Raw
+          Write-Output $line.Trim()
+          if ($line -notmatch ' elevated=0 ') { exit 1 }
+      - name: Remove the probe user
+        if: always() && steps.task.outcome != 'skipped'
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-ScheduledTask -TaskName kcc-token-probe -ErrorAction SilentlyContinue) {
+            Unregister-ScheduledTask -TaskName kcc-token-probe -Confirm:$false
+          }
+          if (Get-LocalUser -Name kccci -ErrorAction SilentlyContinue) { Remove-LocalUser -Name kccci }
+      - name: Summary
+        if: always()
+        shell: bash
+        env:
+          JOB: ${{ steps.job.outcome }}
+          RUNAS: ${{ steps.runas.outcome }}
+          SAFER: ${{ steps.safer.outcome }}
+          RESTRICTED: ${{ steps.restricted.outcome }}
+          TASK: ${{ steps.task.outcome }}
+        run: |
+          echo "token-summary: success = that method's child is not elevated"
+          echo "token-summary: job_token=$JOB runas_trustlevel=$RUNAS launcher_safer=$SAFER launcher_restricted=$RESTRICTED standard_user_task=$TASK"

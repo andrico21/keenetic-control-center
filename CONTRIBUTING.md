@@ -79,6 +79,24 @@ CI runs `cargo vet --locked` for both workspaces.
 - Tests must not depend on timing: wait for an event or state change with a bounded
   timeout instead of sleeping.
 
+## CI runners
+
+kcc refuses to run with an elevated Windows token (the privilege floor in
+`docs/SECURITY.md`), and GitHub's `windows-latest` runner runs every job elevated. So
+the Windows leg of `ci.yml` starts `cargo test` through `.github/scripts/deelevate.ps1`,
+which launches it with a non-elevated token and fails the step at once if the child is
+still elevated. Never weaken the check to make a runner pass.
+
+To iterate on one runner without the whole matrix, dispatch the `Probe` workflow with a
+filtered `cargo test` (the Windows probe uses the same launcher):
+
+```text
+gh workflow run probe.yml -f os=macos-latest -f command='-p kcc-app --test poller' -f repeat=3
+```
+
+`-f token_probe=true` adds a job that prints, for each way of starting a de-elevated
+child on `windows-latest`, whether its token is elevated and its integrity level.
+
 ## Documentation checks
 
 `cargo test -p kcc --test docs` checks the documentation:
