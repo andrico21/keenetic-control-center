@@ -21,9 +21,12 @@ mod tests {
     )]
 
     use alloc::sync::Arc;
-    use core::error::Error;
+    use core::{error::Error, time::Duration};
 
-    use kcc_app::audit::{Actor, ActorKind};
+    use kcc_app::{
+        audit::{Actor, ActorKind, AuditLog},
+        jobs::{JobEvent, JobStatus},
+    };
     use kcc_config::{config_text::parse, ns3};
     use kcc_migrate::{
         apply::{Applier, ApplyError},
@@ -38,8 +41,15 @@ mod tests {
     };
     use kcc_testkit::{FaultInjection, model::Profile};
     use secrecy::{ExposeSecret as _, SecretString};
+    use tokio::{
+        sync::broadcast::{self, error::RecvError},
+        time::timeout,
+    };
 
     use crate::{state_scan, support::Fixture};
+
+    /// Upper bound for the job's final record and the audit queue to settle.
+    const QUIESCENCE: Duration = Duration::from_secs(30);
 
     /// The dummy secrets one copy carries, all built at run time.
     struct Secrets {
@@ -123,6 +133,34 @@ mod tests {
         ))
     }
 
+    /// Waits until job `id` has written its final record and no audit entry is queued.
+    ///
+    /// The applier is handed back before its job ends; a detached task then writes the
+    /// job's final record through a temporary file renamed into place, so a state scan
+    /// started earlier can list a file that is gone when it is read. The terminal job
+    /// event is sent only after that write.
+    // cancel-safe: it only observes job events and the audit writer's progress.
+    async fn settle(
+        events: &mut broadcast::Receiver<JobEvent>,
+        id: &str,
+        audit: &AuditLog,
+    ) -> Result<(), Box<dyn Error>> {
+        timeout(QUIESCENCE, async {
+            loop {
+                match events.recv().await {
+                    Ok(event) if event.id == id && event.status != JobStatus::Running => {
+                        return Ok(());
+                    }
+                    Ok(_) | Err(RecvError::Lagged(_)) => {}
+                    Err(RecvError::Closed) => return Err(RecvError::Closed),
+                }
+            }
+        })
+        .await??;
+        assert_eq!(audit.flush(QUIESCENCE).await, 0, "audit not flushed");
+        Ok(())
+    }
+
     /// Interrupt a transient copy after its first line, then scan the whole state dir.
     #[tokio::test]
     async fn interrupted_transient_copy_leaves_no_clear_secret_on_disk()
@@ -189,7 +227,8 @@ mod tests {
         );
         input.options = PresetApplyOptions::default().keep_wireguard_keys();
 
-        let (_id, done) = Applier::start(&fixture.runner, request(input)?).await?;
+        let mut events = fixture.runner.subscribe();
+        let (id, done) = Applier::start(&fixture.runner, request(input)?).await?;
         let applier = done.await??;
         assert_eq!(applier.report().failure, Some(ApplyError::Stopped));
         assert!(
@@ -197,6 +236,7 @@ mod tests {
             "the copy must stop mid-apply, after its first line"
         );
         drop(applier);
+        settle(&mut events, &id, &fixture.audit).await?;
 
         let root = fixture.state.dir();
         let scanned = state_scan::files(root)?;
