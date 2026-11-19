@@ -159,6 +159,8 @@ fn kcc(home: &Path, args: &[&str]) -> Result<(i32, String), Box<dyn Error>> {
             .env("HOME", home.join("home"))
             .env("XDG_CONFIG_HOME", home.join("home/config"))
             .env("XDG_STATE_HOME", home.join("home/state"))
+            .env("LOCALAPPDATA", home.join("home/state"))
+            .env("APPDATA", home.join("home/config"))
             .env(MASTER_KEY_FILE_ENV, home.join("master.key"))
             .env("USER", "tester")
             .env("LANG", "C")

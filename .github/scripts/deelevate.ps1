@@ -13,8 +13,8 @@ Modes:
       Starts <cmd> with the method's token, streams its output and exits with its
       exit code. Before that, a pre-check child started the same way reports its
       own token; a method whose child is still elevated, cannot write the build
-      dirs or dies is skipped. `auto` tries medium, safer-medium,
-      restricted-medium, filtered, filtered-high and fails when none passes.
+      dirs or dies is skipped. `auto` tries filtered, then filtered-high, and
+      fails when neither passes (the other methods are only for the token probe).
   -GrantAccess
       Grants the current user (by SID, not through Administrators) Modify on the
       checkout, the cargo target dir, CARGO_HOME, RUSTUP_HOME and RUNNER_TEMP, so
@@ -62,7 +62,7 @@ param(
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 
-$AutoOrder = @('medium', 'safer-medium', 'restricted-medium', 'filtered', 'filtered-high')
+$AutoOrder = @('filtered', 'filtered-high')
 
 # C# 5 only: Windows PowerShell 5.1 compiles this with the .NET Framework csc.
 $source = @'

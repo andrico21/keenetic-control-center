@@ -2,13 +2,16 @@
 //! firmware-update family, and the Web session gauge.
 
 use core::{error::Error, net::SocketAddr, time::Duration};
-use std::{path::Path, sync::Arc, time::Instant};
+#[cfg(unix)]
+use std::path::Path;
+use std::{sync::Arc, time::Instant};
 
+#[cfg(unix)]
+use kcc_app::registry::{ManagedRouterProfile, RoutersDocument};
 use kcc_app::{
     accounts::{AccountStore, NewAccount, SystemClock},
     permissions::{Permission, Role},
     persist::StateStore,
-    registry::{ManagedRouterProfile, RoutersDocument},
     secrets::MasterKey,
 };
 use kcc_testkit::{
@@ -17,16 +20,23 @@ use kcc_testkit::{
 use reqwest::{Client, StatusCode, header, redirect::Policy};
 use secrecy::SecretString;
 use tempfile::TempDir;
+#[cfg(unix)]
 use url::Url;
 
-use super::{
-    PROCESS_TIMEOUT, Server, TestResult, master_key,
-    signal::{self, Signal},
-};
+#[cfg(unix)]
+use super::signal::{self, Signal};
+use super::{PROCESS_TIMEOUT, Server, TestResult, master_key};
 
 /// One `kcc serve` with metrics and the Web UI over the fake router `fake`.
 struct Running {
     /// State, configuration and password file.
+    #[cfg_attr(
+        not(unix),
+        expect(
+            dead_code,
+            reason = "only the SIGHUP test reads it; it keeps the files alive"
+        )
+    )]
     directory: TempDir,
     /// The server.
     server: Server,
@@ -125,11 +135,13 @@ impl Running {
     }
 
     /// Sends SIGHUP to the server.
+    #[cfg(unix)]
     fn hangup(&self) -> TestResult {
         Ok(signal::send(&self.server.child, Signal::Hangup)?)
     }
 
     /// Replaces the state-defined routers with `routers`, as `kcc router add|remove` do.
+    #[cfg(unix)]
     fn set_routers(&self, routers: Vec<ManagedRouterProfile>) -> TestResult {
         StateStore::open(&self.directory.path().join("state"))?
             .update(|document: &mut RoutersDocument| document.routers = routers)?;
@@ -171,6 +183,7 @@ async fn sign_in(http: &Client, base: &str) -> TestResult {
 }
 
 /// The profile `id` of the router at `address`, with its password in `password`.
+#[cfg(unix)]
 fn profile(
     id: &str,
     address: SocketAddr,
@@ -184,6 +197,8 @@ fn profile(
     ))
 }
 
+// Needs a SIGHUP reload, which only unix hosts have.
+#[cfg(unix)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn routers_added_and_removed_at_runtime_are_scraped_and_dropped() -> TestResult {
     let running = start(None).await?;

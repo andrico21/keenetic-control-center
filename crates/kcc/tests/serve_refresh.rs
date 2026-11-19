@@ -29,15 +29,18 @@ mod support;
 #[path = "serve_refresh/web.rs"]
 mod web;
 
-use kcc_app::{
-    api_keys::ApiKeysDocument,
-    permissions::{Permission, RolesDocument},
-};
-use reqwest::{Client, StatusCode};
+use kcc_app::api_keys::ApiKeysDocument;
+#[cfg(unix)]
+use kcc_app::permissions::{Permission, RolesDocument};
+#[cfg(unix)]
+use reqwest::Client;
+use reqwest::StatusCode;
 use serde_json::{Value, json};
 
+#[cfg(unix)]
+use crate::support::ops;
 use crate::{
-    support::{Fixture, TestResult, call, client, mcp_session, modified, ops, rpc},
+    support::{Fixture, TestResult, call, client, mcp_session, modified, rpc},
     web::Browser,
 };
 
@@ -45,6 +48,7 @@ use crate::{
 ///
 /// The tool needs `Write`, the operation `ManageUsers`, which only the MCP handler's own
 /// check enforces, and its management risk needs `Destructive`, like the CLI and the Web UI.
+#[cfg(unix)]
 fn password_call() -> (&'static str, Value) {
     (
         "kcc_vpn_servers_write",
@@ -53,6 +57,7 @@ fn password_call() -> (&'static str, Value) {
 }
 
 /// The role form of `ops` with `manage_users` ticked or not.
+#[cfg(unix)]
 fn ops_form(manage_users: bool) -> Vec<(&'static str, &'static str)> {
     let mut form = vec![
         ("name", "ops"),
@@ -73,6 +78,7 @@ fn refusal(answer: &Value) -> Option<&str> {
 }
 
 /// Saves the `ops` role through the Web UI as `admin`.
+#[cfg(unix)]
 async fn edit_ops(http: &Client, base: &str, admin: &Browser, manage_users: bool) -> TestResult {
     let response = admin
         .post(
@@ -85,6 +91,8 @@ async fn edit_ops(http: &Client, base: &str, admin: &Browser, manage_users: bool
     Ok(())
 }
 
+// Needs a SIGHUP reload, which only unix hosts have.
+#[cfg(unix)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn role_changes_bind_mcp_and_the_web_ui_without_a_restart() -> TestResult {
     let fixture = Fixture::new().await?;

@@ -80,6 +80,8 @@ impl Env {
                 .env("HOME", self.path("home"))
                 .env("XDG_CONFIG_HOME", self.path("home/config"))
                 .env("XDG_STATE_HOME", self.path("home/state"))
+                .env("LOCALAPPDATA", self.path("home/state"))
+                .env("APPDATA", self.path("home/config"))
                 .env(MASTER_KEY_FILE_ENV, self.path("master.key"))
                 .env("USER", "tester")
                 .env("LANG", "C")

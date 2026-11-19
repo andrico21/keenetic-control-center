@@ -107,6 +107,8 @@ impl Env {
             .env("HOME", &home)
             .env("XDG_CONFIG_HOME", home.join("config"))
             .env("XDG_STATE_HOME", home.join("state"))
+            .env("LOCALAPPDATA", home.join("state"))
+            .env("APPDATA", home.join("config"))
             .env(MASTER_KEY_FILE_ENV, self.path("master.key"))
             .env("USER", USER)
             .env("LANG", "C")

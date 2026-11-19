@@ -11,12 +11,14 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use core::{error::Error, time::Duration};
+#[cfg(unix)]
+use std::time::Instant;
 use std::{
     fs,
     path::{Path, PathBuf},
     process::{Child, Stdio},
     sync::{OnceLock, mpsc},
-    time::{Instant, SystemTime},
+    time::SystemTime,
 };
 
 use kcc_app::{
@@ -33,10 +35,11 @@ use secrecy::SecretString;
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
+#[cfg(unix)]
+use crate::signal::{self, Signal};
 use crate::{
     master_key,
     serve_port::{Start, await_ready, start_on_free_ports, stderr_lines},
-    signal::{self, Signal},
     spawning,
 };
 
@@ -78,6 +81,7 @@ impl Drop for Server {
 
 impl Server {
     /// Waits until a stderr line contains `needle`.
+    #[cfg(unix)]
     pub(crate) fn wait_for(&self, needle: &str) -> TestResult {
         let deadline = Instant::now()
             .checked_add(PROCESS_TIMEOUT)
@@ -95,6 +99,7 @@ impl Server {
     }
 
     /// Sends SIGHUP and waits until the reload is applied.
+    #[cfg(unix)]
     pub(crate) fn hangup(&self) -> TestResult {
         signal::send(&self.child, Signal::Hangup)?;
         self.wait_for("configuration reloaded from SIGHUP")

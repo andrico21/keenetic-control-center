@@ -218,6 +218,8 @@ impl Fixture {
             .env("HOME", home)
             .env("XDG_CONFIG_HOME", home.join("config"))
             .env("XDG_STATE_HOME", home.join("state-home"))
+            .env("LOCALAPPDATA", home.join("state-home"))
+            .env("APPDATA", home.join("config"))
             .env(MASTER_KEY_FILE_ENV, home.join("master.key"))
             .env("USER", "ops-cli")
             .env("LANG", "C");
