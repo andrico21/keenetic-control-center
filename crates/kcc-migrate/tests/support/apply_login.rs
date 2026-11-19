@@ -31,6 +31,7 @@ pub(crate) mod tests {
         time::{Clock as _, MockClock},
     };
     use secrecy::SecretString;
+    use tokio::time::timeout;
 
     use crate::support::Fixture;
 
@@ -244,10 +245,12 @@ pub(crate) mod tests {
 
         let mut refused = preset_request(&fixture, users_preset(realm, &fresh("admin"))?).await?;
         refused.options.clock = Arc::new(Advancing(Arc::clone(&time)));
-        let (_id, done) = Applier::start(&fixture.runner, refused).await?;
+        let (id, done) = Applier::start(&fixture.runner, refused).await?;
         let outcome = done.await?.map(|applier| applier.report().failure);
         assert_eq!(outcome, Err(ApplyError::PasswordRequired));
         assert_eq!(fixture.handle.running_config_text(), before);
+        // The refused job hands its verdict over before it frees the target's write slot.
+        timeout(Duration::from_secs(15), fixture.runner.ended(&id)).await?;
 
         let supplied = preset_request(&fixture, users_preset(realm, &fresh("admin"))?).await?;
         assert_eq!(management_order(&supplied), [true]);

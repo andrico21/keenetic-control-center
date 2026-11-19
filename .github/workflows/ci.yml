@@ -139,7 +139,7 @@ jobs:
       - run: cargo test --workspace --all-features --no-fail-fast
         if: runner.os != 'Windows'
       - name: Doctests
-        if: runner.os != 'Windows'
+        if: ${{ !cancelled() && runner.os != 'Windows' }}
         run: cargo test --doc --workspace
       # kcc refuses an elevated process token (exit 77, docs/SECURITY.md "Privilege
       # floor") and the Windows runner runs every job elevated, so the Windows leg runs
@@ -154,7 +154,7 @@ jobs:
           ./.github/scripts/deelevate.ps1 -GrantAccess
           ./.github/scripts/deelevate.ps1 -CommandLine 'cargo test --workspace --all-features --no-fail-fast'
       - name: Doctests (de-elevated)
-        if: runner.os == 'Windows'
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
         shell: pwsh
         run: ./.github/scripts/deelevate.ps1 -CommandLine 'cargo test --doc --workspace'
       - name: Disk left
