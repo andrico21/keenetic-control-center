@@ -20,7 +20,7 @@ use super::plan::ApplyInput;
 use crate::{
     KccMcp, McpFailure, authorize_routers,
     migration_tools::{
-        apply::{follow, map_apply},
+        apply::{follow, map_apply, map_start},
         state::Migration,
     },
     support::route::{Progress, parse},
@@ -79,10 +79,12 @@ pub(crate) async fn apply(
     let mut events = server.jobs.subscribe();
     let (job, done) = Applier::start(&server.jobs, protected)
         .await
-        .map_err(map_apply)?;
-    let applier = follow(&job, &mut events, done, progress.as_ref())
-        .await
-        .map_err(map_apply)?;
+        .map_err(map_start)?;
+    let followed = follow(&job, &mut events, done, progress.as_ref()).await;
+    // The job hands its verdict over before it frees the target: answer once it did, so
+    // the caller's next apply is admitted.
+    server.jobs.ended(&job).await;
+    let applier = followed.map_err(map_apply)?;
     let mut migration = Migration::new(
         identity.name,
         (source.unwrap_or_else(|| target.clone()), target),

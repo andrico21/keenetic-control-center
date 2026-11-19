@@ -86,6 +86,15 @@ pub(crate) const fn map_apply(error: ApplyError) -> McpFailure {
     }
 }
 
+/// Maps a failed job admission: the engine reports a write job already running on the
+/// target as `Job`, which every front end reads as a busy router.
+pub(crate) fn map_start(error: ApplyError) -> McpFailure {
+    if error == ApplyError::Job {
+        return McpFailure::Conflict;
+    }
+    map_apply(error)
+}
+
 /// What a reviewed apply works with: the migration's routers, a copy of its plan, its
 /// record, and the mark that keeps the record while the apply runs.
 type Reviewed = ([RouterId; 2], MigrationPlan, Arc<Entry>, Applying);
@@ -165,10 +174,12 @@ pub(crate) async fn apply(
     let mut events = server.jobs.subscribe();
     let (job, done) = Applier::start(&server.jobs, request)
         .await
-        .map_err(map_apply)?;
-    let applier = follow(&job, &mut events, done, progress.as_ref())
-        .await
-        .map_err(map_apply)?;
+        .map_err(map_start)?;
+    let followed = follow(&job, &mut events, done, progress.as_ref()).await;
+    // The job hands its verdict over before it frees the target: answer once it did, so
+    // the caller's next apply is admitted.
+    server.jobs.ended(&job).await;
+    let applier = followed.map_err(map_apply)?;
     let mut migration = entry.lock().await;
     entry.lease(&mut migration, job.clone(), applier);
     let mut value = migration.summary();

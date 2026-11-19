@@ -1127,6 +1127,13 @@ The first release, `0.1.0`, is in preparation and contains:
   `kcc serve` and `kcc mcp stdio`) are now shown in the output language. English text is
   unchanged. An unsupported `--lang` is now reported in the language of `KCC_LANG`,
   `LC_ALL` or `LANG` instead of always in English.
+- **An MCP apply retried at once is admitted, and a busy target is a `conflict`.**
+  `kcc_migration_apply` and `kcc_preset_apply` answered as soon as their job reported its
+  verdict, while the job still held the target for a moment, so a retry right after a
+  refusal (for example with `ack_documentation_tier`) could be refused as `internal`. Both
+  tools now answer once the job has ended, and an apply whose job cannot be admitted
+  because another write job runs on the target is refused as `conflict`, as the Web
+  wizard reports it busy.
 
 ### Security
 

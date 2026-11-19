@@ -13,8 +13,11 @@ mod lab;
     reason = "acceptance assertions establish the migration tool contract"
 )]
 mod tests {
+    use core::time::Duration;
+
     use kcc_app::{
         audit::ActorKind,
+        jobs::JobTarget,
         permissions::{Permission, Role},
     };
     use kcc_testkit::{
@@ -22,6 +25,7 @@ mod tests {
         model::{Firmware, Model, Profile},
     };
     use serde_json::{Value, json};
+    use tokio::{sync::oneshot, time::timeout};
 
     use super::lab::{Lab, TestResult, admin, lab_only};
 
@@ -291,6 +295,42 @@ mod tests {
             .await?;
         assert_eq!(report.value()?.get("plan_id"), Some(&json!(plan_id)));
         assert_confirmation_refusals(&lab, &plan_id)?;
+        lab.stop().await
+    }
+
+    /// While another write job holds the target, apply is refused as a conflict, not as an
+    /// internal failure, and the target is not contacted.
+    #[tokio::test]
+    async fn apply_on_a_busy_target_is_a_conflict() -> TestResult {
+        let routers = vec![
+            ("lab-src", FakeRouter::builder(Profile::default()).build()?),
+            ("lab-1", target(Profile::default())?),
+        ];
+        let lab = Lab::start(routers, admin()).await?;
+        let plan_id = plan(&lab, "lab-1", "lab-src").await?;
+        let (release, held) = oneshot::channel::<()>();
+        let busy = lab
+            .jobs
+            .start(
+                "busy".to_owned(),
+                JobTarget::Write("lab-1".to_owned()),
+                async move |_context| held.await.map_err(|error| error.to_string()),
+            )
+            .await?;
+        let before = lab.requests("lab-1")?;
+
+        let refused = lab
+            .call(
+                "kcc_migration_apply",
+                json!({"host": "lab-1", "plan_id": plan_id, "confirm": true}),
+                false,
+            )
+            .await?;
+
+        assert_eq!(refused.error(), Some("conflict"), "{refused:?}");
+        assert_eq!(lab.requests("lab-1")?, before);
+        release.send(()).map_err(|()| "busy job dropped its gate")?;
+        timeout(Duration::from_secs(5), lab.jobs.ended(&busy)).await?;
         lab.stop().await
     }
 

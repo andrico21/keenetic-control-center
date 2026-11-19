@@ -406,6 +406,25 @@ impl JobRunner {
         }
     }
 
+    /// Waits until job `id` ended: its final record is written and its router write slot
+    /// is free. Returns at once for a job this runner does not run.
+    ///
+    /// A job's work can hand its result to a caller before the job ends; a caller that
+    /// waits here before answering lets the next write job on the router start at once.
+    // cancel-safe: only waits; the job's own cleanup runs on its detached task either way.
+    #[inline]
+    pub async fn ended(&self, id: &str) {
+        loop {
+            let finished = self.finished.notified();
+            tokio::pin!(finished);
+            let _: bool = finished.as_mut().enable();
+            if !self.active.lock().await.contains_key(id) {
+                return;
+            }
+            finished.await;
+        }
+    }
+
     /// Starts a persisted job and returns its id immediately.
     ///
     /// # Errors
@@ -1066,6 +1085,57 @@ mod tests {
             runner
                 .start(
                     "retry".to_owned(),
+                    JobTarget::Write("router".to_owned()),
+                    async |_context| Ok(()),
+                )
+                .await?,
+        );
+        Ok(())
+    }
+
+    /// A job's terminal event comes before its router write slot is free; `ended` returns
+    /// only after the slot is free, so a write job started then is admitted.
+    #[expect(
+        clippy::missing_panics_doc,
+        clippy::panic_in_result_fn,
+        reason = "the assertions prove when a finished job lets its router go"
+    )]
+    #[tokio::test]
+    async fn ended_waits_past_the_terminal_event_until_the_router_is_free()
+    -> Result<(), Box<dyn Error>> {
+        let temp = TempDir::new()?;
+        let state = StateStore::open(&temp.path().join("state"))?;
+        let registry = Arc::new(RouterRegistry::new(
+            state.clone(),
+            &[],
+            &OutboundConfig::default(),
+        )?);
+        let runner = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
+        let mut events = runner.subscribe();
+        let (release, held) = oneshot::channel();
+        let id = runner
+            .start(
+                "first".to_owned(),
+                JobTarget::Write("router".to_owned()),
+                async move |_context| held.await.map_err(|error| error.to_string()),
+            )
+            .await?;
+        let slots = runner.write_jobs.lock().await;
+
+        release.send(()).map_err(|()| "job receiver dropped")?;
+        let terminal = timeout(Duration::from_secs(1), events.recv()).await??;
+        let ended = runner.ended(&id);
+        tokio::pin!(ended);
+        let mut context = Context::from_waker(Waker::noop());
+        assert_eq!(terminal.id, id);
+        assert!(matches!(ended.as_mut().poll(&mut context), Poll::Pending));
+        drop(slots);
+        timeout(Duration::from_secs(1), ended).await?;
+
+        drop(
+            runner
+                .start(
+                    "second".to_owned(),
                     JobTarget::Write("router".to_owned()),
                     async |_context| Ok(()),
                 )
