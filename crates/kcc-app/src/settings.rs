@@ -1042,6 +1042,7 @@ enum BaseDir {
 }
 
 /// An absolute path from environment variable `var`.
+#[cfg(not(target_os = "macos"))]
 fn env_dir(var: &str) -> Option<PathBuf> {
     env::var_os(var)
         .map(PathBuf::from)
