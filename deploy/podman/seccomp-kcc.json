@@ -74,6 +74,7 @@
       "names": [
         "chmod",
         "fchmod",
+        "fchmodat",
         "fdatasync",
         "flock",
         "fsync",

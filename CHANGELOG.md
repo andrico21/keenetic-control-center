@@ -173,6 +173,10 @@ The first release, `0.1.0`, is in preparation and contains:
   binary twice on its amd64 and its arm64 runner, runs the drift check on both, and
   uploads the traces as the `seccomp-trace-amd64` and `seccomp-trace-arm64` artifacts
   the profile is regenerated from (`deploy/podman/README.md`).
+- **The seccomp profile allows `fchmodat`.** arm64 has no `chmod` and uses `fchmodat`
+  instead, so the arm64 image could not create its state directory under the profile
+  (`state I/O on /var/lib/kcc: Operation not permitted`). The profile is regenerated from
+  native amd64 and arm64 traces.
 - **Every live suite needs a test-device profile.** Each `live_*` suite, read-only ones
   included, requires `KCC_LIVE_TARGET_CONFIG`: a `kcc.toml` whose profile for the router
   has `test_device = true` and whose `[outbound] allowed_networks` admits it. The profile
