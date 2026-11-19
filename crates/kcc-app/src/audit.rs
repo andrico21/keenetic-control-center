@@ -5,12 +5,15 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use core::time::Duration;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::{Mutex, PoisonError},
+};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::{
-    sync::{Semaphore, mpsc, watch},
+    sync::{Semaphore, broadcast, mpsc, watch},
     time::timeout,
 };
 
@@ -41,6 +44,8 @@ pub const AUDIT_FILE_NAME: &str = "audit.jsonl";
 pub const DEFAULT_RETENTION: Duration = Duration::from_hours(365 * 24);
 /// Queue slots shared by the callers of [`AuditLog::submit_within`].
 const BOUNDED_SLOTS: usize = 128;
+/// Entries kept for a subscriber of [`AuditLog::subscribe`] that has not read them yet.
+const WRITTEN_CAPACITY: usize = 256;
 /// All-zero hash before the first audit entry.
 const GENESIS_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -410,6 +415,10 @@ struct Progress {
     /// for good when its entry is queued, and the writer adds it back once the entry is
     /// written; the writer closes the semaphore when it stops.
     slots: Semaphore,
+    /// Every entry the writer appended, sent once it is durable, in chain order.
+    written: broadcast::Sender<AuditEntry>,
+    /// The repair entry the start recorded before any subscriber existed, until taken.
+    startup_repair: Mutex<Option<AuditEntry>>,
 }
 
 impl fmt::Debug for AuditLog {
@@ -447,8 +456,8 @@ impl AuditLog {
     /// Starts the writer with an explicit rotation and retention policy.
     ///
     /// Verifies the whole chain first. When the append lock is free, it then moves a
-    /// torn last line aside and records the repair; otherwise the writer does that
-    /// before its first append.
+    /// torn last line aside and records the repair, kept for [`Self::startup_repair`];
+    /// otherwise the writer does that before its first append.
     ///
     /// # Errors
     ///
@@ -456,18 +465,23 @@ impl AuditLog {
     #[inline]
     pub fn spawn_with_policy(store: &StateStore, policy: AuditPolicy) -> Result<Self, AuditError> {
         let state = WriterState::new(store.clone(), policy);
-        match store.try_lock(AUDIT_FILE_NAME) {
+        let repaired = match store.try_lock(AUDIT_FILE_NAME) {
             Ok(lock) => {
                 drop(verify_chain(store.dir())?);
-                state.repair(&lock)?;
+                state.repair(&lock)?
             }
-            Err(StateError::StateLocked { path: _ }) => drop(verify_chain(store.dir())?),
+            Err(StateError::StateLocked { path: _ }) => {
+                drop(verify_chain(store.dir())?);
+                None
+            }
             Err(error) => return Err(error.into()),
-        }
+        };
         let (sender, receiver) = mpsc::unbounded_channel();
         let progress = Arc::new(Progress {
             queued: watch::Sender::new(0),
             slots: Semaphore::new(BOUNDED_SLOTS),
+            written: broadcast::Sender::new(WRITTEN_CAPACITY),
+            startup_repair: Mutex::new(repaired),
         });
         drop(tokio::spawn(writer::writer_task(
             receiver,
@@ -570,6 +584,28 @@ impl AuditLog {
     // even if the caller stops awaiting.
     pub async fn append(&self, event: AuditEvent) -> Result<AuditEntry, AuditError> {
         self.submit(event)?.wait(AUDIT_WAIT).await
+    }
+
+    /// Receives every entry this process's writer appends from now on, in sequence order,
+    /// each once it is durable; a repair entry comes right before the entry whose append
+    /// made it. A receiver that falls more than 256 entries behind gets
+    /// [`broadcast::error::RecvError::Lagged`]; the writer never waits for one.
+    #[inline]
+    #[must_use]
+    pub fn subscribe(&self) -> broadcast::Receiver<AuditEntry> {
+        self.progress.written.subscribe()
+    }
+
+    /// The repair entry recorded when the writer started, before anyone could subscribe;
+    /// `Some` once per writer, to the first caller of any of its handles.
+    #[inline]
+    #[must_use]
+    pub fn startup_repair(&self) -> Option<AuditEntry> {
+        self.progress
+            .startup_repair
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
     }
 
     /// Whether the audit writer task is still accepting commands.

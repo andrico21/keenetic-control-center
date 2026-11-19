@@ -12,11 +12,11 @@ use std::sync::Arc;
 use kcc_app::{
     permissions::{Permission, Role},
     persist::StateStore,
-    poller::{PollIntervals, Poller},
+    poller::{PollError, PollIntervals, Poller},
     registry::{ManagedRouterProfile, RouterRegistry},
     settings::OutboundConfig,
 };
-use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, Handle, model::Profile};
+use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle, model::Profile};
 use tempfile::TempDir;
 use tokio::time::timeout;
 use url::Url;
@@ -51,6 +51,64 @@ async fn ten_subscribers_share_one_light_poll_round() -> Result<(), Box<dyn Erro
     }
     assert_eq!(poller.light_rounds("router").await, 1);
     handle.shutdown().await?;
+    Ok(())
+}
+
+/// todo 7: a router that refuses the polling login is published as `PollError::Auth`.
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn a_refused_polling_login_is_published_as_auth() -> Result<(), Box<dyn Error>> {
+    let directory = TempDir::new()?;
+    let router = FakeRouter::builder(Profile::default())
+        .user(
+            DEFAULT_LOGIN,
+            format!("{DEFAULT_PASSWORD}-rotated"),
+            ["cli", "http-proxy"],
+        )
+        .build()?;
+    let (registry, handle) = registry_for(&directory, router).await?;
+    let poller = Poller::new(registry);
+    let mut results = poller.subscribe("router").await;
+
+    timeout(Duration::from_secs(5), results.changed()).await??;
+
+    let published = results.borrow_and_update().clone();
+    assert!(
+        matches!(published, Some(Err(PollError::Auth))),
+        "{published:?}"
+    );
+    handle.shutdown().await?;
+    Ok(())
+}
+
+/// todo 7: a router that does not answer is published as an error other than `Auth`.
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn a_stopped_router_is_not_published_as_auth() -> Result<(), Box<dyn Error>> {
+    let directory = TempDir::new()?;
+    let (registry, handle) =
+        registry_for(&directory, FakeRouter::builder(Profile::default()).build()?).await?;
+    handle.shutdown().await?;
+    let poller = Poller::new(registry);
+    let mut results = poller.subscribe("router").await;
+
+    timeout(Duration::from_secs(5), results.changed()).await??;
+
+    let published = results.borrow_and_update().clone();
+    assert!(
+        matches!(&published, Some(Err(error)) if !matches!(error, PollError::Auth)),
+        "{published:?}"
+    );
     Ok(())
 }
 

@@ -60,7 +60,8 @@ impl WriterState {
         self.append_lock_retry
     }
 
-    /// Repairs a torn last line, then appends `event`.
+    /// Repairs a torn last line, then appends `event`; returns the repair entry, if one
+    /// was written, and the event's entry, in chain order.
     ///
     /// # Errors
     ///
@@ -69,29 +70,29 @@ impl WriterState {
         &self,
         event: AuditEvent,
         lock: &StateLock,
-    ) -> Result<AuditEntry, AuditError> {
-        self.repair(lock)?;
-        self.write(event, lock)
+    ) -> Result<(Option<AuditEntry>, AuditEntry), AuditError> {
+        let repaired = self.repair(lock)?;
+        Ok((repaired, self.write(event, lock)?))
     }
 
-    /// Moves a torn last line of the active file aside, logs it and records the repair.
+    /// Moves a torn last line of the active file aside, logs it and records the repair;
+    /// returns the repair entry when there was one.
     ///
     /// # Errors
     ///
     /// Returns I/O, serialization or chain errors.
-    pub(super) fn repair(&self, lock: &StateLock) -> Result<(), AuditError> {
+    pub(super) fn repair(&self, lock: &StateLock) -> Result<Option<AuditEntry>, AuditError> {
         let mut active = open_private_append_file(&self.dir.join(AUDIT_FILE_NAME))?;
         let now = self.clock.unix_seconds();
         let Some(torn) = repair::quarantine(&self.dir, &mut active, now)? else {
-            return Ok(());
+            return Ok(None);
         };
         tracing::warn!(
             file = torn.name(),
             bytes = torn.bytes(),
             "the audit log ended in an incomplete line; it was moved aside and the repair recorded"
         );
-        drop(self.write(torn.event(now), lock)?);
-        Ok(())
+        self.write(torn.event(now), lock).map(Some)
     }
 
     /// Chains `event` to the tail of the newest file, rotates if needed, appends and syncs.

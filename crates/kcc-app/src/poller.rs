@@ -8,7 +8,7 @@ use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, time::Duration};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use kcc_rci::{RciBody, RciClient, RciPath, capabilities::RouterInfo};
+use kcc_rci::{RciBody, RciClient, RciError, RciPath, capabilities::RouterInfo};
 use serde_json::{Map, Value, json};
 use tokio::{
     sync::{Mutex, watch},
@@ -106,13 +106,20 @@ pub enum PollError {
     /// A read request failed.
     #[error("router polling request failed")]
     Request,
+    /// The router refused the polling client's login.
+    #[error("router refused the polling login")]
+    Auth,
 }
 
 impl From<RegistryError> for PollError {
     #[inline]
     fn from(error: RegistryError) -> Self {
-        Self::Registry {
-            reason: error.to_string(),
+        if matches!(error, RegistryError::Rci(RciError::Auth(_))) {
+            Self::Auth
+        } else {
+            Self::Registry {
+                reason: error.to_string(),
+            }
         }
     }
 }
@@ -209,6 +216,9 @@ impl Poller {
     }
 
     /// Subscribes to one router, starting its sole polling task lazily.
+    ///
+    /// The task polls while any receiver is alive, so a receiver held for the process
+    /// lifetime keeps the router polled; the notifier relies on that.
     // cancel-safe: channel setup has no external side effect beyond starting a read-only task.
     #[inline]
     pub async fn subscribe(self: &Arc<Self>, router: &str) -> watch::Receiver<Option<PollResult>> {
@@ -484,17 +494,19 @@ async fn wan_stats(client: &RciClient, interfaces: &Value) -> Value {
 /// Reads one JSON show resource.
 ///
 /// # Errors
-/// [`PollError::Request`] when the path is invalid, the read fails or the answer is not
-/// JSON.
+/// [`PollError::Auth`] when the router refuses the login, else [`PollError::Request`] when
+/// the path is invalid, the read fails or the answer is not JSON.
 // NOT cancel-safe: it only sends one `show` read, but it may sign in first, and a sign-in dropped
 // mid-way can leave an orphaned router session.
 async fn show_json(client: &RciClient, segments: &[&str]) -> Result<Value, PollError> {
     let path = RciPath::from_segments(segments).map_err(|_error| PollError::Request)?;
-    match client
-        .show(&path, &())
-        .await
-        .map_err(|_error| PollError::Request)?
-    {
+    match client.show(&path, &()).await.map_err(|error| {
+        if matches!(error, RciError::Auth(_)) {
+            PollError::Auth
+        } else {
+            PollError::Request
+        }
+    })? {
         RciBody::Json(response) => Ok(response.value),
         RciBody::Text(_) | _ => Err(PollError::Request),
     }

@@ -15,18 +15,29 @@ mod tests {
 
     use alloc::sync::Arc;
     use core::{error::Error, fmt, time::Duration};
-    use std::{fs, path::Path};
+    use std::{
+        fs::{self, OpenOptions},
+        io::Write as _,
+        path::Path,
+    };
 
     use kcc_app::{
         accounts::Clock,
         audit::{
-            AUDIT_FILE_NAME, Actor, ActorKind, AuditError, AuditEvent, AuditLog, AuditPolicy,
-            verify_chain,
+            AUDIT_FILE_NAME, Actor, ActorKind, AuditEntry, AuditError, AuditEvent, AuditLog,
+            AuditPolicy, verify_chain,
         },
         persist::StateStore,
     };
     use serde_json::{Value, json};
     use tempfile::TempDir;
+    use tokio::{
+        sync::broadcast::{
+            self,
+            error::{RecvError, TryRecvError},
+        },
+        time::timeout,
+    };
 
     type TestResult = Result<(), Box<dyn Error>>;
 
@@ -326,6 +337,131 @@ mod tests {
             "the failed append is answered as the writer's failure: {result:?}"
         );
         assert!(!audit.is_alive(), "terminated writer is not ready");
+        Ok(())
+    }
+
+    /// Reads `count` entries from `written`, each within a bounded wait.
+    async fn receive(
+        written: &mut broadcast::Receiver<AuditEntry>,
+        count: usize,
+    ) -> Result<Vec<AuditEntry>, Box<dyn Error>> {
+        let mut entries = Vec::with_capacity(count);
+        for _entry in 0..count {
+            entries.push(timeout(Duration::from_secs(5), written.recv()).await??);
+        }
+        Ok(entries)
+    }
+
+    /// Leaves an unterminated last line in the active file, as a crashed appender does.
+    fn tear(state: &StateStore) -> TestResult {
+        OpenOptions::new()
+            .append(true)
+            .open(state.dir().join(AUDIT_FILE_NAME))?
+            .write_all(br#"{"ts":1700000003,"seq":3,"actor":{"kind":"cli","id":"tor"#)?;
+        Ok(())
+    }
+
+    /// todo 7: a subscriber receives every appended entry, durable and in sequence order.
+    #[tokio::test]
+    async fn a_subscriber_receives_appended_entries_in_sequence_order() -> TestResult {
+        let (_temp, state) = store()?;
+        let audit = AuditLog::spawn(&state)?;
+        let mut written = audit.subscribe();
+        let mut appended = Vec::new();
+        for hint in 1..=3 {
+            appended.push(audit.append(event(hint)).await?);
+        }
+
+        let received = receive(&mut written, 3).await?;
+
+        let sequences: Vec<u64> = received.iter().map(|entry| entry.seq).collect();
+        assert_eq!(sequences, vec![1, 2, 3]);
+        assert_eq!(received, appended);
+        assert_eq!(
+            verify_chain(state.dir())?,
+            received,
+            "the chain still verifies"
+        );
+        Ok(())
+    }
+
+    /// todo 7: a torn last line repaired inside an append is received as the repair entry,
+    /// then the event's entry.
+    #[tokio::test]
+    async fn a_repair_inside_an_append_is_received_before_its_event() -> TestResult {
+        let (_temp, state) = store()?;
+        let audit = AuditLog::spawn(&state)?;
+        let mut written = audit.subscribe();
+        drop(audit.append(event(1)).await?);
+        drop(audit.append(event(2)).await?);
+        tear(&state)?;
+
+        let appended = audit.append(event(3)).await?;
+
+        let received = receive(&mut written, 4).await?;
+        assert_eq!(
+            received
+                .get(2)
+                .map(|entry| (entry.seq, entry.action.as_str())),
+            Some((3, "audit.repair"))
+        );
+        assert_eq!(received.last(), Some(&appended));
+        assert_eq!(
+            verify_chain(state.dir())?,
+            received,
+            "the chain still verifies"
+        );
+        assert_eq!(audit.startup_repair(), None, "no repair at start");
+        Ok(())
+    }
+
+    /// todo 7: a torn last line repaired when the writer starts is reported once by
+    /// `startup_repair`, across handles, and never sent to subscribers.
+    #[tokio::test]
+    async fn a_repair_at_spawn_is_reported_once_by_startup_repair() -> TestResult {
+        let (_temp, state) = store()?;
+        let first = AuditLog::spawn(&state)?;
+        drop(first.append(event(1)).await?);
+        drop(first.append(event(2)).await?);
+        drop(first);
+        tear(&state)?;
+        let audit = AuditLog::spawn(&state)?;
+        let mut written = audit.subscribe();
+
+        let repair = audit.clone().startup_repair();
+
+        assert_eq!(
+            repair
+                .as_ref()
+                .map(|entry| (entry.seq, entry.action.as_str())),
+            Some((3, "audit.repair"))
+        );
+        assert_eq!(audit.startup_repair(), None, "taken once");
+        let next = audit.append(event(3)).await?;
+        assert_eq!(next.seq, 4);
+        assert_eq!(receive(&mut written, 1).await?, vec![next]);
+        assert!(matches!(written.try_recv(), Err(TryRecvError::Empty)));
+        assert_eq!(verify_chain(state.dir())?.get(2), repair.as_ref());
+        Ok(())
+    }
+
+    /// todo 7: a subscriber that never reads does not hold up the writer; it misses the
+    /// oldest entries beyond the 256 kept and is told how many.
+    #[tokio::test]
+    async fn a_subscriber_that_never_reads_lags_without_stalling_appends() -> TestResult {
+        let (_temp, state) = store()?;
+        let audit = AuditLog::spawn(&state)?;
+        let mut written = audit.subscribe();
+
+        for hint in 1..=300 {
+            drop(audit.append(event(hint)).await?);
+        }
+
+        let first = timeout(Duration::from_secs(5), written.recv()).await?;
+        assert!(matches!(first, Err(RecvError::Lagged(44))), "{first:?}");
+        let oldest_kept = timeout(Duration::from_secs(5), written.recv()).await??;
+        assert_eq!(oldest_kept.seq, 45);
+        assert_eq!(verify_chain(state.dir())?.len(), 300);
         Ok(())
     }
 }

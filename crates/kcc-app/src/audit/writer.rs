@@ -24,6 +24,10 @@
 //!   the writer as unavailable, the slots of bounded callers are closed, and
 //!   [`super::AuditLog::is_alive`] turns false, so new changes are refused before any
 //!   router request.
+//! - **Subscribers only observe.** Each entry written (a repair entry right before the
+//!   entry whose append made it) goes to the receivers of [`super::AuditLog::subscribe`]
+//!   after it is synced; the send never waits, and its only failure, no receiver, is
+//!   ignored.
 
 extern crate alloc;
 
@@ -76,8 +80,14 @@ pub(super) async fn writer_task(
         };
         state = returned;
         match result {
-            Ok(entry) => {
-                drop(reply.send_replace(Reply::Written(entry)));
+            Ok((repaired, entry)) => {
+                // Subscribers only observe: a send fails only when nobody subscribed, and
+                // a lagging receiver loses its oldest entries instead of holding the writer.
+                if let Some(repair) = repaired {
+                    drop(progress.written.send(repair));
+                }
+                drop(reply.send_replace(Reply::Written(entry.clone())));
+                drop(progress.written.send(entry));
                 progress
                     .queued
                     .send_modify(|count| *count = count.saturating_sub(1));
