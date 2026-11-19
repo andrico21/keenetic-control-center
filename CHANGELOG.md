@@ -112,6 +112,11 @@ The first release, `0.1.0`, is in preparation and contains:
   or `management_saved_fail_safe_armed`) instead of always
   `management_outcome_unknown_fail_safe_armed`.
 
+- **Permissions `manage_notifications` and `manage_schedules`**: two new custom-role
+  permissions (checkboxes on the Roles page, route families `/ui/admin/notifications` and
+  `/ui/admin/scheduled`); only the built-in `admin` holds them. `roles.json` keeps schema 1,
+  so an older binary refuses a custom role that names either permission.
+
 ### Changed
 
 - **Interface changes fail closed when kcc cannot tell which interface carries its

@@ -28,7 +28,9 @@ mod tests {
             AccountStore, Authentication, Clock, NewAccount, password_params,
         },
         api_keys::{api_key_entries, create_api_key, expose_created_key},
-        permissions::{Permission, Role, ToolSpec, built_in_roles, rbac_config},
+        permissions::{
+            Permission, Role, RolesDocument, ToolSpec, built_in_roles, load_roles, rbac_config,
+        },
         persist::StateStore,
         secrets::MasterKey,
     };
@@ -113,6 +115,38 @@ mod tests {
             RbacDecision::Deny,
             "router-name glob rejects outside scope"
         );
+    }
+
+    /// Todo 3: the notification and schedule permissions are admin-only, a custom role may
+    /// hold one and `roles.json` keeps schema 1.
+    #[test]
+    fn manage_permissions_belong_to_admin_and_custom_roles_only() -> TestResult {
+        assert_eq!(Permission::ALL.len(), 12, "permission count");
+        for role in built_in_roles() {
+            let holds = |permission| role.permissions.contains(&permission);
+            let admin = role.name == "admin";
+            assert_eq!(
+                holds(Permission::ManageNotifications),
+                admin,
+                "{}",
+                role.name
+            );
+            assert_eq!(holds(Permission::ManageSchedules), admin, "{}", role.name);
+        }
+        let (_temp, state) = store()?;
+        let custom = Role::new(
+            "scheduler".to_owned(),
+            [Permission::Read, Permission::ManageSchedules],
+            vec!["*".to_owned()],
+        );
+        let mut document = RolesDocument::default();
+        document.roles.push(custom.clone());
+        state.write(&document)?;
+        let loaded = load_roles(&state)?;
+        assert!(loaded.contains(&custom), "custom role round-trips");
+        let text = serde_json::to_string(&Permission::ManageNotifications)?;
+        assert_eq!(text, "\"manage_notifications\"", "serde name");
+        Ok(())
     }
 
     #[test]

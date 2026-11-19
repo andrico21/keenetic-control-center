@@ -207,6 +207,11 @@ described in [docs/PRIVACY.md](docs/PRIVACY.md).
   `Destructive` is needed only for a rollback finish, a component install, a raw
   restore of a saved configuration, and explicit timer control (`kcc config failsafe
   arm|rollback`, the keep-alive and the Web UI's standalone rollback).
+  The notification and scheduled-action pages need `ManageNotifications` and
+  `ManageSchedules`, which only the built-in `admin` holds. A scheduled action also needs
+  its action's permissions on its router: a policy switch or backup `Write`, a reboot
+  `Destructive`, a preset `Read`, `Migrate`, `Write` and `Save` on the target (plus
+  `Read` and `Migrate` on its source router when it names one).
 - **Change workflow.** Each write takes a per-router lease, makes an encrypted backup of
   the startup configuration, refuses if someone else changed the router in between,
   verifies the result by reading it back and appends a hash-chained audit entry.

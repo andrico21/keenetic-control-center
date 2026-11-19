@@ -1984,3 +1984,5 @@ web-dhcp-error-dns-one = Enter at most one DNS server address.
 web-secret-changed = { $what }: the new value was sent, and the router now stores a value different from the one before. kcc checks only that it changed, never what it is, so setting the same value again is reported as not applied. The change stays unsaved until you save the configuration.
 web-config-save-armed = The fail-safe timer is running, so nothing was saved. Keep the changes or roll them back instead.
 web-admin-error-permission-unknown = The form names a permission this server does not know. Reload the page and try again.
+web-admin-permission-manage-notifications = Manage notification channels and rules
+web-admin-permission-manage-schedules = Manage scheduled actions

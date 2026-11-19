@@ -262,6 +262,8 @@ fn requirement(path: &str) -> Requirement {
     let permission = match path {
         "/ui/admin" => Permission::Read,
         value if value.starts_with("/ui/admin/audit") => Permission::ViewAudit,
+        value if value.starts_with("/ui/admin/notifications") => Permission::ManageNotifications,
+        value if value.starts_with("/ui/admin/scheduled") => Permission::ManageSchedules,
         value if value.starts_with("/ui/admin") => Permission::ManageUsers,
         value if value.starts_with("/ui/audit") => Permission::ViewAudit,
         value if value.starts_with("/ui/migrate") => Permission::Migrate,
@@ -310,6 +312,13 @@ mod tests {
             ("/ui/admin/server", Permission::ManageUsers),
             ("/ui/admin/audit", Permission::ViewAudit),
             ("/ui/admin/audit/export", Permission::ViewAudit),
+            ("/ui/admin/notifications", Permission::ManageNotifications),
+            (
+                "/ui/admin/notifications/new",
+                Permission::ManageNotifications,
+            ),
+            ("/ui/admin/scheduled", Permission::ManageSchedules),
+            ("/ui/admin/scheduled/new", Permission::ManageSchedules),
         ] {
             assert_eq!(requirement(path).permission, permission, "{path}");
         }
@@ -321,5 +330,21 @@ mod tests {
         assert!(permits(&auditor, "/ui/admin/audit"), "audit log");
         assert!(permits(&auditor, "/ui/admin"), "admin landing");
         assert!(!permits(&auditor, "/ui/admin/users"), "user management");
+    }
+
+    /// Todo 3: a role holding `Read` and `ManageSchedules` reaches the scheduled page only.
+    #[test]
+    fn the_schedule_permission_opens_the_scheduled_page_only() {
+        let scheduler = Role::new(
+            "scheduler".to_owned(),
+            [Permission::Read, Permission::ManageSchedules],
+            vec!["*".to_owned()],
+        );
+        assert!(permits(&scheduler, "/ui/admin/scheduled"), "scheduled page");
+        assert!(
+            !permits(&scheduler, "/ui/admin/notifications"),
+            "notifications"
+        );
+        assert!(!permits(&scheduler, "/ui/admin/users"), "user management");
     }
 }

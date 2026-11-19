@@ -191,10 +191,17 @@ either.
 ## Permissions (RBAC)
 
 Permissions are Read, Write, Save, Destructive, Migrate, RawRci, RevealSecrets,
-ManageRouters, ManageUsers and ViewAudit. Built-in roles: `viewer` (Read), `operator`
-(Read, Write, Save, Migrate) and `admin` (everything); custom roles add router-name
-globs. Every front end checks the exact permission and router scope before any router
-request, and the change workflow checks again. Raw router answers (explorer, consoles,
+ManageRouters, ManageUsers, ViewAudit, ManageNotifications and ManageSchedules. Built-in
+roles: `viewer` (Read), `operator` (Read, Write, Save, Migrate) and `admin` (everything);
+custom roles add router-name globs. ManageNotifications and ManageSchedules, which open
+the notification and scheduled-action pages (`/ui/admin/notifications`,
+`/ui/admin/scheduled`), belong to `admin` only by default. A scheduled action also needs
+the permissions of the action itself on its router, when it is created and again when it
+runs: a policy switch needs Write; a backup needs Write; a reboot needs Destructive; a
+preset needs Read, Migrate, Write and Save on the target router, plus Read and Migrate
+on the preset's source router when it names one. Every front end checks the exact
+permission and router scope before any router request, and the change workflow checks
+again. Raw router answers (explorer, consoles,
 `kcc show`, `kcc rci`, the MCP raw tools) show stored secrets only to a role holding
 RevealSecrets on that router; every other role sees them redacted. A user can grant
 (to an account or an API key, in the Web UI or the CLI) only roles whose permissions and

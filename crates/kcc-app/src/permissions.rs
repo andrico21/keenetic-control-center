@@ -37,11 +37,15 @@ pub enum Permission {
     ManageUsers,
     /// View the audit log.
     ViewAudit,
+    /// Create, update and remove notification channels and rules.
+    ManageNotifications,
+    /// Create, update and remove scheduled actions.
+    ManageSchedules,
 }
 
 impl Permission {
     /// Every permission, used by the built-in administrator role.
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 12] = [
         Self::Read,
         Self::Write,
         Self::Save,
@@ -52,6 +56,8 @@ impl Permission {
         Self::ManageRouters,
         Self::ManageUsers,
         Self::ViewAudit,
+        Self::ManageNotifications,
+        Self::ManageSchedules,
     ];
 }
 

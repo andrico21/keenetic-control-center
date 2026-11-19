@@ -6764,8 +6764,16 @@ pub const WEB_CONFIG_SAVE_ARMED: MessageKey = MessageKey::new("web-config-save-a
 pub const WEB_ADMIN_ERROR_PERMISSION_UNKNOWN: MessageKey =
     MessageKey::new("web-admin-error-permission-unknown");
 
+/// `web-admin-permission-manage-notifications` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_MANAGE_NOTIFICATIONS: MessageKey =
+    MessageKey::new("web-admin-permission-manage-notifications");
+
+/// `web-admin-permission-manage-schedules` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_MANAGE_SCHEDULES: MessageKey =
+    MessageKey::new("web-admin-permission-manage-schedules");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2153] = [
+pub static ALL: [MessageKey; 2155] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8919,4 +8927,6 @@ pub static ALL: [MessageKey; 2153] = [
     WEB_SECRET_CHANGED,
     WEB_CONFIG_SAVE_ARMED,
     WEB_ADMIN_ERROR_PERMISSION_UNKNOWN,
+    WEB_ADMIN_PERMISSION_MANAGE_NOTIFICATIONS,
+    WEB_ADMIN_PERMISSION_MANAGE_SCHEDULES,
 ];
