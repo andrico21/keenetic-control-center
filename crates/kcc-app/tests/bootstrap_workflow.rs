@@ -125,7 +125,7 @@ mod tests {
         let stored = registry.get("router")?.profile.password_file;
         assert_eq!(stored.as_ref(), Some(&sealed));
         let routers = fs::read_to_string(state.dir().join("routers.json")).await?;
-        assert!(routers.contains(&sealed.display().to_string()));
+        assert!(routers.contains(&serde_json::to_string(&sealed)?));
         assert!(!changes.client().is_bootstrap().await?);
         assert_eq!(registry.poll_info("router").await?.hw_id(), Some("KN-1811"));
         assert_eq!(backups.list("router")?.len(), 1);

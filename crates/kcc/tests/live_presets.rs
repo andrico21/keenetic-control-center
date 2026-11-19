@@ -153,6 +153,8 @@ fn kcc(home: &Path, args: &[&str]) -> Result<(i32, String), Box<dyn Error>> {
             .arg(home.join("kcc.toml"))
             .args(args)
             .env_clear()
+            // Windows sockets fail to load their provider without SystemRoot.
+            .envs(env::var_os("SystemRoot").map(|root| ("SystemRoot", root)))
             .env("PATH", env::var_os("PATH").unwrap_or_default())
             .env("HOME", home.join("home"))
             .env("XDG_CONFIG_HOME", home.join("home/config"))

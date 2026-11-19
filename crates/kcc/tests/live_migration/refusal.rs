@@ -9,6 +9,7 @@ use kcc_testkit::{
     DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle,
     capture::connect,
     model::{Model, Profile},
+    toml_text,
 };
 use secrecy::SecretString;
 use tempfile::TempDir;
@@ -36,8 +37,8 @@ async fn target(test_device: bool) -> Result<Target, Box<dyn Error>> {
     fs::write(
         directory.path().join("kcc.toml"),
         format!(
-            "[outbound]\nallow_loopback = true\n\n[[routers]]\nname = \"lab\"\nurl = \"{url}\"\nlogin = \"{DEFAULT_LOGIN}\"\npassword_file = \"{}\"\ntest_device = {test_device}\n",
-            password_file.display()
+            "[outbound]\nallow_loopback = true\n\n[[routers]]\nname = \"lab\"\nurl = \"{url}\"\nlogin = \"{DEFAULT_LOGIN}\"\npassword_file = {}\ntest_device = {test_device}\n",
+            toml_text::path(&password_file)
         ),
     )?;
     fs::write(

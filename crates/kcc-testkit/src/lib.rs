@@ -52,6 +52,7 @@ mod projection;
 mod server;
 pub mod stall;
 pub mod time;
+pub mod toml_text;
 mod tree;
 
 use alloc::{

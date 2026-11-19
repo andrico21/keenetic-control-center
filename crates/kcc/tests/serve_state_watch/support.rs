@@ -212,6 +212,8 @@ impl Fixture {
             .args(["--config", self.config.to_str().ok_or("path")?])
             .args(arguments)
             .env_clear()
+            // Windows sockets fail to load their provider without SystemRoot.
+            .envs(env::var_os("SystemRoot").map(|root| ("SystemRoot", root)))
             .env("PATH", env::var_os("PATH").unwrap_or_default())
             .env("HOME", home)
             .env("XDG_CONFIG_HOME", home.join("config"))

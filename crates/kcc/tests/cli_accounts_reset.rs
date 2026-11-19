@@ -74,6 +74,8 @@ impl Env {
                     "alice",
                 ])
                 .env_clear()
+                // Windows sockets fail to load their provider without SystemRoot.
+                .envs(env::var_os("SystemRoot").map(|root| ("SystemRoot", root)))
                 .env("PATH", env::var_os("PATH").unwrap_or_default())
                 .env("HOME", self.path("home"))
                 .env("XDG_CONFIG_HOME", self.path("home/config"))

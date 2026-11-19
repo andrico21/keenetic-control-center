@@ -10,6 +10,7 @@ use kcc_testkit::{
     DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle,
     capture::connect,
     model::{Firmware, Model, Profile},
+    toml_text,
 };
 use secrecy::SecretString;
 use tempfile::TempDir;
@@ -49,8 +50,8 @@ impl Lab {
         fs::write(
             directory.path().join("kcc.toml"),
             format!(
-                "[outbound]\nallow_loopback = true\nallowed_networks = [\"198.51.100.0/24\"]\n\n[[routers]]\nname = \"lab\"\nurl = \"{url}\"\nlogin = \"{DEFAULT_LOGIN}\"\npassword_file = \"{}\"\ntest_device = {test_device}\n",
-                password_file.display()
+                "[outbound]\nallow_loopback = true\nallowed_networks = [\"198.51.100.0/24\"]\n\n[[routers]]\nname = \"lab\"\nurl = \"{url}\"\nlogin = \"{DEFAULT_LOGIN}\"\npassword_file = {}\ntest_device = {test_device}\n",
+                toml_text::path(&password_file)
             ),
         )?;
         let serial = serial(&url).await?;
