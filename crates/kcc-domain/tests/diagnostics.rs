@@ -15,7 +15,7 @@
 
 mod support;
 
-use core::{error::Error, str::FromStr as _, time::Duration};
+use core::{error::Error, net::SocketAddr, str::FromStr as _, time::Duration};
 use std::sync::Arc;
 
 use kcc_app::{
@@ -29,7 +29,7 @@ use kcc_catalog::Catalog;
 use kcc_domain::diagnostics::{self, DiagnosticKind, ProgressLine};
 use kcc_rci::{OutboundPolicy, RciClient, RciClientOptions, RouterUrl, auth::Credentials};
 use kcc_testkit::{
-    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter,
+    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle,
     model::{Firmware, Model, Profile},
 };
 use secrecy::SecretString;
@@ -44,8 +44,8 @@ async fn log_and_each_diagnostic_run_on_both_profiles() -> Result<(), Box<dyn Er
     for firmware in PROFILES {
         let profile = Profile::new(Model::Kn1811, firmware)?;
         let router = FakeRouter::builder(profile).build()?;
-        let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
-        let client = connect(address).await?;
+        let (endpoint, handle) = serve(router).await?;
+        let client = connect(&endpoint).await?;
         assert!(
             diagnostics::read_log(&client, 20)
                 .await?
@@ -123,8 +123,8 @@ async fn diagnostic_job_emits_typed_output_line() -> Result<(), Box<dyn Error>> 
     for firmware in PROFILES {
         let profile = Profile::new(Model::Kn1811, firmware)?;
         let router = FakeRouter::builder(profile).build()?;
-        let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
-        let client = connect(address).await?;
+        let (endpoint, handle) = serve(router).await?;
+        let client = connect(&endpoint).await?;
         let directory = TempDir::new()?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let registry = Arc::new(RouterRegistry::new(
@@ -179,8 +179,8 @@ async fn diagnostics_poll_the_router_at_the_production_interval() -> Result<(), 
     const FASTEST: Duration = Duration::from_millis(500);
     let profile = Profile::new(Model::Kn1811, PROFILES[0])?;
     let router = FakeRouter::builder(profile).build()?;
-    let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
-    let client = connect(address).await?;
+    let (endpoint, handle) = serve(router).await?;
+    let client = connect(&endpoint).await?;
     let directory = TempDir::new()?;
     let state = StateStore::open(&directory.path().join("state"))?;
     let registry = Arc::new(RouterRegistry::new(
@@ -212,14 +212,48 @@ async fn diagnostics_poll_the_router_at_the_production_interval() -> Result<(), 
     Ok(())
 }
 
-async fn connect(address: core::net::SocketAddr) -> Result<Arc<RciClient>, Box<dyn Error>> {
-    let origin = RouterUrl::from_str(&format!("http://{address}"))?;
+/// Where a served fake router answers: the address of its URL and the outbound policy that
+/// reaches it.
+struct Endpoint {
+    /// The address of the router URL.
+    address: SocketAddr,
+    /// Admits loopback and, on Unix, dials the fake's Unix socket for `address`.
+    outbound: OutboundPolicy,
+}
+
+/// Serves `router` for every test here, paused clock or not.
+///
+/// On Unix it answers on a Unix socket: a paused clock can jump ahead of a loopback TCP
+/// reply that is written but not yet readable.
+// cancel-safe: dropping it drops the fake's handle, which stops the fake.
+#[cfg_attr(
+    unix,
+    expect(
+        clippy::unused_async,
+        reason = "only the TCP fallback awaits; the Unix socket is served synchronously"
+    )
+)]
+async fn serve(router: FakeRouter) -> Result<(Endpoint, Handle), Box<dyn Error>> {
+    let loopback = OutboundPolicy::default().with_loopback(true);
+    #[cfg(unix)]
+    let (address, outbound, handle) = {
+        let (address, socket, handle) = router.serve_local()?;
+        (address, loopback.with_local_socket(address, socket), handle)
+    };
+    #[cfg(not(unix))]
+    let ((address, handle), outbound) = (router.serve(([127, 0, 0, 1], 0).into()).await?, loopback);
+    Ok((Endpoint { address, outbound }, handle))
+}
+
+/// Connects an RCI client to the fake router at `router`.
+// cancel-safe: dropping it drops the half-connected client; the fake keeps no state for it.
+async fn connect(router: &Endpoint) -> Result<Arc<RciClient>, Box<dyn Error>> {
+    let origin = RouterUrl::from_str(&format!("http://{}", router.address))?;
     let credentials = Credentials::new(
         DEFAULT_LOGIN.to_owned(),
         SecretString::from(DEFAULT_PASSWORD.to_owned()),
     );
-    let options =
-        RciClientOptions::default().with_outbound(OutboundPolicy::default().with_loopback(true));
+    let options = RciClientOptions::default().with_outbound(router.outbound.clone());
     Ok(Arc::new(
         RciClient::connect_with(origin, credentials, options).await?,
     ))

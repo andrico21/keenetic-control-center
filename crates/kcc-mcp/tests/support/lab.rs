@@ -5,7 +5,7 @@
 )]
 
 use alloc::{collections::BTreeSet, sync::Arc};
-use core::{error::Error, time::Duration};
+use core::{error::Error, net::SocketAddr, time::Duration};
 use std::path::PathBuf;
 
 use kcc_app::{
@@ -117,6 +117,43 @@ pub(crate) fn admin() -> Role {
     Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()])
 }
 
+/// Served fake routers: profile id, the address of the profile URL, and the handle.
+type Served = Vec<(String, SocketAddr, Handle)>;
+
+/// Serves each of `routers` on a Unix socket that `registry` dials for its address.
+///
+/// Every lab uses it, paused clock or not: a paused clock can jump ahead of a loopback TCP
+/// reply that is written but not yet readable.
+#[cfg(unix)]
+fn serve(
+    registry: RouterRegistry,
+    routers: Vec<(&str, FakeRouter)>,
+) -> TestResult<(RouterRegistry, Served)> {
+    routers.into_iter().try_fold(
+        (registry, Vec::new()),
+        |(reached, mut served), (id, fake)| {
+            let (address, socket, handle) = fake.serve_local()?;
+            served.push((id.to_owned(), address, handle));
+            Ok((reached.with_local_socket(address, socket), served))
+        },
+    )
+}
+
+/// Serves each of `routers` on loopback TCP; `registry` reaches them as it is.
+// NOT cancel-safe: some routers may be served before cancellation.
+#[cfg(not(unix))]
+async fn serve(
+    registry: RouterRegistry,
+    routers: Vec<(&str, FakeRouter)>,
+) -> TestResult<(RouterRegistry, Served)> {
+    let mut served = Vec::new();
+    for (id, fake) in routers {
+        let (address, handle) = fake.serve(([127, 0, 0, 1], 0).into()).await?;
+        served.push((id.to_owned(), address, handle));
+    }
+    Ok((registry, served))
+}
+
 /// Every permission, only on routers matching `lab-*`.
 pub(crate) fn lab_only() -> Role {
     Role::new("lab".to_owned(), Permission::ALL, vec!["lab-*".to_owned()])
@@ -149,23 +186,27 @@ impl Lab {
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;
-        let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
+        let profiles = RouterRegistry::new(state.clone(), &[], &outbound)?;
+        #[cfg(unix)]
+        let (reached, fakes) = serve(profiles, routers)?;
+        #[cfg(not(unix))]
+        let (reached, fakes) = serve(profiles, routers).await?;
+        let registry = Arc::new(reached);
         let mut handles = Vec::new();
-        for (id, fake) in routers {
-            let (address, handle) = fake.serve(([127, 0, 0, 1], 0).into()).await?;
+        for (id, address, handle) in fakes {
             let password = kcc_testkit::write_secret_file(
                 directory.path(),
                 &format!("{id}-password"),
                 DEFAULT_PASSWORD,
             )?;
             let profile = ManagedRouterProfile::new(
-                id.to_owned(),
+                id.clone(),
                 Url::parse(&format!("http://{address}"))?,
                 DEFAULT_LOGIN.to_owned(),
                 password,
             );
             registry.create(&admin(), profile).await?;
-            handles.push((id.to_owned(), handle));
+            handles.push((id, handle));
         }
         let backups = Arc::new(BackupStore::new(
             state.clone(),
