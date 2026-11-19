@@ -124,33 +124,50 @@ as if no rule allowed it.
 ### How it was derived
 
 By tracing, not by reasoning. The profile is generated and must not be edited by hand.
-One trace can miss a syscall a timing-dependent path makes only sometimes, so the
-profile is generated from the union of two traces:
+One trace can miss a syscall a timing-dependent path makes only sometimes, and each
+architecture makes syscalls the other's trace never shows, so the profile is generated
+from the union of four traces: two per architecture. The `Build and e2e` jobs of
+`.github/workflows/container.yml` take them natively on an amd64 and an arm64 runner
+(the static binary that ships, run under `strace -f -qq -ff` while e2e.sh drives every
+I/O path) and upload them as the artifacts `seccomp-trace-amd64` and
+`seccomp-trace-arm64` (directories `seccomp-trace` and `seccomp-trace-2`, kept 14 days):
 
 ```sh
 T="${CARGO_TARGET_DIR:-target}"
-# 1. the static binary that ships: build the image and copy it out
-podman build --format docker -t kcc:test .
-podman create --name kcc-extract kcc:test && podman cp kcc-extract:/kcc "$T/kcc-musl" && podman rm kcc-extract
-# 2. run it natively under `strace -f -qq -ff` while e2e.sh drives every I/O path, twice
-cargo xtask seccomp trace --binary "$T/kcc-musl"                              # -> $T/seccomp-trace
-cargo xtask seccomp trace --binary "$T/kcc-musl" --out "$T/seccomp-trace-2"
-# 3. union both traces; `gen` reads every file whose name starts with `trace`, so the
-#    suffixes keep the two sets apart
+# 1. download both architectures' traces of one container run
+rm -rf "$T/seccomp-ci" && gh run download <run-id> -n seccomp-trace-amd64 -n seccomp-trace-arm64 -D "$T/seccomp-ci"
+# 2. union all four traces; `gen` reads every file whose name starts with `trace`, so
+#    the suffixes keep the sets apart
 rm -rf "$T/seccomp-trace-union" && mkdir "$T/seccomp-trace-union"
-for f in "$T"/seccomp-trace/trace*; do cp "$f" "$T/seccomp-trace-union/$(basename "$f").1"; done
-for f in "$T"/seccomp-trace-2/trace*; do cp "$f" "$T/seccomp-trace-union/$(basename "$f").2"; done
-# 4. review what changes (exits 1 when the profile differs), then write the profile
+for arch in amd64 arm64; do
+  for n in "" -2; do
+    for f in "$T/seccomp-ci/seccomp-trace-$arch/seccomp-trace$n"/trace*; do
+      cp "$f" "$T/seccomp-trace-union/$(basename "$f").$arch$n"
+    done
+  done
+done
+# 3. review what changes (exits 1 when the profile differs), then write the profile
 cargo xtask seccomp gen --check --traces "$T/seccomp-trace-union"
 cargo xtask seccomp gen --traces "$T/seccomp-trace-union"
 ```
 
-Name every added and removed syscall from step 4 in the commit message, then prove the
+Name every added and removed syscall from step 3 in the commit message, then prove the
 new profile with the container run under [Verification](#verification).
 
-`cargo xtask seccomp gen --check-missing` is the drift check CI runs after a fresh trace
-(`container.yml`, amd64): it fails only when a traced syscall is missing from the
-committed profile. Names only the profile allows pass, because they vary between traces.
+A local trace covers only the host's architecture, so use it for debugging, not to
+regenerate the profile:
+
+```sh
+T="${CARGO_TARGET_DIR:-target}"
+podman build --format docker -t kcc:test .
+podman create --name kcc-extract kcc:test && podman cp kcc-extract:/kcc "$T/kcc-musl" && podman rm kcc-extract
+cargo xtask seccomp trace --binary "$T/kcc-musl"                              # -> $T/seccomp-trace
+```
+
+`cargo xtask seccomp gen --check-missing` is the drift check CI runs after the two fresh
+traces on both architectures (`container.yml`, against the union of the job's own two
+traces): it fails only when a traced syscall is missing from the committed profile.
+Names only the profile allows pass, because they vary between traces.
 
 `deploy/podman/e2e.sh --native <kcc> [--trace-dir <dir>]` or `--container [--image <ref>]
 [--seccomp <profile.json>]` runs named steps. Each step runs with `set -e`, so a command
@@ -176,8 +193,11 @@ I/O cannot slip in unreviewed. It also adds:
   `execve`, ...), which crun/runc call after installing the filter and which a native
   trace cannot see;
 - the **aarch64 equivalents** of traced legacy x86_64 syscalls (`open` -> `openat`,
-  `poll` -> `ppoll`, `epoll_wait` -> `epoll_pwait`, ...). The trace runs on x86_64;
-  the aarch64 image is verified only by the container e2e run of the CI aarch64 job.
+  `poll` -> `ppoll`, `epoll_wait` -> `epoll_pwait`, ...): a fixed table
+  (`EQUIVALENTS` in `xtask/src/seccomp_groups.rs`) allows, for every legacy name a trace
+  contains, its generic replacement, which aarch64 has instead. It does not replace the
+  arm64 traces: an aarch64 syscall with no x86_64 legacy counterpart comes only from
+  them.
 
 `getsockopt` is the lesson behind "drive every path": a non-blocking `connect` is
 completed by `getsockopt(SO_ERROR)`. A profile without it lets the container start,
