@@ -91,7 +91,7 @@ To iterate on one runner without the whole matrix, dispatch the `Probe` workflow
 filtered `cargo test` (the Windows probe uses the same launcher):
 
 ```text
-gh workflow run probe.yml -f os=macos-latest -f command='-p kcc-app --test poller' -f repeat=3
+gh workflow run probe.yml -f os=macos-latest -f command='-p kcc-app --test platform_timing_probe -- --ignored' -f repeat=3
 ```
 
 `-f token_probe=true` adds a job that prints, for each way of starting a de-elevated
