@@ -2,8 +2,8 @@
 //!
 //! Convention: blocks run in document order, one fresh environment per document, under
 //! `bash -euo pipefail` in a temporary directory. The built `kcc` is first on `PATH`;
-//! `HOME`, the XDG directories and the master key are private; `kcc.toml` admits the
-//! fake router's loopback address; `$ROUTER_URL` is the fake router and `router.pw`
+//! `HOME`, the XDG directories and the master key are private; `kcc.toml`, in the
+//! directory the platform's `kcc` reads it from, admits the fake router's loopback address; `$ROUTER_URL` is the fake router and `router.pw`
 //! holds its password. A non-zero exit fails the test.
 
 use core::{error::Error, iter, net::SocketAddr, time::Duration};
@@ -11,6 +11,7 @@ use std::{
     env, fs,
     fs::File,
     os::unix::fs::{PermissionsExt as _, symlink},
+    path::{Path, PathBuf},
     process::{ExitStatus, Stdio},
 };
 
@@ -36,6 +37,20 @@ fn tagged(info: &str) -> bool {
     words.next() == Some("bash") && words.any(|word| word == TAG)
 }
 
+/// The directory `kcc` reads its default `kcc.toml` from, on the platform `os` (a
+/// [`env::consts::OS`] value), for a block whose `HOME` is `home` and whose
+/// `XDG_CONFIG_HOME` is `home/config`.
+///
+/// Mirrors `kcc_app::settings::default_config_dir`, which reads the environment of the
+/// process calling it and so cannot resolve the block's environment from here. This
+/// module is unix-only, so the Windows `%APPDATA%` arm is not mirrored.
+fn config_dir(os: &str, home: &Path) -> PathBuf {
+    match os {
+        "macos" => home.join("Library/Application Support/kcc"),
+        _ => home.join("config/kcc"),
+    }
+}
+
 /// A private home, config, state, master key and `kcc` on `PATH`.
 struct Sandbox {
     /// Owner of every file; also the working directory of each block.
@@ -51,9 +66,10 @@ impl Sandbox {
         let root = directory.path();
         fs::create_dir_all(root.join("bin"))?;
         symlink(env!("CARGO_BIN_EXE_kcc"), root.join("bin/kcc"))?;
-        fs::create_dir_all(root.join("home/config/kcc"))?;
+        let config = config_dir(env::consts::OS, &root.join("home"));
+        fs::create_dir_all(&config)?;
         fs::write(
-            root.join("home/config/kcc/kcc.toml"),
+            config.join("kcc.toml"),
             "[outbound]\nallow_loopback = true\n",
         )?;
         let key = root.join("master.key");
@@ -138,6 +154,18 @@ async fn every_tagged_example_runs_against_the_fake_router() -> Result<(), Box<d
     }
     assert!(ran >= 5, "only {ran} tagged blocks found");
     Ok(())
+}
+
+#[test]
+fn the_config_lands_where_each_platform_reads_it() {
+    let home = Path::new("/h");
+    assert_eq!(
+        config_dir("macos", home),
+        Path::new("/h/Library/Application Support/kcc")
+    );
+    for os in ["linux", "freebsd"] {
+        assert_eq!(config_dir(os, home), Path::new("/h/config/kcc"), "{os}");
+    }
 }
 
 #[test]
