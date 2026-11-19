@@ -1086,3 +1086,132 @@ Root disallowed-methods fired in test code of kcc-rci, kcc-telemetry, kcc-app, k
 - `cargo vet add-exemption` and `prune` reject `--manifest-path` before the subcommand; put it after (`cargo vet prune --manifest-path xtask/Cargo.toml`).
 - taplo excludes Cargo.toml and supply-chain/** in .taplo.toml, so `taplo fmt --check <those files>` checks nothing; run it repo-wide.
 - r82: brotli 9.1.2->9.1.3 via plain cargo update; vet exemption swapped; overlay held-back list updated 18:16 UTC.
+
+## [2026-11-19] CI fix (wt/ci2)
+- Reusable-workflow concurrency trap: a called workflow sees the caller's github.workflow and github.ref, so ci.yml uses `ci-${{ github.workflow }}-${{ github.ref }}` and container.yml `container-${{ github.ref }}` (release.yml keeps `release-${{ github.ref }}`); tag runs never cancel.
+- Seccomp traces now run on both container arches (`--out $RUNNER_TEMP/seccomp-trace{,-2}`), drift check unions both, artifact `seccomp-trace-<arch>` (always, 14 days). The arm64 drift/e2e stays red until the profile is regenerated from those artifacts.
+- rust-cache v2.9.3 tag is annotated: deref `git/tags/<sha>` to get the commit d1527c8f.
+- timeout-minutes does not bound time spent queued for a runner; the empty-steps macOS cancel had runner_name "".
+
+## [2026-11-19] ci1 Windows compile fixes
+- WindowsSecure::set_dacl takes &mut OsStr: use an owned OsString (`as_os_str().to_owned()`), not &OsStr.
+- Windows-target proof works locally: `cargo check --workspace --all-targets --all-features --target x86_64-pc-windows-gnu` with a zig cc wrapper (strip `--target=` args) as CC_x86_64_pc_windows_gnu and `zig ar` as AR.
+- Unix-only test helpers: put imports inside the cfg(unix) test fn; clippy does not treat cfg(all(test, unix)) as test module.
+
+## [2026-11-19] ci3 macOS compile fix
+- env_dir in kcc-app settings.rs is used only by the windows and XDG platform_base variants: gated #[cfg(not(target_os = "macos"))]. Workspace check for aarch64-apple-darwin works locally with a zig cc wrapper (-target aarch64-macos, strip --target=) as CC_aarch64_apple_darwin; no other macOS breakage.
+
+## [2026-11-19] ci6 progress
+Run 44553122915: only fchmodat added (group: state writes; already in seccomp_groups.rs, no xtask change). gh -n x2 lays out <dir>/seccomp-trace-<arch>/seccomp-trace{,-2}; README loop is correct.
+
+## [2026-11-19] ci5 Windows ERROR_INVALID_PARAMETER in restrict_windows
+- Root cause: windows-permissions 0.2.4 `WindowsSecure` (OsStr and handle impls) hard-codes SE_UNKNOWN_OBJECT_TYPE, which Get/Set(Named)SecurityInfo always reject with 87. Never use the trait's set_* for files; call `wrappers::SetNamedSecurityInfo(path, SE_FILE_OBJECT, ...)`.
+- The SDDL "D:P" protection bit is NOT transported by passing the ACL: SetNamedSecurityInfo needs PROTECTED_DACL_SECURITY_INFORMATION, otherwise parent ACEs keep being inherited.
+- Fix in `crates/kcc-app/src/persist/windows_acl.rs`: Owner (process user) | Dacl | ProtectedDacl, DACL "D:P(A;;FA;;;OW)" for files, "D:P(A;OICI;FA;;;OW)" for directories.
+- Probe output in passing tests: libtest captures only print!/eprint! macros; `writeln!(io::stderr().lock(), ..)` is not captured and shows in CI logs.
+- Windows-target clippy works locally with the zig wrapper; 5 pre-existing Windows-only lints (missing_const_for_fn/unnecessary_wraps in persist.rs restrict_options/sync_dir and secrets/files.rs owner_only) because CI runs clippy on Linux only.
+
+## [2026-11-19] ci4 preset_transient flake (Linux CI)
+- Applier::start hands the Applier back (oneshot) from inside the job worker; JobRunner's detached finisher then writes the final record via write_atomic (jobs/.<id>.json.tmp renamed to jobs/<id>.json) on the blocking pool. Even under a current_thread #[tokio::test] the scheduler runs that finisher before re-polling the test body, so a synchronous state scan races the rename: NotFound on the .tmp.
+- Deterministic wait: subscribe to JobRunner::subscribe() BEFORE start, await the job's non-Running JobEvent (sent after the final write) under tokio timeout, then AuditLog::flush. Do not use JobRunner::drain for this: it cancels and can flip the final status.
+- Local repro needs a wider window than WSL tmpfs/ext4 gives: strace -f -e inject=fsync:delay_exit=20000 -e inject=openat:delay_enter=2000 on the built test binary failed 36/40 before, 0/300 after.
+
+## [2026-11-19] ci7: CI-only `internal` in kcc-mcp migration_tools documentation_tier test
+- Cause: `Applier::start`'s job hands its verdict over through a oneshot from INSIDE the worker; `JobRunner::start`'s detached cleanup
+  writes the final record (fsync+rename on the blocking pool) and only then frees the router write slot. An immediate second apply hit
+  `JobError::RouterBusy` -> `ApplyError::Job` -> MCP `internal`. Slow CI fsync widens the window; plain taskset/busy-loop stress 0/200,
+  strace `-e inject=fsync,fdatasync,rename,renameat,renameat2:delay_enter=20000` 5/5 red.
+- Fix: `JobRunner::ended(id)` (waits on `finished` Notify until the id leaves `active`, which is after the slot release); both MCP
+  apply tools await it after `follow` and before answering. Admission `ApplyError::Job` -> `conflict` via `map_start` (the Web wizard
+  already reads admission `Job` as busy: do NOT remap RouterBusy inside kcc-migrate, it breaks kcc-web/src/wizard/launch.rs:59).
+- Gotcha: the job's terminal JobEvent is sent BEFORE the write slot is freed; awaiting the event is not enough to start another write job.
+
+## [2026-11-19] ci8: Windows CI vs the privilege floor
+- windows-latest runs jobs as runneradmin with an elevated token; runner-images only sets ConsentPromptBehaviorAdmin=0 (Configure-BaseImage.ps1), EnableLUA stays on, so LUA/SAFER filtering is available.
+- Fix lives in CI, not kcc: `.github/scripts/deelevate.ps1` starts cargo with a SAFER NORMALUSER token (what `runas /trustlevel:0x20000` uses), falling back to CreateRestrictedToken(DISABLE_MAX_PRIVILEGE|LUA_TOKEN)+Administrators deny-only+medium IL; a pre-check child queries TokenElevation exactly like the check_elevation crate and fails fast with `method=... verdict=...` lines.
+- A restricted token keeps the user's profile/env (CARGO_HOME, RUSTUP_HOME, TEMP); Administrators becomes deny-only, so `-GrantAccess` gives the user SID Modify on the checkout and cargo dirs first.
+- Blog evidence (bobc.io 2013): a plain CreateRestrictedToken token can still report TokenElevation=1; SAFER tokens do not. Unverified on the runner until the first Probe run with token_probe=true.
+- WSL can syntax-check and even run PowerShell via /mnt/c/.../powershell.exe and pwsh.exe; Add-Type C# must stay C# 5 for Windows PowerShell 5.1.
+
+## [2026-11-19] ci10 macOS docs harness + paused-clock triage
+- macOS kcc reads kcc.toml (and state) from $HOME/Library/Application Support/kcc and ignores XDG; the docs example harness now picks the dir per env::consts::OS (crates/kcc/tests/docs/examples.rs config_dir). Other kcc spawners pass --config and [state] dir, so they are platform-neutral.
+- All 10 macOS timing failures are start_paused tests talking to the fake router over a real 127.0.0.1 socket: tokio auto-advances to the next timer when the zero-timeout I/O poll sees nothing, and XNU lo0 delivery is asynchronous (DLIL input thread), so reqwest's 30 s read / 5 s connect or the test's own timeout fires in milliseconds of wall time. The fingerprint is "answered after 30s" in 0.33 s. Diagnostic: cargo test -p kcc-app --test platform_timing_probe -- --ignored --nocapture --test-threads=1. Report: .omo/evidence/task-ci10-kcc-ci-fix.md.
+- std maps sync_all and sync_data to fcntl(F_FULLFSYNC) on Apple; blocking work never advances a paused clock, and spawn_blocking inhibits auto-advance.
+
+## [2026-11-19] ci9 Windows test portability (run 44563060317)
+- Paths into hand-written kcc.toml: `kcc_testkit::toml_text::path(&Path)` (escaped TOML basic string). `"{}"` + display() breaks on Windows (`\U` = unicode escape); `{:?}` of a String happens to be valid TOML for printable paths. Round-trip test: kcc-app tests/toml_paths.rs.
+- A failed Config::load inside the live gate surfaces as `refusal == None` / "unreverted write passed": the live refusal tests failed only because of the TOML path.
+- Path needles in JSON text: `serde_json::to_string(&path)?`, not display().
+- StateStore `*.lock` sidecars are LockFileEx-locked on Windows (mandatory): never fs::read them in state scans (os error 33).
+- `Command::env_clear()` on Windows drops SystemRoot -> every socket fails with 10106 (rust-lang/rust#114737 open). Pass it through: `.envs(env::var_os("SystemRoot").map(|root| ("SystemRoot", root)))`.
+- Elevation consequences in that run: live_presets twin ("preset capture failed"), cli router_edits backup_and_password (counts 0): kcc child exit 77.
+
+## 2026-11-19 orchestrator: macOS result on 77008c77 (CI 44572719731, job 135731868168)
+Fresh log with timestamps stripped: /home/andrico/ci-macos-77008c77.txt (read-only reference for CI-J).
+- kcc-mcp migration_tools now PASSES on macOS (the ended() fix works on a runner).
+- Still failing (11): docs example (config under XDG, macOS reads Library/Application Support); kcc-app poller
+  metrics_subscription_keeps_one_poller_at_its_own_cadence (Elapsed); kcc-telemetry metrics scrapes_never_reach...
+  ("not reached within 5s: the round at 120 s"); kcc-web dashboard stream_sessions: a_healthy_stream_keeps_delivering_past_its_re_checks (Elapsed) and a_stream_ends_at_its_session_absolute_expiry ("/ui/sse/fleet: ended before its first event", NEW vs the earlier run); kcc-web explorer_pages bracket: a_held_audit_lock_does_not_hold_back_the_management_bracket ("router: answered after 77.379s", was 30s earlier: the same bound is hit with different durations, so the stall is not a fixed constant) and an_ordinary_write_is_audited_after_the_browser_leaves (bracket_ordinary.rs:43 "the router received the write", NEW); kcc-web finish_recovery: finish_outlives_its_budget_when_held (RciError::Timeout) and silent_extender_rollback_reports_restarting ("missing wizard redirect").
+- Pattern: every failure is a real-time bound or an Elapsed on a loaded macOS runner; the explorer figure 30s -> 77s says a step that normally takes milliseconds stalls for tens of seconds. Suspect a blocking call (fsync F_FULLFSYNC, a lock, DNS for localhost) on the async path, not slowness alone.
+
+## [2026-11-19] CI workflow probe.yml cargo test argument fix (CI11, kcc worktree ci11)
+- Defect: `probe.yml` appended `-- --nocapture` to `cargo test $COMMAND`, so callers passing test-binary args after their own `--` (e.g. `COMMAND='-p kcc-app --test platform_timing_probe -- --ignored'`) got `cargo test ... -- --ignored -- --nocapture`, causing libtest to treat `--nocapture` as a test-name filter, resulting in zero tests run.
+- Fix: removed the hardcoded `-- --nocapture` appends and set `RUST_TEST_NOCAPTURE: "1"` as an environment variable in the step's `env:`, which is the documented libtest equivalent. The command line is now `cargo test $COMMAND` exactly as written, and the env variable is inherited by the Windows de-elevated child (deelevate.ps1 line 249: `CreateProcessAsUserW` with `IntPtr.Zero` environment = child inherits parent's environment).
+- Proof: POC test with an ignored test shows (1) `RUST_TEST_NOCAPTURE=1 cargo test -- --ignored` = 1 passed + "printed" output captured, (2) `cargo test -- --ignored -- --nocapture` = 1 filtered out + 0 tests run (old broken form).
+
+## [2026-11-19] ci12: why the runner's de-elevated child stayed elevated
+- TokenIsElevated is NOT the integrity level (Forshaw, "Reading Your Way Around UAC (Part 3)"): elevated = any "god" privilege present (SeBackup/Restore/Debug/TakeOwnership/LoadDriver/Impersonate/DelegateSessionUserImpersonate/Tcb/CreateToken/Relabel) OR any group where RtlIsElevatedRid is true (not deny-only, not integrity, first subauth not 80..111, last RID in 19 values incl. 544 and 114).
+- The runner token has S-1-5-114 ("Local account and member of Administrators group") enabled; SAFER NORMALUSER makes only Administrators deny-only, so S-1-5-114 keeps it elevated. A UAC limited token (laptop) has BOTH 114 and 544 deny-only.
+- deelevate.ps1 now has `filtered` (CreateRestrictedToken DISABLE_MAX_PRIVILEGE + every RtlIsElevatedRid group deny-only, IL Medium) and `filtered-high`; the requested medium/safer-medium/restricted-medium are kept for the probe and run first in auto.
+- 0xC0000142 of the old restricted token: an elevated token's owner/default DACL name Administrators; once deny-only, the child's process object (SD from hToken's default DACL) is unusable to its own conhost -> console init fails in DLL init. Fix: TokenOwner = user SID, TokenDefaultDacl = user+SYSTEM GENERIC_ALL (Chromium RestrictedToken does the same). Same token on a limited source token works, which is why host runs never showed it.
+- Report line now has integrity_rid, admins, elevated_groups, elevated_privileges, privileges, write_runner_temp; exit 3 = report-error; launcher prints verdict=child-died exit=0x... when the child dies before reporting.
+- Task Scheduler with a fresh local user never ran (0x41303): likely no SeBatchLogonRight. Probe now uses Start-Process -Credential (CreateProcessWithLogonW) and sets env paths through a wrapper (the child gets the new profile's env).
+- PowerShell: `0xC0000142` literal is a negative Int32; compare a uint32 exit code via ('{0:X8}' -f $code). Test-Writable must unwrap MethodInvocationException.InnerException to show UnauthorizedAccessException.
+
+## [2026-11-19] ci13 design study: paused clock vs sockets (macOS)
+- tokio 1.54.1 auto-advance (runtime/time/mod.rs:259-279): idle runtime + pending timer -> one zero-timeout I/O poll; if no task woke (did_wake false) the clock jumps to the next timer. Only a running spawn_blocking inhibits it (blocking/schedule.rs:22-27), and then virtual timers do not fire at all until it ends.
+- Linux scratch oracle: a std-thread TCP relay adding 1-5 ms per chunk makes a paused reqwest (5 s connect / 30 s read) time out on 100/100 requests (virtual +30 s each, the macOS "answered after 30s" signature). A fake on another thread/runtime races even WITHOUT delay (52-91/100).
+- reqwest 0.13.5 cannot take an in-memory transport (connector_layer must return the crate-private `Conn`), but `ClientBuilder::unix_socket` works: paused clock + axum over UnixListener + reqwest unix_socket = 0/100 timeouts. XNU uipc_send appends to the peer and calls sowakeup synchronously; lo0 TCP goes through the DLIL input thread.
+- Recommendation in .omo/evidence/task-ci13-kcc-ci-fix.md: a #[doc(hidden)] OutboundPolicy::with_local_socket + FakeRouter::serve_local; the fixtures switch, no assertion or timeout changes.
+
+## [2026-11-19] ci14: Unix socket timing probe (worktree wt/ci13)
+- Added two new diagnostic tests to `platform_timing_probe.rs` with Unix-domain-socket twins of the TCP loopback measurements, `#[cfg(unix)]` gated so Windows CI still compiles. Set `TCP_NODELAY` on the echo server in `paused_clock_over_loopback_io` as the design study required.
+- Linux numbers confirm the premise: Unix delivery `0 of 200`, paused clock over Unix `0 of 200` (virtual ~0ns), no jumps, matching TCP `0 of 200` on the delivery side but vastly different virtual elapsed times (Unix ~3ms vs TCP ~5.6ms real time).
+
+## [2026-11-19] ci15: Unix-socket seam for paused-clock tests (brief for the per-crate fixture workers)
+- Testkit: `#[cfg(unix)] FakeRouter::serve_local(self) -> io::Result<(SocketAddr, PathBuf, Handle)>` (sync, call inside a tokio runtime; `builder(..).build()?.serve_local()?`). Returns a 127.0.0.1 TCP address for the profile URL, the Unix socket path (private dir `$TMPDIR/kXXXXXXXX/s`, removed when the server task ends), and the usual `Handle`. `serve`/`spawn` are unchanged.
+- The TCP address of `serve_local` is a std-thread relay into the socket that delays every chunk 2 ms (simulated macOS loopback): a paused-clock client that still dials TCP fails on Linux (measured 50 of 50 `RciError::Timeout`). Never remove the delay to make a test pass.
+- Client side, register the address -> socket: `kcc_rci::OutboundPolicy::with_local_socket(address, path)` (doc(hidden), cfg(unix)) for fixtures that build the policy directly (kcc-domain diagnostics `connect()`, testkit `outbound::connect_manager*`), or `RouterRegistry::with_local_socket(address, path)` after `RouterRegistry::new(..)` for registry fixtures (covers clients, read clients, detect, bootstrap and `outbound_policy()` checks). Chain one call per fake.
+- Admission is unchanged and runs first: the policy must still `with_loopback(true)` / `OutboundConfig { allow_loopback: true, .. }`. The redirect applies only when the URL resolves to exactly the registered `SocketAddr`; URL, Host header, timeouts unchanged.
+- Fixture recipe: `let (address, socket, handle) = FakeRouter::builder(p).build()?.serve_local()?;` then `registry = RouterRegistry::new(..)?.with_local_socket(address, socket);` then create the profile with `http://{address}`. Windows: keep `serve` (TCP) under `#[cfg(not(unix))]`; the hooks do not exist there.
+- RED for a fixture: keep `serve_local` but omit `with_local_socket` -> the paused test times out via the relay; GREEN: add the hook.
+- Testkit tests needing `start_paused`/`AsyncReadExt` now have tokio `test-util`/`io-util` in kcc-testkit dev-deps.
+
+## [2026-11-19] ci17: kcc-app and kcc-telemetry paused-clock fixtures on the Unix socket (worktree wt/ci16)
+- Converted shared fixtures: kcc-app `tests/poller.rs` `registry_for(directory, router) -> (Arc<RouterRegistry>, Handle)` (both tests use it now), `tests/jobs_recovery/interrupted.rs` `Fixture::with_router`; kcc-telemetry `tests/metrics.rs` `rig_with_routers`, `tests/exporter_follow.rs` (`serve(password) -> Fake`, rig pre-serves a `spare` fake for the router added at runtime, because `RouterRegistry::with_local_socket` takes self and must run before the Arc), `tests/logs.rs` `serve(router) -> (Endpoint {address, outbound}, Handle)` + `client(&Endpoint)`, `tests/logs/collection.rs` `router_with`.
+- Shape: `let profiles = RouterRegistry::new(..)?; #[cfg(unix)] let (address, handle, registry) = { serve_local; Arc::new(profiles.with_local_socket(..)) }; #[cfg(not(unix))] let ((address, handle), registry) = (serve(..).await?, Arc::new(profiles));`. clippy `shadow_reuse` rejects `let registry = registry.with_local_socket(..)`; `future_not_send` rejects `(a.await?, b.await?)` tuples with Box<dyn Error>. `#[cfg_attr(unix, expect(clippy::unused_async))]` was needed on exporter_follow's `serve` (no await on Unix) but was unfulfilled on logs.rs's `serve`, so check each.
+- RED (serve_local, no hook): poller `metrics_subscription..` `Error: Elapsed(())`; metrics `scrapes_never_reach..` "not reached within 5s of real time: the round at 120 s" (the macOS signatures), plus 6 logs tests `Elapsed(())`. Not discriminating in RED: jobs_recovery's paused test (its 1 h latency fault means the probe times out either way) and exporter_follow (every wait is `settle`, whose busy yield keeps the runtime from idling, so the clock never advances past the relay).
+- Still on loopback TCP (latent on macOS): the sink side of logs.rs `runtime_forwards_fake_router_records_to_fake_loki`, collection.rs malformed/timestamp/level tests (FakeLoki/FakeElasticsearch), and all of logs/{bounds,pipeline}.rs (silent sink, fake sinks).
+
+## [2026-11-19] ci16 (worktree ci15): kcc-web paused-clock fixtures on the Unix socket
+- One seam covers every kcc-web paused test: `tests/support/build.rs` `Setup::build` (used by web::Fixture, dashboard fleet/with_outbound, explorer bracket fixture, migration/preset setups, finish_recovery). It now serves each fake with `serve_local` (Served::start) BEFORE `RouterRegistry::new`, chains `with_local_socket` per fake (Served::reach), then creates the profiles. Windows: `serve` TCP + identity reach under cfg(not(unix)). All Setup users (paused or not) now use the socket on Unix; the helper cannot tell.
+- RED (serve_local, no hook) failed all 18 paused fixture tests on Linux: dashboard 5 (Elapsed, "ended before its first event"), explorer 7 (bracket_budget "The router did not answer, so kcc cannot select its command catalog" = catalog detect timed out, bracket_ordinary:43 "the router received the write", guards/job_owners "no job stream"), finish_recovery 2 (RciError::Timeout), interface_drawer 1, diagnostics 3. Only `a_reduced_role_ends_the_stream_and_frees_its_slot` passed in RED (its stream ends on the role change without a router reply); it uses the same fixture, so it is covered too.
+- GREEN: 3x5 binaries 15/15 exit 0; full kcc-web --all-features green. Not converted (not paused, own `serve`): navigation.rs, routing_pages/firewall_bind.rs, integrations/support.rs. auth.rs:192 is paused but has no router.
+- Gotcha: clippy `shadow_unrelated`/`shadow_reuse` fire on `let x = ...; #[cfg(unix)] let x = ...` and on a fold closure param named like the outer binding; use a cfg'd associated fn.
+
+## [2026-11-19] ci18 progress
+- Windows platform dirs come from LOCALAPPDATA (state) / APPDATA (config) (kcc-app settings.rs platform_base); every env_clear spawn site in kcc tests now sets them next to the XDG vars (same dirs).
+- SIGHUP-only tests (metrics_serve runtime add/remove, serve_refresh role changes) are #[cfg(unix)]; their helpers/imports gated too, only the TempDir field uses cfg_attr(not(unix), expect(dead_code)). Windows cross-check with CARGO_BUILD_WARNINGS=deny is the way to find the leftovers (took 4 rounds).
+- deelevate.ps1 auto order is now filtered, filtered-high. Likely-failing-on-Windows candidates not fixed: none identified beyond these.
+
+## [2026-11-20] ci20 Windows `Error: Job` in kcc-migrate login_password_preset_requires_management_password
+- Applier::start's `done` resolves inside the job worker, before JobRunner's detached finisher writes the final record and frees the write slot; a second Applier::start on the same router in that window is RouterBusy -> ApplyError::Job. Tests that start a second write job on the same runner/router must `timeout(.., runner.ended(&id)).await` after the first verdict (as 77008c77 did in the MCP tools).
+- Deterministic Linux repro: scratch `tokio::time::sleep(Duration::from_millis(300))` before the slot removal in JobRunner::start's finisher: 20/20 fail before the test fix, 0/20 after. In kcc-migrate only that test had the shape. The web wizard (kcc-web/src/wizard/launch.rs settle on `done`) frees its claim on the verdict too: product-level candidate, untested.
+- ci.yml doctest steps now `if: ${{ !cancelled() && ... }}` so a unit-test failure no longer hides doctests.
+
+## [2026-11-20] ci19: kcc-mcp Lab and kcc-domain diagnostics on the Unix socket (worktree wt/ci18)
+- kcc-mcp: the one seam is `tests/support/lab.rs` `Lab::start_with_privacy`; a cfg'd `serve(registry, routers) -> (RouterRegistry, Vec<(String, SocketAddr, Handle)>)` (Unix: sync try_fold of serve_local + with_local_socket; else async TCP) runs before the profiles are created. Every Lab user (all kcc-mcp test binaries) now uses the socket on Unix. Paused users: migration_finish `silent_extender_rollback_reports_restarting_and_closes`, domain_tools `audit_pending::*` (2). Other kcc-mcp fakes served outside Lab (runtime_bracket, domain_tools seed client, mask_superset, src/tests/fixture.rs) are not paused: left on TCP.
+- kcc-domain diagnostics.rs: logs.rs shape (`Endpoint` + `serve` + `connect(&Endpoint)`); here `serve` needed `#[cfg_attr(unix, expect(clippy::unused_async, reason))]` (fulfilled, unlike logs.rs). Lab needed: clippy similar_names (`served` vs `server`), too_long_first_doc_paragraph, implicit_clone.
+- RED (serve_local, no hook): the 3 kcc-mcp paused tests fail with `router_unreachable` (the RCI timeout surfaces earlier than macOS's `/apply/verified` false); kcc-domain's paused test HANGS (no error): the job's client times out, and `Handle::wait_for_requests` has no bound, so the idle paused runtime never wakes (killed by timeout 240, exit 124). On macOS that test would hang the job, not fail.
+- Gotcha: `pgrep -f '<script path>'` in a tool call matches the tool's own shell; it killed my own command. Kill exact PIDs from `ps` instead.
+## 2026-11-20 ci21: removed windows_acl probes (describe still used by assert_owner_only); BACKLOG line 17 + new CI section; CONTRIBUTING paused-clock bullet. Cross-check windows-gnu, docs, no_secrets green.
