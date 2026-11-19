@@ -54,6 +54,7 @@ enum Trigger {
     /// The poll interval: act on files that changed on disk.
     Tick,
     /// SIGHUP: re-read and apply both files.
+    #[cfg(unix)]
     Hangup,
 }
 
@@ -97,7 +98,10 @@ impl<T> Tracked<T> {
     fn due(&self, trigger: Trigger, version: Version) -> bool {
         match trigger {
             Trigger::Tick => self.applied != Some(version),
+            #[cfg(unix)]
             Trigger::Start | Trigger::Hangup => true,
+            #[cfg(not(unix))]
+            Trigger::Start => true,
         }
     }
 
@@ -281,6 +285,11 @@ impl StateWatch {
             Trigger::Tick if !changed && ended == 0 => {
                 tracing::debug!(target: WATCH, file = FILE, "state file rewritten without a change");
             }
+            #[cfg(not(unix))]
+            Trigger::Tick => {
+                tracing::debug!(target: RELOAD, file = FILE, ended, "account changes applied");
+            }
+            #[cfg(unix)]
             Trigger::Tick | Trigger::Hangup => {
                 tracing::debug!(target: RELOAD, file = FILE, ended, "account changes applied");
             }

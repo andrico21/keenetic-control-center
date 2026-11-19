@@ -2,20 +2,15 @@
 //! a server path.
 
 use core::sync::atomic::Ordering;
-use std::{fs, os::unix::fs::PermissionsExt as _};
 
-use kcc_app::registry::ManagedRouterProfile;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_testkit::{
     DEFAULT_LOGIN, DEFAULT_PASSWORD,
     auth_fixture::{self, Options, Protocol},
-    model::Profile,
 };
 
 use crate::{
-    router_credentials::{dummy, origin},
     support::{
-        build::admin,
         outcome::TestResult,
         page::{form, text},
     },
@@ -110,8 +105,19 @@ async fn the_test_uses_the_selected_password_sign_in_mode() -> TestResult {
 /// W1-15: a credential file that others can read gets the chmod hint without its path.
 ///
 /// The page the Web user sees does not name the file.
+#[cfg(unix)]
 #[tokio::test]
 async fn a_readable_credential_file_is_refused_without_its_path() -> TestResult {
+    use std::{fs, os::unix::fs::PermissionsExt as _};
+
+    use kcc_app::registry::ManagedRouterProfile;
+    use kcc_testkit::model::Profile;
+
+    use crate::{
+        router_credentials::{dummy, origin},
+        support::build::admin,
+    };
+
     let fixture = fleet(&[("home", Profile::default())]).await?;
     let browser = fixture.login("admin").await?;
     let secret = fixture

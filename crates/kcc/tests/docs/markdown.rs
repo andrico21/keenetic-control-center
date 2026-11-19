@@ -38,6 +38,10 @@ pub(crate) fn linked_documents() -> io::Result<Vec<PathBuf>> {
 #[derive(Debug)]
 pub(crate) struct Fence {
     /// The info string after the opening backticks.
+    #[cfg_attr(
+        not(unix),
+        expect(dead_code, reason = "only the unix-only example runner reads it")
+    )]
     pub info: String,
     /// The block's lines with the fence's indentation removed.
     pub body: String,

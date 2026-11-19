@@ -673,7 +673,7 @@ fn restrict_windows(path: &Path) -> Result<(), StateError> {
     let dacl = descriptor
         .dacl()
         .ok_or_else(|| io_error(path, io::Error::other("owner-only DACL was not created")))?;
-    let mut name = path.as_os_str();
+    let mut name = path.as_os_str().to_owned();
     name.set_dacl(dacl)
         .map_err(|source| io_error(path, source))?;
     Ok(())

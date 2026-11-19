@@ -15,7 +15,7 @@ mod tests {
 
     use alloc::collections::BTreeMap;
     use core::{error::Error, fmt::Write as _};
-    use std::{fs, path::Path};
+    use std::fs;
 
     use base64::{Engine as _, engine::general_purpose::STANDARD};
     use kcc_app::{
@@ -301,7 +301,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn created_dir_and_files_are_owner_only() -> TestResult {
-        use std::os::unix::fs::PermissionsExt as _;
+        use std::{os::unix::fs::PermissionsExt as _, path::Path};
 
         /// Permission bits of `path`.
         ///
@@ -352,7 +352,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn existing_master_key_parent_keeps_its_mode() -> TestResult {
-        use std::os::unix::fs::PermissionsExt as _;
+        use std::{os::unix::fs::PermissionsExt as _, path::Path};
 
         let temp = TempDir::new()?;
         let home = temp.path().join("home");

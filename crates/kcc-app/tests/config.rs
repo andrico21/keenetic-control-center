@@ -15,14 +15,11 @@ mod tests {
 
     use alloc::collections::BTreeMap;
     use core::{error::Error, time::Duration};
-    use std::{
-        env,
-        path::{Path, PathBuf},
-    };
+    use std::path::{Path, PathBuf};
 
     use kcc_app::settings::{
         ClientLabel, Config, ConfigError, LogMode, LogSinkConfig, RouterAuth, RouterTls,
-        SearchFlavor, default_state_dir,
+        SearchFlavor,
     };
     use url::Url;
 
@@ -750,6 +747,10 @@ kind = "stdout"
     #[cfg(target_os = "linux")]
     #[test]
     fn linux_default_state_dir_follows_xdg() -> TestResult {
+        use std::env;
+
+        use kcc_app::settings::default_state_dir;
+
         let base = env::var_os("XDG_STATE_HOME")
             .map(PathBuf::from)
             .filter(|path| path.is_absolute())

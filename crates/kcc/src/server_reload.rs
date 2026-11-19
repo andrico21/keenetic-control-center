@@ -31,7 +31,7 @@ pub(crate) type Hangups = io::Result<Signal>;
 
 /// No SIGHUP on non-Unix platforms.
 #[cfg(not(unix))]
-pub(crate) type Hangups = ();
+pub(crate) struct Hangups;
 
 /// Installs the SIGHUP stream.
 #[cfg(unix)]
@@ -41,7 +41,9 @@ pub(crate) fn hangups() -> Hangups {
 
 /// No SIGHUP on non-Unix platforms.
 #[cfg(not(unix))]
-pub(crate) const fn hangups() -> Hangups {}
+pub(crate) const fn hangups() -> Hangups {
+    Hangups
+}
 
 /// Hands the transport's reload handle to the Web UI and starts `watch` with SIGHUP.
 ///

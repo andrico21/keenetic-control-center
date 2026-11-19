@@ -1,14 +1,11 @@
 //! Log destination transport contracts.
 
 use core::time::Duration;
-use std::{fs, io::Read as _};
+use std::io::Read as _;
 
 use flate2::read::GzDecoder;
 use kcc_app::settings::Config;
-use kcc_telemetry::logs::{
-    elastic_sink::ElasticsearchClient,
-    sink::{DeliveryError, LokiClient},
-};
+use kcc_telemetry::logs::{elastic_sink::ElasticsearchClient, sink::LokiClient};
 use kcc_testkit::{
     fake_elasticsearch::{FakeElasticsearch, Fault as ElasticsearchFault},
     fake_loki::FakeLoki,
@@ -79,7 +76,9 @@ async fn loki_sink_applies_tenant_basic_auth_and_gzip_without_debug_secret() -> 
 #[cfg(unix)]
 #[tokio::test]
 async fn loki_sink_refuses_a_bearer_token_file_others_can_read() -> TestResult {
-    use std::os::unix::fs::PermissionsExt as _;
+    use std::{fs, os::unix::fs::PermissionsExt as _};
+
+    use kcc_telemetry::logs::sink::DeliveryError;
 
     let fake = FakeLoki::spawn().await?;
     let directory = TempDir::new()?;

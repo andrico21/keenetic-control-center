@@ -111,7 +111,7 @@ pub enum IdPosture {
 }
 
 /// Classifies process IDs; a root UID outranks a root GID.
-#[cfg(unix)]
+#[cfg(any(unix, test))]
 #[must_use]
 #[inline]
 pub fn classify(uids: &[u32], gids: &[u32]) -> IdPosture {

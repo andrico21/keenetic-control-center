@@ -8,6 +8,7 @@
     reason = "integration-test assertions and fixture filesystem setup"
 )]
 
+#[cfg(unix)]
 extern crate alloc;
 
 use core::error::Error;
