@@ -141,3 +141,18 @@ rest on the manuals and the fake router only:
 - The Windows CI leg depends on `.github/scripts/deelevate.ps1` (launcher method `filtered`: a restricted token whose elevated groups are deny-only). The runner token is elevated by default and kcc refuses an elevated token by design, so the launcher fails the step if the child is still elevated. If GitHub changes the image's token, the launcher's `-Method` probe in `.github/workflows/probe.yml` (`token_probe`) shows which methods still work.
 - Two SIGHUP-reload tests are unix-only (`crates/kcc/tests/metrics_serve/runtime.rs`, `crates/kcc/tests/serve_refresh.rs`): Windows has no SIGHUP, so reload-on-signal is untested there.
 - Windows tests that read the platform state directory set `LOCALAPPDATA` and `APPDATA` in four spawn helpers. A new spawn helper that clears the environment must do the same, and keep `SystemRoot`.
+## Notifications and scheduled actions: not in v1
+
+- Quiet hours.
+- Per-user subscriptions.
+- Channels other than Telegram.
+- Clearing a client's policy on a schedule.
+- Scheduled access permit or deny (routers schedule it themselves).
+- Mirror-mode and management-line presets on a schedule.
+- The metadata-address check for log sinks (`kcc_rci::outbound::never_admitted` is applied to Telegram only).
+- A reboot sent by another process (the CLI, `kcc scheduled run-now` from the CLI included) does not mute down/up messages, and a CLI run-now sends no Telegram outcome.
+- A server starting while a CLI run-now is in progress reports that run once as interrupted (the run ledger still records its true outcome).
+- Whether Telegram's 4096 limit counts characters or UTF-16 units (kcc keeps both within it).
+- Router audit events from other processes (a CLI change) are not notified.
+- The public-CA TLS path to Telegram is exercised only by the owner-run live suite.
+- A router in `ScheduledReboot` safety mode mutes its down alerts for 15 minutes after any bracket step.

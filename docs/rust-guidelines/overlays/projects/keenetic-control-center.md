@@ -59,6 +59,10 @@
   `cargo semver-checks` does not apply. This is a statement of scope, not a deviation.
 - **(i) Privacy.** No stored client telemetry history; retention limits apply to the
   audit log and backups; MCP honours `redact_clients`.
+- **(i') Telegram notifier privacy** (added 2026-11-19, owner decision D-BOTH). The
+  Telegram notifier keeps client state in memory only (no persisted seen-device set, no
+  message log); messages name clients by pseudonym unless `include_client_details` is on,
+  and never carry a client IP.
 
 ## Deviations to resolve (status 2026-11-14)
 
@@ -103,6 +107,18 @@
    absent. **Task:** ask upstream for an if-not-present mode (listed in
    `docs/BACKLOG.md` under "Upstream"); once it lands, set `no-store` there and
    close this deviation.
+6. **Operator-configured non-router destinations (log sinks, Telegram)** (opened
+   2026-11-19, accepted; reason: owner decision D-BOTH). Rule (a) covers router targets.
+   kcc also sends to two kinds of destination that only the operator names, in
+   `kcc.toml`: the `[[logs.sinks]]` URLs and `[notify.telegram] api_url` (default
+   `https://api.telegram.org`). They use `https`, or `http` only to a loopback host; no
+   proxy; no redirects; TLS verification as for routers (plus an optional operator CA
+   file). The Telegram client also refuses any resolved address that no outbound-policy
+   setting could admit (`kcc_rci::outbound::never_admitted`: cloud metadata, unspecified,
+   multicast, broadcast); extending that check to log sinks is listed in
+   `docs/BACKLOG.md`. Neither address can be set from the Web UI, MCP or a state file.
+   Telegram is outbound only: no `getUpdates`, no webhook. This is not a licence to add
+   further destinations; each needs its own entry here.
 
 ## Common alignment steps
 
