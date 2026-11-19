@@ -78,6 +78,10 @@ CI runs `cargo vet --locked` for both workspaces.
   `KCC_LIVE_*` variables from `AGENTS.md`, against routers marked `test_device = true`.
 - Tests must not depend on timing: wait for an event or state change with a bounded
   timeout instead of sleeping.
+- A test under a paused tokio clock (`start_paused = true`) serves the fake router with
+  `FakeRouter::serve_local` and registers the socket with `RouterRegistry::with_local_socket`
+  (or `OutboundPolicy::with_local_socket`) on Unix: loopback TCP delivers asynchronously on
+  macOS and the paused clock jumps ahead of written replies. See `crates/kcc-web/tests/support/build.rs`; Windows keeps TCP.
 
 ## CI runners
 
