@@ -54,6 +54,7 @@ mod tests {
         assert_eq!(example.metrics, defaults.metrics, "[metrics]");
         assert_eq!(example.logs, defaults.logs, "[logs]");
         assert_eq!(example.notify, defaults.notify, "[notify]");
+        assert_eq!(example.schedules, defaults.schedules, "[schedules]");
         assert!(example.routers.is_empty(), "the sample defines no router");
         Ok(())
     }

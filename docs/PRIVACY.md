@@ -26,6 +26,8 @@ directories 0700 and files 0600 on Unix. "Encrypted" means sealed with the maste
 | Telegram notification settings: on/off, language, client-detail switch, events, chats (id, label, topic, silent) | `notify.json` | plain JSON | until changed |
 | Telegram delivery state: when the bot token was set or refused, chats Telegram refused, the newest firmware version notified per router | `notify_state.json` | plain JSON, no client data | until changed |
 | Telegram bot token | `notify/telegram.token.sealed` | encrypted with the master key, `notify:telegram` as associated data | until replaced or removed |
+| Scheduled actions: name, router, weekly time and zone, action, owner (account or CLI user name), state; a policy switch also names the client's MAC and the policy (configuration, not telemetry) | `schedules.json` | plain JSON | until deleted |
+| Scheduled runs: slot, outcome, job id, times, who asked for a run-now, the router's configuration checksum after a change | `schedule_runs.json` | plain JSON | the last 20 runs per schedule, until the schedule is deleted |
 | Audit log: time, actor, action, router, outcome, parameter names and non-secret values | `audit.jsonl` (rotated at 50 MiB) | plain, hash-chained | complete rotated files whose newest entry is older than `[audit] retention` (365 days) are pruned after rotation |
 
 Audit pruning never splits a rotated file and removes only the oldest run of fully expired

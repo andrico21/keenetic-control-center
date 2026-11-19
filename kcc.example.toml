@@ -163,6 +163,10 @@ queue_max = 10000
 api_url = "https://api.telegram.org"
 # PEM CA certificate to trust for the Bot API (default: unset).
 # ca_file = "/etc/kcc/telegram-ca.pem"
+# Scheduled actions.
+[schedules]
+# IANA time zone that prefills new schedules and dates other messages.
+default_timezone = "UTC"
 
 # Config-defined router profiles (default: none; read-only in the UI). Routers
 # added with `kcc router add` live in the state directory instead.

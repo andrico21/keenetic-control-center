@@ -49,6 +49,7 @@ need a restart.
 | `metrics` | table | see below | Prometheus exporter |
 | `logs` | table | see below | router log collection and forwarding |
 | `notify` | table | see below | Telegram notifications |
+| `schedules` | table | see below | scheduled-action defaults |
 | `routers` | array of tables | none | read-only router profiles |
 
 ## `[web]`
@@ -233,6 +234,15 @@ reads this section at start; a change needs a restart.
 |---|---|---|---|
 | `api_url` | URL | `"https://api.telegram.org"` | Bot API base URL. https, or http on loopback (a local Bot API server or a test double); a path is allowed; no credentials, query or fragment; an IP address that no `[outbound]` setting could admit (cloud metadata, unspecified, multicast, broadcast) is refused |
 | `ca_file` | path | unset | PEM CA certificate to trust for the Bot API |
+## `[schedules]`
+
+Scheduled actions run only in `kcc serve`. They live in the state directory
+(`schedules.json`, edited on the Web UI or with the CLI); this table holds their defaults
+only, applied at the next start.
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `default_timezone` | string | `"UTC"` | IANA time zone (for example `Europe/Berlin`, any case) that prefills new schedules and dates messages that belong to no schedule; checked against the time zone database built into kcc |
 
 ## `[[routers]]`
 

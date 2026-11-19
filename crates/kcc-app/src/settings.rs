@@ -37,6 +37,7 @@ use crate::registry::rules::{self, ProfileFault};
 
 mod env_overrides;
 pub mod notifications;
+pub mod schedules;
 
 /// Every `KCC_*` environment variable [`Config::apply_env_overrides`] reads.
 pub const KCC_ENV_VARS: &[&str] = env_overrides::NAMES;
@@ -128,6 +129,8 @@ pub struct Config {
     pub logs: LogsConfig,
     /// `[notify]`: the Telegram Bot API endpoint of notifications.
     pub notify: notifications::NotifyConfig,
+    /// `[schedules]`: scheduled-action defaults.
+    pub schedules: schedules::SchedulesConfig,
     /// `[[routers]]`: config-defined router profiles (read-only in the UI).
     pub routers: Vec<RouterProfile>,
 }
@@ -896,6 +899,7 @@ impl Config {
         self.metrics.validate()?;
         self.logs.validate()?;
         self.notify.validate()?;
+        self.schedules.validate()?;
         if self.metrics.enabled && self.observability.metrics_enabled {
             return Err(invalid(
                 "observability.metrics_enabled",

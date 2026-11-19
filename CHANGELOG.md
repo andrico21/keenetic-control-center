@@ -124,6 +124,11 @@ The first release, `0.1.0`, is in preparation and contains:
   directory gains `notify.json` (on/off, language, client details, events, up to 10
   chats), `notify_state.json` (written by kcc only) and the bot token, sealed under
   `notify:telegram` in `notify/telegram.token.sealed`. Nothing sends messages yet.
+- **Scheduled-action store and run ledger**: `schedules.json` holds weekly scheduled
+  actions (client policy switch, preset apply, backup, reboot) with their owner, at most
+  64 per router and 256 in total; `schedule_runs.json` records each run before it starts,
+  so a slot runs at most once, and keeps the last 20 runs per schedule. New `kcc.toml`
+  table `[schedules]` with `default_timezone` (default `"UTC"`).
 
 ### Changed
 

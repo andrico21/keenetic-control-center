@@ -389,6 +389,7 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
             "privacy",
             "metrics",
             "logs",
+            "schedules",
         ];
         for section in sections {
             expect_parse_error(&format!("[{section}]\nbogus_key = 1\n"), "bogus_key")?;
@@ -455,6 +456,16 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
         let config_with_bad_log_router = format!("{ROUTER}\n[logs]\nrouters = [\"Home.1\"]");
         expect_invalid(&config_with_bad_log_router, "logs.routers")?;
         Ok(())
+    }
+
+    /// todo 6: `[schedules] default_timezone` must name a bundled IANA zone, in any case.
+    #[test]
+    fn schedules_default_timezone_must_be_a_known_zone() -> TestResult {
+        Config::from_toml_str("[schedules]\ndefault_timezone = \"europe/berlin\"\n")?.validate()?;
+        expect_invalid(
+            "[schedules]\ndefault_timezone = \"Mars/Base\"\n",
+            "schedules.default_timezone",
+        )
     }
 
     /// `[metrics]` defaults are off, loopback, pseudonymous and within the IS-13 floors;

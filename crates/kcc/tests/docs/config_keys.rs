@@ -112,6 +112,10 @@ const TABLES: &[Table] = &[
         opening: Some("[notify.telegram]\n"),
     },
     Table {
+        id: "schedules",
+        opening: Some("[schedules]\n"),
+    },
+    Table {
         id: "routers",
         opening: Some("[[routers]]\n"),
     },
