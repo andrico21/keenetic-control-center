@@ -38,6 +38,7 @@ mod connection_fault;
 mod failsafe;
 pub mod fake_elasticsearch;
 pub mod fake_loki;
+pub mod fake_telegram;
 pub mod firmware_update;
 mod fixtures;
 mod inflight;

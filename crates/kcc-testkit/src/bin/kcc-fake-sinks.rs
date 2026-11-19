@@ -1,8 +1,9 @@
-//! `kcc-fake-sinks`: serves a [`FakeLoki`] and a [`FakeElasticsearch`] on loopback.
+//! `kcc-fake-sinks`: serves a [`FakeLoki`], a [`FakeElasticsearch`] and a [`FakeTelegram`]
+//! (accepting any token) on loopback.
 //!
-//! Prints `loki <url>` and `elasticsearch <url>` on stdout once both listen, then reports
-//! every change of the captured request counts as a `sink requests` line on stderr until
-//! Ctrl-C. `deploy/podman/e2e.sh` reads both streams.
+//! Prints `loki <url>`, `elasticsearch <url>` and `telegram <url>` on stdout once all
+//! listen, then reports every change of the captured request counts as a `sink requests`
+//! line on stderr until Ctrl-C. `deploy/podman/e2e.sh` reads both streams.
 
 extern crate alloc;
 
@@ -13,7 +14,9 @@ use std::{
     process::ExitCode,
 };
 
-use kcc_testkit::{fake_elasticsearch::FakeElasticsearch, fake_loki::FakeLoki};
+use kcc_testkit::{
+    fake_elasticsearch::FakeElasticsearch, fake_loki::FakeLoki, fake_telegram::FakeTelegram,
+};
 use tokio::{runtime::Builder, signal, time};
 
 /// How often the captured request counts are compared.
@@ -21,21 +24,30 @@ const REPORT_EVERY: Duration = Duration::from_millis(250);
 
 /// Logs the captured request counts whenever they change, until aborted or until it holds
 /// the last handle.
-// cancel-safe: holds no state outside the two shared handles.
-async fn report(loki: Arc<FakeLoki>, search: Arc<FakeElasticsearch>) {
-    let mut reported = (0_usize, 0_usize);
+// cancel-safe: holds no state outside the shared handles.
+async fn report(loki: Arc<FakeLoki>, search: Arc<FakeElasticsearch>, telegram: Arc<FakeTelegram>) {
+    let mut reported = (0_usize, 0_usize, 0_usize);
     let mut ticks = time::interval(REPORT_EVERY);
     while Arc::strong_count(&loki) > 1 {
         let _tick: time::Instant = ticks.tick().await;
-        let now = (loki.requests().len(), search.requests().len());
+        let now = (
+            loki.requests().len(),
+            search.requests().len(),
+            telegram.requests().len(),
+        );
         if now != reported {
             reported = now;
-            tracing::info!(loki = now.0, elasticsearch = now.1, "sink requests");
+            tracing::info!(
+                loki = now.0,
+                elasticsearch = now.1,
+                telegram = now.2,
+                "sink requests"
+            );
         }
     }
 }
 
-/// Starts both sinks, prints their URLs and reports request counts until Ctrl-C.
+/// Starts the sinks, prints their URLs and reports request counts until Ctrl-C.
 ///
 /// # Errors
 ///
@@ -44,21 +56,32 @@ async fn report(loki: Arc<FakeLoki>, search: Arc<FakeElasticsearch>) {
 async fn serve() -> Result<(), Box<dyn Error>> {
     let loki = Arc::new(FakeLoki::spawn().await?);
     let search = Arc::new(FakeElasticsearch::spawn().await?);
+    let telegram = Arc::new(FakeTelegram::spawn().await?);
     {
         let mut stdout = io::stdout().lock();
         writeln!(stdout, "loki {}", loki.url())?;
         writeln!(stdout, "elasticsearch {}", search.url())?;
+        writeln!(stdout, "telegram {}", telegram.url())?;
         stdout.flush()?;
     }
-    let reporter = tokio::spawn(report(Arc::clone(&loki), Arc::clone(&search)));
+    let reporter = tokio::spawn(report(
+        Arc::clone(&loki),
+        Arc::clone(&search),
+        Arc::clone(&telegram),
+    ));
     let stopped = signal::ctrl_c().await;
     reporter.abort();
     drop(reporter.await);
     stopped?;
-    match (Arc::try_unwrap(loki), Arc::try_unwrap(search)) {
-        (Ok(loki_server), Ok(search_server)) => {
+    match (
+        Arc::try_unwrap(loki),
+        Arc::try_unwrap(search),
+        Arc::try_unwrap(telegram),
+    ) {
+        (Ok(loki_server), Ok(search_server), Ok(telegram_server)) => {
             loki_server.shutdown().await?;
             search_server.shutdown().await?;
+            telegram_server.shutdown().await?;
             Ok(())
         }
         _ => Err("a sink handle is still shared after the reporter stopped".into()),
