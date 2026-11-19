@@ -6,7 +6,7 @@
     reason = "integration-test crate structure and bounded fixture loop"
 )]
 
-use core::{error::Error, net::SocketAddr, time::Duration};
+use core::{error::Error, time::Duration};
 use std::sync::Arc;
 
 use kcc_app::{
@@ -16,7 +16,7 @@ use kcc_app::{
     registry::{ManagedRouterProfile, RouterRegistry},
     settings::OutboundConfig,
 };
-use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter};
+use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, Handle, model::Profile};
 use tempfile::TempDir;
 use tokio::time::timeout;
 use url::Url;
@@ -30,23 +30,8 @@ use url::Url;
 #[tokio::test]
 async fn ten_subscribers_share_one_light_poll_round() -> Result<(), Box<dyn Error>> {
     let directory = TempDir::new()?;
-    let (address, handle) = FakeRouter::spawn().await?;
-    let password = kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
-    let state = StateStore::open(&directory.path().join("state"))?;
-    let mut outbound = OutboundConfig::default();
-    outbound.allow_loopback = true;
-    let registry = Arc::new(RouterRegistry::new(state, &[], &outbound)?);
-    registry
-        .create(
-            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
-            ManagedRouterProfile::new(
-                "router".to_owned(),
-                Url::parse(&format!("http://{address}"))?,
-                "admin".to_owned(),
-                password,
-            ),
-        )
-        .await?;
+    let (registry, handle) =
+        registry_for(&directory, FakeRouter::builder(Profile::default()).build()?).await?;
     let poller = Poller::with_intervals(
         registry,
         PollIntervals::new(
@@ -69,20 +54,35 @@ async fn ten_subscribers_share_one_light_poll_round() -> Result<(), Box<dyn Erro
     Ok(())
 }
 
-/// Opens a registry holding one router `router` served by `address`.
+/// Serves `router` and opens a registry holding it as router `router`.
+///
+/// On Unix the registry's clients reach the fake over its Unix socket: a paused clock can
+/// jump ahead of a loopback TCP reply that is written but not yet readable.
 ///
 /// # Errors
 ///
-/// File, state-store, URL or registry failures.
+/// Bind, file, state-store, URL or registry failures.
+// cancel-safe: dropping it drops the fake's handle and the half-built registry with it.
 async fn registry_for(
     directory: &TempDir,
-    address: SocketAddr,
-) -> Result<Arc<RouterRegistry>, Box<dyn Error>> {
+    router: FakeRouter,
+) -> Result<(Arc<RouterRegistry>, Handle), Box<dyn Error>> {
     let password = kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
     let state = StateStore::open(&directory.path().join("state"))?;
     let mut outbound = OutboundConfig::default();
     outbound.allow_loopback = true;
-    let registry = Arc::new(RouterRegistry::new(state, &[], &outbound)?);
+    let profiles = RouterRegistry::new(state, &[], &outbound)?;
+    #[cfg(unix)]
+    let (address, handle, registry) = {
+        let (address, socket, handle) = router.serve_local()?;
+        let registry = Arc::new(profiles.with_local_socket(address, socket));
+        (address, handle, registry)
+    };
+    #[cfg(not(unix))]
+    let ((address, handle), registry) = (
+        router.serve(([127, 0, 0, 1], 0).into()).await?,
+        Arc::new(profiles),
+    );
     registry
         .create(
             &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
@@ -94,7 +94,7 @@ async fn registry_for(
             ),
         )
         .await?;
-    Ok(registry)
+    Ok((registry, handle))
 }
 
 /// Requests in `log` for `path`, optionally narrowed to one `name` query value.
@@ -125,14 +125,14 @@ fn count(log: &[kcc_testkit::RequestRecord], path: &str, name: Option<&str>) -> 
 #[tokio::test(start_paused = true)]
 async fn metrics_subscription_keeps_one_poller_at_its_own_cadence() -> Result<(), Box<dyn Error>> {
     use kcc_app::poller::MetricsCadence;
-    use kcc_testkit::model::{Firmware, Model, Profile};
+    use kcc_testkit::model::{Firmware, Model};
     use tokio::time::sleep;
 
     for firmware in [Firmware::V4_3, Firmware::V5_1] {
         let directory = TempDir::new()?;
         let router = FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?).build()?;
-        let (address, handle) = router.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
-        let poller = Poller::new(registry_for(&directory, address).await?);
+        let (registry, handle) = registry_for(&directory, router).await?;
+        let poller = Poller::new(registry);
         poller.record_update_available("router", true).await;
         let mut metrics = poller
             .subscribe_metrics(

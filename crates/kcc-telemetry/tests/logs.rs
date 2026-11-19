@@ -27,7 +27,7 @@ use kcc_telemetry::{
     },
     metrics::instrumentation::SelfMetrics,
 };
-use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, fake_loki::FakeLoki, model::Profile};
+use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, Handle, fake_loki::FakeLoki, model::Profile};
 use prometheus::{Registry, TextEncoder};
 use secrecy::SecretString;
 use serde_json::json;
@@ -48,14 +48,40 @@ mod transport;
 /// Test result.
 type TestResult = Result<(), Box<dyn Error>>;
 
+/// Where a served fake router answers: the address of its URL and the outbound policy that
+/// reaches it.
+struct Endpoint {
+    /// The address of the router URL.
+    address: SocketAddr,
+    /// Admits loopback and, on Unix, dials the fake's Unix socket for `address`.
+    outbound: OutboundPolicy,
+}
+
+/// Serves `router` for a paused-clock test.
+///
+/// On Unix it answers on a Unix socket: a paused clock can jump ahead of a loopback TCP
+/// reply that is written but not yet readable.
+// cancel-safe: dropping it drops the fake's handle, which stops the fake.
+async fn serve(router: FakeRouter) -> Result<(Endpoint, Handle), Box<dyn Error>> {
+    let loopback = OutboundPolicy::default().with_loopback(true);
+    #[cfg(unix)]
+    let (address, outbound, handle) = {
+        let (address, socket, handle) = router.serve_local()?;
+        (address, loopback.with_local_socket(address, socket), handle)
+    };
+    #[cfg(not(unix))]
+    let ((address, handle), outbound) = (router.serve(([127, 0, 0, 1], 0).into()).await?, loopback);
+    Ok((Endpoint { address, outbound }, handle))
+}
+
 /// Connects an RCI client to one fake router.
-async fn client(address: SocketAddr) -> Result<Arc<RciClient>, Box<dyn Error>> {
-    let router = format!("http://{address}").parse::<RouterUrl>()?;
+// cancel-safe: dropping it drops the half-connected client; the fake keeps no state for it.
+async fn client(router: &Endpoint) -> Result<Arc<RciClient>, Box<dyn Error>> {
+    let url = format!("http://{}", router.address).parse::<RouterUrl>()?;
     let credentials = Credentials::new("admin".to_owned(), SecretString::from(DEFAULT_PASSWORD));
-    let options =
-        RciClientOptions::default().with_outbound(OutboundPolicy::default().with_loopback(true));
+    let options = RciClientOptions::default().with_outbound(router.outbound.clone());
     Ok(Arc::new(
-        RciClient::connect_with(router, credentials, options).await?,
+        RciClient::connect_with(url, credentials, options).await?,
     ))
 }
 
@@ -227,8 +253,8 @@ async fn collector_owns_one_stream_and_emits_each_id_once() -> TestResult {
         10,
         json!({"message":{"label":"I","message":"[Jan 01 00:00:00] first"}}),
     );
-    let (address, handle) = router.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
-    let client = client(address).await?;
+    let (endpoint, handle) = serve(router).await?;
+    let client = client(&endpoint).await?;
     let config = Config::from_toml_str("[logs]\nenabled = true\n")?;
     config.validate()?;
     let collector = LogCollector::start(
@@ -275,7 +301,7 @@ async fn runtime_forwards_fake_router_records_to_fake_loki() -> TestResult {
         21,
         json!({"message":{"label":"I","message":"[Jan 01 00:00:00] forwarded"}}),
     );
-    let (address, handle) = router.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
+    let (endpoint, handle) = serve(router).await?;
     let fake_loki = FakeLoki::spawn().await?;
     let config = Config::from_toml_str(&format!(
         "[logs]\nenabled = true\n\n[[logs.sinks]]\nkind = \"loki\"\nurl = \"{}\"\n",
@@ -284,7 +310,7 @@ async fn runtime_forwards_fake_router_records_to_fake_loki() -> TestResult {
     config.validate()?;
     let metrics = SelfMetrics::new("runtime-test")?;
     let runtime = LogService::start(
-        vec![("fake".to_owned(), client(address).await?)],
+        vec![("fake".to_owned(), client(&endpoint).await?)],
         &config.logs,
         metrics,
     )

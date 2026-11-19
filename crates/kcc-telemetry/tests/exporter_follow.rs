@@ -18,7 +18,7 @@ use core::{
     net::SocketAddr,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[path = "support/settle.rs"]
 mod settle;
@@ -50,26 +50,63 @@ fn admin() -> Role {
     Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()])
 }
 
-/// Serves a default fake router and registers it as `id`.
-async fn add(
-    registry: &RouterRegistry,
-    id: &str,
-    password: &Path,
-) -> Result<Handle, Box<dyn Error>> {
+/// A default fake router, served before the registry that reaches it is built, and the
+/// password file of its profile.
+struct Fake {
+    /// The address of the profile URL.
+    address: SocketAddr,
+    /// The Unix socket the registry's clients dial for `address`.
+    #[cfg(unix)]
+    socket: PathBuf,
+    /// Fake router control.
+    handle: Handle,
+    /// The profile's password file.
+    password: PathBuf,
+}
+
+/// Serves a default fake router whose profile signs in with the password file `password`.
+///
+/// On Unix it answers on a Unix socket: a paused clock can jump ahead of a loopback TCP
+/// reply that is written but not yet readable.
+// cancel-safe: dropping it drops the fake's handle, which stops the fake.
+#[cfg_attr(
+    unix,
+    expect(
+        clippy::unused_async,
+        reason = "only the loopback TCP fake of other platforms binds asynchronously"
+    )
+)]
+async fn serve(password: &Path) -> Result<Fake, Box<dyn Error>> {
     let router = FakeRouter::builder(Profile::default()).build()?;
-    let (address, handle) = router.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
+    #[cfg(unix)]
+    let (address, socket, handle) = router.serve_local()?;
+    #[cfg(not(unix))]
+    let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
+    Ok(Fake {
+        address,
+        #[cfg(unix)]
+        socket,
+        handle,
+        password: password.to_owned(),
+    })
+}
+
+/// Registers `fake` as router `id` and returns its handle.
+// NOT cancel-safe: dropped after the registry wrote the profile, it loses the fake's handle
+// and the fake stops under a registered router.
+async fn add(registry: &RouterRegistry, id: &str, fake: Fake) -> Result<Handle, Box<dyn Error>> {
     registry
         .create(
             &admin(),
             ManagedRouterProfile::new(
                 id.to_owned(),
-                Url::parse(&format!("http://{address}"))?,
+                Url::parse(&format!("http://{}", fake.address))?,
                 "admin".to_owned(),
-                password.to_owned(),
+                fake.password,
             ),
         )
         .await?;
-    Ok(handle)
+    Ok(fake.handle)
 }
 
 /// The scrape text of `registry`.
@@ -87,7 +124,7 @@ fn exports(text: &str, router: &str) -> bool {
 /// A registry with router `a`, the shared poller and an exporter following the registry.
 struct Rig {
     /// Password file and state.
-    directory: TempDir,
+    _directory: TempDir,
     /// Router profiles.
     registry: Arc<RouterRegistry>,
     /// Shared poller.
@@ -98,6 +135,9 @@ struct Rig {
     prometheus: Registry,
     /// Router `a`.
     handle: Handle,
+    /// A second fake router, not registered yet: the registry can reach it once a test
+    /// adds it.
+    spare: Fake,
 }
 
 /// Builds the rig and lets the first round complete.
@@ -107,8 +147,17 @@ async fn rig() -> Result<Rig, Box<dyn Error>> {
     let mut outbound = OutboundConfig::default();
     outbound.allow_loopback = true;
     let state = StateStore::open(&directory.path().join("state"))?;
+    let first = serve(&password).await?;
+    let spare = serve(&password).await?;
+    #[cfg(unix)]
+    let registry = Arc::new(
+        RouterRegistry::new(state, &[], &outbound)?
+            .with_local_socket(first.address, first.socket.clone())
+            .with_local_socket(spare.address, spare.socket.clone()),
+    );
+    #[cfg(not(unix))]
     let registry = Arc::new(RouterRegistry::new(state, &[], &outbound)?);
-    let handle = add(&registry, "a", &password).await?;
+    let handle = add(&registry, "a", first).await?;
     let config = Config::from_toml_str("[metrics]\nenabled = true\n")?;
     let poller = Poller::new(Arc::clone(&registry));
     let exporter = Arc::new(MetricsExporter::new(
@@ -127,12 +176,13 @@ async fn rig() -> Result<Rig, Box<dyn Error>> {
     })
     .await?;
     Ok(Rig {
-        directory,
+        _directory: directory,
         registry,
         poller,
         exporter,
         prometheus,
         handle,
+        spare,
     })
 }
 
@@ -143,8 +193,7 @@ async fn routers_added_and_removed_at_runtime_follow_the_registry() -> TestResul
         exports(&scrape(&rig.prometheus)?, "a"),
         "the startup router"
     );
-    let password = rig.directory.path().join("password");
-    let added = add(&rig.registry, "b", &password).await?;
+    let added = add(&rig.registry, "b", rig.spare).await?;
     settle("router b polled", async || {
         Ok(scrape(&rig.prometheus)?.contains("keenetic_up{router=\"b\"} 1"))
     })

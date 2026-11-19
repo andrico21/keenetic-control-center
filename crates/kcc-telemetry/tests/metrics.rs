@@ -1,7 +1,8 @@
 //! Prometheus exporter against the 4.3 and 5.1 fake-router profiles.
 //!
 //! Every test runs on paused Tokio time: the cadence is the behavior under test, and the
-//! fake router answers over loopback inside the same runtime.
+//! fake router answers inside the same runtime, over a Unix socket on Unix and loopback TCP
+//! elsewhere.
 #![expect(
     clippy::std_instead_of_alloc,
     clippy::tests_outside_test_module,
@@ -11,7 +12,7 @@
     reason = "integration-test crate: assertions and fixtures define the contract"
 )]
 
-use core::{error::Error, net::SocketAddr, time::Duration};
+use core::{error::Error, time::Duration};
 use std::{collections::BTreeSet, sync::Arc};
 
 #[path = "support/settle.rs"]
@@ -71,15 +72,25 @@ async fn rig_with_routers(
 ) -> Result<Rig, Box<dyn Error>> {
     let directory = TempDir::new()?;
     let router = FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?).build()?;
-    let (address, handle) = router.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
     let password = kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
     let mut outbound = OutboundConfig::default();
     outbound.allow_loopback = true;
     let self_metrics = SelfMetrics::new("0.1.0-test")?;
     let state = StateStore::open(&directory.path().join("state"))?;
-    let registry = Arc::new(
-        RouterRegistry::new(state, &[], &outbound)?
-            .with_rci_observers(self_metrics.rci_observers()),
+    let profiles = RouterRegistry::new(state, &[], &outbound)?
+        .with_rci_observers(self_metrics.rci_observers());
+    // On Unix the clients reach the fake over its Unix socket: a paused clock can jump ahead
+    // of a loopback TCP reply that is written but not yet readable.
+    #[cfg(unix)]
+    let (address, handle, registry) = {
+        let (address, socket, handle) = router.serve_local()?;
+        let registry = Arc::new(profiles.with_local_socket(address, socket));
+        (address, handle, registry)
+    };
+    #[cfg(not(unix))]
+    let ((address, handle), registry) = (
+        router.serve(([127, 0, 0, 1], 0).into()).await?,
+        Arc::new(profiles),
     );
     for id in ids {
         registry

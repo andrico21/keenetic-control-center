@@ -1,6 +1,6 @@
 //! Collector contracts: malformed records, router timestamps, level labels, shutdown fan-out.
 
-use core::{error::Error, net::SocketAddr, time::Duration};
+use core::{error::Error, time::Duration};
 use std::sync::Arc;
 
 use kcc_app::settings::Config;
@@ -18,18 +18,19 @@ use tokio::{
     time::{Instant, timeout},
 };
 
-use super::{TestResult, client};
+use super::{Endpoint, TestResult, client, serve};
 
 /// Longest virtual wait for a collector to read the router.
 const READ_BOUND: Duration = Duration::from_secs(60);
 
 /// A fake router serving `logs`, keyed by record id.
-async fn router_with(logs: Vec<(u64, Value)>) -> Result<(SocketAddr, Handle), Box<dyn Error>> {
+// cancel-safe: dropping it drops the fake's handle, which stops the fake.
+async fn router_with(logs: Vec<(u64, Value)>) -> Result<(Endpoint, Handle), Box<dyn Error>> {
     let router = FakeRouter::builder(Profile::default()).build()?;
     for (id, record) in logs {
         router.insert_log(id, record);
     }
-    Ok(router.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?)
+    serve(router).await
 }
 
 /// One router record as the firmware writes it.
@@ -73,7 +74,7 @@ fn loki_streams(fake: &FakeLoki) -> Result<Vec<Value>, Box<dyn Error>> {
 /// records are forwarded and the bad one is counted as a `parse` drop.
 #[tokio::test(start_paused = true)]
 async fn malformed_record_is_counted_and_the_others_are_forwarded() -> TestResult {
-    let (address, handle) = router_with(vec![
+    let (router, handle) = router_with(vec![
         (1, entry(None, "[Jan 01 00:00:00] first")),
         (2, entry(None, "no bracket timestamp")),
         (3, entry(None, "[Jan 01 00:00:01] third")),
@@ -89,7 +90,7 @@ async fn malformed_record_is_counted_and_the_others_are_forwarded() -> TestResul
     let registry = Registry::new();
     metrics.register(&registry)?;
     let runtime = LogService::start(
-        vec![("fake".to_owned(), client(address).await?)],
+        vec![("fake".to_owned(), client(&router).await?)],
         &config.logs,
         metrics,
     )
@@ -120,7 +121,7 @@ async fn malformed_record_is_counted_and_the_others_are_forwarded() -> TestResul
 /// document carries that naive local time and does not claim it is UTC.
 #[tokio::test(start_paused = true)]
 async fn forwarded_timestamp_is_naive_local_time() -> TestResult {
-    let (address, handle) =
+    let (router, handle) =
         router_with(vec![(5, entry(None, "[Jan 01 00:00:00] local clock"))]).await?;
     let fake = FakeElasticsearch::spawn().await?;
     let config = Config::from_toml_str(&format!(
@@ -129,7 +130,7 @@ async fn forwarded_timestamp_is_naive_local_time() -> TestResult {
     ))?;
     config.validate()?;
     let runtime = LogService::start(
-        vec![("fake".to_owned(), client(address).await?)],
+        vec![("fake".to_owned(), client(&router).await?)],
         &config.logs,
         SelfMetrics::new("time-test")?,
     )
@@ -161,7 +162,7 @@ async fn forwarded_timestamp_is_naive_local_time() -> TestResult {
 /// Loki stream label value.
 #[tokio::test(start_paused = true)]
 async fn unknown_router_level_becomes_other() -> TestResult {
-    let (address, handle) = router_with(vec![
+    let (router, handle) = router_with(vec![
         (
             7,
             entry(Some("Hostile{label=\"x\"}"), "[Jan 01 00:00:00] odd"),
@@ -176,7 +177,7 @@ async fn unknown_router_level_becomes_other() -> TestResult {
     ))?;
     config.validate()?;
     let runtime = LogService::start(
-        vec![("fake".to_owned(), client(address).await?)],
+        vec![("fake".to_owned(), client(&router).await?)],
         &config.logs,
         SelfMetrics::new("level-test")?,
     )
@@ -202,10 +203,10 @@ async fn unknown_router_level_becomes_other() -> TestResult {
 /// down, within one bound rather than one interval per router.
 #[tokio::test(start_paused = true)]
 async fn polling_collectors_stop_together_without_waiting_out_their_interval() -> TestResult {
-    let (address, handle) = router_with(vec![(1, entry(None, "[Jan 01 00:00:00] seen"))]).await?;
+    let (router, handle) = router_with(vec![(1, entry(None, "[Jan 01 00:00:00] seen"))]).await?;
     let config = Config::from_toml_str("[logs]\nenabled = true\nmode = \"poll\"\n")?;
     config.validate()?;
-    let shared = client(address).await?;
+    let shared = client(&router).await?;
     let names = ["first", "second", "third"];
     let runtime = LogService::start(
         names

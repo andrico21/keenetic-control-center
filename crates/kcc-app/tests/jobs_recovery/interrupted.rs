@@ -31,19 +31,33 @@ struct Fixture {
 }
 
 impl Fixture {
+    /// Serves a fake router with `faults` and registers it as `router`.
+    ///
+    /// On Unix the registry's clients reach the fake over its Unix socket: a paused clock
+    /// can jump ahead of a loopback TCP reply that is written but not yet readable.
+    // cancel-safe: dropping it drops the fake's handle and the half-built fixture with it.
     async fn with_router(faults: FaultInjection) -> Result<Self, Box<dyn Error>> {
         let directory = TempDir::new()?;
-        let (address, handle) = FakeRouter::builder(Profile::default())
+        let router = FakeRouter::builder(Profile::default())
             .faults(faults)
-            .build()?
-            .serve(([127, 0, 0, 1], 0).into())
-            .await?;
+            .build()?;
         let password =
             kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;
-        let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
+        let profiles = RouterRegistry::new(state.clone(), &[], &outbound)?;
+        #[cfg(unix)]
+        let (address, handle, registry) = {
+            let (address, socket, handle) = router.serve_local()?;
+            let registry = Arc::new(profiles.with_local_socket(address, socket));
+            (address, handle, registry)
+        };
+        #[cfg(not(unix))]
+        let ((address, handle), registry) = (
+            router.serve(([127, 0, 0, 1], 0).into()).await?,
+            Arc::new(profiles),
+        );
         registry
             .create(
                 &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
