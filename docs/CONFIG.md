@@ -48,6 +48,7 @@ need a restart.
 | `privacy` | table | see below | data minimization |
 | `metrics` | table | see below | Prometheus exporter |
 | `logs` | table | see below | router log collection and forwarding |
+| `notify` | table | see below | Telegram notifications |
 | `routers` | array of tables | none | read-only router profiles |
 
 ## `[web]`
@@ -213,6 +214,25 @@ short-lived commands such as `kcc mcp stdio` do not start collectors or sinks.
 ### `[[logs.sinks]]` with `kind = "stdout"`
 
 No other keys: one JSON object per line on standard output.
+
+## `[notify]`
+
+Only the address kcc sends Telegram notifications to lives in this file, so nobody who
+can use the Web UI can send the bot token to another host. Everything else about
+notifications (on or off, the bot token, chats, events, language, client details) is kept
+in the state directory and edited on the Web admin page or with the CLI. `kcc serve`
+reads this section at start; a change needs a restart.
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `telegram` | table | see below | the Telegram Bot API endpoint |
+
+### `[notify.telegram]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `api_url` | URL | `"https://api.telegram.org"` | Bot API base URL. https, or http on loopback (a local Bot API server or a test double); a path is allowed; no credentials, query or fragment; an IP address that no `[outbound]` setting could admit (cloud metadata, unspecified, multicast, broadcast) is refused |
+| `ca_file` | path | unset | PEM CA certificate to trust for the Bot API |
 
 ## `[[routers]]`
 

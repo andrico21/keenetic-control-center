@@ -1513,6 +1513,7 @@ dependencies = [
  "jiff",
  "kcc-catalog",
  "kcc-config",
+ "kcc-i18n",
  "kcc-rci",
  "kcc-testkit",
  "proptest",

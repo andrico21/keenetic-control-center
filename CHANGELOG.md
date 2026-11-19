@@ -117,6 +117,14 @@ The first release, `0.1.0`, is in preparation and contains:
   `/ui/admin/scheduled`); only the built-in `admin` holds them. `roles.json` keeps schema 1,
   so an older binary refuses a custom role that names either permission.
 
+- **Notification settings and the sealed Telegram bot token**: `kcc.toml` gains
+  `[notify.telegram]` with `api_url` (default `https://api.telegram.org`; `https`, or
+  `http` only to a loopback host, no credentials, query or fragment, never a cloud
+  metadata, unspecified, multicast or broadcast address) and `ca_file`. The state
+  directory gains `notify.json` (on/off, language, client details, events, up to 10
+  chats), `notify_state.json` (written by kcc only) and the bot token, sealed under
+  `notify:telegram` in `notify/telegram.token.sealed`. Nothing sends messages yet.
+
 ### Changed
 
 - **Interface changes fail closed when kcc cannot tell which interface carries its

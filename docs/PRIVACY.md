@@ -23,6 +23,9 @@ directories 0700 and files 0600 on Unix. "Encrypted" means sealed with the maste
 | Presets: captured configuration lines, secrets included | `presets/<id>.json` | encrypted | until deleted |
 | Migration and preset runs: step record (no secrets), redacted plan and report, sealed source and typed passwords | `migrations/<id>/` | record and reports plain, the rest encrypted | the sealed parts (source, copied settings, passwords) of every run are deleted when the run finishes, when the router's recovery window of an unfinished apply ends, when the source or target is chosen again (passwords only), and after 24 hours without a change of the run; unchanged runs are deleted whole after 30 days; records and reports stay until then |
 | Background jobs: kind, router, state, progress | `jobs/` | plain JSON | finished records are pruned after 30 days; running records are kept for recovery |
+| Telegram notification settings: on/off, language, client-detail switch, events, chats (id, label, topic, silent) | `notify.json` | plain JSON | until changed |
+| Telegram delivery state: when the bot token was set or refused, chats Telegram refused, the newest firmware version notified per router | `notify_state.json` | plain JSON, no client data | until changed |
+| Telegram bot token | `notify/telegram.token.sealed` | encrypted with the master key, `notify:telegram` as associated data | until replaced or removed |
 | Audit log: time, actor, action, router, outcome, parameter names and non-secret values | `audit.jsonl` (rotated at 50 MiB) | plain, hash-chained | complete rotated files whose newest entry is older than `[audit] retention` (365 days) are pruned after rotation |
 
 Audit pruning never splits a rotated file and removes only the oldest run of fully expired

@@ -16,6 +16,7 @@ ipnet = { version = "2.12.2", features = ["serde"] }
 jiff = { version = "1.0.0", default-features = false, features = ["std", "tzdb-bundle-always"] }
 kcc-config = { version = "0.1.0", path = "../kcc-config" }
 kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
+kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
 rmcp-server-kit = { workspace = true }
 secrecy = { workspace = true }

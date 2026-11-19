@@ -50,7 +50,8 @@ either.
   the record type and owner as associated data): web account password hashes
   (`account:<username>`), configuration backups (`backup:<router>:<file>`), stored
   presets (`preset:<id>`), migration sources and typed migration passwords
-  (`migration:<id>:source`, `migration:<id>:passwords`, `preset-run:<id>:preset`) and
+  (`migration:<id>:source`, `migration:<id>:passwords`, `preset-run:<id>:preset`), the
+  Telegram bot token (`notify:telegram`, in `<state>/notify/telegram.token.sealed`) and
   every router credential given to the Web UI or to `kcc router add/edit`. Managed router
   records are `<state>/router-credentials/<id>.sealed` (password, `router:<id>`),
   `<id>.token.sealed` (login token, `router:<id>:token`) and `<id>.read.sealed`

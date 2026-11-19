@@ -3,8 +3,8 @@
 //!
 //! A binding is `<tag>:<owner>`, plus a fixed `:<part>` for record types that seal more
 //! than one part. The tags (`router`, `account`, `backup`, `migration`, `preset-run`,
-//! `preset`) hold no `:`, so the bytes before the first `:` name the record type and two
-//! record types never share a binding. Within one type the owner is recovered too:
+//! `preset`, `notify`) hold no `:`, so the bytes before the first `:` name the record type
+//! and two record types never share a binding. Within one type the owner is recovered too:
 //!
 //! - `router:<id>`, `router:<id>:token`, `router:<id>:read`: a checked router id holds
 //!   no `:`, so whatever follows the id names the kind.
@@ -14,6 +14,8 @@
 //! - `migration:<id>:source`, `migration:<id>:passwords`, `preset-run:<id>:preset`: the
 //!   last word is fixed per part and the id is everything before it.
 //! - `preset:<id>`: the id is all the rest.
+//! - `notify:telegram`: the Telegram bot token, the only notification secret; the
+//!   channel is all the rest.
 //!
 //! Two bindings are therefore equal only for the same record, and a ciphertext moved to
 //! any other record fails to open.
@@ -78,6 +80,13 @@ impl Binding {
         Self(format!("preset:{id}"))
     }
 
+    /// The Telegram bot token of the notifier: `notify:telegram`.
+    #[inline]
+    #[must_use]
+    pub fn notify_telegram() -> Self {
+        Self("notify:telegram".to_owned())
+    }
+
     /// The bytes the cipher authenticates.
     pub(super) const fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
@@ -122,6 +131,7 @@ mod tests {
             ),
             (Binding::preset_run("home"), "preset-run:home:preset"),
             (Binding::preset("home"), "preset:home"),
+            (Binding::notify_telegram(), "notify:telegram"),
         ];
 
         for (binding, expected) in &bindings {

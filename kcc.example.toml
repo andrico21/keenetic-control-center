@@ -156,6 +156,14 @@ queue_max = 10000
 # [[logs.sinks]]
 # kind = "stdout"
 
+# Telegram notifications. Only the Bot API address is set here; the bot token, chats,
+# events and language are set on the Web admin page or with the CLI.
+[notify.telegram]
+# Bot API base URL: https, or http to a loopback host only.
+api_url = "https://api.telegram.org"
+# PEM CA certificate to trust for the Bot API (default: unset).
+# ca_file = "/etc/kcc/telegram-ca.pem"
+
 # Config-defined router profiles (default: none; read-only in the UI). Routers
 # added with `kcc router add` live in the state directory instead.
 # [[routers]]
