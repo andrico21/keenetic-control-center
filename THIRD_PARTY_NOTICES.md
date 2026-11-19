@@ -37,7 +37,8 @@ affiliated with Keenetic Limited or Netcraze.
 
 The binary links the Rust crates listed in `Cargo.lock`. Their licenses are restricted
 by `deny.toml` (checked with `cargo deny check`); each crate's license text ships with
-its source on crates.io.
+its source on crates.io. The binary embeds the IANA Time Zone Database (public domain)
+through `jiff-tzdb`.
 
 ## Container image
 

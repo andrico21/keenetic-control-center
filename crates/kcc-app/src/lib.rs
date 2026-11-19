@@ -25,6 +25,7 @@ pub mod poller;
 pub mod pseudonym;
 pub mod registry;
 pub mod role_source;
+pub mod schedules;
 pub mod secrets;
 pub mod settings;
 pub mod workflow;

@@ -175,15 +175,15 @@ version = "1.0.19"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff]]
-version = "0.2.45"
+version = "1.0.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff-core]]
-version = "0.1.7"
+version = "1.0.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff-static]]
-version = "0.2.45"
+version = "1.0.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.libc]]
@@ -224,10 +224,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.portable-atomic]]
 version = "1.15.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.portable-atomic-util]]
-version = "0.2.8"
 criteria = "safe-to-deploy"
 
 [[exemptions.proc-macro2]]
@@ -304,10 +300,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.stringprep]]
 version = "0.1.5"
-criteria = "safe-to-deploy"
-
-[[exemptions.syn]]
-version = "2.0.119"
 criteria = "safe-to-deploy"
 
 [[exemptions.syn]]

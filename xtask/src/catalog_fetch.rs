@@ -24,7 +24,7 @@ const MAX_PDF_BYTES: u64 = 256 * 1024 * 1024;
 
 /// UTC date of today as `YYYY-MM-DD`.
 pub(crate) fn today() -> String {
-    Timestamp::now().to_zoned(TimeZone::UTC).date().to_string()
+    Timestamp::now().to_zoned_datetime(TimeZone::UTC).date().to_string()
 }
 
 /// Lowercase hex SHA-256 of `bytes`.
