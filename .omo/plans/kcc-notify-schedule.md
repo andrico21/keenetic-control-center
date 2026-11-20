@@ -525,20 +525,20 @@ Every wave holds fewer todos than the template's 5-8 target (W1 has 4, W3 has 3,
 
 > **Convergence rule.** A finding becomes a new `- [ ] N.` row only when it gives a reproduction and is one of: (a) the bot token or another secret reaching a log, audit entry, error, `Debug` output, Web page, CLI output or file other than its sealed record; (b) client data persisted, or a client IP in a message, or client names/MACs in a message with `include_client_details` off; (c) a scheduled run that saves, runs twice for one slot, is admitted more than 2 minutes after its slot or starts after the 10-minute busy window, runs without its owner's current permissions, or releases the router lease while its fail-safe is armed; (d) a Telegram request to anything but `sendMessage` at the configured base URL, a followed redirect, or a metadata address contacted; (e) a violated Must have, Must NOT have, IS row or owner decision (D-BOTH, D-UNSAVED, D-TZ, D-TGWEB, D-LATEST, D-VET, D-DELIVERY); (f) a reproducible failure of a main flow; (g) a G0/G1 or GitHub CI failure; (h) a behaviour change versus the start commit that no todo lists. Everything else goes to docs/BACKLOG.md. At most two finding rounds; the second round's list is frozen; then one confirmation round and a report to the owner. A dependency version that passed the cooldown after todo 19 is not a finding.
 
-- [ ] F1. Plan compliance audit
+- [x] F1. Plan compliance audit
   Recommended task executor category: unspecified-high.
   - For every todo 1-20 confirm each instruction exists in code (file:line) and its evidence log and red log exist.
   - Must NOTs: `cargo xtask allow-gate`; `git diff <start> -- '**/Cargo.toml'` adds only jiff (kcc-app and xtask), the edge `kcc-app -> kcc-i18n`, tokio feature `net` in kcc-telemetry, `tokio-util` (workspace) in kcc and the `tracing-log` feature in kcc-telemetry's dev-dependencies; `grep -rn 'getUpdates\|setWebhook\|parse_mode' crates/ --include=*.rs` finds nothing (comments must not spell these tokens either); `grep -rn 'tz::db()\|TimeZone::system\|Zoned::now' crates/ --include=*.rs` finds nothing (same rule); `ActorKind` unchanged; audit format unchanged (`git diff <start> -- crates/kcc-app/src/audit.rs` touches only the broadcast); no MCP tool added (`cargo xtask gen-tool-docs && git diff --exit-code <start> -- docs/MCP_TOOLS.md`); vendored files unchanged (`sha256sum -c`).
   - Output `.omo/evidence/F1-kcc-notify-schedule.md`, APPROVE/REJECT per todo.
-- [ ] F2. Code quality review
+- [x] F2. Code quality review
   Recommended task executor category: unspecified-high.
   - G1 in full on a clean checkout (`cargo clean`, target on `/`, gate tools at the `ci.yml` pins); capture `.omo/evidence/F2-kcc-notify-schedule.log`.
   - After pushing, the latest GitHub CI and Container runs on `master` are green (`gh run list`, `gh run view --log-failed`).
   - Review against the vendored core checklist (§11), http-services, mcp-servers and the overlay (including deviation 6 and (i')); `cargo mutants` on `crates/kcc-app/src/schedules/time.rs` and the notifier trackers in `crates/kcc/src/server_notify/` (install with `cargo install cargo-mutants --locked` if missing, else a non-blocking note).
-- [ ] F3. Real manual QA
+- [x] F3. Real manual QA
   Recommended task executor category: unspecified-high (load skills `playwright`, `visual-qa`).
   - Start `cargo run -p kcc-testkit --bin kcc-fake-router -- --model KN-1811 --bind 127.0.0.1:18080 --password-file <file>`, `cargo run -p kcc-testkit --bin kcc-fake-sinks` and `kcc serve` with `[notify.telegram] api_url` pointing at the fake; with Playwright and the CLI: Notifications page (token pasted and never shown again, chats, events, test message arrives at the fake), stop the fake router and see one down message, restart it and see one up message; Scheduled actions page (create a policy switch, a backup, a reboot with typed confirmation, a preset; run now; pause/resume; the dashboard line; the configuration note after a policy run); a viewer and an operator see neither tab; `kcc notify` and `kcc scheduled` mirror the pages; screenshots `.omo/evidence/F3-notify-schedule-<area>.png` in light/dark, phone/desktop.
-- [ ] F4. Ideal-state fidelity
+- [x] F4. Ideal-state fidelity
   Recommended task executor category: unspecified-high.
   - For IS-1..IS-7 re-run the proving scenario in `## Success criteria`; PASS/FAIL with evidence in `.omo/evidence/F4-kcc-notify-schedule.md`; classify a FAIL by the convergence rule.
 
