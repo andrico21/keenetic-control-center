@@ -41,6 +41,9 @@ pub enum Reason {
     /// The source's LEDs.
     #[serde(rename = "migration-reason-hardware-led")]
     HardwareLed,
+    /// The source's Entware settings.
+    #[serde(rename = "migration-reason-hardware-entware")]
+    HardwareEntware,
     /// The source's buttons.
     #[serde(rename = "migration-reason-hardware-button")]
     HardwareButton,
@@ -99,6 +102,7 @@ impl Reason {
             Self::ScalarConflict => "migration-reason-scalar-conflict",
             Self::InstallComponent => "migration-reason-install-component",
             Self::HardwareLed => "migration-reason-hardware-led",
+            Self::HardwareEntware => "migration-reason-hardware-entware",
             Self::HardwareButton => "migration-reason-hardware-button",
             Self::HardwareUsb => "migration-reason-hardware-usb",
             Self::HardwareRadio => "migration-reason-hardware-radio",

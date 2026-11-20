@@ -257,6 +257,7 @@ fn localized_reason(reason_key: &str, locale: Locale) -> String {
         | "migration-reason-password-realm"
         | "preset-wireguard-regenerate" => keys::MIGRATE_REASON_REMAP,
         "migration-reason-hardware-led"
+        | "migration-reason-hardware-entware"
         | "migration-reason-hardware-button"
         | "migration-reason-hardware-usb"
         | "migration-reason-hardware-radio"

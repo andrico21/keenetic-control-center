@@ -269,6 +269,37 @@ mod tests {
         )
     }
 
+    /// Regression for todo 5: per-router Entware settings are never copied.
+    #[test]
+    #[expect(
+        clippy::missing_errors_doc,
+        reason = "integration-test assertions define the task contract"
+    )]
+    fn skips_entware_settings_as_hardware() -> Result<(), Box<dyn Error>> {
+        let cases = [
+            ("opkg disk X:/", "entware-disk"),
+            ("opkg chroot", "entware-chroot"),
+            ("opkg dns-override", "entware-dns-override"),
+            ("opkg initrc /opt/etc/ndm/x", "entware-initrc"),
+            ("opkg timezone auto", "entware-timezone"),
+            ("opkg object-group fqdn y", "entware-object-group"),
+        ];
+        let source = cases.map(|(line, _id)| format!("{line}\n")).concat();
+        let items = classify(&source)?;
+        assert_eq!(items.len(), cases.len());
+        for (item, (line, id)) in items.iter().zip(cases) {
+            assert_eq!(item.disposition, Disposition::SkipHardware, "{line}");
+            assert_eq!(item.rule_id, id, "{line}");
+            assert_eq!(
+                item.reason.key(),
+                "migration-reason-hardware-entware",
+                "{line}"
+            );
+            assert!(item.output.is_none(), "{line}");
+        }
+        Ok(())
+    }
+
     #[test]
     #[expect(
         clippy::missing_errors_doc,

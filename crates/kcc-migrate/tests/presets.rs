@@ -118,6 +118,31 @@ mod tests {
         Ok(())
     }
 
+    /// Regression for todo 5: no settings group captures per-router Entware settings.
+    #[test]
+    fn capture_excludes_entware_settings() -> Result<(), Box<dyn Error>> {
+        let source = parse(
+            "opkg disk X:/\nopkg chroot\nopkg dns-override\nopkg initrc /opt/etc/ndm/x\nopkg timezone auto\nopkg object-group fqdn y\nservice ssh\n",
+        )?;
+        let engine = SettingsGroupEngine::embedded()?;
+        let owned = engine
+            .groups()?
+            .iter()
+            .map(|group| group.id.clone())
+            .collect::<Vec<_>>();
+        let ids = owned.iter().map(String::as_str).collect::<Vec<_>>();
+
+        let selection = engine.select(&source, &ids)?;
+
+        assert!(
+            selection
+                .lines
+                .iter()
+                .all(|line| !line.to_string().starts_with("opkg "))
+        );
+        Ok(())
+    }
+
     #[test]
     fn dns_routing_selection_includes_referenced_policy_and_object_group()
     -> Result<(), Box<dyn Error>> {

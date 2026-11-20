@@ -224,6 +224,9 @@ catalog and known router inventories, not a hardware-verified fact.
   agreement texts are shown for you to accept.
 - **Hardware**: LEDs, buttons, USB power, radio calibration, USB and printer settings
   tied to the source device.
+- **Entware**: the router's `opkg disk`, `opkg chroot`, `opkg dns-override`, `opkg initrc`,
+  `opkg timezone` and `opkg object-group` lines describe the source's own Entware
+  installation. Presets don't capture them either.
 - **Embedded save commands**: the plan never contains a save; finishing is your choice.
 
 ### Realm-bound passwords

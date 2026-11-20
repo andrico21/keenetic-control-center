@@ -136,7 +136,8 @@ pub(super) fn reason(
             | Reason::HardwareUsb
             | Reason::HardwareRadio
             | Reason::HardwarePrinter
-            | Reason::HardwareInterface,
+            | Reason::HardwareInterface
+            | Reason::HardwareEntware,
         ) => keys::MIGRATE_REASON_SKIP_HARDWARE,
         (
             None,

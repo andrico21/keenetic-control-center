@@ -849,6 +849,10 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **Migrations and presets no longer copy Entware settings.** The `opkg disk`, `opkg chroot`,
+  `opkg dns-override`, `opkg initrc`, `opkg timezone` and `opkg object-group` lines are
+  skipped as source hardware instead of being copied to the target.
+
 - **kcc can create its state on Windows.** Creating the state directory or any owner-only
   file failed with "The parameter is incorrect" (Windows error 87). The entry now gets the
   process user as owner and a protected DACL whose only ACE gives OWNER RIGHTS full access;

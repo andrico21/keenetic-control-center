@@ -114,6 +114,42 @@ disposition = "skip-hardware"
 reason_key = "migration-reason-hardware-led"
 
 [[rule]]
+id = "entware-disk"
+match = "opkg disk **"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-entware"
+
+[[rule]]
+id = "entware-chroot"
+match = "opkg chroot"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-entware"
+
+[[rule]]
+id = "entware-dns-override"
+match = "opkg dns-override"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-entware"
+
+[[rule]]
+id = "entware-initrc"
+match = "opkg initrc **"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-entware"
+
+[[rule]]
+id = "entware-timezone"
+match = "opkg timezone **"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-entware"
+
+[[rule]]
+id = "entware-object-group"
+match = "opkg object-group **"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-entware"
+
+[[rule]]
 id = "hardware-usb-device"
 match = "interface * usb **"
 disposition = "skip-hardware"
