@@ -123,7 +123,7 @@ The first release, `0.1.0`, is in preparation and contains:
   metadata, unspecified, multicast or broadcast address) and `ca_file`. The state
   directory gains `notify.json` (on/off, language, client details, events, up to 10
   chats), `notify_state.json` (written by kcc only) and the bot token, sealed under
-  `notify:telegram` in `notify/telegram.token.sealed`. Nothing sends messages yet.
+  `notify:telegram` in `notify/telegram.token.sealed`.
 - **Web UI: Administration > Notifications** (`/ui/admin/notifications`,
   `ManageNotifications`): the notifier's status, the Bot API address from `kcc.toml`
   (read-only), a write-only bot token field with a confirmed removal, the on/off switch,
@@ -145,9 +145,28 @@ The first release, `0.1.0`, is in preparation and contains:
   256 waiting lines per chat, `retry_after` on 429, backoff from 5 s to 5 min, lines older
   than 1 h dropped, a refused token or chat recorded in `notify_state.json`. New
   self-metrics `kcc_notify_messages_total{result}` and `kcc_notify_dropped_total{reason}`.
-  Nothing starts it yet.
+- **Telegram notifications in `kcc serve`**: the server sends, per selected event, a
+  router offline (two failed polls in a row; one message with the time of the first
+  failure) and back online (with the outage length), a refused router login (once per
+  streak), a failed change (router, action, actor, and whether the fail-safe timer is
+  still armed; scheduled runs report their own), an account lockout (once per lockout
+  window), an audit log repair or a stopped audit writer, new router firmware (once per
+  router and version, recorded in `notify_state.json`), a failed job, and new unregistered
+  devices (off by default; at most one message per router per 5 minutes, named by
+  pseudonym unless client details are on, never by IP address). Messages are rendered in
+  the chosen language (else `[web] default_locale`), times in `[schedules]
+  default_timezone`, and every line starts with `[kcc]`. A restart or fail-safe rollback
+  kcc sends mutes that router's offline and online messages for 15 minutes. Settings and
+  token changes made on the Web page or with the CLI apply to a running server within
+  its state watch. While a router event is selected, every router is polled around the
+  clock. Only `kcc serve` sends; entries other processes append to the audit log are not
+  notified. The test message of the Web page now goes through the running notifier.
 
 ### Changed
+
+- **Container stop timeout 100 s**: `deploy/podman/kcc.container` sets `StopTimeout=100`
+  (was 80): 10 s are reserved for stopping the scheduler and 2 s for queued Telegram
+  notifications, and the margin grows to 13 s.
 
 - **Interface changes fail closed when kcc cannot tell which interface carries its
   connection.** When no router interface owns the address kcc reaches the router at (a

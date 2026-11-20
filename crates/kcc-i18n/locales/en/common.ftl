@@ -48,3 +48,20 @@ management-not-applied = Nothing was applied, and the recovery timer is off.
 audit-entry-pending = Done. The audit log is busy; this change's entry will be written as soon as it is free.
 
 management-timer-in-use = Nothing was sent: the router's recovery timer is already running, armed by someone else. kcc leaves that timer to its owner. Commit or disarm it first, then try again.
+
+notify-router-down = [kcc] Router { $router } is offline since { $time }.
+notify-router-up = [kcc] Router { $router } is back online after { $duration } offline.
+notify-router-login = [kcc] Router { $router } refused kcc's login. Check the password stored for it.
+notify-firmware = [kcc] Firmware { $version } is available for router { $router }.
+notify-new-devices = [kcc] New unregistered devices on router { $router }: { $devices }.
+notify-client-details = { $name } ({ $address })
+notify-change-failed = [kcc] Change { $action } on router { $router } by { $actor } failed.
+notify-change-failed-fleet = [kcc] Change { $action } by { $actor } failed.
+notify-change-fail-safe = The router's fail-safe timer is still armed: unless the change is confirmed, the router restores its saved configuration.
+notify-account-locked = [kcc] Account { $user } is locked after failed sign-ins until { $time }.
+notify-audit-repaired = [kcc] The audit log was repaired: a torn last entry was moved to { $file }.
+notify-audit-stopped = [kcc] The audit writer stopped. kcc serve is shutting down.
+notify-job-failed = [kcc] Job { $kind } on router { $router } failed.
+notify-job-failed-fleet = [kcc] Job { $kind } failed.
+notify-dropped = [kcc] Notifications dropped because they could not be delivered in time: { $count }.
+notify-test = [kcc] Test message: notifications reach this chat.

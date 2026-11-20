@@ -48,3 +48,20 @@ management-not-applied = Ештеңе қолданылмады, қалпына �
 audit-entry-pending = Дайын. Аудит журналы бос емес; бұл өзгеріс туралы жазба ол босаған бойда жазылады.
 
 management-timer-in-use = Ештеңе жіберілмеді: роутердің қалпына келтіру таймерін басқа біреу іске қосып қойған. kcc бұл таймерді оның иесіне қалдырады. Алдымен оны растаңыз немесе өшіріңіз, содан кейін қайталап көріңіз.
+
+notify-router-down = [kcc] { $router } роутері { $time } бастап қолжетімсіз.
+notify-router-up = [kcc] { $router } роутері қайта қолжетімді; ол { $duration } бойы қолжетімсіз болды.
+notify-router-login = [kcc] { $router } роутері kcc кіруінен бас тартты. Ол үшін сақталған құпиясөзді тексеріңіз.
+notify-firmware = [kcc] { $router } роутері үшін { $version } микробағдарламасы қолжетімді.
+notify-new-devices = [kcc] { $router } роутеріндегі тіркелмеген жаңа құрылғылар: { $devices }.
+notify-client-details = { $name } ({ $address })
+notify-change-failed = [kcc] { $router } роутеріндегі { $action } өзгерісі ({ $actor }) орындалмады.
+notify-change-failed-fleet = [kcc] { $action } өзгерісі ({ $actor }) орындалмады.
+notify-change-fail-safe = Роутердің қалпына келтіру таймері әлі қосулы: өзгеріс расталмаса, роутер сақталған конфигурацияны қайтарады.
+notify-account-locked = [kcc] { $user } тіркелгісі сәтсіз кірулерден кейін { $time } дейін бұғатталды.
+notify-audit-repaired = [kcc] Аудит журналы қалпына келтірілді: үзілген соңғы жазба { $file } файлына жылжытылды.
+notify-audit-stopped = [kcc] Аудит журналын жазу тоқтады. kcc serve жұмысын аяқтап жатыр.
+notify-job-failed = [kcc] { $router } роутеріндегі { $kind } тапсырмасы қатемен аяқталды.
+notify-job-failed-fleet = [kcc] { $kind } тапсырмасы қатемен аяқталды.
+notify-dropped = [kcc] Уақытында жеткізілмеген хабарландырулар тасталды: { $count }.
+notify-test = [kcc] Сынақ хабары: хабарландырулар осы чатқа жетеді.

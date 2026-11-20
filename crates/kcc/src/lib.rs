@@ -14,6 +14,7 @@ pub mod server;
 pub mod server_error;
 mod server_metrics;
 mod server_migrations;
+mod server_notify;
 mod server_origins;
 mod server_outbound;
 mod server_reload;

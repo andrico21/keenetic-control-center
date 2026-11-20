@@ -63,6 +63,8 @@ poller caches, Web UI preset drafts, MCP migration plans and transient MCP prese
   while kcc runs, different on each router and after each restart.
 - **MCP results** go to the assistant, and from there usually to a third-party model
   provider. See below.
+- **Telegram notifications** (off by default) go to the Telegram Bot API for the chats
+  you configure. See below.
 
 ## What MCP may send to a model
 
@@ -91,6 +93,25 @@ forwards these results to its model provider, whose retention policy then applie
   the running process: it's stable until kcc restarts and different afterwards.
 - Limit exposure with a narrow role and router scope for the API key, and fewer
   toolsets.
+
+## Telegram notifications
+
+When notifications are on, `kcc serve` sends plain-text messages to the Bot API address
+in `[notify.telegram] api_url` (default `https://api.telegram.org`), for the chats listed
+in `notify.json`. They name routers by id and Web accounts by user name, and say what
+happened: a router offline or back online, a refused login, the firmware version a router
+offers, a failed change with its action and actor (`web:alice`), an account lockout and
+until when, an audit log repair with the name of the file the torn entry was moved to, a
+stopped audit writer, or a failed job with its kind. Telegram stores the chat history on
+its own servers, where its retention policy applies, and anyone in a chat reads them.
+
+The new-device event is off by default. When it is on, new unregistered devices are named
+by a pseudonym: a keyed hash of the MAC and the router with a random per-process key, as
+for the metrics. With `include_client_details` switched on they are named by their name
+and MAC instead; a client's IP address is never sent. The devices kcc has seen are kept
+in memory only, at most 1024 per router, and forgotten at restart. Nothing about clients
+is stored for notifications: the notifier keeps on disk only the firmware version it
+announced per router and the delivery state in `notify_state.json`.
 
 ## Log forwarding
 

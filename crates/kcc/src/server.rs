@@ -30,6 +30,7 @@ use serde_json::json;
 use crate::{
     server_error::{Outcome, ServerError},
     server_metrics::with_metrics,
+    server_notify::{self, Deps, NotifyHandle, Options},
     server_reload::{hangups, with_reload},
     server_services::{Services, ServicesMode},
     server_web::web_state,
@@ -51,6 +52,11 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             source,
         })?;
     let mut services = Services::open(&config, state, ServicesMode::Serve).await?;
+    let notify = NotifyHandle::start(
+        Deps::from_services(&services),
+        Options::from_config(&config)?,
+    )
+    .await?;
     let handler = services.handler(&config, config.mcp.http_enabled)?;
     let rbac = Arc::new(RbacPolicy::new(&handler.rbac_config()));
     let auth = AuthConfig::with_keys(api_key_entries(&services.state)?)
@@ -73,7 +79,12 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     );
     let updates = crate::server_tasks::refresh_updates(Arc::clone(&services.updates));
     let web_state = if config.web.enabled {
-        Some(web_state(&services, &config, Arc::clone(&auth_reload))?)
+        Some(web_state(
+            &services,
+            &config,
+            Arc::clone(&auth_reload),
+            Arc::new(notify.clone()),
+        )?)
     } else {
         None
     };
@@ -86,7 +97,8 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     }
     server_with_origins = with_reload(
         server_with_origins,
-        StateWatch::new(Arc::clone(&auth_reload), web_state),
+        StateWatch::new(Arc::clone(&auth_reload), web_state)
+            .with_follower(server_notify::FILES, notify.follower()),
         hangups,
         (path, Arc::clone(&services.registry)),
     );
@@ -119,7 +131,23 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             shutdown.cancel();
         })
         .await;
+    if !services.audit.is_alive() {
+        notify.writer_stopped();
+    }
     updates.abort();
+    wind_down(&mut services, &notify).await;
+    serve_result?;
+    Ok(Outcome::Ok)
+}
+
+/// Stops `kcc serve`'s services once the listener has stopped.
+///
+/// Requests closing a safety bracket get their grace, the jobs are drained, the queued
+/// notifications get theirs, the audit entries are flushed, and the router sessions and
+/// log collectors end.
+// NOT cancel-safe: dropped midway, later steps never run and entries or lines queued for
+// them are lost.
+async fn wind_down(services: &mut Services, notify: &NotifyHandle) {
     crate::server_shutdown::wait_for_brackets(services.workflow.brackets()).await;
     let drain = services.jobs.drain(Duration::from_secs(30)).await;
     tracing::info!(
@@ -127,13 +155,12 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         still_running = drain.still_running,
         "jobs drained; any armed router fail-safe remains armed for rollback"
     );
+    notify.stop().await;
     crate::server_shutdown::flush_audit(&services.audit).await;
     services.registry.shutdown().await;
     if let Some(logs) = services.logs.take() {
         logs.shutdown().await;
     }
-    serve_result?;
-    Ok(Outcome::Ok)
 }
 
 /// Runs the local stdio MCP command.

@@ -14,6 +14,7 @@ use kcc_telemetry::logs::runtime::Service as LogService;
 use kcc_web::{
     WebState, WebStateConfig,
     admin::{AdminServices, ServerFacts, TransportReload},
+    admin_notify::NotifyControl,
     fleet::{BackupServices, FleetServices, UpdateCheck},
     fleet_updates::ComponentsUpdateCheck,
     session::CookieSecurity,
@@ -21,12 +22,15 @@ use kcc_web::{
 
 use crate::{server_error::ServerError, server_services::Services};
 
-/// Builds the authenticated Web UI around the same fleet services; administration
-/// changes reach the running MCP transport through `auth_reload`.
+/// Builds the authenticated Web UI around the same fleet services.
+///
+/// Administration changes reach the running MCP transport through `auth_reload`, and the
+/// notifications page reaches the running notifier through `notify`.
 pub(crate) fn web_state(
     services: &Services,
     config: &Config,
     auth_reload: Arc<TransportReload>,
+    notify: Arc<dyn NotifyControl>,
 ) -> Result<WebState, ServerError> {
     let default_locale =
         Locale::from_tag(&config.web.default_locale).ok_or(ServerError::UnsupportedLocale)?;
@@ -65,5 +69,6 @@ pub(crate) fn web_state(
         state: services.state.clone(),
         reload: Some(auth_reload),
         server: ServerFacts::from_config(env!("CARGO_PKG_VERSION").to_owned(), config),
-    }))
+    })
+    .with_notify(notify))
 }

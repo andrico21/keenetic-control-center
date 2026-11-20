@@ -294,6 +294,12 @@ mod tests {
             "time",
             "status",
             "reason",
+            "duration",
+            "action",
+            "actor",
+            "kind",
+            "file",
+            "devices",
         ] {
             args.set(name, "x");
         }

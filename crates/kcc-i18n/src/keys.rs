@@ -541,6 +541,54 @@ pub const AUDIT_ENTRY_PENDING: MessageKey = MessageKey::new("audit-entry-pending
 /// `management-timer-in-use` in `common.ftl`.
 pub const MANAGEMENT_TIMER_IN_USE: MessageKey = MessageKey::new("management-timer-in-use");
 
+/// `notify-router-down` in `common.ftl`.
+pub const NOTIFY_ROUTER_DOWN: MessageKey = MessageKey::new("notify-router-down");
+
+/// `notify-router-up` in `common.ftl`.
+pub const NOTIFY_ROUTER_UP: MessageKey = MessageKey::new("notify-router-up");
+
+/// `notify-router-login` in `common.ftl`.
+pub const NOTIFY_ROUTER_LOGIN: MessageKey = MessageKey::new("notify-router-login");
+
+/// `notify-firmware` in `common.ftl`.
+pub const NOTIFY_FIRMWARE: MessageKey = MessageKey::new("notify-firmware");
+
+/// `notify-new-devices` in `common.ftl`.
+pub const NOTIFY_NEW_DEVICES: MessageKey = MessageKey::new("notify-new-devices");
+
+/// `notify-client-details` in `common.ftl`.
+pub const NOTIFY_CLIENT_DETAILS: MessageKey = MessageKey::new("notify-client-details");
+
+/// `notify-change-failed` in `common.ftl`.
+pub const NOTIFY_CHANGE_FAILED: MessageKey = MessageKey::new("notify-change-failed");
+
+/// `notify-change-failed-fleet` in `common.ftl`.
+pub const NOTIFY_CHANGE_FAILED_FLEET: MessageKey = MessageKey::new("notify-change-failed-fleet");
+
+/// `notify-change-fail-safe` in `common.ftl`.
+pub const NOTIFY_CHANGE_FAIL_SAFE: MessageKey = MessageKey::new("notify-change-fail-safe");
+
+/// `notify-account-locked` in `common.ftl`.
+pub const NOTIFY_ACCOUNT_LOCKED: MessageKey = MessageKey::new("notify-account-locked");
+
+/// `notify-audit-repaired` in `common.ftl`.
+pub const NOTIFY_AUDIT_REPAIRED: MessageKey = MessageKey::new("notify-audit-repaired");
+
+/// `notify-audit-stopped` in `common.ftl`.
+pub const NOTIFY_AUDIT_STOPPED: MessageKey = MessageKey::new("notify-audit-stopped");
+
+/// `notify-job-failed` in `common.ftl`.
+pub const NOTIFY_JOB_FAILED: MessageKey = MessageKey::new("notify-job-failed");
+
+/// `notify-job-failed-fleet` in `common.ftl`.
+pub const NOTIFY_JOB_FAILED_FLEET: MessageKey = MessageKey::new("notify-job-failed-fleet");
+
+/// `notify-dropped` in `common.ftl`.
+pub const NOTIFY_DROPPED: MessageKey = MessageKey::new("notify-dropped");
+
+/// `notify-test` in `common.ftl`.
+pub const NOTIFY_TEST: MessageKey = MessageKey::new("notify-test");
+
 /// `domains-system` in `domains.ftl`.
 pub const DOMAINS_SYSTEM: MessageKey = MessageKey::new("domains-system");
 
@@ -7068,7 +7116,7 @@ pub const WEB_ADMIN_NOTIFY_ERROR_TEST_CHAT: MessageKey =
     MessageKey::new("web-admin-notify-error-test-chat");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2236] = [
+pub static ALL: [MessageKey; 2252] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -7243,6 +7291,22 @@ pub static ALL: [MessageKey; 2236] = [
     MANAGEMENT_NOT_APPLIED,
     AUDIT_ENTRY_PENDING,
     MANAGEMENT_TIMER_IN_USE,
+    NOTIFY_ROUTER_DOWN,
+    NOTIFY_ROUTER_UP,
+    NOTIFY_ROUTER_LOGIN,
+    NOTIFY_FIRMWARE,
+    NOTIFY_NEW_DEVICES,
+    NOTIFY_CLIENT_DETAILS,
+    NOTIFY_CHANGE_FAILED,
+    NOTIFY_CHANGE_FAILED_FLEET,
+    NOTIFY_CHANGE_FAIL_SAFE,
+    NOTIFY_ACCOUNT_LOCKED,
+    NOTIFY_AUDIT_REPAIRED,
+    NOTIFY_AUDIT_STOPPED,
+    NOTIFY_JOB_FAILED,
+    NOTIFY_JOB_FAILED_FLEET,
+    NOTIFY_DROPPED,
+    NOTIFY_TEST,
     DOMAINS_SYSTEM,
     DOMAINS_UPTIME,
     DOMAINS_FIRMWARE,

@@ -64,7 +64,7 @@ still disarms the timer and reports, or reports that the timer stays armed. Afte
 listener has stopped, on either path, `kcc serve` waits up to 10 more seconds for such
 requests, as `kcc mcp stdio` does once its input closes, and logs `requests still
 closing a router fail-safe bracket at exit` with their number if any remain; their
-routers then roll back on their own timers. Set the Quadlet `StopTimeout` to at least `server.shutdown_timeout` plus 45 seconds: the bracket grace period (10 s), the job drain (30 s), and the audit flush wait (5 s). The unit ships 80 s: that is the default `shutdown_timeout` of 30 s plus 45 s and a 5 s margin.
+routers then roll back on their own timers. Set the Quadlet `StopTimeout` to at least `server.shutdown_timeout` plus 57 seconds: 10 s reserved for stopping the scheduler, the bracket grace period (10 s), the job drain (30 s), the wait for queued Telegram notifications (2 s) and the audit flush wait (5 s). The unit ships 100 s: the default `shutdown_timeout` of 30 s plus 57 s and a 13 s margin.
 
 Example scrape job:
 
@@ -87,6 +87,26 @@ loopback only; see [deploy/podman/README.md](../deploy/podman/README.md).
   unreachable, high CPU, low memory, connection tracking nearly full, interface errors,
   fail-safe armed for long, configuration unsaved for a day, and a log sink dropping
   records. `prometheus-alerts.test.yaml` holds `promtool test rules` cases.
+
+## Telegram notifications
+
+Next to Alertmanager, `kcc serve` can send short Telegram messages itself: a router
+offline (after two failed polls in a row) and back online, a router refusing kcc's
+login, a failed change (saying whether the router's fail-safe timer is still armed), an
+account lockout, an audit log repair or a stopped audit writer, new router firmware, a
+failed job and, off by default, a new unregistered device. Switch them on, pick the
+events and add chats on the Web page Administration > Notifications; the Bot API
+address is `[notify.telegram] api_url` in `kcc.toml`. Messages
+are merged per chat within 30 seconds and paced to Telegram's limits; the self-metrics
+`kcc_notify_messages_total` and `kcc_notify_dropped_total` count what was sent and lost.
+
+While notifications are on and a router event (offline and online, refused login, new
+firmware, new device) is selected, `kcc serve` polls every registered router around the
+clock at the Web UI's cadence (15 s for the light items, 60 s for the heavy ones; 120 s
+after a failure), whether or not anyone has the Web UI open. Only messages about
+this process's own audit entries are sent: entries the CLI or `kcc mcp stdio` append to
+the shared audit log are not notified. See [PRIVACY.md](PRIVACY.md) for what the
+messages contain.
 
 ## Log forwarding
 

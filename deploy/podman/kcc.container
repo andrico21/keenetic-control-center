@@ -38,7 +38,7 @@ HealthInterval=30s
 HealthTimeout=10s
 HealthStartPeriod=20s
 HealthRetries=3
-StopTimeout=80
+StopTimeout=100
 
 [Service]
 Restart=on-failure

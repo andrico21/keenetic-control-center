@@ -170,10 +170,6 @@ impl StateWatch {
 
     /// Also watches `files` (relative to the state directory): `follower` reloads once
     /// per pass in which any of them changed, and on SIGHUP.
-    #[expect(
-        dead_code,
-        reason = "the notifier and the scheduler register their files"
-    )]
     pub(crate) fn with_follower(
         mut self,
         files: &'static [&'static str],

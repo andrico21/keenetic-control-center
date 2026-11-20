@@ -50,3 +50,20 @@ management-not-applied = Ничего не применено, таймер во
 audit-entry-pending = Готово. Журнал аудита занят; запись об этом изменении будет добавлена, как только он освободится.
 
 management-timer-in-use = Ничего не отправлено: таймер восстановления роутера уже запущен кем-то другим. kcc оставляет этот таймер его владельцу. Сначала подтвердите или отключите его, затем повторите попытку.
+
+notify-router-down = [kcc] Роутер { $router } недоступен с { $time }.
+notify-router-up = [kcc] Роутер { $router } снова доступен; он был недоступен { $duration }.
+notify-router-login = [kcc] Роутер { $router } отклонил вход kcc. Проверьте сохранённый для него пароль.
+notify-firmware = [kcc] Для роутера { $router } доступна прошивка { $version }.
+notify-new-devices = [kcc] Новые незарегистрированные устройства на роутере { $router }: { $devices }.
+notify-client-details = { $name } ({ $address })
+notify-change-failed = [kcc] Изменение { $action } на роутере { $router } ({ $actor }) не выполнено.
+notify-change-failed-fleet = [kcc] Изменение { $action } ({ $actor }) не выполнено.
+notify-change-fail-safe = Таймер восстановления роутера всё ещё взведён: если изменение не подтвердить, роутер вернёт сохранённую конфигурацию.
+notify-account-locked = [kcc] Учётная запись { $user } заблокирована после неудачных входов до { $time }.
+notify-audit-repaired = [kcc] Журнал аудита восстановлен: оборванная последняя запись перенесена в { $file }.
+notify-audit-stopped = [kcc] Запись журнала аудита остановилась. kcc serve завершает работу.
+notify-job-failed = [kcc] Задание { $kind } на роутере { $router } завершилось ошибкой.
+notify-job-failed-fleet = [kcc] Задание { $kind } завершилось ошибкой.
+notify-dropped = [kcc] Уведомления, которые не удалось вовремя доставить, отброшены: { $count }.
+notify-test = [kcc] Тестовое сообщение: уведомления доходят до этого чата.

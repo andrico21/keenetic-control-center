@@ -48,3 +48,20 @@ management-not-applied = Es wurde nichts übernommen, und der Wiederherstellungs
 audit-entry-pending = Erledigt. Das Audit-Protokoll ist belegt; der Eintrag zu dieser Änderung wird geschrieben, sobald es frei ist.
 
 management-timer-in-use = Es wurde nichts gesendet: Der Wiederherstellungstimer des Routers läuft bereits, von jemand anderem gestellt. kcc überlässt diesen Timer seinem Besitzer. Bestätigen oder deaktivieren Sie ihn zuerst und versuchen Sie es dann erneut.
+
+notify-router-down = [kcc] Router { $router } ist seit { $time } nicht erreichbar.
+notify-router-up = [kcc] Router { $router } ist wieder erreichbar; er war { $duration } nicht erreichbar.
+notify-router-login = [kcc] Router { $router } hat die Anmeldung von kcc abgelehnt. Prüfen Sie das für ihn gespeicherte Passwort.
+notify-firmware = [kcc] Für Router { $router } ist die Firmware { $version } verfügbar.
+notify-new-devices = [kcc] Neue nicht registrierte Geräte an Router { $router }: { $devices }.
+notify-client-details = { $name } ({ $address })
+notify-change-failed = [kcc] Die Änderung { $action } an Router { $router } durch { $actor } ist fehlgeschlagen.
+notify-change-failed-fleet = [kcc] Die Änderung { $action } durch { $actor } ist fehlgeschlagen.
+notify-change-fail-safe = Der Wiederherstellungstimer des Routers läuft noch: Wird die Änderung nicht bestätigt, stellt der Router seine gespeicherte Konfiguration wieder her.
+notify-account-locked = [kcc] Das Konto { $user } ist nach fehlgeschlagenen Anmeldungen bis { $time } gesperrt.
+notify-audit-repaired = [kcc] Das Audit-Protokoll wurde repariert: Ein abgeschnittener letzter Eintrag wurde nach { $file } verschoben.
+notify-audit-stopped = [kcc] Der Audit-Schreiber wurde beendet. kcc serve fährt herunter.
+notify-job-failed = [kcc] Der Auftrag { $kind } an Router { $router } ist fehlgeschlagen.
+notify-job-failed-fleet = [kcc] Der Auftrag { $kind } ist fehlgeschlagen.
+notify-dropped = [kcc] Benachrichtigungen, die nicht rechtzeitig zugestellt werden konnten, wurden verworfen: { $count }.
+notify-test = [kcc] Testnachricht: Benachrichtigungen erreichen diesen Chat.
