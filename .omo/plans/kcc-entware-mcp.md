@@ -266,7 +266,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | docs(policy): allow typed SSH to Entware under pinned, policy-admitted limits
   Recommended task executor category: writing - policy and documentation text only
 
-- [ ] 2. Catalog risk classes for Entware and drive-initialize commands
+- [x] 2. Catalog risk classes for Entware and drive-initialize commands
   What to do / Must NOT do:
   - In `catalog/overlay.toml` `[[destructive]]` paths add `"opkg disk"`, `"opkg initrc"` and `"media initialize"` (two words: `path_matches` compares word counts, `crates/kcc-catalog/src/runtime.rs:449-457`) with the reason extended by: "opkg disk mounts a drive and runs its init scripts as root; opkg initrc chooses the root init script; media initialize wipes the partition table". Mirror them in `DESTRUCTIVE_PATHS` (`crates/kcc-catalog/src/runtime/data.rs:99-113`). Also add the two paths that `DESTRUCTIVE_PATHS` already has but `overlay.toml` lacks (`system configuration fail-safe timer`, `system configuration fail-safe keep-alive`, `data.rs:104-105`); `overlay.toml` is documentation, so no class changes.
   - Add `"opkg dns-override"` to `MANAGEMENT_PATHS` (`crates/kcc-catalog/src/runtime/data.rs:133`) with a doc comment: "disables TCP and UDP port 53 of the DNS proxy; clients and kcc may lose name resolution".
@@ -313,7 +313,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(domain): Entware settings planners, drive initialize and Entware drive guard
   Recommended task executor category: unspecified-high - several planners with read-back and guards across four crates
 
-- [ ] 5. Migrations and presets skip Entware settings
+- [x] 5. Migrations and presets skip Entware settings
   What to do / Must NOT do:
   - Add `Reason::HardwareEntware` (`#[serde(rename = "migration-reason-hardware-entware")]`, `key()` returning that id) to `crates/kcc-migrate/src/rules/reason.rs` (pattern of `HardwareLed`, `reason.rs:43,101`); map it in `localized_reason` (`crates/kcc-migrate/src/report.rs:248-279`) to `keys::MIGRATE_REASON_SKIP_HARDWARE` (no new Fluent key); add `Reason::HardwareEntware` to the hardware arm of the exhaustive match in `crates/kcc-web/src/migrate_wizard/reasons.rs:132-140` (next to `HardwareInterface`).
   - In `crates/kcc-migrate/rules/rules.toml` add `skip-hardware` rules (pattern `rules.toml:86-94`) `entware-disk` `opkg disk **`, `entware-chroot` `opkg chroot`, `entware-dns-override` `opkg dns-override`, `entware-initrc` `opkg initrc **`, `entware-timezone` `opkg timezone **`, `entware-object-group` `opkg object-group **`, each `reason_key = "migration-reason-hardware-entware"`.
@@ -591,7 +591,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | docs: Entware management, MCP administration and sign-in, trust models and limits
   Recommended task executor category: writing - documentation
 
-- [ ] 22. MCP policy groundwork: overlay amendments, SECURITY outline, backlog
+- [x] 22. MCP policy groundwork: overlay amendments, SECURITY outline, backlog
   What to do / Must NOT do:
   - In the project overlay (`docs/rust-guidelines/overlays/projects/keenetic-control-center.md`, editable), amend deviation 6: add "OIDC identity provider endpoints (issuer, JWKS URL) that an admin enters on the Web or the operator in kcc.toml, the CRL distribution points named in an uploaded mTLS CA, and kcc's own internal loopback JWKS listener (`http://localhost:<ephemeral>`) fetched by rmcp-server-kit" as admin- or operator-configured non-router destinations under the kit's SSRF guard (https only for IdP URLs; cloud-metadata addresses always refused; private IdP hosts or CIDRs only through kcc.toml `[mcp.auth.oidc] ssrf_allow_hosts`/`ssrf_allow_cidrs`); replace the sentence that no such address can be set "from the Web UI, MCP or a state file" with one that keeps it for log sinks and Telegram and allows the Web only for IdP URLs. Add to rule (e) the note "OAuth protocol endpoints (`/oauth/token`, `/oauth/register`, `/oauth/revoke`, `/oauth/jwks`, `/.well-known/oauth-authorization-server`) carry no cookie authority, so the CSRF rule does not apply to them; the consent page under `/ui/` keeps it". In deviation 3's held-back list name `jsonwebtoken` 12 (held by rmcp-server-kit 3.21.1's `jsonwebtoken` 11). Date the edits 2026-11-20 with the reason "owner decisions D-AUTH, D-MERGE".
   - `docs/BACKLOG.md`: section "MCP authentication: not in this plan" (kit authorization-server proxy for external IdPs after the kit gains a localizable consent page; CIMD; signing-key rotation; OIDC discovery and id_tokens; confidential clients; DPoP or certificate-bound tokens; Web editing of the main listener's bind, port and TLS files; rmcp-server-kit release with jsonwebtoken 12 to remove the D-RSA ignore).
