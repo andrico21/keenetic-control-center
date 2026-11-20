@@ -7489,8 +7489,347 @@ pub const WEB_ADMIN_NOTIFY_TEST_REJECTED: MessageKey =
 pub const WEB_ADMIN_NOTIFY_ERROR_TEST_CHAT: MessageKey =
     MessageKey::new("web-admin-notify-error-test-chat");
 
+/// `web-admin-scheduled-tab` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_TAB: MessageKey = MessageKey::new("web-admin-scheduled-tab");
+
+/// `web-admin-scheduled-add` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ADD: MessageKey = MessageKey::new("web-admin-scheduled-add");
+
+/// `web-admin-scheduled-empty` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_EMPTY: MessageKey = MessageKey::new("web-admin-scheduled-empty");
+
+/// `web-admin-scheduled-not-running` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_NOT_RUNNING: MessageKey =
+    MessageKey::new("web-admin-scheduled-not-running");
+
+/// `web-admin-scheduled-name` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_NAME: MessageKey = MessageKey::new("web-admin-scheduled-name");
+
+/// `web-admin-scheduled-router` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ROUTER: MessageKey = MessageKey::new("web-admin-scheduled-router");
+
+/// `web-admin-scheduled-days` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_DAYS: MessageKey = MessageKey::new("web-admin-scheduled-days");
+
+/// `web-admin-scheduled-time` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_TIME: MessageKey = MessageKey::new("web-admin-scheduled-time");
+
+/// `web-admin-scheduled-action` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ACTION: MessageKey = MessageKey::new("web-admin-scheduled-action");
+
+/// `web-admin-scheduled-owner` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_OWNER: MessageKey = MessageKey::new("web-admin-scheduled-owner");
+
+/// `web-admin-scheduled-state` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_STATE: MessageKey = MessageKey::new("web-admin-scheduled-state");
+
+/// `web-admin-scheduled-next` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_NEXT: MessageKey = MessageKey::new("web-admin-scheduled-next");
+
+/// `web-admin-scheduled-last` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_LAST: MessageKey = MessageKey::new("web-admin-scheduled-last");
+
+/// `web-admin-scheduled-active` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ACTIVE: MessageKey = MessageKey::new("web-admin-scheduled-active");
+
+/// `web-admin-scheduled-paused` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_PAUSED: MessageKey = MessageKey::new("web-admin-scheduled-paused");
+
+/// `web-admin-scheduled-paused-owner` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_PAUSED_OWNER: MessageKey =
+    MessageKey::new("web-admin-scheduled-paused-owner");
+
+/// `web-admin-scheduled-paused-forbidden` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_PAUSED_FORBIDDEN: MessageKey =
+    MessageKey::new("web-admin-scheduled-paused-forbidden");
+
+/// `web-admin-scheduled-paused-router` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_PAUSED_ROUTER: MessageKey =
+    MessageKey::new("web-admin-scheduled-paused-router");
+
+/// `web-admin-scheduled-next-none` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_NEXT_NONE: MessageKey =
+    MessageKey::new("web-admin-scheduled-next-none");
+
+/// `web-admin-scheduled-last-none` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_LAST_NONE: MessageKey =
+    MessageKey::new("web-admin-scheduled-last-none");
+
+/// `web-admin-scheduled-run-started` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RUN_STARTED: MessageKey =
+    MessageKey::new("web-admin-scheduled-run-started");
+
+/// `web-admin-scheduled-run-succeeded` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RUN_SUCCEEDED: MessageKey =
+    MessageKey::new("web-admin-scheduled-run-succeeded");
+
+/// `web-admin-scheduled-run-unsaved` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RUN_UNSAVED: MessageKey =
+    MessageKey::new("web-admin-scheduled-run-unsaved");
+
+/// `web-admin-scheduled-run-failed` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RUN_FAILED: MessageKey =
+    MessageKey::new("web-admin-scheduled-run-failed");
+
+/// `web-admin-scheduled-run-skipped` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RUN_SKIPPED: MessageKey =
+    MessageKey::new("web-admin-scheduled-run-skipped");
+
+/// `web-admin-scheduled-run-interrupted` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RUN_INTERRUPTED: MessageKey =
+    MessageKey::new("web-admin-scheduled-run-interrupted");
+
+/// `web-admin-scheduled-every-day` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_EVERY_DAY: MessageKey =
+    MessageKey::new("web-admin-scheduled-every-day");
+
+/// `web-admin-scheduled-summary-policy` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_SUMMARY_POLICY: MessageKey =
+    MessageKey::new("web-admin-scheduled-summary-policy");
+
+/// `web-admin-scheduled-summary-preset` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_SUMMARY_PRESET: MessageKey =
+    MessageKey::new("web-admin-scheduled-summary-preset");
+
+/// `web-admin-scheduled-summary-backup` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_SUMMARY_BACKUP: MessageKey =
+    MessageKey::new("web-admin-scheduled-summary-backup");
+
+/// `web-admin-scheduled-summary-reboot` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_SUMMARY_REBOOT: MessageKey =
+    MessageKey::new("web-admin-scheduled-summary-reboot");
+
+/// `web-admin-scheduled-edit` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_EDIT: MessageKey = MessageKey::new("web-admin-scheduled-edit");
+
+/// `web-admin-scheduled-pause` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_PAUSE: MessageKey = MessageKey::new("web-admin-scheduled-pause");
+
+/// `web-admin-scheduled-resume` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RESUME: MessageKey = MessageKey::new("web-admin-scheduled-resume");
+
+/// `web-admin-scheduled-run` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RUN: MessageKey = MessageKey::new("web-admin-scheduled-run");
+
+/// `web-admin-scheduled-new-title` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_NEW_TITLE: MessageKey =
+    MessageKey::new("web-admin-scheduled-new-title");
+
+/// `web-admin-scheduled-edit-title` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_EDIT_TITLE: MessageKey =
+    MessageKey::new("web-admin-scheduled-edit-title");
+
+/// `web-admin-scheduled-name-help` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_NAME_HELP: MessageKey =
+    MessageKey::new("web-admin-scheduled-name-help");
+
+/// `web-admin-scheduled-no-routers` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_NO_ROUTERS: MessageKey =
+    MessageKey::new("web-admin-scheduled-no-routers");
+
+/// `web-admin-scheduled-hour` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_HOUR: MessageKey = MessageKey::new("web-admin-scheduled-hour");
+
+/// `web-admin-scheduled-minute` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_MINUTE: MessageKey = MessageKey::new("web-admin-scheduled-minute");
+
+/// `web-admin-scheduled-zone` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ZONE: MessageKey = MessageKey::new("web-admin-scheduled-zone");
+
+/// `web-admin-scheduled-zone-help` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ZONE_HELP: MessageKey =
+    MessageKey::new("web-admin-scheduled-zone-help");
+
+/// `web-admin-scheduled-kind-policy` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_KIND_POLICY: MessageKey =
+    MessageKey::new("web-admin-scheduled-kind-policy");
+
+/// `web-admin-scheduled-kind-preset` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_KIND_PRESET: MessageKey =
+    MessageKey::new("web-admin-scheduled-kind-preset");
+
+/// `web-admin-scheduled-client` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_CLIENT: MessageKey = MessageKey::new("web-admin-scheduled-client");
+
+/// `web-admin-scheduled-policy` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_POLICY: MessageKey = MessageKey::new("web-admin-scheduled-policy");
+
+/// `web-admin-scheduled-no-clients` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_NO_CLIENTS: MessageKey =
+    MessageKey::new("web-admin-scheduled-no-clients");
+
+/// `web-admin-scheduled-no-policies` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_NO_POLICIES: MessageKey =
+    MessageKey::new("web-admin-scheduled-no-policies");
+
+/// `web-admin-scheduled-router-unread` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ROUTER_UNREAD: MessageKey =
+    MessageKey::new("web-admin-scheduled-router-unread");
+
+/// `web-admin-scheduled-preset` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_PRESET: MessageKey = MessageKey::new("web-admin-scheduled-preset");
+
+/// `web-admin-scheduled-no-presets` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_NO_PRESETS: MessageKey =
+    MessageKey::new("web-admin-scheduled-no-presets");
+
+/// `web-admin-scheduled-ack` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ACK: MessageKey = MessageKey::new("web-admin-scheduled-ack");
+
+/// `web-admin-scheduled-unsaved-help` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_UNSAVED_HELP: MessageKey =
+    MessageKey::new("web-admin-scheduled-unsaved-help");
+
+/// `web-admin-scheduled-reboot-help` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_REBOOT_HELP: MessageKey =
+    MessageKey::new("web-admin-scheduled-reboot-help");
+
+/// `web-admin-scheduled-create` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_CREATE: MessageKey = MessageKey::new("web-admin-scheduled-create");
+
+/// `web-admin-scheduled-error-name` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_NAME: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-name");
+
+/// `web-admin-scheduled-error-name-taken` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_NAME_TAKEN: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-name-taken");
+
+/// `web-admin-scheduled-error-router` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_ROUTER: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-router");
+
+/// `web-admin-scheduled-error-hour` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_HOUR: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-hour");
+
+/// `web-admin-scheduled-error-minute` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_MINUTE: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-minute");
+
+/// `web-admin-scheduled-error-zone` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_ZONE: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-zone");
+
+/// `web-admin-scheduled-error-client` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_CLIENT: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-client");
+
+/// `web-admin-scheduled-error-policy` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_POLICY: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-policy");
+
+/// `web-admin-scheduled-error-preset` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_PRESET: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-preset");
+
+/// `web-admin-scheduled-error-action` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_ACTION: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-action");
+
+/// `web-admin-scheduled-error-confirm` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_CONFIRM: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-confirm");
+
+/// `web-admin-scheduled-error-limit` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_ERROR_LIMIT: MessageKey =
+    MessageKey::new("web-admin-scheduled-error-limit");
+
+/// `web-admin-scheduled-created` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_CREATED: MessageKey = MessageKey::new("web-admin-scheduled-created");
+
+/// `web-admin-scheduled-updated` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_UPDATED: MessageKey = MessageKey::new("web-admin-scheduled-updated");
+
+/// `web-admin-scheduled-paused-done` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_PAUSED_DONE: MessageKey =
+    MessageKey::new("web-admin-scheduled-paused-done");
+
+/// `web-admin-scheduled-resumed` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RESUMED: MessageKey = MessageKey::new("web-admin-scheduled-resumed");
+
+/// `web-admin-scheduled-deleted` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_DELETED: MessageKey = MessageKey::new("web-admin-scheduled-deleted");
+
+/// `web-admin-scheduled-run-admitted` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RUN_ADMITTED: MessageKey =
+    MessageKey::new("web-admin-scheduled-run-admitted");
+
+/// `web-admin-scheduled-delete-title` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_DELETE_TITLE: MessageKey =
+    MessageKey::new("web-admin-scheduled-delete-title");
+
+/// `web-admin-scheduled-delete-text` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_DELETE_TEXT: MessageKey =
+    MessageKey::new("web-admin-scheduled-delete-text");
+
+/// `web-admin-scheduled-run-title` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RUN_TITLE: MessageKey =
+    MessageKey::new("web-admin-scheduled-run-title");
+
+/// `web-admin-scheduled-run-text` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RUN_TEXT: MessageKey =
+    MessageKey::new("web-admin-scheduled-run-text");
+
+/// `web-admin-scheduled-run-reboot-text` in `web.ftl`.
+pub const WEB_ADMIN_SCHEDULED_RUN_REBOOT_TEXT: MessageKey =
+    MessageKey::new("web-admin-scheduled-run-reboot-text");
+
+/// `web-scheduled-refused-forbidden` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_FORBIDDEN: MessageKey =
+    MessageKey::new("web-scheduled-refused-forbidden");
+
+/// `web-scheduled-refused-router` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_ROUTER: MessageKey =
+    MessageKey::new("web-scheduled-refused-router");
+
+/// `web-scheduled-refused-client-unknown` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_CLIENT_UNKNOWN: MessageKey =
+    MessageKey::new("web-scheduled-refused-client-unknown");
+
+/// `web-scheduled-refused-policy-unknown` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_POLICY_UNKNOWN: MessageKey =
+    MessageKey::new("web-scheduled-refused-policy-unknown");
+
+/// `web-scheduled-refused-preset-unavailable` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_PRESET_UNAVAILABLE: MessageKey =
+    MessageKey::new("web-scheduled-refused-preset-unavailable");
+
+/// `web-scheduled-refused-firmware` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_FIRMWARE: MessageKey =
+    MessageKey::new("web-scheduled-refused-firmware");
+
+/// `web-scheduled-refused-documentation-tier` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_DOCUMENTATION_TIER: MessageKey =
+    MessageKey::new("web-scheduled-refused-documentation-tier");
+
+/// `web-scheduled-refused-not-ready` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_NOT_READY: MessageKey =
+    MessageKey::new("web-scheduled-refused-not-ready");
+
+/// `web-scheduled-refused-management-lines` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_MANAGEMENT_LINES: MessageKey =
+    MessageKey::new("web-scheduled-refused-management-lines");
+
+/// `web-scheduled-refused-wireguard-key` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_WIREGUARD_KEY: MessageKey =
+    MessageKey::new("web-scheduled-refused-wireguard-key");
+
+/// `web-scheduled-refused-busy` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_BUSY: MessageKey = MessageKey::new("web-scheduled-refused-busy");
+
+/// `web-scheduled-refused-unavailable` in `web.ftl`.
+pub const WEB_SCHEDULED_REFUSED_UNAVAILABLE: MessageKey =
+    MessageKey::new("web-scheduled-refused-unavailable");
+
+/// `web-scheduled-next` in `web.ftl`.
+pub const WEB_SCHEDULED_NEXT: MessageKey = MessageKey::new("web-scheduled-next");
+
+/// `web-scheduled-unsaved` in `web.ftl`.
+pub const WEB_SCHEDULED_UNSAVED: MessageKey = MessageKey::new("web-scheduled-unsaved");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2366] = [
+pub static ALL: [MessageKey; 2459] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -9857,4 +10196,97 @@ pub static ALL: [MessageKey; 2366] = [
     WEB_ADMIN_NOTIFY_TEST_UNREACHABLE,
     WEB_ADMIN_NOTIFY_TEST_REJECTED,
     WEB_ADMIN_NOTIFY_ERROR_TEST_CHAT,
+    WEB_ADMIN_SCHEDULED_TAB,
+    WEB_ADMIN_SCHEDULED_ADD,
+    WEB_ADMIN_SCHEDULED_EMPTY,
+    WEB_ADMIN_SCHEDULED_NOT_RUNNING,
+    WEB_ADMIN_SCHEDULED_NAME,
+    WEB_ADMIN_SCHEDULED_ROUTER,
+    WEB_ADMIN_SCHEDULED_DAYS,
+    WEB_ADMIN_SCHEDULED_TIME,
+    WEB_ADMIN_SCHEDULED_ACTION,
+    WEB_ADMIN_SCHEDULED_OWNER,
+    WEB_ADMIN_SCHEDULED_STATE,
+    WEB_ADMIN_SCHEDULED_NEXT,
+    WEB_ADMIN_SCHEDULED_LAST,
+    WEB_ADMIN_SCHEDULED_ACTIVE,
+    WEB_ADMIN_SCHEDULED_PAUSED,
+    WEB_ADMIN_SCHEDULED_PAUSED_OWNER,
+    WEB_ADMIN_SCHEDULED_PAUSED_FORBIDDEN,
+    WEB_ADMIN_SCHEDULED_PAUSED_ROUTER,
+    WEB_ADMIN_SCHEDULED_NEXT_NONE,
+    WEB_ADMIN_SCHEDULED_LAST_NONE,
+    WEB_ADMIN_SCHEDULED_RUN_STARTED,
+    WEB_ADMIN_SCHEDULED_RUN_SUCCEEDED,
+    WEB_ADMIN_SCHEDULED_RUN_UNSAVED,
+    WEB_ADMIN_SCHEDULED_RUN_FAILED,
+    WEB_ADMIN_SCHEDULED_RUN_SKIPPED,
+    WEB_ADMIN_SCHEDULED_RUN_INTERRUPTED,
+    WEB_ADMIN_SCHEDULED_EVERY_DAY,
+    WEB_ADMIN_SCHEDULED_SUMMARY_POLICY,
+    WEB_ADMIN_SCHEDULED_SUMMARY_PRESET,
+    WEB_ADMIN_SCHEDULED_SUMMARY_BACKUP,
+    WEB_ADMIN_SCHEDULED_SUMMARY_REBOOT,
+    WEB_ADMIN_SCHEDULED_EDIT,
+    WEB_ADMIN_SCHEDULED_PAUSE,
+    WEB_ADMIN_SCHEDULED_RESUME,
+    WEB_ADMIN_SCHEDULED_RUN,
+    WEB_ADMIN_SCHEDULED_NEW_TITLE,
+    WEB_ADMIN_SCHEDULED_EDIT_TITLE,
+    WEB_ADMIN_SCHEDULED_NAME_HELP,
+    WEB_ADMIN_SCHEDULED_NO_ROUTERS,
+    WEB_ADMIN_SCHEDULED_HOUR,
+    WEB_ADMIN_SCHEDULED_MINUTE,
+    WEB_ADMIN_SCHEDULED_ZONE,
+    WEB_ADMIN_SCHEDULED_ZONE_HELP,
+    WEB_ADMIN_SCHEDULED_KIND_POLICY,
+    WEB_ADMIN_SCHEDULED_KIND_PRESET,
+    WEB_ADMIN_SCHEDULED_CLIENT,
+    WEB_ADMIN_SCHEDULED_POLICY,
+    WEB_ADMIN_SCHEDULED_NO_CLIENTS,
+    WEB_ADMIN_SCHEDULED_NO_POLICIES,
+    WEB_ADMIN_SCHEDULED_ROUTER_UNREAD,
+    WEB_ADMIN_SCHEDULED_PRESET,
+    WEB_ADMIN_SCHEDULED_NO_PRESETS,
+    WEB_ADMIN_SCHEDULED_ACK,
+    WEB_ADMIN_SCHEDULED_UNSAVED_HELP,
+    WEB_ADMIN_SCHEDULED_REBOOT_HELP,
+    WEB_ADMIN_SCHEDULED_CREATE,
+    WEB_ADMIN_SCHEDULED_ERROR_NAME,
+    WEB_ADMIN_SCHEDULED_ERROR_NAME_TAKEN,
+    WEB_ADMIN_SCHEDULED_ERROR_ROUTER,
+    WEB_ADMIN_SCHEDULED_ERROR_HOUR,
+    WEB_ADMIN_SCHEDULED_ERROR_MINUTE,
+    WEB_ADMIN_SCHEDULED_ERROR_ZONE,
+    WEB_ADMIN_SCHEDULED_ERROR_CLIENT,
+    WEB_ADMIN_SCHEDULED_ERROR_POLICY,
+    WEB_ADMIN_SCHEDULED_ERROR_PRESET,
+    WEB_ADMIN_SCHEDULED_ERROR_ACTION,
+    WEB_ADMIN_SCHEDULED_ERROR_CONFIRM,
+    WEB_ADMIN_SCHEDULED_ERROR_LIMIT,
+    WEB_ADMIN_SCHEDULED_CREATED,
+    WEB_ADMIN_SCHEDULED_UPDATED,
+    WEB_ADMIN_SCHEDULED_PAUSED_DONE,
+    WEB_ADMIN_SCHEDULED_RESUMED,
+    WEB_ADMIN_SCHEDULED_DELETED,
+    WEB_ADMIN_SCHEDULED_RUN_ADMITTED,
+    WEB_ADMIN_SCHEDULED_DELETE_TITLE,
+    WEB_ADMIN_SCHEDULED_DELETE_TEXT,
+    WEB_ADMIN_SCHEDULED_RUN_TITLE,
+    WEB_ADMIN_SCHEDULED_RUN_TEXT,
+    WEB_ADMIN_SCHEDULED_RUN_REBOOT_TEXT,
+    WEB_SCHEDULED_REFUSED_FORBIDDEN,
+    WEB_SCHEDULED_REFUSED_ROUTER,
+    WEB_SCHEDULED_REFUSED_CLIENT_UNKNOWN,
+    WEB_SCHEDULED_REFUSED_POLICY_UNKNOWN,
+    WEB_SCHEDULED_REFUSED_PRESET_UNAVAILABLE,
+    WEB_SCHEDULED_REFUSED_FIRMWARE,
+    WEB_SCHEDULED_REFUSED_DOCUMENTATION_TIER,
+    WEB_SCHEDULED_REFUSED_NOT_READY,
+    WEB_SCHEDULED_REFUSED_MANAGEMENT_LINES,
+    WEB_SCHEDULED_REFUSED_WIREGUARD_KEY,
+    WEB_SCHEDULED_REFUSED_BUSY,
+    WEB_SCHEDULED_REFUSED_UNAVAILABLE,
+    WEB_SCHEDULED_NEXT,
+    WEB_SCHEDULED_UNSAVED,
 ];

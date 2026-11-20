@@ -1,0 +1,9 @@
+{#- The scheduled actions table: every change answers with it out of band. Without a running scheduler the page says where schedules run and offers pause and delete only. -#}
+{%- import "partials/kit_macros.html" as kit -%}
+<div class="admin-region" id="scheduled-region"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- if !running %}
+  <p class="notice" data-tone="info" role="note">{{ t(keys::WEB_ADMIN_SCHEDULED_NOT_RUNNING) }}</p>
+  {%- endif %}
+  {%- include "partials/kit_table.html" %}
+</div>
+{{ kit::toasts(toasts) }}

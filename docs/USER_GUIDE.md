@@ -91,7 +91,8 @@ credentials and encrypted backups cannot be opened.
 A router's dashboard (`/ui/r/<router>`) shows host name, firmware, memory, internet and
 WAN link state, WAN connections, radios and access points, the WAN traffic chart (the
 last 30 minutes, kept in memory), the unsaved-changes banner with Save, and the
-support-tier notice for documentation-based firmware. The firmware line says "Update
+support-tier notice for documentation-based firmware, and the router's next scheduled
+action when `kcc serve` has one. The firmware line says "Update
 available" or "Up to date" once kcc has asked the router (`components check-update`, in
 the background, at most every six hours per router and only while the router answers
 its polls); until then it says "Not checked".
@@ -268,7 +269,8 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
 
 `/ui/r/<router>/config` shows the unsaved state and the fail-safe timer (Save while the
 timer is not armed, Commit or Roll back while it is; a Save sent while it is armed is
-refused and audited `armed`), and lists the router's backups. You can
+refused and audited `armed`), names a scheduled action whose change the router has not
+saved, and lists the router's backups. You can
 back up the startup configuration, upload a configuration file as a backup, download a
 backup redacted (or in full with RevealSecrets, audited), compare two backups (secrets
 redacted on both sides), delete one, and restore one. Restore offers the migration
@@ -347,6 +349,7 @@ show secrets as `********` unless you hold RevealSecrets on that router. On the 
 - **API keys**: create keys for MCP clients (shown once) and revoke them. The "Last
   used" column shows the last MCP tool call with the key, recorded at most once a minute.
 - **Notifications**: Telegram notifications (ManageNotifications), described below.
+- **Scheduled actions**: weekly scheduled actions (ManageSchedules), described below.
 - **Audit log**: search, filter and export the hash-chained audit log (ViewAudit). A role
   scoped to some routers sees only those routers' entries; entries that name no router
   (sign-ins, account changes) are shown only to a role scoped to all routers.
@@ -459,6 +462,48 @@ The audit actions are `cli.schedule_add`, `cli.schedule_edit`, `cli.schedule_pau
 `cli.schedule_resume` and `cli.schedule_delete`, with the parameters `id`, `action`
 (the action kind) and `router`; never a client or a policy. A running `kcc serve` picks
 the changes up within about 2 seconds.
+
+### Administration > Scheduled actions
+
+`/ui/admin/scheduled` lists the weekly scheduled actions on the routers your role covers:
+name, router, days, time and time zone, what the action does, its owner, whether it is
+active or paused (and why), the next run in the schedule's time zone and the last run's
+result. A schedule does one of four things: put a registered client under an existing
+connection policy, apply a stored preset (Merge only), back up the startup configuration,
+or restart the router. Scheduled changes are never saved: a router restart undoes them.
+
+- **Add scheduled action** opens a dialog: a name (unique on the router), the router, the
+  days, the hour and minute, and an IANA time zone (suggested from kcc's own time zone
+  data, starting with `[schedules] default_timezone`). For a policy switch it lists the
+  router's registered clients and its policies; when kcc cannot read the router it says
+  so and the other actions stay available. For a preset it lists the presets you may
+  apply and, for a router whose firmware line is only documentation-based (or unknown),
+  asks you to acknowledge that. A restart needs the router's name typed.
+- kcc checks the schedule with the running scheduler before storing it (your permissions,
+  the client and the policy on the router, or the preset's eligibility); a refusal is
+  shown in the dialog. You need ManageSchedules plus the action's permissions on the
+  router: Write for a policy switch or a backup, Destructive for a restart, and Read,
+  Migrate, Write and Save for a preset (plus Read and Migrate on the preset's source
+  router). Each router holds at most 64 schedules, 256 in total.
+- **Edit** and **Resume** make you the schedule's owner; every run uses its owner's
+  permissions at that time. **Pause** stops the slots until a resume; **Delete** asks
+  first and removes the schedule with its run history.
+- **Run now** asks first (a restart needs the router's name typed) and starts the run in
+  the background with your permissions checked besides the owner's; its result shows
+  under "Last run" and in the Telegram message. A run-now is never retried: on a router
+  busy with another change it ends skipped (`router_busy`).
+
+Schedules run only in `kcc serve`. Without it the page says so, and only lists, pauses
+and deletes them. Every change is audited (`web.schedule_create`, `web.schedule_update`,
+`web.schedule_pause`, `web.schedule_resume`, `web.schedule_delete`,
+`web.schedule_run_now`) with the schedule id, the action kind and the router only; a
+refusal is audited with its code.
+
+A router's dashboard names its next scheduled action ("Next scheduled action: <name>,
+<time>"). While a scheduled policy switch or preset left changes the router has not saved,
+the router's configuration page says "Unsaved change from scheduled action <name> at
+<time>; a router restart undoes it", as long as the router's configuration checksum is
+the one the run recorded.
 
 ## Metrics
 

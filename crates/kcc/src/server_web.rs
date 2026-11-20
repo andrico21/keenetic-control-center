@@ -15,6 +15,7 @@ use kcc_web::{
     WebState, WebStateConfig,
     admin::{AdminServices, ServerFacts, TransportReload},
     admin_notify::NotifyControl,
+    admin_scheduled::ScheduleControl,
     fleet::{BackupServices, FleetServices, UpdateCheck},
     fleet_updates::ComponentsUpdateCheck,
     session::CookieSecurity,
@@ -24,13 +25,14 @@ use crate::{server_error::ServerError, server_services::Services};
 
 /// Builds the authenticated Web UI around the same fleet services.
 ///
-/// Administration changes reach the running MCP transport through `auth_reload`, and the
-/// notifications page reaches the running notifier through `notify`.
+/// Administration changes reach the running MCP transport through `auth_reload`, the
+/// notifications page reaches the running notifier through `notify`, and the scheduled
+/// actions page and the dashboards reach the running scheduler through `schedules`.
 pub(crate) fn web_state(
     services: &Services,
     config: &Config,
     auth_reload: Arc<TransportReload>,
-    notify: Arc<dyn NotifyControl>,
+    (notify, schedules): (Arc<dyn NotifyControl>, Arc<dyn ScheduleControl>),
 ) -> Result<WebState, ServerError> {
     let default_locale =
         Locale::from_tag(&config.web.default_locale).ok_or(ServerError::UnsupportedLocale)?;
@@ -70,5 +72,6 @@ pub(crate) fn web_state(
         reload: Some(auth_reload),
         server: ServerFacts::from_config(env!("CARGO_PKG_VERSION").to_owned(), config),
     })
-    .with_notify(notify))
+    .with_notify(notify)
+    .with_schedules(schedules))
 }

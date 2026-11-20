@@ -60,7 +60,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         Options::from_config(&config)?,
     )
     .await?;
-    let scheduler = start_for_server(&services, &notify, &config);
+    let (scheduler, schedule_control) = start_for_server(&services, &notify, &config);
     let handler = services.handler(&config, config.mcp.http_enabled)?;
     let rbac = Arc::new(RbacPolicy::new(&handler.rbac_config()));
     let auth = AuthConfig::with_keys(api_key_entries(&services.state)?)
@@ -87,7 +87,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             &services,
             &config,
             Arc::clone(&auth_reload),
-            Arc::new(notify.clone()),
+            (Arc::new(notify.clone()), schedule_control),
         )?)
     } else {
         None

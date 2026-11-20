@@ -4,8 +4,8 @@
 //!
 //! `kcc` attaches them with [`WebState::with_admin`](crate::WebState::with_admin). The
 //! pages live under `/ui/admin`: users, roles and API keys (`ManageUsers`), Telegram
-//! notifications (`ManageNotifications`), the audit log (`ViewAudit`) and the server
-//! summary (`ManageUsers`).
+//! notifications (`ManageNotifications`), scheduled actions (`ManageSchedules`), the audit
+//! log (`ViewAudit`) and the server summary (`ManageUsers`).
 
 extern crate alloc;
 
@@ -208,6 +208,8 @@ pub struct ServerFacts {
     summary: Vec<(MessageKey, Fact)>,
     /// The Bot API address of notifications, `[notify.telegram] api_url`.
     telegram_api: Option<String>,
+    /// The zone schedule forms start with, `[schedules] default_timezone`.
+    default_timezone: String,
 }
 
 /// One configuration summary value, localized when the page renders.
@@ -353,6 +355,7 @@ impl ServerFacts {
             version,
             summary,
             telegram_api,
+            default_timezone: config.schedules.default_timezone.clone(),
         }
     }
 
@@ -366,6 +369,12 @@ impl ServerFacts {
     #[must_use]
     pub(crate) fn telegram_api(&self) -> Option<&str> {
         self.telegram_api.as_deref()
+    }
+
+    /// The zone schedule forms start with.
+    #[must_use]
+    pub(crate) fn default_timezone(&self) -> &str {
+        &self.default_timezone
     }
 
     /// The configuration summary as `(label, value)` pairs in `locale`.

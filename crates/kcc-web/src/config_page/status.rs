@@ -15,6 +15,7 @@ use kcc_i18n::{
 
 use crate::{
     WebState,
+    admin_scheduled::next,
     authz::CurrentUser,
     page::{Localize as _, Shell},
     page_kit::{
@@ -93,6 +94,8 @@ pub(crate) struct StatusRegion {
     problem: Option<MessageKey>,
     /// The configuration operations the role may run and the router's catalog has.
     controls: Controls,
+    /// The scheduled action whose change the router has not saved, as a sentence.
+    scheduled: Option<String>,
     /// Whether the region replaces the page's out of band.
     oob: bool,
 }
@@ -112,6 +115,7 @@ impl StatusRegion {
             facts: None,
             problem: None,
             controls: Controls::default(),
+            scheduled: None,
             oob: false,
         };
         match target.context(state).await {
@@ -119,7 +123,10 @@ impl StatusRegion {
                 region.controls = Controls::new(user.role(), router)
                     .with_operations(configuration::DESCRIPTOR.write_ops, Some(facts.catalog()));
                 match last_change(&domain).await {
-                    Ok(found) => region.facts = Some(Facts::new(&found, user.locale())),
+                    Ok(found) => {
+                        region.scheduled = scheduled(target, &found, user.locale()).await;
+                        region.facts = Some(Facts::new(&found, user.locale()));
+                    }
                     Err(message) => region.problem = Some(message),
                 }
             }
@@ -173,6 +180,18 @@ impl StatusRegion {
             Some(&args),
         ))
     }
+}
+
+/// The note naming the scheduled action whose change `state` reports unsaved: the
+/// router reports unsaved changes and the checksum the run recorded.
+// cancel-safe: it only reads local state on a blocking thread.
+async fn scheduled(target: Target<'_>, state: &LastChangeState, locale: Locale) -> Option<String> {
+    let checksum = state
+        .checksum
+        .as_deref()
+        .filter(|_| state.unsaved == Some(true))?;
+    let store = target.fleet().workflow().state().clone();
+    next::unsaved_note(store, target.router(), checksum, locale).await
 }
 
 /// The router's `show last-change`.

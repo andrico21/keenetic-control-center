@@ -21,6 +21,7 @@
 //! a `Trigger::Now`, which is never retried.
 
 pub(crate) mod actions;
+mod control;
 pub(crate) mod eligible;
 pub(crate) mod lines;
 pub(crate) mod notices;
@@ -51,10 +52,21 @@ use kcc_app::{
     accounts::Clock, audit::AuditLog, persist::StateStore, registry::RouterRegistry,
     role_source::RoleSource, settings::CliConfig,
 };
-use tokio::{sync::watch, task::JoinHandle, time::timeout};
+use kcc_web::admin_scheduled::ScheduleControl;
+use tokio::{
+    sync::watch,
+    task::JoinHandle,
+    time::{Instant, timeout},
+};
 use tokio_util::sync::{CancellationToken, DropGuard};
 
-use self::{actions::Actions, lines::Line, notices::Notices, owner::AccountLookup};
+use self::{
+    actions::{ActionDeps, Actions},
+    control::{Control, Runs},
+    lines::Line,
+    notices::Notices,
+    owner::AccountLookup,
+};
 use crate::state_watch::Follower;
 
 /// The state files the scheduler follows, relative to the state directory.
@@ -146,20 +158,37 @@ pub(crate) struct Scheduler {
     reloads: Arc<watch::Sender<()>>,
     /// The timetable task; it ends after the runs in progress.
     task: JoinHandle<()>,
+    /// What every run uses.
+    deps: Arc<RunDeps>,
+    /// The runs started now through [`Self::control`].
+    runs: Runs,
 }
 
 impl Scheduler {
     /// Starts the timetable over `deps` and the router profiles of `registry`.
     pub(crate) fn start(deps: RunDeps, registry: Arc<RouterRegistry>) -> Self {
         let stop = deps.stop.clone();
+        let shared = Arc::new(deps);
         let (reloads, requests) = watch::channel(());
-        let task = tokio::spawn(timetable::run(Arc::new(deps), registry, requests));
+        let task = tokio::spawn(timetable::run(Arc::clone(&shared), registry, requests));
         Self {
             _stop_on_drop: stop.clone().drop_guard(),
             stop,
             reloads: Arc::new(reloads),
             task,
+            deps: shared,
+            runs: Runs::new(),
         }
+    }
+
+    /// The scheduler as the Web UI drives it: it checks drafts with `actions`, the
+    /// server's own, and starts runs now that [`Self::finish`] waits for.
+    pub(crate) fn control(&self, actions: ActionDeps) -> Arc<dyn ScheduleControl> {
+        Arc::new(Control::new(
+            actions,
+            Arc::clone(&self.deps),
+            self.runs.clone(),
+        ))
     }
 
     /// The token that stops admission; cancelling it twice is harmless.
@@ -172,11 +201,13 @@ impl Scheduler {
         Arc::new(Reloader(Arc::clone(&self.reloads)))
     }
 
-    /// Stops admission and waits at most `grace` for the runs in progress; a run still
-    /// going then runs on detached (its bracket guard keeps the server's bracket wait).
-    // cancel-safe: only waits; the task is never aborted.
+    /// Stops admission, runs now included, and waits at most `grace` in all for the runs
+    /// in progress, the timetable's and those started now; a run still going then runs on
+    /// detached (its bracket guard keeps the server's bracket wait).
+    // cancel-safe: only waits; no task is ever aborted.
     pub(crate) async fn finish(self, grace: Duration) {
         self.stop.cancel();
+        let begun = Instant::now();
         match timeout(grace, self.task).await {
             Ok(Ok(())) => {}
             Ok(Err(error)) => tracing::error!(target: TARGET, %error, "scheduler task failed"),
@@ -184,6 +215,7 @@ impl Scheduler {
                 tracing::warn!(target: TARGET, "scheduled runs still going at exit run on");
             }
         }
+        self.runs.close(grace.saturating_sub(begun.elapsed())).await;
     }
 }
 

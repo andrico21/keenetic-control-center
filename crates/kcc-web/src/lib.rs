@@ -20,6 +20,9 @@
 //!   summary under `/ui/admin`.
 //! - [`WebState::with_notify`] attaches the running Telegram notifier
 //!   ([`admin_notify::NotifyControl`]) the notifications page reports on and tests.
+//! - [`WebState::with_schedules`] attaches the running scheduler
+//!   ([`admin_scheduled::ScheduleControl`]) the scheduled actions page checks schedules
+//!   with and runs them through, and the dashboards name the next scheduled action of.
 //! - [`WebState::with_jobs`] attaches the job runner that runs the command explorer's
 //!   background commands.
 // `dead_code_pub_in_binary` fires on the public API only in the lib unit-test
@@ -122,6 +125,7 @@ macro_rules! record_fields {
 
 pub mod admin;
 pub mod admin_notify;
+pub mod admin_scheduled;
 pub mod brackets;
 pub mod csp;
 mod csrf;
@@ -229,6 +233,7 @@ use tower_http::{limit::RequestBodyLimitLayer, set_header::SetResponseHeaderLaye
 use crate::{
     admin::AdminServices,
     admin_notify::NotifyControl,
+    admin_scheduled::ScheduleControl,
     admin_shared::Admin,
     fleet::{Fleet, FleetServices},
     session::{CookieSecurity, SessionStore, account::StandingsError},
@@ -273,6 +278,8 @@ pub struct WebState {
     admin: Option<Arc<Admin>>,
     /// The running notifier, when attached with [`WebState::with_notify`].
     notify: Option<Arc<dyn NotifyControl>>,
+    /// The running scheduler, when attached with [`WebState::with_schedules`].
+    schedules: Option<Arc<dyn ScheduleControl>>,
     /// Command explorer and console services.
     advanced: Arc<advanced::Services>,
     /// The routers' catalog facts, shared by every page that validates a request.
@@ -343,6 +350,7 @@ impl WebState {
             fleet: None,
             admin: None,
             notify: None,
+            schedules: None,
             advanced: Arc::new(advanced::Services::new(None)),
             facts: Arc::default(),
             log_feeds: LogFeeds::default(),
@@ -450,6 +458,23 @@ impl WebState {
     #[must_use]
     pub(crate) fn notify(&self) -> Option<&dyn NotifyControl> {
         self.notify.as_deref()
+    }
+
+    /// Attaches the running scheduler: the scheduled actions page checks new, edited and
+    /// resumed schedules with it and runs them now through it, and the router dashboards
+    /// name each router's next scheduled action. Without it the page lists, pauses and
+    /// deletes schedules and says that they run only in `kcc serve`.
+    #[inline]
+    #[must_use]
+    pub fn with_schedules(mut self, control: Arc<dyn ScheduleControl>) -> Self {
+        self.schedules = Some(control);
+        self
+    }
+
+    /// The running scheduler, when attached.
+    #[must_use]
+    pub(crate) fn schedules(&self) -> Option<&dyn ScheduleControl> {
+        self.schedules.as_deref()
     }
 
     /// The audit page's verified log.
@@ -650,7 +675,7 @@ pub fn web_router(state: WebState) -> Router {
 }
 
 /// The administration routes under `/ui/admin`: users, roles, API keys, notifications,
-/// audit and server.
+/// scheduled actions, audit and server.
 fn admin_routes() -> Router<WebState> {
     Router::new()
         .route("/ui/admin", get(admin_shared::landing))
@@ -716,9 +741,43 @@ fn admin_routes() -> Router<WebState> {
             "/ui/admin/notifications/test",
             post(admin_notify::test_send::send_test),
         )
+        .merge(scheduled_routes())
         .route("/ui/admin/audit", get(admin_audit::page))
         .route("/ui/admin/audit/export", get(admin_audit::export))
         .route("/ui/admin/server", get(admin_server::page))
+}
+
+/// The scheduled actions routes under `/ui/admin/scheduled`.
+fn scheduled_routes() -> Router<WebState> {
+    Router::new()
+        .route(
+            "/ui/admin/scheduled",
+            get(admin_scheduled::page::page).post(admin_scheduled::editor::create),
+        )
+        .route(
+            "/ui/admin/scheduled/new",
+            get(admin_scheduled::editor::new_dialog),
+        )
+        .route(
+            "/ui/admin/scheduled/edit",
+            get(admin_scheduled::editor::edit_dialog).post(admin_scheduled::editor::update),
+        )
+        .route(
+            "/ui/admin/scheduled/pause",
+            post(admin_scheduled::toggle::pause),
+        )
+        .route(
+            "/ui/admin/scheduled/resume",
+            post(admin_scheduled::toggle::resume),
+        )
+        .route(
+            "/ui/admin/scheduled/delete",
+            get(admin_scheduled::toggle::delete_dialog).post(admin_scheduled::toggle::delete),
+        )
+        .route(
+            "/ui/admin/scheduled/run-now",
+            get(admin_scheduled::run_now::run_dialog).post(admin_scheduled::run_now::run_now),
+        )
 }
 
 /// Adds the CSRF, authentication and route-table authorization layers to `routes`.

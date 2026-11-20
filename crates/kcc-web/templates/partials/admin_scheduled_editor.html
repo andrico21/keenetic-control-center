@@ -1,0 +1,146 @@
+{#- The add and edit dialog of a scheduled action. A changed router or action reloads the dialog with the fields as typed, so the lists below match them; the server checks every field again on submit. -#}
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(title) %}
+<form class="form" id="scheduled-form" method="post" action="{{ urls.0 }}" hx-post="{{ urls.0 }}" hx-target="#dialog-content">
+  {%- if !errors.general.is_empty() %}
+  <p class="notice" data-tone="error" role="alert">{{ errors.general }}</p>
+  {%- endif %}
+  {%- if !typed.id.is_empty() %}
+  <input type="hidden" name="id" value="{{ typed.id }}">
+  {%- endif %}
+  {{ ui::field("scheduled-name", "name", t(keys::WEB_ADMIN_SCHEDULED_NAME), typed.name, errors.name, "text", "off", t(keys::WEB_ADMIN_SCHEDULED_NAME_HELP)) }}
+  <div class="field">
+    {%- if routers.is_empty() %}
+    <p class="field__label">{{ t(keys::WEB_ADMIN_SCHEDULED_ROUTER) }}</p>
+    <p class="field__help">{{ t(keys::WEB_ADMIN_SCHEDULED_NO_ROUTERS) }}</p>
+    {%- else %}
+    <label class="field__label" for="scheduled-router">{{ t(keys::WEB_ADMIN_SCHEDULED_ROUTER) }}</label>
+    <select class="field__input" id="scheduled-router" name="router" hx-get="{{ urls.1 }}" hx-trigger="change" hx-target="#dialog-content" hx-include="#scheduled-form"{% if !errors.router.is_empty() %} aria-invalid="true" aria-describedby="scheduled-router-error"{% endif %}>
+      {%- for router in routers %}
+      <option value="{{ router }}"{% if *router == typed.router %} selected{% endif %}>{{ router }}</option>
+      {%- endfor %}
+    </select>
+    {%- endif %}
+    {%- if !errors.router.is_empty() %}
+    <p class="field__error" id="scheduled-router-error">{{ errors.router }}</p>
+    {%- endif %}
+  </div>
+  <fieldset class="choice"{% if !errors.days.is_empty() %} aria-describedby="scheduled-days-error"{% endif %}>
+    <legend class="field__label">{{ t(keys::WEB_ADMIN_SCHEDULED_DAYS) }}</legend>
+    <div class="admin-checks">
+      {%- for (value, label) in days %}
+      <label class="choice__option"><input type="checkbox" name="days" value="{{ value }}"{% if typed.has_day(value) %} checked{% endif %}><span>{{ t(**label) }}</span></label>
+      {%- endfor %}
+    </div>
+    {%- if !errors.days.is_empty() %}
+    <p class="field__error" id="scheduled-days-error">{{ errors.days }}</p>
+    {%- endif %}
+  </fieldset>
+  <div class="form-group">
+    <div class="field">
+      <label class="field__label" for="scheduled-hour">{{ t(keys::WEB_ADMIN_SCHEDULED_HOUR) }}</label>
+      <input class="field__input" id="scheduled-hour" name="hour" type="number" min="0" max="23" step="1" inputmode="numeric" value="{{ typed.hour }}"{% if !errors.hour.is_empty() %} aria-invalid="true" aria-describedby="scheduled-hour-error"{% endif %}>
+      {%- if !errors.hour.is_empty() %}
+      <p class="field__error" id="scheduled-hour-error">{{ errors.hour }}</p>
+      {%- endif %}
+    </div>
+    <div class="field">
+      <label class="field__label" for="scheduled-minute">{{ t(keys::WEB_ADMIN_SCHEDULED_MINUTE) }}</label>
+      <input class="field__input" id="scheduled-minute" name="minute" type="number" min="0" max="59" step="1" inputmode="numeric" value="{{ typed.minute }}"{% if !errors.minute.is_empty() %} aria-invalid="true" aria-describedby="scheduled-minute-error"{% endif %}>
+      {%- if !errors.minute.is_empty() %}
+      <p class="field__error" id="scheduled-minute-error">{{ errors.minute }}</p>
+      {%- endif %}
+    </div>
+  </div>
+  <div class="field">
+    <label class="field__label" for="scheduled-zone">{{ t(keys::WEB_ADMIN_SCHEDULED_ZONE) }}</label>
+    <input class="field__input" id="scheduled-zone" name="zone" type="text" list="scheduled-zones" autocomplete="off" value="{{ typed.zone }}" aria-describedby="scheduled-zone-help{% if !errors.zone.is_empty() %} scheduled-zone-error{% endif %}"{% if !errors.zone.is_empty() %} aria-invalid="true"{% endif %}>
+    <datalist id="scheduled-zones">
+      {%- for zone in zones %}
+      <option value="{{ zone }}"></option>
+      {%- endfor %}
+    </datalist>
+    <p class="field__help" id="scheduled-zone-help">{{ t(keys::WEB_ADMIN_SCHEDULED_ZONE_HELP) }}</p>
+    {%- if !errors.zone.is_empty() %}
+    <p class="field__error" id="scheduled-zone-error">{{ errors.zone }}</p>
+    {%- endif %}
+  </div>
+  <fieldset class="choice"{% if !errors.kind.is_empty() %} aria-describedby="scheduled-kind-error"{% endif %}>
+    <legend class="field__label">{{ t(keys::WEB_ADMIN_SCHEDULED_ACTION) }}</legend>
+    {%- for (value, label) in kinds %}
+    <label class="choice__option"><input type="radio" name="kind" value="{{ value }}" hx-get="{{ urls.1 }}" hx-trigger="change" hx-target="#dialog-content" hx-include="#scheduled-form"{% if *value == typed.kind %} checked{% endif %}><span>{{ t(**label) }}</span></label>
+    {%- endfor %}
+    {%- if !errors.kind.is_empty() %}
+    <p class="field__error" id="scheduled-kind-error">{{ errors.kind }}</p>
+    {%- endif %}
+  </fieldset>
+  {%- if typed.kind == "policy_switch" %}
+  {%- if choices.unread() %}
+  <p class="notice" data-tone="warning" role="note">{{ t(keys::WEB_ADMIN_SCHEDULED_ROUTER_UNREAD) }}</p>
+  {%- else %}
+  <div class="field">
+    {%- if choices.clients().is_empty() %}
+    <p class="field__label">{{ t(keys::WEB_ADMIN_SCHEDULED_CLIENT) }}</p>
+    <p class="field__help">{{ t(keys::WEB_ADMIN_SCHEDULED_NO_CLIENTS) }}</p>
+    {%- else %}
+    <label class="field__label" for="scheduled-client">{{ t(keys::WEB_ADMIN_SCHEDULED_CLIENT) }}</label>
+    <select class="field__input" id="scheduled-client" name="mac"{% if !errors.client.is_empty() %} aria-invalid="true" aria-describedby="scheduled-client-error"{% endif %}>
+      {%- for (mac, label) in choices.clients() %}
+      <option value="{{ mac }}"{% if *mac == typed.mac %} selected{% endif %}>{{ label }}</option>
+      {%- endfor %}
+    </select>
+    {%- endif %}
+    {%- if !errors.client.is_empty() %}
+    <p class="field__error" id="scheduled-client-error">{{ errors.client }}</p>
+    {%- endif %}
+  </div>
+  <div class="field">
+    {%- if choices.policies().is_empty() %}
+    <p class="field__label">{{ t(keys::WEB_ADMIN_SCHEDULED_POLICY) }}</p>
+    <p class="field__help">{{ t(keys::WEB_ADMIN_SCHEDULED_NO_POLICIES) }}</p>
+    {%- else %}
+    <label class="field__label" for="scheduled-policy">{{ t(keys::WEB_ADMIN_SCHEDULED_POLICY) }}</label>
+    <select class="field__input" id="scheduled-policy" name="policy"{% if !errors.policy.is_empty() %} aria-invalid="true" aria-describedby="scheduled-policy-error"{% endif %}>
+      {%- for policy in choices.policies() %}
+      <option value="{{ policy }}"{% if *policy == typed.policy %} selected{% endif %}>{{ policy }}</option>
+      {%- endfor %}
+    </select>
+    {%- endif %}
+    {%- if !errors.policy.is_empty() %}
+    <p class="field__error" id="scheduled-policy-error">{{ errors.policy }}</p>
+    {%- endif %}
+  </div>
+  {%- endif %}
+  <p class="field__help">{{ t(keys::WEB_ADMIN_SCHEDULED_UNSAVED_HELP) }}</p>
+  {%- else if typed.kind == "preset" %}
+  <div class="field">
+    {%- if choices.presets().is_empty() %}
+    <p class="field__label">{{ t(keys::WEB_ADMIN_SCHEDULED_PRESET) }}</p>
+    <p class="field__help">{{ t(keys::WEB_ADMIN_SCHEDULED_NO_PRESETS) }}</p>
+    {%- else %}
+    <label class="field__label" for="scheduled-preset">{{ t(keys::WEB_ADMIN_SCHEDULED_PRESET) }}</label>
+    <select class="field__input" id="scheduled-preset" name="preset"{% if !errors.preset.is_empty() %} aria-invalid="true" aria-describedby="scheduled-preset-error"{% endif %}>
+      {%- for (id, name) in choices.presets() %}
+      <option value="{{ id }}"{% if *id == typed.preset %} selected{% endif %}>{{ name }}</option>
+      {%- endfor %}
+    </select>
+    {%- endif %}
+    {%- if !errors.preset.is_empty() %}
+    <p class="field__error" id="scheduled-preset-error">{{ errors.preset }}</p>
+    {%- endif %}
+  </div>
+  {%- if choices.needs_ack() %}
+  <div class="check">
+    <input class="check__input" type="checkbox" id="scheduled-ack" name="ack" value="yes"{% if typed.ack %} checked{% endif %}>
+    <label class="check__label" for="scheduled-ack">{{ t(keys::WEB_ADMIN_SCHEDULED_ACK) }}</label>
+  </div>
+  {%- endif %}
+  <p class="field__help">{{ t(keys::WEB_ADMIN_SCHEDULED_UNSAVED_HELP) }}</p>
+  {%- else if typed.kind == "reboot" %}
+  {{ ui::field("scheduled-confirm", "confirm_name", t(keys::WEB_EXPLORER_CONFIRM_NAME), typed.confirm_name, errors.confirm, "text", "off", t(keys::WEB_ADMIN_SCHEDULED_REBOOT_HELP)) }}
+  {%- endif %}
+  <div class="dialog__actions">
+    <button class="button button--primary" type="submit">{{ t(submit_label()) }}</button>
+  </div>
+</form>
+{% endcall %}

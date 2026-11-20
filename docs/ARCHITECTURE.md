@@ -62,7 +62,11 @@ kcc <command> ──┴──────── CLI ──────┤
   the action as a `scheduled.<action>` job under a workflow bracket guard (the change
   goes through the change workflow), records the outcome, appends `schedule.run` to the
   audit log and hands a line to the notifier. A run-now from the Web UI or the CLI uses
-  the same `run_once`. At shutdown the scheduler's own cancellation token is cancelled
+  the same `run_once`: the Web UI reaches the server's scheduler through
+  `kcc_web::admin_scheduled::ScheduleControl` (`server_schedules/control.rs`), which checks
+  the clicker's permissions, then spawns `run_once` with a `Trigger::Now` over the server's
+  own run dependencies and tracks the task so that shutdown waits for it within the same
+  10 s. At shutdown the scheduler's own cancellation token is cancelled
   as soon as the listener stops; the server waits at most 10 s for the run in progress,
   then for open brackets, the jobs, the notifications and the audit writer.
 

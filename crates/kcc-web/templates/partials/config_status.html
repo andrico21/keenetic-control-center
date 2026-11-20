@@ -9,6 +9,9 @@
     {%- if state.unsaved() %}
     <p class="config-state"><span class="flag">{{ t(keys::WEB_ROUTER_UNSAVED) }}</span></p>
     <p class="panel__note">{{ t(keys::WEB_CONFIG_UNSAVED_TEXT) }}</p>
+    {%- if let Some(note) = scheduled %}
+    <p class="panel__note">{{ note }}</p>
+    {%- endif %}
     {%- else %}
     <p class="config-state"><span class="status" data-status="online">{{ t(keys::WEB_CONFIG_SAVED) }}</span></p>
     <p class="panel__note">{{ t(keys::WEB_CONFIG_SAVED_TEXT) }}</p>

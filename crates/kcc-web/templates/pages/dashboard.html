@@ -27,6 +27,9 @@
   {%- if router.config_defined() %}
   <p class="page__text">{{ t(keys::WEB_ROUTER_CONFIG_DEFINED) }}</p>
   {%- endif %}
+  {%- if let Some(next) = next_scheduled %}
+  <p class="page__text">{{ next }}</p>
+  {%- endif %}
   {%- if let Some(tier) = router.tier() %}
   <p class="notice" data-tone="info" role="note">
     {%- if *tier == keys::WEB_TIER_DOCUMENTATION %}{{ t(keys::WEB_TIER_DOCUMENTATION_TEXT) }}{% else %}{{ t(keys::WEB_TIER_UNSUPPORTED_TEXT) }}{% endif %}

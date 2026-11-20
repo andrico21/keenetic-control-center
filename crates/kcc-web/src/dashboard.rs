@@ -29,7 +29,9 @@ use kcc_i18n::{
 use serde_json::json;
 
 use crate::{
-    WebState, authz,
+    WebState,
+    admin_scheduled::next,
+    authz,
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
     fleet::UpdateStatus,
@@ -74,6 +76,8 @@ struct DashboardPage {
     stream: String,
     /// Whether the live region carries out-of-band header updates (stream only).
     oob: bool,
+    /// The router's next scheduled action, when the running scheduler has one.
+    next_scheduled: Option<String>,
 }
 
 localized!(DashboardPage);
@@ -178,6 +182,7 @@ pub(crate) async fn page(
     let live = feed.first(FIRST_POLL_WAIT).await;
     let view = RouterView::new(entry, &live, user.locale()).allow(user.role());
     let status = view.status();
+    let next_scheduled = next::line(&state, &router, user.locale()).await;
     errors::render(&DashboardPage {
         shell: shell.with_fleet(switcher(&entries, Some(&router)), Some(status)),
         update: UpdateBadge::new(&fleet.update_status(&router), user.locale()),
@@ -186,6 +191,7 @@ pub(crate) async fn page(
         units: units(user.locale()),
         stream: format!("/ui/sse/r/{router}/traffic"),
         oob: false,
+        next_scheduled,
         router: view,
     })
 }

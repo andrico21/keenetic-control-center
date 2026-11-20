@@ -203,6 +203,8 @@ pub(crate) enum Tab {
     Keys,
     /// Telegram notifications.
     Notifications,
+    /// Scheduled actions.
+    Scheduled,
     /// The audit log.
     Audit,
     /// The server summary.
@@ -211,11 +213,12 @@ pub(crate) enum Tab {
 
 impl Tab {
     /// Every page, in tab order.
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 7] = [
         Self::Users,
         Self::Roles,
         Self::Keys,
         Self::Notifications,
+        Self::Scheduled,
         Self::Audit,
         Self::Server,
     ];
@@ -227,6 +230,7 @@ impl Tab {
             Self::Roles => "/ui/admin/roles",
             Self::Keys => "/ui/admin/api-keys",
             Self::Notifications => "/ui/admin/notifications",
+            Self::Scheduled => "/ui/admin/scheduled",
             Self::Audit => "/ui/admin/audit",
             Self::Server => "/ui/admin/server",
         }
@@ -239,6 +243,7 @@ impl Tab {
             Self::Roles => keys::WEB_ADMIN_TAB_ROLES,
             Self::Keys => keys::WEB_ADMIN_TAB_KEYS,
             Self::Notifications => keys::WEB_ADMIN_NOTIFY_TAB,
+            Self::Scheduled => keys::WEB_ADMIN_SCHEDULED_TAB,
             Self::Audit => keys::WEB_ADMIN_TAB_AUDIT,
             Self::Server => keys::WEB_ADMIN_TAB_SERVER,
         }
@@ -249,6 +254,7 @@ impl Tab {
         match self {
             Self::Audit => Permission::ViewAudit,
             Self::Notifications => Permission::ManageNotifications,
+            Self::Scheduled => Permission::ManageSchedules,
             Self::Users | Self::Roles | Self::Keys | Self::Server => Permission::ManageUsers,
         }
     }

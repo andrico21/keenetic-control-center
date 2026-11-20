@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_ADMIN_SCHEDULED_TAB) }}{% endblock %}
+{%- block content %}
+<div class="page admin-page">
+  {%- include "partials/admin_tabs.html" %}
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::WEB_ADMIN_SCHEDULED_TAB) }}</h1>
+    {%- if can_add %}
+    <button class="button button--primary" type="button" hx-get="/ui/admin/scheduled/new" hx-target="#dialog-content">{{ t(keys::WEB_ADMIN_SCHEDULED_ADD) }}</button>
+    {%- endif %}
+  </div>
+  <div class="page-outcome" id="page-outcome" aria-live="polite"></div>
+  {{ region }}
+</div>
+{%- endblock %}

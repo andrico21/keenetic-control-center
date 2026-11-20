@@ -227,6 +227,26 @@ The first release, `0.1.0`, is in preparation and contains:
   `cli.schedule_delete` (params `id`, `action`, `router`).
 - **Fake router**: `show system` reports as `uptime` the seconds since the last
   simulated reboot once one happened.
+- **Web UI: Administration > Scheduled actions** (`/ui/admin/scheduled`,
+  `ManageSchedules`): the schedules the role sees with their state, next slot and last
+  run; add and edit dialogs (router, days, hour, minute, IANA zone suggested from the
+  bundled database and prefilled with `[schedules] default_timezone`, and the action: a
+  registered client and a policy read from the router, a preset the role may apply with
+  the documentation-tier acknowledgement, a backup, or a restart with the router's name
+  typed); pause, resume, a confirmed delete and a confirmed run-now. Creating, editing and
+  resuming ask the running scheduler first and make the clicker the owner. `kcc serve`
+  attaches its scheduler when the Web UI is enabled: a run-now checks the clicker's
+  permissions besides the owner's, runs in the background through the scheduler's run
+  path (recorded with `requested_by` = `web:<user>`, audited as `schedule.run`, reported
+  to Telegram), is never retried (a busy router ends it `Skipped router_busy`) and is
+  waited for at shutdown within the scheduler's 10 s. New audit actions `web.schedule_create`,
+  `web.schedule_update`, `web.schedule_pause`, `web.schedule_resume`,
+  `web.schedule_delete` and `web.schedule_run_now` (params `schedule`, `action` kind and
+  `router`; a refusal's outcome is its code). The administration tab bar gains a
+  Scheduled actions tab for roles holding the permission, the router dashboard names the
+  next scheduled action, and the configuration page names a scheduled change the router
+  has not saved. `kcc_web::admin_scheduled::ScheduleControl` and
+  `WebState::with_schedules` attach the scheduler.
 
 ### Changed
 
