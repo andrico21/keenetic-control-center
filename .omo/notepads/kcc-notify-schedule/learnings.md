@@ -72,3 +72,50 @@ jiff 1.0 API: `ZonedDateTime` (not `Zoned`), `Timestamp::to_zoned_datetime`, `Ti
 ## [2026-11-20] Todo 3 progress
 Permission::ALL is 12; new FTL keys appended at the end of each web.ftl. RolesDocument and Role are non_exhaustive: integration tests build a RolesDocument with default() + push. README/SECURITY prose only: kcc docs test not run.
 Files moved: unit tests now in crates/kcc-app/src/schedules/time/tests.rs (time.rs 197 pure LOC, tests 121).
+
+## [2026-11-20] Todo 6 progress (n6): schedule model, store, run ledger
+- Paths: `kcc_app::schedules::{model::{Schedule, Action, Owner, ScheduleState, PauseReason, NewSchedule, Edit (= NewSchedule), PRESET_SOURCE_PERMISSIONS, names::{ScheduleName, ClientMac, PolicyName, PresetId, FieldError}}, store::{ScheduleStore, SchedulesDocument, ScheduleError, MAX_PER_ROUTER, MAX_TOTAL}, ledger::{RunLedger, RunsDocument, ScheduleRuns, RunRecord, RunState, RunOutcome, Trigger, UnsavedRun, RunError}}`; `kcc_app::settings::schedules::SchedulesConfig` (`Config.schedules`).
+- Text fields are newtypes parsed on construction AND on deserialize (`serde(try_from = "String")`), so a hand-edited schedules.json with a bad MAC/policy/name fails to load.
+- `RunLedger::begin(id, Trigger::Slot(unix) | Trigger::Now { requested_by }, now) -> Result<i64 started_at, RunError>`; `finish(id, started_at, RunOutcome, Option<job_id>, now)`; `skip(id, slot, &str reason, now)` also refuses a fired slot; `runs(id)` reads the history; `fire_until` (pub(super)) is what create/update/resume call (max(last_fired, now)).
+- Store sync (StateStore file locks); no async fn added. Out-of-scope schedule -> NotFound; in scope but missing action permission -> Forbidden. pause/resume/delete/update also need the CURRENT action's permissions on the current router.
+- Concurrency test: two std threads + Barrier racing `begin` for one slot; the per-file flock serializes them in-process too (separate open file descriptions).
+- Clippy in tests: `let _: T = ...` on a Drop type is refused (use drop(..) or a named `_binding`); `{ .. }` patterns refused (`rest_pat_in_fully_bound_structs`/`unnecessary_rest_pattern`): spell `{ field: _ }`; Display::fmt param must be named `f`.
+
+## [2026-11-20] Todo 5 progress (n5): notify settings and the sealed bot token
+- API: `kcc_app::settings::notifications::{NotifyConfig, TelegramConfig, DEFAULT_TELEGRAM_API_URL}` (Config field `notify`);
+  `kcc_app::notify_store::{NotifyError, NotifyEvent, NotifySettings (notify.json), NotifyRuntime (notify_state.json), DisabledChat, DisabledReason}`,
+  `notify_store::recipients::{Chat, ChatId, ChatLabel, Chats, MAX_CHATS}`, `notify_store::token::NotifySecrets::{set_token, token, clear}`,
+  `secrets::binding::Binding::notify_telegram()`.
+- Module names avoid clippy::module_name_repetitions: `settings::notify` would flag `NotifyConfig`, `notify_store::chat` flags `ChatId`.
+- `TelegramConfig.api_url` is `Option<Url>`: Default parses the constant with `.ok()` (no unwrap/expect allowed), an absent key
+  takes the default through struct-level `#[serde(default)]`; `validate` refuses `None`. Consumers use `api_url.as_ref()`.
+- ChatId is stored as TEXT (`"-100123"` or `"@name"`, integers canonicalized, `+42` -> `42`) so it can key a JSON map in
+  notify_state.json; `ChatId::numeric()` gives the i64 for the Bot API body (FakeTelegram compares chat_id as sent: 5 != "5").
+- `locale` is `Option<kcc_i18n::locale::Locale>` serialized as its tag (`with = "locale_tag"`); `kk-KZ` reads as `kk`.
+- Token timestamps are Unix seconds from SystemTime inside set_token (signature kept as the plan's: state, key, token).
+- A runtime RED for a validation fn: `-D unused` forbids a not-yet-called fn and `CARGO_BUILD_WARNINGS=warn` does not lift
+  workspace lint levels; a temporary `if cfg!(test) { return Ok(()); }` at the top of the check gave a clean runtime RED.
+- Evidence logs are scanned by people too: a panic message printing a private test URL was redacted in the red log.
+
+## [2026-11-20] CI fix d4f96b37 (macOS fake_telegram reset)
+A test fake that answers (404/405) without reading the request body can reset the client on macOS (RST on close with unread bytes discards the response; Linux usually delivers it). Fix: fallback and method_not_allowed_fallback handlers take `Bytes` to drain before answering. Not reproducible on Linux even with 1 MiB bodies. Axum's default body limit is 2 MiB (a 2 MiB test body gets 413). Sibling fakes fake_loki/fake_elasticsearch have only one route and no fallback: same latent defect. Rustdoc: a public item's doc must not intra-doc-link a private item.
+
+## [2026-11-20] Todo 8 progress (n8)
+- reqwest resolver errors: `Err(Box::new(MyErr).into())` DOUBLE-boxes (From<E: Error> picks Box<MyErr>), so `source().is::<MyErr>()` fails. Annotate: `let e: Box<dyn Error + Send + Sync> = Box::new(MyErr); Err(e)`. Chain: reqwest::Error -> hyper_util Error -> ConnectError("dns error") -> reqwest DnsError -> your error.
+- A literal IP in the URL never reaches a custom `dns::Resolve`: check literals yourself (TelegramClient::with_resolver does with never_admitted).
+- `tracing_subscriber::util::SubscriberInitExt::set_default()` (feature tracing-log) installs LogTracer too, so a thread-local TRACE capture sees reqwest's `log` records ("starting new connection") in a current-thread tokio test.
+- field_scoped_visibility_modifiers forbids pub(super) fields: share structs by defining them in the PARENT module (children see private fields of ancestors), e.g. delivery.rs `Parts`, task.rs `Settings/Test/Cargo`.
+- FakeTelegram `Fault::Slow` holds a request a fixed time; the queue-overflow test works whether or not the 300 pushes land before the release (cap applies either way).
+
+## [2026-11-20] Todo 11 progress (n11): Web Administration > Notifications
+- `clippy::field_scoped_visibility_modifiers` refuses `pub(super)` fields: keep fields private and give the type
+  methods (`Region::refuse(Field, msg)`, `Seen::settings()`); a template can read private fields only of types
+  defined in the module that derives the Template.
+- askama: inside `{% for x in list %}` a `MessageKey` field is `&MessageKey`: write `t(*x.label)`.
+- A template needs `use kcc_i18n::keys` and `use crate::page::Localize as _` in the deriving module.
+- `clippy::fn_params_excessive_bools`/`struct_excessive_bools`: more than 3 bools in a struct is refused; group them.
+- Unknown routes under /ui answer 403 (not 404) to a POST without CSRF (the CSRF layer runs first), so a
+  "POST without CSRF is refused" test passes before the route exists: give it a positive control (same post with
+  the token accepted) to make it RED first.
+- `Setup { wiring: Wiring::Fleet, ..Setup::default() }` then `.roles.extend`/`.accounts.extend` builds a fleet
+  without routers whose `WebState` can be cloned and given `with_admin`/`with_notify` before `web_router`.
