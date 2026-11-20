@@ -184,15 +184,31 @@ The first release, `0.1.0`, is in preparation and contains:
   registered client's host line and is never saved (a router restart undoes it); a
   backup stores the startup configuration as `scheduled-<id>`; a reboot mutes the
   router's offline and online messages for 15 minutes and succeeds only when the router
-  answers again within 15 minutes with a fresh uptime (`did_not_come_back` otherwise);
-  a preset schedule is skipped `preset_unavailable` for now. Policy, backup and reboot
-  run as jobs `scheduled.policy_switch`, `scheduled.backup` and `scheduled.reboot`. A run
+  answers again within 15 minutes with a fresh uptime (`did_not_come_back` otherwise).
+  Policy, backup and reboot run as jobs `scheduled.policy_switch`, `scheduled.backup`
+  and `scheduled.reboot`. A run
   left started by a previous server is marked `interrupted`, reported once and never
   run again. New audit actions `schedule.run` (target the action, params `owner`,
   `slot`, `requested_by`, `job`; outcome `success`, `failed` or `skipped`) and
   `schedule.pause` (params `owner`, `reason`). New notification lines for the scheduled
   events. On a stop the scheduler admits no further run before the jobs are drained;
   the server waits at most 10 s for a run in progress.
+- **Scheduled preset applies**: a preset schedule applies its stored preset in Merge
+  mode, planned again at every run against a fresh inventory with the owner's role
+  narrowed to the router and the preset's source router (an owner without `Read` and
+  `Migrate` on the source router pauses the schedule `forbidden`). A plan that needs
+  input, has a management-phase line or sets a WireGuard private key, an unacknowledged
+  documentation-based firmware line, older firmware or a missing preset skip the run
+  (`not_ready`, `management_lines`, `wireguard_key`, `documentation_tier`, `firmware`,
+  `preset_unavailable`). The run takes the router's lease before the applier's migration
+  job starts, keeps a verified apply unsaved (the fail-safe timer is stopped; the run
+  records `unsaved` and the `show last-change` checksum) and rolls a failed one back
+  (`preset_rolled_back`). When the rollback or the keep-unsaved step fails, it keeps the
+  lease until the fail-safe timer ran out, then reports `preset_restored` or
+  `preset_state_unknown` from `show last-change`; a failed preparation is not rolled back
+  (`preset_failed`, or `preset_failed_armed` when the timer may be armed). Nothing is
+  ever saved. New notification line for an applied preset and reasons for these codes.
+  `docs/MIGRATION.md` "Scheduled presets".
 - **Fake router**: `show system` reports as `uptime` the seconds since the last
   simulated reboot once one happened.
 

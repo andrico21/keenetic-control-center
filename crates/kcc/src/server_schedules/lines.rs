@@ -1,7 +1,7 @@
 //! The notification line of a scheduled run, as data and as localized text.
 //!
-//! Lines name the schedule, its router and, for a policy switch, the policy; never a
-//! client. Every line of a schedule that changes the configuration (policy switch,
+//! Lines name the schedule, its router and, for a policy switch or a preset, the policy or
+//! the preset; never a client. Every line of a schedule that changes the configuration (policy switch,
 //! preset) says that the change is not saved and a router restart undoes it.
 
 use fluent_bundle::FluentArgs;
@@ -28,6 +28,11 @@ pub(crate) enum LineKind {
     BackedUp,
     /// The router restarted and answers again.
     Restarted,
+    /// A preset was applied and verified, and stays unsaved.
+    PresetApplied {
+        /// The preset's id.
+        preset: String,
+    },
     /// A run failed with error code `code`.
     Failed {
         /// Machine-read error code.
@@ -96,9 +101,10 @@ impl Line {
     /// The event the line belongs to.
     pub(crate) const fn event(&self) -> NotifyEvent {
         match self.kind {
-            LineKind::PolicySet { policy: _ } | LineKind::BackedUp | LineKind::Restarted => {
-                NotifyEvent::ScheduledSuccess
-            }
+            LineKind::PolicySet { policy: _ }
+            | LineKind::BackedUp
+            | LineKind::Restarted
+            | LineKind::PresetApplied { preset: _ } => NotifyEvent::ScheduledSuccess,
             LineKind::Failed { code: _ }
             | LineKind::Skipped { reason: _ }
             | LineKind::Missed { count: _, time: _ }
@@ -119,6 +125,10 @@ impl Line {
             }
             LineKind::BackedUp => keys::NOTIFY_SCHEDULED_DONE_BACKUP,
             LineKind::Restarted => keys::NOTIFY_SCHEDULED_DONE_REBOOT,
+            LineKind::PresetApplied { preset } => {
+                args.set("preset", preset.clone());
+                keys::NOTIFY_SCHEDULED_DONE_PRESET
+            }
             LineKind::Failed { code } => {
                 args.set("reason", reason(locale, code));
                 keys::NOTIFY_SCHEDULED_FAILED
@@ -169,6 +179,16 @@ fn reason(locale: Locale, code: &str) -> String {
         "owner_unavailable" => Some(keys::NOTIFY_SCHEDULED_REASON_OWNER_UNAVAILABLE),
         "forbidden" => Some(keys::NOTIFY_SCHEDULED_REASON_FORBIDDEN),
         "router_removed" => Some(keys::NOTIFY_SCHEDULED_REASON_ROUTER_REMOVED),
+        "firmware" => Some(keys::NOTIFY_SCHEDULED_REASON_FIRMWARE),
+        "documentation_tier" => Some(keys::NOTIFY_SCHEDULED_REASON_DOCUMENTATION_TIER),
+        "not_ready" => Some(keys::NOTIFY_SCHEDULED_REASON_NOT_READY),
+        "management_lines" => Some(keys::NOTIFY_SCHEDULED_REASON_MANAGEMENT_LINES),
+        "wireguard_key" => Some(keys::NOTIFY_SCHEDULED_REASON_WIREGUARD_KEY),
+        "preset_failed" => Some(keys::NOTIFY_SCHEDULED_REASON_PRESET_FAILED),
+        "preset_failed_armed" => Some(keys::NOTIFY_SCHEDULED_REASON_PRESET_FAILED_ARMED),
+        "preset_rolled_back" => Some(keys::NOTIFY_SCHEDULED_REASON_PRESET_ROLLED_BACK),
+        "preset_restored" => Some(keys::NOTIFY_SCHEDULED_REASON_PRESET_RESTORED),
+        "preset_state_unknown" => Some(keys::NOTIFY_SCHEDULED_REASON_PRESET_STATE_UNKNOWN),
         _ => None,
     };
     known.map_or_else(

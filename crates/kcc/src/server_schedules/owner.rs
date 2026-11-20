@@ -3,7 +3,8 @@
 //! A Web owner is an account in `users.json` with its role from the roles in force; the
 //! CLI owner is the `[cli] role` with the `[cli] router_scope` of the `kcc.toml` the server
 //! loaded. A missing, disabled or out-of-scope owner makes the schedule `owner_unavailable`;
-//! a role that lacks `ManageSchedules` or a permission of the action makes it `forbidden`.
+//! a role that lacks `ManageSchedules` or a permission of the action (on the router, and
+//! for a preset on the preset's source router) makes it `forbidden`.
 
 use core::fmt::Debug;
 
@@ -12,7 +13,7 @@ use kcc_app::{
     permissions::{Permission, Role},
     registry::{authorize, scope_matches},
     role_source::RoleSource,
-    schedules::model::{Owner, PauseReason, Schedule},
+    schedules::model::{Owner, PRESET_SOURCE_PERMISSIONS, PauseReason, Schedule},
     settings::CliConfig,
 };
 
@@ -107,6 +108,20 @@ pub(super) fn permitted(role: &Role, schedule: &Schedule) -> Result<(), PauseRea
         .iter()
         .try_for_each(|permission| authorize(role, *permission, &schedule.router))
         .map_err(|_denied| PauseReason::Forbidden)
+}
+
+/// Requires `Read` and `Migrate` on a preset's `source` router, when it names one.
+///
+/// # Errors
+///
+/// [`PauseReason::Forbidden`].
+pub(super) fn source_permitted(role: &Role, source: Option<&str>) -> Result<(), PauseReason> {
+    source.map_or(Ok(()), |router| {
+        PRESET_SOURCE_PERMISSIONS
+            .iter()
+            .try_for_each(|permission| authorize(role, *permission, router))
+            .map_err(|_denied| PauseReason::Forbidden)
+    })
 }
 
 #[cfg(test)]

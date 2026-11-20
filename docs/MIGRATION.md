@@ -81,6 +81,42 @@ After apply and verification you choose:
 
 The CLI requires `--finish keep-unsaved|save|rollback` when it has no terminal.
 
+### Scheduled presets
+
+A weekly scheduled action can apply a stored preset (see `kcc serve`'s scheduled
+actions). Nobody is there to answer questions, so a scheduled apply is narrower than an
+interactive one:
+
+- **Merge only.** Mirror mode is never offered.
+- **Planned again at every run** against a fresh inventory of the router, with the
+  owner's role at run time narrowed to the router and the preset's source router. The
+  owner needs `Read`, `Migrate`, `Write` and `Save` on the router and `Read` and
+  `Migrate` on the source router; a role that lost them pauses the schedule `forbidden`.
+- **Refused** when creating the schedule, and **skipped** with a reason at a run:
+  a plan that still needs input or conflicts with the router (`not_ready`), a line of the
+  management phase (`management_lines`: it can cut kcc's connection or change its
+  sign-in password), a WireGuard private key, copied or generated (`wireguard_key`),
+  a router on a documentation-based firmware line when the schedule carries no
+  acknowledgement (`documentation_tier`), firmware older than the preset's (`firmware`),
+  or a preset that is gone (`preset_unavailable`). Component installation is never part
+  of a preset apply.
+- **Never saved.** A verified apply ends with keep unsaved: the fail-safe timer is
+  stopped and the changes stay in the running configuration only, so a router restart
+  undoes them. Every message about the run says so, and the run records the router's
+  `show last-change` checksum.
+- **Rolled back** when a line fails or verification fails: the router returns to its
+  saved configuration (`preset_rolled_back`).
+- **When the rollback or the keep-unsaved step itself fails**, the run keeps the
+  router's lease until the fail-safe timer has run out, then reads `show last-change`: it
+  reports that the router restored its saved configuration (`preset_restored`), or, when
+  changes are still unsaved or the router does not answer, that the state is unknown
+  (`preset_state_unknown`); check the router then.
+- An apply that fails before any line is sent is not rolled back; when the fail-safe
+  timer's arming could not be confirmed, the message says the timer may still be armed
+  (`preset_failed_armed`).
+- A busy router (lease or job) is tried again like any scheduled action, with a new
+  plan each time. The run is the migration job of the applier.
+
 ### Storage
 
 Stored presets are encrypted in `<state>/presets/`. Capturing under the id of a stored

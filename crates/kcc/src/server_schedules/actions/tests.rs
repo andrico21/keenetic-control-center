@@ -1,6 +1,7 @@
 //! The actions over a fake router through the real run path, in real time with short
 //! waits.
 
+pub(crate) mod deps;
 mod policy;
 mod restart;
 

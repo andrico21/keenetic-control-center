@@ -787,6 +787,50 @@ pub const NOTIFY_SCHEDULED_REASON_ROUTER_REMOVED: MessageKey =
 pub const NOTIFY_SCHEDULED_REASON_OTHER: MessageKey =
     MessageKey::new("notify-scheduled-reason-other");
 
+/// `notify-scheduled-done-preset` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_DONE_PRESET: MessageKey =
+    MessageKey::new("notify-scheduled-done-preset");
+
+/// `notify-scheduled-reason-firmware` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_FIRMWARE: MessageKey =
+    MessageKey::new("notify-scheduled-reason-firmware");
+
+/// `notify-scheduled-reason-documentation-tier` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_DOCUMENTATION_TIER: MessageKey =
+    MessageKey::new("notify-scheduled-reason-documentation-tier");
+
+/// `notify-scheduled-reason-not-ready` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_NOT_READY: MessageKey =
+    MessageKey::new("notify-scheduled-reason-not-ready");
+
+/// `notify-scheduled-reason-management-lines` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_MANAGEMENT_LINES: MessageKey =
+    MessageKey::new("notify-scheduled-reason-management-lines");
+
+/// `notify-scheduled-reason-wireguard-key` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_WIREGUARD_KEY: MessageKey =
+    MessageKey::new("notify-scheduled-reason-wireguard-key");
+
+/// `notify-scheduled-reason-preset-failed` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_PRESET_FAILED: MessageKey =
+    MessageKey::new("notify-scheduled-reason-preset-failed");
+
+/// `notify-scheduled-reason-preset-failed-armed` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_PRESET_FAILED_ARMED: MessageKey =
+    MessageKey::new("notify-scheduled-reason-preset-failed-armed");
+
+/// `notify-scheduled-reason-preset-rolled-back` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_PRESET_ROLLED_BACK: MessageKey =
+    MessageKey::new("notify-scheduled-reason-preset-rolled-back");
+
+/// `notify-scheduled-reason-preset-restored` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_PRESET_RESTORED: MessageKey =
+    MessageKey::new("notify-scheduled-reason-preset-restored");
+
+/// `notify-scheduled-reason-preset-state-unknown` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_PRESET_STATE_UNKNOWN: MessageKey =
+    MessageKey::new("notify-scheduled-reason-preset-state-unknown");
+
 /// `domains-system` in `domains.ftl`.
 pub const DOMAINS_SYSTEM: MessageKey = MessageKey::new("domains-system");
 
@@ -7314,7 +7358,7 @@ pub const WEB_ADMIN_NOTIFY_ERROR_TEST_CHAT: MessageKey =
     MessageKey::new("web-admin-notify-error-test-chat");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2312] = [
+pub static ALL: [MessageKey; 2323] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -7565,6 +7609,17 @@ pub static ALL: [MessageKey; 2312] = [
     NOTIFY_SCHEDULED_REASON_FORBIDDEN,
     NOTIFY_SCHEDULED_REASON_ROUTER_REMOVED,
     NOTIFY_SCHEDULED_REASON_OTHER,
+    NOTIFY_SCHEDULED_DONE_PRESET,
+    NOTIFY_SCHEDULED_REASON_FIRMWARE,
+    NOTIFY_SCHEDULED_REASON_DOCUMENTATION_TIER,
+    NOTIFY_SCHEDULED_REASON_NOT_READY,
+    NOTIFY_SCHEDULED_REASON_MANAGEMENT_LINES,
+    NOTIFY_SCHEDULED_REASON_WIREGUARD_KEY,
+    NOTIFY_SCHEDULED_REASON_PRESET_FAILED,
+    NOTIFY_SCHEDULED_REASON_PRESET_FAILED_ARMED,
+    NOTIFY_SCHEDULED_REASON_PRESET_ROLLED_BACK,
+    NOTIFY_SCHEDULED_REASON_PRESET_RESTORED,
+    NOTIFY_SCHEDULED_REASON_PRESET_STATE_UNKNOWN,
     DOMAINS_SYSTEM,
     DOMAINS_UPTIME,
     DOMAINS_FIRMWARE,

@@ -1,10 +1,9 @@
 //! The four scheduled actions.
 //!
-//! Each runs as a background job of kind `scheduled.<action>` whose id the notifier leaves
-//! to the scheduler, holding a workflow bracket guard while it changes the router.
-//!
-//! The preset action is not wired yet: a preset schedule that reaches a run ends it
-//! skipped with `preset_unavailable`.
+//! Each runs as a background job whose id the notifier leaves to the scheduler, holding a
+//! workflow bracket guard while it changes the router: the policy switch, backup and
+//! reboot as a job of kind `scheduled.<action>`, the preset as the migration job of the
+//! preset applier ([`super::preset`]).
 
 mod backup;
 mod policy;
@@ -16,7 +15,7 @@ mod reboot;
     clippy::panic_in_result_fn,
     reason = "test code is not rendered API documentation"
 )]
-mod tests;
+pub(crate) mod tests;
 
 extern crate alloc;
 
@@ -38,7 +37,11 @@ use kcc_migrate::{
 };
 use tokio::sync::oneshot;
 
-use super::{Timings, notices::Notices};
+use super::{
+    Timings,
+    notices::Notices,
+    preset::{self, Target},
+};
 use crate::server_services::Services;
 
 /// How an action ended.
@@ -73,7 +76,7 @@ pub(crate) enum ActionResult {
 
 impl ActionResult {
     /// The same result carrying job `id`.
-    fn in_job(self, id: String) -> Self {
+    pub(super) fn in_job(self, id: String) -> Self {
         match self {
             Self::Done {
                 unsaved,
@@ -154,15 +157,13 @@ pub(crate) struct ActionDeps {
     /// Startup-configuration backups.
     backups: Arc<BackupStore>,
     /// The audit writer.
-    #[expect(dead_code, reason = "the preset action audits through it")]
     audit: AuditLog,
     /// Stored presets.
-    #[expect(dead_code, reason = "the preset action reads it")]
     presets: Arc<PresetStore>,
     /// The notifier, in `kcc serve`.
     notify: Option<Arc<dyn Notices>>,
-    /// The preset applier's clock.
-    #[expect(dead_code, reason = "the preset action runs the applier on it")]
+    /// The preset applier's clock: every apply request the preset action builds runs on
+    /// it, and the action waits out a fail-safe timer on it.
     apply_clock: Arc<dyn ApplyClock>,
     /// Reboot waits.
     timings: Timings,
@@ -188,6 +189,43 @@ impl ActionDeps {
             notify,
             apply_clock: Arc::new(SystemClock::default()),
             timings,
+        }
+    }
+
+    /// Router profiles and clients.
+    pub(super) const fn registry(&self) -> &Arc<RouterRegistry> {
+        &self.registry
+    }
+
+    /// The change workflow.
+    pub(super) const fn workflow(&self) -> &Arc<ChangeWorkflow> {
+        &self.workflow
+    }
+
+    /// Background jobs.
+    pub(super) const fn jobs(&self) -> &Arc<JobRunner> {
+        &self.jobs
+    }
+
+    /// The audit writer.
+    pub(super) const fn audit(&self) -> &AuditLog {
+        &self.audit
+    }
+
+    /// Stored presets.
+    pub(super) const fn presets(&self) -> &Arc<PresetStore> {
+        &self.presets
+    }
+
+    /// The preset applier's clock.
+    pub(super) const fn apply_clock(&self) -> &Arc<dyn ApplyClock> {
+        &self.apply_clock
+    }
+
+    /// Leaves job `id`'s failure to the scheduler.
+    pub(super) fn claim_job(&self, id: &str) {
+        if let Some(notify) = &self.notify {
+            notify.claim_job(id.to_owned());
         }
     }
 
@@ -230,9 +268,7 @@ impl ActionDeps {
                 };
             }
         };
-        if let Some(notify) = &self.notify {
-            notify.claim_job(id.clone());
-        }
+        self.claim_job(&id);
         let result = receiver.await.unwrap_or(ActionResult::Failed {
             code: "job_lost",
             job: None,
@@ -252,12 +288,16 @@ impl Actions for ActionDeps {
                 Action::Backup => backup::store(self, &call).await,
                 Action::Reboot => reboot::restart(self, &call).await,
                 Action::Preset {
-                    preset_id: _,
-                    ack_documentation_tier: _,
-                } => ActionResult::Skipped {
-                    reason: "preset_unavailable",
-                    job: None,
-                },
+                    preset_id,
+                    ack_documentation_tier,
+                } => {
+                    let target = Target::new(
+                        &call.schedule.router,
+                        preset_id.as_str(),
+                        *ack_documentation_tier,
+                    );
+                    preset::apply(self, target, (call.role, call.actor.clone())).await
+                }
                 _ => ActionResult::Skipped {
                     reason: "unsupported",
                     job: None,
@@ -277,6 +317,6 @@ const fn failure(error: &WorkflowError) -> ActionResult {
 }
 
 /// Failed with `code`.
-const fn failed(code: &'static str) -> ActionResult {
+pub(super) const fn failed(code: &'static str) -> ActionResult {
     ActionResult::Failed { code, job: None }
 }

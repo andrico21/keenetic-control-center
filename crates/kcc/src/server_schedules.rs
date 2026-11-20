@@ -14,6 +14,9 @@
 //! busy router is tried again every minute until ten minutes after the slot. Scheduled
 //! changes are never saved.
 //!
+//! A preset schedule applies its preset in Merge mode and keeps the changes unsaved after
+//! verification, or rolls them back ([`preset`]).
+//!
 //! [`run::run_once`] is the one run path; a run-now from the Web or the CLI calls it with
 //! a `Trigger::Now`, which is never retried.
 
@@ -21,6 +24,7 @@ pub(crate) mod actions;
 pub(crate) mod lines;
 pub(crate) mod notices;
 pub(crate) mod owner;
+pub(crate) mod preset;
 mod queue;
 mod record;
 pub(crate) mod run;

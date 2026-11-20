@@ -363,13 +363,39 @@ impl PresetStore {
 
     /// Returns the preset directory below application state.
     fn directory(&self) -> PathBuf {
-        self.state.dir().join("presets")
+        records_dir(&self.state)
     }
 
     /// Returns one preset record path.
     fn path(&self, id: &str) -> PathBuf {
-        self.directory().join(format!("{id}.json"))
+        record_path(&self.state, id)
     }
+}
+
+/// The source router that the plaintext envelope of preset `id` in `state` names, read
+/// without the master key and without an authorization check.
+///
+/// It is for authorization only: the caller checks a principal's permissions on the
+/// answer before it acts for that principal, and never shows it.
+/// [`PresetStore::load_for_apply`] checks the source scope again when it opens the preset.
+///
+/// # Errors
+///
+/// Returns invalid-id, missing-record, malformed-record, or I/O errors.
+#[inline]
+pub fn recorded_source(state: &StateStore, id: &str) -> Result<Option<String>, PresetError> {
+    validate_id(id)?;
+    read_record(record_path(state, id)).map(|record| record.source_router)
+}
+
+/// Returns the preset directory below the state directory `state`.
+fn records_dir(state: &StateStore) -> PathBuf {
+    state.dir().join("presets")
+}
+
+/// Returns the record path of preset `id` below the state directory `state`.
+fn record_path(state: &StateStore, id: &str) -> PathBuf {
+    records_dir(state).join(format!("{id}.json"))
 }
 
 /// Reads one encrypted preset envelope.

@@ -304,6 +304,7 @@ mod tests {
             "id",
             "class",
             "policy",
+            "preset",
         ] {
             args.set(name, "x");
         }

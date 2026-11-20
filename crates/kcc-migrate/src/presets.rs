@@ -8,3 +8,4 @@ pub mod payload;
 pub mod plan;
 mod selection;
 pub mod store;
+pub mod unattended;

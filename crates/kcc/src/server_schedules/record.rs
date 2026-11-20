@@ -10,12 +10,13 @@ use kcc_app::{
         store::{ScheduleStore, SchedulesDocument},
     },
 };
+use kcc_migrate::presets::store::recorded_source;
 use serde_json::{Value, json};
 
 use super::{
     RunDeps, TARGET,
     lines::pause_code,
-    owner::{Found, Lookup, permitted},
+    owner::{Found, Lookup, permitted, source_permitted},
 };
 
 /// What a run found before its action.
@@ -111,7 +112,23 @@ fn authority(deps: &RunDeps, schedule: &Schedule) -> Result<Option<Role>, PauseR
     };
     let role = Found::new(&deps.roles, &deps.cli).role(schedule, lookup)?;
     permitted(&role, schedule)?;
+    source_permitted(&role, preset_source(deps, schedule).as_deref())?;
     Ok(Some(role))
+}
+
+/// The source router a preset schedule's stored preset names; `None` for another action
+/// or a preset that cannot be read (its run then reports the preset unavailable).
+fn preset_source(deps: &RunDeps, schedule: &Schedule) -> Option<String> {
+    let Action::Preset {
+        preset_id,
+        ack_documentation_tier: _,
+    } = &schedule.action
+    else {
+        return None;
+    };
+    recorded_source(&deps.state, preset_id.as_str())
+        .ok()
+        .flatten()
 }
 
 /// Records the final state of the run of `id` that began at `started_at`.

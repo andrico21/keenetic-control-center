@@ -191,10 +191,6 @@ fn skipped(
 }
 
 /// The success line of `action`.
-#[expect(
-    clippy::match_same_arms,
-    reason = "the preset's line comes with the preset action; the wildcard covers actions added later"
-)]
 fn done(action: &Action) -> Option<LineKind> {
     match action {
         Action::PolicySwitch { mac: _, policy } => Some(LineKind::PolicySet {
@@ -203,9 +199,11 @@ fn done(action: &Action) -> Option<LineKind> {
         Action::Backup => Some(LineKind::BackedUp),
         Action::Reboot => Some(LineKind::Restarted),
         Action::Preset {
-            preset_id: _,
+            preset_id,
             ack_documentation_tier: _,
-        } => None,
+        } => Some(LineKind::PresetApplied {
+            preset: preset_id.as_str().to_owned(),
+        }),
         _ => None,
     }
 }
