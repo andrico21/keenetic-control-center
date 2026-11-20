@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "active_work_id": "kcc-notify-schedule-21003600",
+  "active_work_id": "kcc-entware-mcp-8f82ad6d",
   "works": {
     "keenetic-control-center-d60645fa": {
       "work_id": "keenetic-control-center-d60645fa",
@@ -111,10 +111,29 @@
       "session_ids": [
         "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
       ],
-      "status": "active",
+      "status": "completed",
       "worktree_path": null,
       "started_at": "2026-11-19T21:00:36.000Z",
-      "updated_at": "2026-11-19T21:00:36.000Z",
+      "updated_at": "2026-11-20T19:47:23.000Z",
+      "agent": "atlas",
+      "task_sessions": {},
+      "ended_at": "2026-11-20T19:47:23.000Z",
+      "elapsed_ms": 82007934
+    },
+    "kcc-entware-mcp-8f82ad6d": {
+      "work_id": "kcc-entware-mcp-8f82ad6d",
+      "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/kcc-entware-mcp.md",
+      "plan_name": "kcc-entware-mcp",
+      "session_ids": [
+        "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
+      ],
+      "session_origins": {
+        "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt": "direct"
+      },
+      "status": "active",
+      "worktree_path": null,
+      "started_at": "2026-11-20T19:47:23.000Z",
+      "updated_at": "2026-11-20T19:47:23.000Z",
       "agent": "atlas",
       "task_sessions": {}
     }
