@@ -15,7 +15,7 @@ workspace = true
 
 [dependencies]
 clap = { workspace = true, features = ["std", "derive", "help", "usage", "error-context"] }
-clap_complete = "4.6.11"
+clap_complete = "4.6.12"
 fluent-bundle = { workspace = true }
 kcc-app = { version = "0.1.0", path = "../kcc-app" }
 kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }

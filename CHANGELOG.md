@@ -804,6 +804,10 @@ The first release, `0.1.0`, is in preparation and contains:
   `hmac::SimpleHmac`, same output), `rmcp` 3.9.0 -> 3.10.0 and the compatible updates
   `cargo update` selects, in both workspaces; the CI gate tools cargo-deny 0.20.2 and
   cargo-audit 0.23.0. No behaviour change.
+- **Compatible updates past the cooldown**: `clap` 4.6.8, `clap_complete` 4.6.12,
+  `clap_derive` 4.6.8, `clap_lex` 1.1.2 and `uuid` 1.29.3 in the root workspace; `clap`,
+  `clap_derive` and `clap_lex` in xtask. No behaviour change. `jiff` 1.0.1 is held back
+  until its cooldown ends.
 
 ### Removed
 

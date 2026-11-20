@@ -87,12 +87,11 @@
    dependency be the version `cargo update` selects. Both workspaces (`/` and `xtask/`)
    now resolve with a plain `cargo update` under the cooldown, every crates.io
    requirement is written as its locked version, and a `cargo update --dry-run --verbose`
-   changes nothing. Held back on 2026-11-18 (re-checked 18:16 UTC), all inside the
-   cooldown unless named: bytes 1.12.2, clap/clap_derive 4.6.8,
-   clap_complete 4.6.12, clap_lex 1.1.2, jiff/jiff-static 0.2.46 and jiff-core 0.1.8
-   (xtask), regex-automata 0.4.19, regex-syntax 0.8.12, rmcp/rmcp-macros 3.11.0,
-   smallvec 1.16.6, uuid 1.29.3, zeroize 1.9.2; matchit 0.8.6 is held by axum 0.8.9's
-   `matchit = "=0.8.4"`. Repeat the check at least monthly (core Section 12).
+   changes nothing. Held back on 2026-11-20 (checked 09:37 UTC), all inside the
+   cooldown unless named: bytes 1.12.2, clap/clap_derive 4.6.9,
+   jiff/jiff-core/jiff-static 1.0.1, pin-project-lite 0.2.18, regex-automata 0.4.19,
+   regex-syntax 0.8.12, rmcp/rmcp-macros 3.11.0, smallvec 1.16.6, zeroize 1.9.2;
+   matchit 0.8.6 is held by axum 0.8.9's `matchit = "=0.8.4"`. Repeat the check at least monthly (core Section 12).
 4. **Rust versions in workflow files are unquoted** (opened 2026-11-14, resolved
    2026-11-18). Core Section 11 (Tooling) asks to quote every Rust version in YAML.
    `ci.yml`, `container.yml` and `release.yml` now quote every toolchain
