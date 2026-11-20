@@ -181,3 +181,8 @@
 - Worktree note: base 34684103 lacks master's todo-16 CLI (756b7741), so the copied foundation was dead code (`-D unused`); the CLI files of 756b7741
   (`crates/kcc/src/cli{.rs,/args.rs,/args_scheduled.rs,/context.rs,/entry.rs,/scheduled.rs,/scheduled/*}`, `crates/kcc/tests/cli_scheduled*`, the six `cli.ftl`)
   were copied unchanged from git and `keys.rs` regenerated with `cargo xtask i18n-gen`; they are identical to master and drop out at landing.
+
+## [2026-11-20] Todo 20 (n20): docs sweep
+- README, USER_GUIDE, PRIVACY, MONITORING, ARCHITECTURE, SECURITY, CHANGELOG edited (prose only). CONFIG, MIGRATION, BACKLOG verified unchanged. `[notify]` has only `telegram`; the plan's "`[notify]` keys" do not exist in kcc.toml (settings live in notify.json).
+- CHANGELOG upgrade note named `StopTimeout=80` for the Quadlet unit; the unit now ships 100, note corrected.
+- Verified code facts: late limit 120 s, busy retry 60 s / window 10 min (server_schedules.rs Timings), state watch poll 2 s, notifier follows notify.json + notify/telegram.token.sealed, scheduler follows schedules.json.

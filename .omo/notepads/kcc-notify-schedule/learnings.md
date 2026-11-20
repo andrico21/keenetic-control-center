@@ -179,3 +179,10 @@ A test fake that answers (404/405) without reading the request body can reset th
 - clippy: `redundant_guards` prefers `Ok(Err(Foreign::A | Foreign::B))` over a `matches!` guard; `significant_drop_tightening` wants an explicit
   `drop(guard)` right after the last use; `drop(bool)`/`drop(i64)` is `dropping_copy_types` (use `let _: T =`); `Result<(), ()>` from a oneshot send:
   `.unwrap_or_default()`.
+
+## [2026-11-20] Todo 17 (wt/n17): e2e Telegram and scheduled-run legs, seccomp re-trace
+- e2e.sh: token shape is `<digits>:<30..64 of [A-Za-z0-9_-]>` (kcc-app notify_store/token.rs well_formed), so `0:e2e-fake-token` is refused; the script uses `0:e2e-fake-token-not-a-real-telegram-bot` (0600 file natively, Podman secret `kcc-telegram-token` in container mode).
+- `notify events scheduled_success` only: no other event can add a message, so both steps compare the fake's `telegram=` count before/after (helper `telegram_count`/`wait_telegram_above`) instead of `telegram=[1-9]`, which an unrelated event could satisfy.
+- Web schedule create: POST /ui/admin/scheduled fields name, router, days (repeatable), hour, minute, zone, kind=backup; field errors also answer 200, so the id is read back with `kcc --json scheduled list`. run-now: POST ?id= with confirm=yes, 200 on admit, 422 on refusal. CSRF token must be read from a page AFTER login (session-bound).
+- Gotcha: `kcc-cargo xtask seccomp trace` deadlocks: xtask inherits the wrapper's flock fds, so the e2e's inner `cargo build` (through a kcc-cargo shim) never gets a slot. Build xtask once, then run `$CARGO_TARGET_DIR/debug/xtask seccomp trace ...` directly.
+- A union of only local x86_64 traces drops `fchmodat` (arm64-only, CHANGELOG). Unioned with the arm64 traces of CI run 44703192182 (base c1cd67e9, `gh run download -n seccomp-trace-arm64`): profile byte-identical, no syscall added or removed; the new legs need nothing new on x86_64.
