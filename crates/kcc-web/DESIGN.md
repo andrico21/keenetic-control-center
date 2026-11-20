@@ -159,7 +159,7 @@ wraps; scroll owner: the document.
 
 Layout (admin pages `/ui/admin/*`): stacked sections - tab bar, page head (title
 and the primary action), then the table region (or the filter form above the audit table,
-or the server panels); tables sit in `.table-wrap`, which scrolls sideways only for the
+or the server panels, or the notifications panels); tables sit in `.table-wrap`, which scrolls sideways only for the
 table itself; scroll owner: the document; anti-patterns: a fixed-height scrolling table,
 tabs that hide pages the role may open, actions in a hover-only menu.
 `--aside-width` (22rem) is the command explorer's search and group column; `--area-min`
@@ -353,7 +353,8 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
 
 ### Admin tabs (`partials/admin_tabs.html`)
 - Structure: `<nav class="tabs">` with one link per admin page the role may open (Users,
-  Roles, API keys and Server need ManageUsers; Audit log needs ViewAudit);
+  Roles, API keys and Server need ManageUsers; Notifications needs ManageNotifications;
+  Audit log needs ViewAudit);
   `aria-current="page"` marks the page.
 - States: hover wash; current = selected wash + selected ink + weight 600, never an accent
   underline; focus ring inset. The list scrolls sideways at 320px instead of wrapping.
@@ -401,6 +402,20 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
 - Server. No primary action. Priorities: 1 version and uptime, 2 state directory health,
   3 configuration summary and command catalogs. Left out on purpose: secrets, credential
   paths, router logins.
+- Notifications. Primary action: Save (the settings form); Save token, Add chat and Send
+  test message are secondary, Remove token and a chat's Remove are danger-ghost. Priorities:
+  1 the refused-token banner (`role="alert"`) and the status (running or "applies at the next
+  start", queue counts, token set and since when, the Bot API address as text), 2 the bot
+  token and the settings (on/off, language, client details, events), 3 the chats and the
+  test message. Every form posts to `#page-outcome` and the answer sends `#notify-region`
+  back out of band with its toasts; field errors come back in the region as 422. Remove
+  token opens the kit confirmation, whose button sends `confirm=yes` (primary style: the
+  server checks the confirmation, and a removed token is pasted again). Required content:
+  the write-only token field (`kit::secret_field`, never pre-filled), the read-only API
+  address, the ten event checkboxes, each chat's label, id, topic, sound and state (Active
+  or why Telegram disabled it), the test result as sent or the failure class. Left out on
+  purpose: an API address field, the token or any part of it, Telegram's own error text,
+  message history.
 ### Command explorer and consoles
 
 - Command list (`.command-list`, `.command-link`): rows separated by hairlines; the path in

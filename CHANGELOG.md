@@ -124,6 +124,15 @@ The first release, `0.1.0`, is in preparation and contains:
   directory gains `notify.json` (on/off, language, client details, events, up to 10
   chats), `notify_state.json` (written by kcc only) and the bot token, sealed under
   `notify:telegram` in `notify/telegram.token.sealed`. Nothing sends messages yet.
+- **Web UI: Administration > Notifications** (`/ui/admin/notifications`,
+  `ManageNotifications`): the notifier's status, the Bot API address from `kcc.toml`
+  (read-only), a write-only bot token field with a confirmed removal, the on/off switch,
+  message language, client-detail switch and events, the chats, and a test message
+  showing "sent" or the failure class. New audit actions `web.notify_settings`,
+  `web.notify_token` (`credential_changed` or `credential_cleared`),
+  `web.notify_chat_add`, `web.notify_chat_remove` (label only) and `web.notify_test`
+  (`success` or `failed`). The administration tab bar gains a Notifications tab for roles
+  holding the permission.
 - **Scheduled-action store and run ledger**: `schedules.json` holds weekly scheduled
   actions (client policy switch, preset apply, backup, reboot) with their owner, at most
   64 per router and 256 in total; `schedule_runs.json` records each run before it starts,

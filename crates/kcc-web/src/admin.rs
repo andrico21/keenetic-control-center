@@ -3,8 +3,9 @@
 //! facts the server page reports.
 //!
 //! `kcc` attaches them with [`WebState::with_admin`](crate::WebState::with_admin). The
-//! pages live under `/ui/admin`: users, roles and API keys (`ManageUsers`), the audit
-//! log (`ViewAudit`) and the server summary (`ManageUsers`).
+//! pages live under `/ui/admin`: users, roles and API keys (`ManageUsers`), Telegram
+//! notifications (`ManageNotifications`), the audit log (`ViewAudit`) and the server
+//! summary (`ManageUsers`).
 
 extern crate alloc;
 
@@ -205,6 +206,8 @@ pub struct ServerFacts {
     version: String,
     /// Configuration summary rows: label and value.
     summary: Vec<(MessageKey, Fact)>,
+    /// The Bot API address of notifications, `[notify.telegram] api_url`.
+    telegram_api: Option<String>,
 }
 
 /// One configuration summary value, localized when the page renders.
@@ -340,13 +343,29 @@ impl ServerFacts {
                 Fact::Span(config.audit.retention),
             ),
         ];
-        Self { version, summary }
+        let telegram_api = config
+            .notify
+            .telegram
+            .api_url
+            .as_ref()
+            .map(ToString::to_string);
+        Self {
+            version,
+            summary,
+            telegram_api,
+        }
     }
 
     /// Release version of the running binary.
     #[must_use]
     pub(crate) fn version(&self) -> &str {
         &self.version
+    }
+
+    /// The Bot API address of notifications, shown read-only.
+    #[must_use]
+    pub(crate) fn telegram_api(&self) -> Option<&str> {
+        self.telegram_api.as_deref()
     }
 
     /// The configuration summary as `(label, value)` pairs in `locale`.

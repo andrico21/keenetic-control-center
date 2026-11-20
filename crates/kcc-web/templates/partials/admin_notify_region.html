@@ -1,0 +1,121 @@
+{#- The notifications page's region: every form posts to #page-outcome and the answer sends this region back out of band. The bot token field is write-only and the Bot API address is text only. -#}
+{%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
+<div class="admin-region" id="notify-region"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- if rejected %}
+  <div class="banner" role="alert"><p class="banner__text">{{ t(keys::WEB_ADMIN_NOTIFY_TOKEN_REJECTED) }}</p></div>
+  {%- endif %}
+  <div class="panels admin-panels">
+    <section class="panel" aria-labelledby="notify-status">
+      <h2 class="panel__title" id="notify-status">{{ t(keys::WEB_ADMIN_NOTIFY_STATUS) }}</h2>
+      <dl class="facts">
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_NOTIFY_SERVICE) }}</dt><dd>{% if live.is_some() %}{{ t(keys::WEB_ADMIN_NOTIFY_RUNNING) }}{% else %}{{ t(keys::WEB_ADMIN_NOTIFY_NEXT_START) }}{% endif %}</dd></div>
+        {%- if let Some((queued, dropped)) = live %}
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_NOTIFY_QUEUED) }}</dt><dd>{{ queued }}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_NOTIFY_DROPPED) }}</dt><dd>{{ dropped }}</dd></div>
+        {%- endif %}
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_NOTIFY_TOKEN) }}</dt><dd>{% if token_set %}{{ t(keys::WEB_ADMIN_NOTIFY_TOKEN_SET) }}{% else %}{{ t(keys::WEB_ADMIN_NOTIFY_TOKEN_NONE) }}{% endif %}</dd></div>
+        {%- if let Some(time) = token_saved %}
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_NOTIFY_TOKEN_SAVED_AT) }}</dt><dd><time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time></dd></div>
+        {%- endif %}
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_NOTIFY_API_URL) }}</dt><dd><span class="mono admin-path">{{ api_url }}</span></dd></div>
+      </dl>
+      <p class="panel__note">{{ t(keys::WEB_ADMIN_NOTIFY_API_URL_HELP) }}</p>
+    </section>
+    <section class="panel" aria-labelledby="notify-token-title">
+      <h2 class="panel__title" id="notify-token-title">{{ t(keys::WEB_ADMIN_NOTIFY_TOKEN) }}</h2>
+      <form class="form" method="post" action="/ui/admin/notifications/token" hx-post="/ui/admin/notifications/token" hx-target="#page-outcome">
+        {{ kit::secret_field("notify-token", "token", t(keys::WEB_ADMIN_NOTIFY_TOKEN_NEW), errors.token, t(keys::WEB_ADMIN_NOTIFY_TOKEN_HELP)) }}
+        <div class="form__actions">
+          <button class="button button--secondary" type="submit">{{ t(keys::WEB_ADMIN_NOTIFY_TOKEN_SAVE) }}</button>
+          {%- if token_set %}
+          <button class="button button--danger-ghost" type="button" hx-get="/ui/admin/notifications/token/clear" hx-target="#dialog-content">{{ t(keys::WEB_ADMIN_NOTIFY_TOKEN_CLEAR) }}</button>
+          {%- endif %}
+        </div>
+      </form>
+    </section>
+  </div>
+  <section class="panel" aria-labelledby="notify-settings">
+    <h2 class="panel__title" id="notify-settings">{{ t(keys::WEB_ADMIN_NOTIFY_SETTINGS) }}</h2>
+    <form class="form" method="post" action="/ui/admin/notifications" hx-post="/ui/admin/notifications" hx-target="#page-outcome">
+      <div class="check">
+        <input class="check__input" type="checkbox" id="notify-enabled" name="enabled" value="on"{% if toggles.enabled %} checked{% endif %}>
+        <label class="check__label" for="notify-enabled">{{ t(keys::WEB_ADMIN_NOTIFY_ENABLED) }}</label>
+      </div>
+      <div class="field">
+        <label class="field__label" for="notify-locale">{{ t(keys::WEB_ADMIN_NOTIFY_LOCALE) }}</label>
+        <select class="field__input" id="notify-locale" name="locale"{% if !errors.locale.is_empty() %} aria-invalid="true" aria-describedby="notify-locale-error"{% endif %}>
+          {%- for choice in locales %}
+          <option value="{{ choice.value }}"{% if choice.selected %} selected{% endif %}>{{ choice.label }}</option>
+          {%- endfor %}
+        </select>
+        {%- if !errors.locale.is_empty() %}
+        <p class="field__error" id="notify-locale-error">{{ errors.locale }}</p>
+        {%- endif %}
+      </div>
+      <div class="check">
+        <input class="check__input" type="checkbox" id="notify-details" name="client_details" value="on" aria-describedby="notify-details-help"{% if toggles.details %} checked{% endif %}>
+        <label class="check__label" for="notify-details">{{ t(keys::WEB_ADMIN_NOTIFY_DETAILS) }}</label>
+        <p class="field__help" id="notify-details-help">{{ t(keys::WEB_ADMIN_NOTIFY_DETAILS_HELP) }}</p>
+      </div>
+      <fieldset class="choice"{% if !errors.events.is_empty() %} aria-describedby="notify-events-error"{% endif %}>
+        <legend class="field__label">{{ t(keys::WEB_ADMIN_NOTIFY_EVENTS) }}</legend>
+        <div class="admin-checks">
+          {%- for event in events %}
+          <label class="choice__option"><input type="checkbox" name="events" value="{{ event.code }}"{% if event.checked %} checked{% endif %}><span>{{ t(*event.label) }}</span></label>
+          {%- endfor %}
+        </div>
+        {%- if !errors.events.is_empty() %}
+        <p class="field__error" id="notify-events-error">{{ errors.events }}</p>
+        {%- endif %}
+      </fieldset>
+      <div class="form__actions">
+        <button class="button button--primary" type="submit">{{ t(keys::COMMON_SAVE) }}</button>
+      </div>
+    </form>
+  </section>
+  <section class="panel" aria-labelledby="notify-chats">
+    <h2 class="panel__title" id="notify-chats">{{ t(keys::WEB_ADMIN_NOTIFY_CHATS) }}</h2>
+    {%- let table = chats %}
+    {%- include "partials/kit_table.html" %}
+    <form class="form form-group" method="post" action="/ui/admin/notifications/chats" hx-post="/ui/admin/notifications/chats" hx-target="#page-outcome">
+      {{ ui::field("notify-chat-id", "id", t(keys::WEB_ADMIN_NOTIFY_CHAT_ID), draft.id(), errors.chat_id, "text", "off", t(keys::WEB_ADMIN_NOTIFY_CHAT_ID_HELP)) }}
+      {{ ui::field("notify-chat-label", "label", t(keys::WEB_ADMIN_NOTIFY_CHAT_LABEL), draft.label(), errors.chat_label, "text", "off", t(keys::WEB_ADMIN_NOTIFY_CHAT_LABEL_HELP)) }}
+      {{ ui::field("notify-chat-thread", "thread", t(keys::WEB_ADMIN_NOTIFY_CHAT_THREAD), draft.thread(), errors.chat_thread, "text", "off", t(keys::WEB_ADMIN_NOTIFY_CHAT_THREAD_HELP)) }}
+      <div class="check">
+        <input class="check__input" type="checkbox" id="notify-chat-silent" name="silent" value="on"{% if draft.silent() %} checked{% endif %}>
+        <label class="check__label" for="notify-chat-silent">{{ t(keys::WEB_ADMIN_NOTIFY_CHAT_SILENT_OPTION) }}</label>
+      </div>
+      <div class="form__actions">
+        <button class="button button--secondary" type="submit">{{ t(keys::WEB_ADMIN_NOTIFY_CHAT_ADD) }}</button>
+      </div>
+    </form>
+  </section>
+  <section class="panel" aria-labelledby="notify-test">
+    <h2 class="panel__title" id="notify-test">{{ t(keys::WEB_ADMIN_NOTIFY_TEST) }}</h2>
+    {%- if test_chats.is_empty() %}
+    <p class="page__text">{{ t(keys::WEB_ADMIN_NOTIFY_TEST_NO_CHATS) }}</p>
+    {%- else %}
+    <form class="form" method="post" action="/ui/admin/notifications/test" hx-post="/ui/admin/notifications/test" hx-target="#page-outcome">
+      <div class="field">
+        <label class="field__label" for="notify-test-chat">{{ t(keys::WEB_ADMIN_NOTIFY_TEST_CHAT) }}</label>
+        <select class="field__input" id="notify-test-chat" name="chat"{% if !errors.test_chat.is_empty() %} aria-invalid="true" aria-describedby="notify-test-chat-error"{% endif %}>
+          {%- for choice in test_chats %}
+          <option value="{{ choice.value }}"{% if choice.selected %} selected{% endif %}>{{ choice.label }}</option>
+          {%- endfor %}
+        </select>
+        {%- if !errors.test_chat.is_empty() %}
+        <p class="field__error" id="notify-test-chat-error">{{ errors.test_chat }}</p>
+        {%- endif %}
+      </div>
+      <div class="form__actions">
+        <button class="button button--secondary" type="submit">{{ t(keys::WEB_ADMIN_NOTIFY_TEST_SEND) }}</button>
+      </div>
+    </form>
+    {%- endif %}
+    {%- if let Some((tone, message)) = test_result %}
+    <p class="notice" data-tone="{{ tone }}" role="status">{{ message }}</p>
+    {%- endif %}
+  </section>
+</div>
+{{ kit::toasts(toasts) }}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_ADMIN_NOTIFY_TAB) }}{% endblock %}
+{%- block content %}
+<div class="page admin-page">
+  {%- include "partials/admin_tabs.html" %}
+  <h1 class="page__title">{{ t(keys::WEB_ADMIN_NOTIFY_TAB) }}</h1>
+  <div class="page-outcome" id="page-outcome" aria-live="polite"></div>
+  {{ region }}
+</div>
+{%- endblock %}

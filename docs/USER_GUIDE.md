@@ -346,6 +346,7 @@ show secrets as `********` unless you hold RevealSecrets on that router. On the 
   `kcc user add` and `kcc apikey create` apply the same rule to the `[cli] role`).
 - **API keys**: create keys for MCP clients (shown once) and revoke them. The "Last
   used" column shows the last MCP tool call with the key, recorded at most once a minute.
+- **Notifications**: Telegram notifications (ManageNotifications), described below.
 - **Audit log**: search, filter and export the hash-chained audit log (ViewAudit). A role
   scoped to some routers sees only those routers' entries; entries that name no router
   (sign-ins, account changes) are shown only to a role scoped to all routers.
@@ -360,6 +361,32 @@ Changes made with the CLI (`kcc apikey revoke`, `kcc user disable`, `kcc user pa
 reach a running `kcc serve` within about 2 seconds: a revoked key is refused, and the
 account's signed-in sessions end when it is disabled or its password is reset; their open
 live views end within 5 seconds after that.
+
+### Administration > Notifications
+
+`/ui/admin/notifications` sets up the Telegram bot kcc sends notifications through.
+
+- **Status**: whether the notifier runs in this kcc process (without it, changes apply
+  at the next start), how many messages wait or were dropped, whether a bot token is set
+  and since when, and the Bot API address. The address comes from
+  `[notify.telegram] api_url` in `kcc.toml` and cannot be changed on the page. When
+  Telegram refuses the token, a banner says so and nothing is sent until a new token is
+  saved.
+- **Bot token**: paste the token BotFather gave you and save it. kcc seals it with its
+  master key and never shows it again; the page only says that a token is set. **Remove
+  token** asks first, then deletes it.
+- **Settings**: turn sending on or off, pick the message language (or the server's
+  default), choose whether messages name clients by name and MAC address instead of a
+  pseudonym (client IP addresses are never sent), and tick the events to send.
+- **Chats**: add a chat by its numeric id or public `@username`, with a label, an
+  optional forum topic id and a "send without sound" switch; up to 10 chats. A chat
+  Telegram refused shows why; remove it and add it again once the bot is back in it.
+- **Test message**: sends one message to the chosen chat and shows whether it was sent
+  or why not.
+
+Every change is audited (`web.notify_settings`, `web.notify_token`,
+`web.notify_chat_add`, `web.notify_chat_remove`, `web.notify_test`); the entries name a
+chat by its label and never carry the token or a chat id.
 
 ## Metrics
 

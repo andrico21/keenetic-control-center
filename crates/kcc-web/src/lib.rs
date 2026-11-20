@@ -18,6 +18,8 @@
 //! - [`WebState::with_admin`] attaches the administration services
 //!   ([`admin::AdminServices`]): users, roles, API keys, the audit log and the server
 //!   summary under `/ui/admin`.
+//! - [`WebState::with_notify`] attaches the running Telegram notifier
+//!   ([`admin_notify::NotifyControl`]) the notifications page reports on and tests.
 //! - [`WebState::with_jobs`] attaches the job runner that runs the command explorer's
 //!   background commands.
 // `dead_code_pub_in_binary` fires on the public API only in the lib unit-test
@@ -119,6 +121,7 @@ macro_rules! record_fields {
 }
 
 pub mod admin;
+pub mod admin_notify;
 pub mod brackets;
 pub mod csp;
 mod csrf;
@@ -225,6 +228,7 @@ use tower_http::{limit::RequestBodyLimitLayer, set_header::SetResponseHeaderLaye
 
 use crate::{
     admin::AdminServices,
+    admin_notify::NotifyControl,
     admin_shared::Admin,
     fleet::{Fleet, FleetServices},
     session::{CookieSecurity, SessionStore, account::StandingsError},
@@ -267,6 +271,8 @@ pub struct WebState {
     fleet: Option<Arc<Fleet>>,
     /// Administration services, when attached with [`WebState::with_admin`].
     admin: Option<Arc<Admin>>,
+    /// The running notifier, when attached with [`WebState::with_notify`].
+    notify: Option<Arc<dyn NotifyControl>>,
     /// Command explorer and console services.
     advanced: Arc<advanced::Services>,
     /// The routers' catalog facts, shared by every page that validates a request.
@@ -336,6 +342,7 @@ impl WebState {
             clock: config.clock,
             fleet: None,
             admin: None,
+            notify: None,
             advanced: Arc::new(advanced::Services::new(None)),
             facts: Arc::default(),
             log_feeds: LogFeeds::default(),
@@ -427,6 +434,22 @@ impl WebState {
     #[must_use]
     pub(crate) fn admin(&self) -> Option<&Admin> {
         self.admin.as_deref()
+    }
+
+    /// Attaches the running Telegram notifier: the notifications page shows its status,
+    /// sends test messages through it and asks it to reload after a change. Without it
+    /// the page still edits the settings and says they apply at the next start.
+    #[inline]
+    #[must_use]
+    pub fn with_notify(mut self, control: Arc<dyn NotifyControl>) -> Self {
+        self.notify = Some(control);
+        self
+    }
+
+    /// The running notifier, when attached.
+    #[must_use]
+    pub(crate) fn notify(&self) -> Option<&dyn NotifyControl> {
+        self.notify.as_deref()
     }
 
     /// The audit page's verified log.
@@ -626,7 +649,8 @@ pub fn web_router(state: WebState) -> Router {
         .with_state(state)
 }
 
-/// The administration routes under `/ui/admin`: users, roles, API keys, audit and server.
+/// The administration routes under `/ui/admin`: users, roles, API keys, notifications,
+/// audit and server.
 fn admin_routes() -> Router<WebState> {
     Router::new()
         .route("/ui/admin", get(admin_shared::landing))
@@ -667,6 +691,30 @@ fn admin_routes() -> Router<WebState> {
         .route(
             "/ui/admin/api-keys/revoke",
             get(admin_keys::revoke_dialog).post(admin_keys::revoke),
+        )
+        .route(
+            "/ui/admin/notifications",
+            get(admin_notify::page::page).post(admin_notify::settings::save),
+        )
+        .route(
+            "/ui/admin/notifications/token",
+            post(admin_notify::token::save_token),
+        )
+        .route(
+            "/ui/admin/notifications/token/clear",
+            get(admin_notify::token::clear_dialog).post(admin_notify::token::clear_token),
+        )
+        .route(
+            "/ui/admin/notifications/chats",
+            post(admin_notify::chats::add_chat),
+        )
+        .route(
+            "/ui/admin/notifications/chats/remove",
+            post(admin_notify::chats::remove_chat),
+        )
+        .route(
+            "/ui/admin/notifications/test",
+            post(admin_notify::test_send::send_test),
         )
         .route("/ui/admin/audit", get(admin_audit::page))
         .route("/ui/admin/audit/export", get(admin_audit::export))

@@ -6772,8 +6772,303 @@ pub const WEB_ADMIN_PERMISSION_MANAGE_NOTIFICATIONS: MessageKey =
 pub const WEB_ADMIN_PERMISSION_MANAGE_SCHEDULES: MessageKey =
     MessageKey::new("web-admin-permission-manage-schedules");
 
+/// `web-admin-notify-tab` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TAB: MessageKey = MessageKey::new("web-admin-notify-tab");
+
+/// `web-admin-notify-status` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_STATUS: MessageKey = MessageKey::new("web-admin-notify-status");
+
+/// `web-admin-notify-service` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_SERVICE: MessageKey = MessageKey::new("web-admin-notify-service");
+
+/// `web-admin-notify-running` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_RUNNING: MessageKey = MessageKey::new("web-admin-notify-running");
+
+/// `web-admin-notify-next-start` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_NEXT_START: MessageKey = MessageKey::new("web-admin-notify-next-start");
+
+/// `web-admin-notify-api-url` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_API_URL: MessageKey = MessageKey::new("web-admin-notify-api-url");
+
+/// `web-admin-notify-api-url-help` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_API_URL_HELP: MessageKey =
+    MessageKey::new("web-admin-notify-api-url-help");
+
+/// `web-admin-notify-token` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN: MessageKey = MessageKey::new("web-admin-notify-token");
+
+/// `web-admin-notify-token-none` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_NONE: MessageKey = MessageKey::new("web-admin-notify-token-none");
+
+/// `web-admin-notify-token-set` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_SET: MessageKey = MessageKey::new("web-admin-notify-token-set");
+
+/// `web-admin-notify-token-saved-at` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_SAVED_AT: MessageKey =
+    MessageKey::new("web-admin-notify-token-saved-at");
+
+/// `web-admin-notify-queued` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_QUEUED: MessageKey = MessageKey::new("web-admin-notify-queued");
+
+/// `web-admin-notify-dropped` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_DROPPED: MessageKey = MessageKey::new("web-admin-notify-dropped");
+
+/// `web-admin-notify-token-rejected` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_REJECTED: MessageKey =
+    MessageKey::new("web-admin-notify-token-rejected");
+
+/// `web-admin-notify-token-new` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_NEW: MessageKey = MessageKey::new("web-admin-notify-token-new");
+
+/// `web-admin-notify-token-help` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_HELP: MessageKey = MessageKey::new("web-admin-notify-token-help");
+
+/// `web-admin-notify-token-save` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_SAVE: MessageKey = MessageKey::new("web-admin-notify-token-save");
+
+/// `web-admin-notify-token-saved` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_SAVED: MessageKey =
+    MessageKey::new("web-admin-notify-token-saved");
+
+/// `web-admin-notify-token-clear` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_CLEAR: MessageKey =
+    MessageKey::new("web-admin-notify-token-clear");
+
+/// `web-admin-notify-token-clear-title` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_CLEAR_TITLE: MessageKey =
+    MessageKey::new("web-admin-notify-token-clear-title");
+
+/// `web-admin-notify-token-clear-text` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_CLEAR_TEXT: MessageKey =
+    MessageKey::new("web-admin-notify-token-clear-text");
+
+/// `web-admin-notify-token-cleared` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TOKEN_CLEARED: MessageKey =
+    MessageKey::new("web-admin-notify-token-cleared");
+
+/// `web-admin-notify-error-token-empty` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_ERROR_TOKEN_EMPTY: MessageKey =
+    MessageKey::new("web-admin-notify-error-token-empty");
+
+/// `web-admin-notify-error-token` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_ERROR_TOKEN: MessageKey =
+    MessageKey::new("web-admin-notify-error-token");
+
+/// `web-admin-notify-settings` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_SETTINGS: MessageKey = MessageKey::new("web-admin-notify-settings");
+
+/// `web-admin-notify-enabled` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_ENABLED: MessageKey = MessageKey::new("web-admin-notify-enabled");
+
+/// `web-admin-notify-locale` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_LOCALE: MessageKey = MessageKey::new("web-admin-notify-locale");
+
+/// `web-admin-notify-locale-default` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_LOCALE_DEFAULT: MessageKey =
+    MessageKey::new("web-admin-notify-locale-default");
+
+/// `web-admin-notify-details` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_DETAILS: MessageKey = MessageKey::new("web-admin-notify-details");
+
+/// `web-admin-notify-details-help` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_DETAILS_HELP: MessageKey =
+    MessageKey::new("web-admin-notify-details-help");
+
+/// `web-admin-notify-events` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_EVENTS: MessageKey = MessageKey::new("web-admin-notify-events");
+
+/// `web-admin-notify-event-router-down-up` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_EVENT_ROUTER_DOWN_UP: MessageKey =
+    MessageKey::new("web-admin-notify-event-router-down-up");
+
+/// `web-admin-notify-event-router-login` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_EVENT_ROUTER_LOGIN: MessageKey =
+    MessageKey::new("web-admin-notify-event-router-login");
+
+/// `web-admin-notify-event-change-failed` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_EVENT_CHANGE_FAILED: MessageKey =
+    MessageKey::new("web-admin-notify-event-change-failed");
+
+/// `web-admin-notify-event-scheduled-problem` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_EVENT_SCHEDULED_PROBLEM: MessageKey =
+    MessageKey::new("web-admin-notify-event-scheduled-problem");
+
+/// `web-admin-notify-event-scheduled-success` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_EVENT_SCHEDULED_SUCCESS: MessageKey =
+    MessageKey::new("web-admin-notify-event-scheduled-success");
+
+/// `web-admin-notify-event-account-locked` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_EVENT_ACCOUNT_LOCKED: MessageKey =
+    MessageKey::new("web-admin-notify-event-account-locked");
+
+/// `web-admin-notify-event-audit-problem` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_EVENT_AUDIT_PROBLEM: MessageKey =
+    MessageKey::new("web-admin-notify-event-audit-problem");
+
+/// `web-admin-notify-event-firmware-update` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_EVENT_FIRMWARE_UPDATE: MessageKey =
+    MessageKey::new("web-admin-notify-event-firmware-update");
+
+/// `web-admin-notify-event-job-failed` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_EVENT_JOB_FAILED: MessageKey =
+    MessageKey::new("web-admin-notify-event-job-failed");
+
+/// `web-admin-notify-event-new-device` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_EVENT_NEW_DEVICE: MessageKey =
+    MessageKey::new("web-admin-notify-event-new-device");
+
+/// `web-admin-notify-settings-saved` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_SETTINGS_SAVED: MessageKey =
+    MessageKey::new("web-admin-notify-settings-saved");
+
+/// `web-admin-notify-error-locale` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_ERROR_LOCALE: MessageKey =
+    MessageKey::new("web-admin-notify-error-locale");
+
+/// `web-admin-notify-error-event` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_ERROR_EVENT: MessageKey =
+    MessageKey::new("web-admin-notify-error-event");
+
+/// `web-admin-notify-chats` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHATS: MessageKey = MessageKey::new("web-admin-notify-chats");
+
+/// `web-admin-notify-chats-empty` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHATS_EMPTY: MessageKey =
+    MessageKey::new("web-admin-notify-chats-empty");
+
+/// `web-admin-notify-chat-label` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_LABEL: MessageKey = MessageKey::new("web-admin-notify-chat-label");
+
+/// `web-admin-notify-chat-id` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_ID: MessageKey = MessageKey::new("web-admin-notify-chat-id");
+
+/// `web-admin-notify-chat-thread` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_THREAD: MessageKey =
+    MessageKey::new("web-admin-notify-chat-thread");
+
+/// `web-admin-notify-chat-silent` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_SILENT: MessageKey =
+    MessageKey::new("web-admin-notify-chat-silent");
+
+/// `web-admin-notify-chat-state` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_STATE: MessageKey = MessageKey::new("web-admin-notify-chat-state");
+
+/// `web-admin-notify-chat-active` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_ACTIVE: MessageKey =
+    MessageKey::new("web-admin-notify-chat-active");
+
+/// `web-admin-notify-chat-disabled` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_DISABLED: MessageKey =
+    MessageKey::new("web-admin-notify-chat-disabled");
+
+/// `web-admin-notify-chat-forbidden` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_FORBIDDEN: MessageKey =
+    MessageKey::new("web-admin-notify-chat-forbidden");
+
+/// `web-admin-notify-chat-not-found` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_NOT_FOUND: MessageKey =
+    MessageKey::new("web-admin-notify-chat-not-found");
+
+/// `web-admin-notify-chat-remove` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_REMOVE: MessageKey =
+    MessageKey::new("web-admin-notify-chat-remove");
+
+/// `web-admin-notify-chat-add` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_ADD: MessageKey = MessageKey::new("web-admin-notify-chat-add");
+
+/// `web-admin-notify-chat-id-help` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_ID_HELP: MessageKey =
+    MessageKey::new("web-admin-notify-chat-id-help");
+
+/// `web-admin-notify-chat-label-help` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_LABEL_HELP: MessageKey =
+    MessageKey::new("web-admin-notify-chat-label-help");
+
+/// `web-admin-notify-chat-thread-help` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_THREAD_HELP: MessageKey =
+    MessageKey::new("web-admin-notify-chat-thread-help");
+
+/// `web-admin-notify-chat-silent-option` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_SILENT_OPTION: MessageKey =
+    MessageKey::new("web-admin-notify-chat-silent-option");
+
+/// `web-admin-notify-chat-added` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_ADDED: MessageKey = MessageKey::new("web-admin-notify-chat-added");
+
+/// `web-admin-notify-chat-removed` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_CHAT_REMOVED: MessageKey =
+    MessageKey::new("web-admin-notify-chat-removed");
+
+/// `web-admin-notify-error-chat-id` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_ERROR_CHAT_ID: MessageKey =
+    MessageKey::new("web-admin-notify-error-chat-id");
+
+/// `web-admin-notify-error-chat-label` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_ERROR_CHAT_LABEL: MessageKey =
+    MessageKey::new("web-admin-notify-error-chat-label");
+
+/// `web-admin-notify-error-chat-thread` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_ERROR_CHAT_THREAD: MessageKey =
+    MessageKey::new("web-admin-notify-error-chat-thread");
+
+/// `web-admin-notify-error-chat-exists` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_ERROR_CHAT_EXISTS: MessageKey =
+    MessageKey::new("web-admin-notify-error-chat-exists");
+
+/// `web-admin-notify-error-chats-full` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_ERROR_CHATS_FULL: MessageKey =
+    MessageKey::new("web-admin-notify-error-chats-full");
+
+/// `web-admin-notify-test` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST: MessageKey = MessageKey::new("web-admin-notify-test");
+
+/// `web-admin-notify-test-chat` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST_CHAT: MessageKey = MessageKey::new("web-admin-notify-test-chat");
+
+/// `web-admin-notify-test-send` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST_SEND: MessageKey = MessageKey::new("web-admin-notify-test-send");
+
+/// `web-admin-notify-test-sent` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST_SENT: MessageKey = MessageKey::new("web-admin-notify-test-sent");
+
+/// `web-admin-notify-test-no-chats` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST_NO_CHATS: MessageKey =
+    MessageKey::new("web-admin-notify-test-no-chats");
+
+/// `web-admin-notify-test-not-running` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST_NOT_RUNNING: MessageKey =
+    MessageKey::new("web-admin-notify-test-not-running");
+
+/// `web-admin-notify-test-no-token` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST_NO_TOKEN: MessageKey =
+    MessageKey::new("web-admin-notify-test-no-token");
+
+/// `web-admin-notify-test-token-rejected` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST_TOKEN_REJECTED: MessageKey =
+    MessageKey::new("web-admin-notify-test-token-rejected");
+
+/// `web-admin-notify-test-chat-refused` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST_CHAT_REFUSED: MessageKey =
+    MessageKey::new("web-admin-notify-test-chat-refused");
+
+/// `web-admin-notify-test-rate-limited` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST_RATE_LIMITED: MessageKey =
+    MessageKey::new("web-admin-notify-test-rate-limited");
+
+/// `web-admin-notify-test-unreachable` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST_UNREACHABLE: MessageKey =
+    MessageKey::new("web-admin-notify-test-unreachable");
+
+/// `web-admin-notify-test-rejected` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_TEST_REJECTED: MessageKey =
+    MessageKey::new("web-admin-notify-test-rejected");
+
+/// `web-admin-notify-error-test-chat` in `web.ftl`.
+pub const WEB_ADMIN_NOTIFY_ERROR_TEST_CHAT: MessageKey =
+    MessageKey::new("web-admin-notify-error-test-chat");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2155] = [
+pub static ALL: [MessageKey; 2236] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8929,4 +9224,85 @@ pub static ALL: [MessageKey; 2155] = [
     WEB_ADMIN_ERROR_PERMISSION_UNKNOWN,
     WEB_ADMIN_PERMISSION_MANAGE_NOTIFICATIONS,
     WEB_ADMIN_PERMISSION_MANAGE_SCHEDULES,
+    WEB_ADMIN_NOTIFY_TAB,
+    WEB_ADMIN_NOTIFY_STATUS,
+    WEB_ADMIN_NOTIFY_SERVICE,
+    WEB_ADMIN_NOTIFY_RUNNING,
+    WEB_ADMIN_NOTIFY_NEXT_START,
+    WEB_ADMIN_NOTIFY_API_URL,
+    WEB_ADMIN_NOTIFY_API_URL_HELP,
+    WEB_ADMIN_NOTIFY_TOKEN,
+    WEB_ADMIN_NOTIFY_TOKEN_NONE,
+    WEB_ADMIN_NOTIFY_TOKEN_SET,
+    WEB_ADMIN_NOTIFY_TOKEN_SAVED_AT,
+    WEB_ADMIN_NOTIFY_QUEUED,
+    WEB_ADMIN_NOTIFY_DROPPED,
+    WEB_ADMIN_NOTIFY_TOKEN_REJECTED,
+    WEB_ADMIN_NOTIFY_TOKEN_NEW,
+    WEB_ADMIN_NOTIFY_TOKEN_HELP,
+    WEB_ADMIN_NOTIFY_TOKEN_SAVE,
+    WEB_ADMIN_NOTIFY_TOKEN_SAVED,
+    WEB_ADMIN_NOTIFY_TOKEN_CLEAR,
+    WEB_ADMIN_NOTIFY_TOKEN_CLEAR_TITLE,
+    WEB_ADMIN_NOTIFY_TOKEN_CLEAR_TEXT,
+    WEB_ADMIN_NOTIFY_TOKEN_CLEARED,
+    WEB_ADMIN_NOTIFY_ERROR_TOKEN_EMPTY,
+    WEB_ADMIN_NOTIFY_ERROR_TOKEN,
+    WEB_ADMIN_NOTIFY_SETTINGS,
+    WEB_ADMIN_NOTIFY_ENABLED,
+    WEB_ADMIN_NOTIFY_LOCALE,
+    WEB_ADMIN_NOTIFY_LOCALE_DEFAULT,
+    WEB_ADMIN_NOTIFY_DETAILS,
+    WEB_ADMIN_NOTIFY_DETAILS_HELP,
+    WEB_ADMIN_NOTIFY_EVENTS,
+    WEB_ADMIN_NOTIFY_EVENT_ROUTER_DOWN_UP,
+    WEB_ADMIN_NOTIFY_EVENT_ROUTER_LOGIN,
+    WEB_ADMIN_NOTIFY_EVENT_CHANGE_FAILED,
+    WEB_ADMIN_NOTIFY_EVENT_SCHEDULED_PROBLEM,
+    WEB_ADMIN_NOTIFY_EVENT_SCHEDULED_SUCCESS,
+    WEB_ADMIN_NOTIFY_EVENT_ACCOUNT_LOCKED,
+    WEB_ADMIN_NOTIFY_EVENT_AUDIT_PROBLEM,
+    WEB_ADMIN_NOTIFY_EVENT_FIRMWARE_UPDATE,
+    WEB_ADMIN_NOTIFY_EVENT_JOB_FAILED,
+    WEB_ADMIN_NOTIFY_EVENT_NEW_DEVICE,
+    WEB_ADMIN_NOTIFY_SETTINGS_SAVED,
+    WEB_ADMIN_NOTIFY_ERROR_LOCALE,
+    WEB_ADMIN_NOTIFY_ERROR_EVENT,
+    WEB_ADMIN_NOTIFY_CHATS,
+    WEB_ADMIN_NOTIFY_CHATS_EMPTY,
+    WEB_ADMIN_NOTIFY_CHAT_LABEL,
+    WEB_ADMIN_NOTIFY_CHAT_ID,
+    WEB_ADMIN_NOTIFY_CHAT_THREAD,
+    WEB_ADMIN_NOTIFY_CHAT_SILENT,
+    WEB_ADMIN_NOTIFY_CHAT_STATE,
+    WEB_ADMIN_NOTIFY_CHAT_ACTIVE,
+    WEB_ADMIN_NOTIFY_CHAT_DISABLED,
+    WEB_ADMIN_NOTIFY_CHAT_FORBIDDEN,
+    WEB_ADMIN_NOTIFY_CHAT_NOT_FOUND,
+    WEB_ADMIN_NOTIFY_CHAT_REMOVE,
+    WEB_ADMIN_NOTIFY_CHAT_ADD,
+    WEB_ADMIN_NOTIFY_CHAT_ID_HELP,
+    WEB_ADMIN_NOTIFY_CHAT_LABEL_HELP,
+    WEB_ADMIN_NOTIFY_CHAT_THREAD_HELP,
+    WEB_ADMIN_NOTIFY_CHAT_SILENT_OPTION,
+    WEB_ADMIN_NOTIFY_CHAT_ADDED,
+    WEB_ADMIN_NOTIFY_CHAT_REMOVED,
+    WEB_ADMIN_NOTIFY_ERROR_CHAT_ID,
+    WEB_ADMIN_NOTIFY_ERROR_CHAT_LABEL,
+    WEB_ADMIN_NOTIFY_ERROR_CHAT_THREAD,
+    WEB_ADMIN_NOTIFY_ERROR_CHAT_EXISTS,
+    WEB_ADMIN_NOTIFY_ERROR_CHATS_FULL,
+    WEB_ADMIN_NOTIFY_TEST,
+    WEB_ADMIN_NOTIFY_TEST_CHAT,
+    WEB_ADMIN_NOTIFY_TEST_SEND,
+    WEB_ADMIN_NOTIFY_TEST_SENT,
+    WEB_ADMIN_NOTIFY_TEST_NO_CHATS,
+    WEB_ADMIN_NOTIFY_TEST_NOT_RUNNING,
+    WEB_ADMIN_NOTIFY_TEST_NO_TOKEN,
+    WEB_ADMIN_NOTIFY_TEST_TOKEN_REJECTED,
+    WEB_ADMIN_NOTIFY_TEST_CHAT_REFUSED,
+    WEB_ADMIN_NOTIFY_TEST_RATE_LIMITED,
+    WEB_ADMIN_NOTIFY_TEST_UNREACHABLE,
+    WEB_ADMIN_NOTIFY_TEST_REJECTED,
+    WEB_ADMIN_NOTIFY_ERROR_TEST_CHAT,
 ];
