@@ -32,7 +32,7 @@ pub struct NotifyConfig {
 #[non_exhaustive]
 pub struct TelegramConfig {
     /// Bot API base URL. An absent key takes [`DEFAULT_TELEGRAM_API_URL`]; the value is
-    /// `None` only if that constant failed to parse, which [`NotifyConfig::validate`]
+    /// `None` only if that constant failed to parse, which `NotifyConfig::validate`
     /// refuses.
     pub api_url: Option<Url>,
     /// PEM CA certificate file trusted for the Bot API, beside the system roots.

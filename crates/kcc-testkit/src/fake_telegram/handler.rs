@@ -62,6 +62,19 @@ fn fault_reply(fault: Fault) -> Option<Response> {
     }
 }
 
+/// Answers an unknown path with 404 after draining the request body, so that closing the
+/// connection with unread bytes never resets a client that is still writing.
+// cancel-safe: holds no state; cancelling only abandons the drain.
+pub(super) async fn not_found(_drained: Bytes) -> StatusCode {
+    StatusCode::NOT_FOUND
+}
+
+/// Answers a wrong method on a known path with 405 after draining the request body.
+// cancel-safe: holds no state; cancelling only abandons the drain.
+pub(super) async fn not_allowed(_drained: Bytes) -> StatusCode {
+    StatusCode::METHOD_NOT_ALLOWED
+}
+
 /// Handles `sendMessage`: records the request, then applies the token check, the next
 /// matching fault and the content rules.
 // NOT cancel-safe: cancellation during a configured delay consumes that fault.

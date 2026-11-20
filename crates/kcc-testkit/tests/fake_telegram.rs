@@ -40,11 +40,23 @@ mod tests {
     /// Posts `body` to `path` on the fake at `url` over a fresh connection.
     // NOT cancel-safe: a dropped request leaves a half-written connection.
     async fn post(url: &str, path: &str, body: &Value) -> TestResult<Reply> {
+        exchange("POST", url, path, body).await
+    }
+
+    /// Puts `body` to `path` on the fake at `url` over a fresh connection.
+    // NOT cancel-safe: see `post`.
+    async fn put(url: &str, path: &str, body: &Value) -> TestResult<Reply> {
+        exchange("PUT", url, path, body).await
+    }
+
+    /// Sends one `method` request with a JSON `body` and reads the whole reply.
+    // NOT cancel-safe: a dropped request leaves a half-written connection.
+    async fn exchange(method: &str, url: &str, path: &str, body: &Value) -> TestResult<Reply> {
         let host = url.strip_prefix("http://").ok_or("not an http url")?;
         let payload = serde_json::to_vec(body)?;
         let mut stream = TcpStream::connect(host).await?;
         let request_head = format!(
-            "POST {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\n\
+            "{method} {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\n\
              Content-Length: {}\r\nConnection: close\r\n\r\n",
             payload.len()
         );
@@ -122,6 +134,32 @@ mod tests {
         assert_eq!(reply.body.get("error_code"), Some(&json!(401_u16)));
         let missing = post(&fake.url(), "/bot1/other", &json!({})).await?;
         assert_eq!(missing.status, 404);
+        fake.shutdown().await?;
+        Ok(())
+    }
+
+    /// ci fix: refused requests are drained before the 404/405.
+    ///
+    /// Closing the connection with unread request bytes resets a client that is still
+    /// writing a body larger than the socket buffers.
+    // NOT cancel-safe: owns a fake Telegram task.
+    #[tokio::test]
+    async fn refused_requests_with_a_large_body_still_get_a_complete_reply() -> TestResult {
+        let fake = FakeTelegram::spawn().await?;
+        let padding = "x".repeat(1024 * 1024);
+        let body = json!({ "pad": padding });
+        let missing = timeout(
+            Duration::from_secs(30),
+            post(&fake.url(), "/bot1/other", &body),
+        )
+        .await??;
+        assert_eq!(missing.status, 404);
+        let wrong_method = timeout(
+            Duration::from_secs(30),
+            put(&fake.url(), "/bot1/sendMessage", &body),
+        )
+        .await??;
+        assert_eq!(wrong_method.status, 405);
         fake.shutdown().await?;
         Ok(())
     }

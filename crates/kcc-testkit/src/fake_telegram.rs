@@ -18,7 +18,7 @@ use tokio::{
     time::Instant,
 };
 
-use self::handler::send_message;
+use self::handler::{not_allowed, not_found, send_message};
 
 mod handler;
 
@@ -181,6 +181,8 @@ impl FakeTelegram {
         });
         let app = Router::new()
             .route("/{bot}/sendMessage", post(send_message))
+            .fallback(not_found)
+            .method_not_allowed_fallback(not_allowed)
             .with_state(Arc::clone(&shared));
         let (stop, stopped) = oneshot::channel::<()>();
         let task = tokio::spawn(async move {
