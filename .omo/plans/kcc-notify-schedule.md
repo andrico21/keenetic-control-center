@@ -374,7 +374,7 @@ Every wave holds fewer todos than the template's 5-8 target (W1 has 4, W3 has 3,
   Commit: Y | feat(cli): kcc notify for headless Telegram setup
   Recommended task executor category: unspecified-low - CLI subcommands following existing patterns
 
-- [ ] 13. Scheduler core with the policy-switch, backup and reboot actions
+- [x] 13. Scheduler core with the policy-switch, backup and reboot actions
   What to do / Must NOT do:
   - `crates/kcc/src/server_schedules.rs` + `server_schedules/` (crate-private), started by `run_serve` after the notifier:
     - **Loop:** keeps the active schedules (reloaded through a `Follower` for `schedules.json`, todo 9); for each, the next slot = `when.next_slot_unix(max(last_fired_slot, updated_at))`; sleeps until the earliest slot or at most 30 s (`Timings::tick_max`), then re-reads the injected wall clock (`Arc<dyn kcc_app::accounts::Clock>`). A slot whose time has come is queued when `now - slot <= 120 s`; otherwise it and every later missed slot up to `now` are skipped in one ledger step (`last_fired_slot` = the last missed) with one `scheduled_problem` line naming the count. `RunLedger::begin` refusing a slot (at or before `last_fired_slot`) drops it silently: this is what makes a wall clock stepping back harmless.
@@ -466,7 +466,7 @@ Every wave holds fewer todos than the template's 5-8 target (W1 has 4, W3 has 3,
   Commit: Y | build(e2e,seccomp): Telegram and scheduled-run legs in e2e and a re-traced profile
   Recommended task executor category: deep-low - shell e2e and the trace procedure
 
-- [ ] 18. Owner-run live Telegram suite
+- [x] 18. Owner-run live Telegram suite
   What to do / Must NOT do:
   - `crates/kcc/tests/live_telegram.rs` (pattern `live_smoke.rs` and `crates/kcc/tests/support/live_gate.rs`): one `#[ignore]` test sending one message to the real Bot API (default `api_url`) through `kcc notify test`, gated by `KCC_LIVE_TELEGRAM_TOKEN_FILE` and `KCC_LIVE_TELEGRAM_CHAT` (no router involved, so no serial or profile gate); a missing variable logs `live-skip:<reason>` through `tracing` and returns `Ok(())`. It proves the public-CA TLS path and the real 4096 limit (a second message of 4096 UTF-16 units of mixed BMP and astral text must be accepted).
   - Add both variables to AGENTS.md "Live env contract" with one line each, and state there that this suite contacts no router, so it is exempt from `KCC_LIVE_TARGET_CONFIG` and `KCC_LIVE_ALLOW_SERIAL` (every other live suite keeps both).

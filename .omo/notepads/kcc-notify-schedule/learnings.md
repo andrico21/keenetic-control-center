@@ -134,3 +134,12 @@ A test fake that answers (404/405) without reading the request body can reset th
 - tokio watch::Sender::send_replace(()) on a `watch::Sender<()>` is a clean "reload requested" signal whose loop ends when the sender drops (no infinite_loop lint, unlike Notify in a bare loop).
 - clippy too_long_first_doc_paragraph: the first doc paragraph must be one short sentence; split with a blank `//!`/`///` line.
 - Adding a ServerError variant breaks crates/kcc/src/cli/exit_from.rs (exhaustive match) - use ServerError::Config(ConfigError::Invalid{..}) for config-shaped startup failures.
+
+## Todo 18 (live Telegram suite)
+- live_telegram.rs: the live flow takes its variable lookup as a closure, so the hermetic skip test runs the same body with an empty lookup and captures the tracing output through a local MakeWriter (set_default guard, current-thread test). Clippy here denies integer division, std-instead-of-alloc, absolute paths, unused async and missing assert messages in tests too. Sent is Copy: bind it as `let _sent: Sent` (unused-results is denied).
+
+## [2026-11-20] Todo 13 progress (n13)
+- Paused-clock loop tests: a wall clock = base + tokio `Instant::elapsed` + steps moves with auto-advance; spawn_blocking reads of state files inside the loop are fine under `start_paused`. A "never fires" RED stub must not make the loop sleep 0 s (it spins forever and virtual time never advances): shift `after`, not `now`.
+- The kit logs "listening" BEFORE run_server installs its SIGTERM handler: a test that SIGTERMs right after "listening" can kill the process with the default action (exit by signal 15). Answer one `/healthz` first.
+- Fake router: a policy on a fixture-registered client (`ip/hotspot` fixture) does not read back (projection applies `ip hotspot host` lines only to `known host` entries of the config): register the client through the workflow first.
+- clippy in tests: `field_scoped_visibility_modifiers` also bites `pub(crate)` fields of test rigs (use accessors); `AtomicUsize::fetch_update` is deprecated (use `try_update`); a `watch::Ref` from `wait_for` must be dropped explicitly (unused_results).
