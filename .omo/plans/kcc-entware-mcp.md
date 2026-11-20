@@ -252,7 +252,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
 ## Todos
 > Implementation + Test = ONE todo. Never separate.
 <!-- APPEND TASK BATCHES BELOW THIS LINE WITH edit/apply_patch - never rewrite the headers above. -->
-- [ ] 1. Policy groundwork: overlay clauses for SSH to Entware, crate maps, backlog of unverified facts
+- [x] 1. Policy groundwork: overlay clauses for SSH to Entware, crate maps, backlog of unverified facts
   What to do / Must NOT do:
   - In `docs/rust-guidelines/overlays/projects/keenetic-control-center.md` (the project overlay; editable) add after rule (a) the clause **(a')**: "SSH to Entware connects only to an address the router profile's host resolves to and that the outbound policy admits for that host, on that router's configured SSH port. When the host is admitted only through `allowed_suffixes`, the address must also be inside `allowed_networks`. Host-key pinning is mandatory; no agent, jump host, port forwarding or SFTP." After rule (b) add **(b')**: "Every SSH command is one variant of a closed, typed Entware command set in `kcc-ssh`; arguments are validated by token grammars and by router listings from the same session; no command text comes from input." Note both with the date 2026-11-19 and the reason "owner decision D-SCOPE (Option 2)". Add `kcc-ssh` to the overlay's crate list ("The project" -> "Workspace", lines 12-15).
   - In `AGENTS.md` "Crate map" add `kcc-ssh`: "SSH transport to Entware: policy-admitted pinned TCP, pinned host key, closed typed command set".
