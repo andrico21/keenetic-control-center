@@ -193,3 +193,9 @@ A test fake that answers (404/405) without reading the request body can reset th
 - crates.io created_at (for exact cooldown ends): zeroize 1.9.2 2026-11-17T14:47Z, rmcp 3.11.0 15:33Z, bytes 1.12.2 20:59Z, jiff 1.0.1 2026-11-18T00:50Z, regex-* 02:53Z, smallvec 08:10Z, pin-project-lite 0.2.18 2026-11-19T16:48Z, clap 4.6.9 2026-11-20T01:41Z. A dry run after 2026-11-20T21:00Z will show updates again (not a finding per the convergence rule).
 - uuid 1.29.3 removes its optional `atomic` dependency (v1/v6 features) and gives ParseOther a message; nothing new pulled in, no build scripts.
 - cleanup: /home/andrico/kcc-target-n19 and /home/andrico/n19-* removed at 10:27:29Z
+
+## [2026-11-20] Todo 21 (n21)
+- An event to await for "the lease is free again": the scheduled run (or `JobRunner::ended`) returns only after the hold dropped the change set, so tests await the run/job end, never a reserve retry loop. `HandClock::waiting_longer(1 min)` sees the hold's `safety_seconds + 1` wait; advancing by `left - 1s` then `1s` proves "not one second early" deterministically.
+- `tokio::select!` between `clock.waiting_longer(..)` and the run's `JoinHandle` gives a fast, telling RED ("the run ended with the lease free") instead of a 60 s timeout.
+- clippy here denies `result_large_err` (an `Err` holding a `ChangeSet` is ~580 bytes: box it), `field_scoped_visibility_modifiers` (`pub(super)` fields: use a `const fn` getter), `redundant_imports` (`alloc::boxed::Box`), `shadow_reuse` in closure params, `future_not_send` for `f(x.await?).await` in tests (split the statement), and `too_long_first_doc_paragraph`.
+- `preflight::prepare` sits at ~96 of the 100 allowed lines; any growth needs an extraction (the firmware-tier match moved to `support_tier`).
