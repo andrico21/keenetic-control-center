@@ -119,3 +119,18 @@ A test fake that answers (404/405) without reading the request body can reset th
   the token accepted) to make it RED first.
 - `Setup { wiring: Wiring::Fleet, ..Setup::default() }` then `.roles.extend`/`.accounts.extend` builds a fleet
   without routers whose `WebState` can be cloned and given `with_admin`/`with_notify` before `web_router`.
+
+## [2026-11-20] Todo 12 progress (n12)
+- A separate kcc test binary that reuses `tests/cli/support.rs` needs `#[expect(dead_code)]` on that `mod` when it uses no
+  fake router (`support::router` stays unused). Test modules split into `tests/cli_notify/*.rs` see the root's private
+  helpers through `use crate::{..}`.
+- Clippy in kcc tests: `absolute_paths` (import `core::error::Error`, `std::process`), `integer_division_remainder_used`
+  refuses `%` (build run-time tokens with `iter().cycle().skip(..).step_by(..)`), `similar_names` (`set`/`sent`),
+  `redundant_test_prefix` (a test fn named `test_*`).
+- Manual QA of `kcc notify test` MUST point `[notify.telegram] api_url` at a fake: the default is the real Bot API.
+
+## [2026-11-20] Todo 10 progress (n10)
+- Deterministic barrier for "the notifier handled audit entry X": append a later entry that produces a message (one audit task, in order) and await that message at the FakeTelegram.
+- tokio watch::Sender::send_replace(()) on a `watch::Sender<()>` is a clean "reload requested" signal whose loop ends when the sender drops (no infinite_loop lint, unlike Notify in a bare loop).
+- clippy too_long_first_doc_paragraph: the first doc paragraph must be one short sentence; split with a blank `//!`/`///` line.
+- Adding a ServerError variant breaks crates/kcc/src/cli/exit_from.rs (exhaustive match) - use ServerError::Config(ConfigError::Invalid{..}) for config-shaped startup failures.

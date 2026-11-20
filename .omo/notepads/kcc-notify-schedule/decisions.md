@@ -73,3 +73,31 @@
 - Todo 8: `kcc_telemetry::notify::{bot::{TelegramClient, Outgoing, Sent}, delivery::{Outbox, OutboxHandle, OutboxConfig, OutboxStatus, Timings, Line, ChatFilter}, dns::PolicyResolver, failure::SendError, text::fit}`. `TelegramClient::new(&Url, Option<&Path>)`, `Outgoing::new(&Chat, &str)`, `Outbox::spawn(client, OutboxConfig::new(summary_closure), StateStore, Option<Arc<SelfMetrics>>, Timings) -> OutboxHandle`; handle: `push(Line::new(text, Instant))`, `configure(Option<SecretString>, Vec<Chat>, bool)`, `send_now(Chat, String).await`, `status()`, `watch_status()`, `flush(Duration).await -> bool`, `shutdown().await`.
 - Todo 11: `kcc_web::admin_notify::NotifyControl` (+ `NotifyStatus`, `NotifyTestError`), `WebState::with_notify(Arc<dyn NotifyControl>)`; the page reads `AdminServices` facts (`telegram_api`). The binary must wire it in todo 10 (`crates/kcc/src/server_web.rs`).
 - CI lesson: Rustdoc `-D warnings` rejects a pub doc linking a private item; test fakes must drain request bodies before 404/405 (macOS resets otherwise).
+
+## [2026-11-20] Todo 12 (n12): kcc notify
+- `kcc notify test` calls `TelegramClient::new(api_url, ca_file)` + `send(token, Outgoing::new(chat, text))` directly
+  (no Outbox): one message needs no merging or pacing, and `Outgoing::new` already applies `fit`. Like the outbox's
+  `send_now`, it makes no request when no token is sealed, `token_rejected_at` is set, or the chat is in `disabled_chats`;
+  a 401 sets `token_rejected_at`, a 403/"chat not found" disables the chat in `notify_state.json` (as the outbox records).
+  It does not require `enabled` (the outbox's test message does not either). Without `--chat` the first listed chat.
+- Failure classes reuse `kcc_web::admin_notify::NotifyTestError::code()` (no_token, token_rejected, chat_refused,
+  rate_limited, unreachable, rejected), so CLI and Web audit `failure` values match. SendError::{Transient, AddressRefused,
+  CaFile, Certificate, Client, Stopped} -> unreachable; NotConfigured -> no_token. Exit 6 (`Exit::Router`) under the
+  headline `cli-notify-test-not-sent` (`Failure::headlined` made pub(crate) for that).
+- Audit: built in `cli/notify.rs` with `AuditEvent::with_target("telegram")` (Web parity) and appended through
+  `Ctx::append` (made pub(crate)); `Ctx::config()` added for `[notify.telegram]` and `[web] default_locale`.
+- Token source: `--file`, else the global `--password-file`, else `KCC_PASSWORD`, else a hidden prompt (`read_secret`).
+- Every edit command prints a confirmation line, or with `--json` the same document as `show` (token only as
+  `{set, set_at, rejected_at}`). Chat ids take `allow_hyphen_values` so `-100...` parses as a value.
+
+## [2026-11-20] Todo 10 (n10): notifier service in kcc serve - actual API (todo 13 uses THIS)
+- `crate::server_notify::{NotifyHandle, Deps, Options, FILES}`. `NotifyHandle::start(Deps::from_services(&services), Options::from_config(&config)?).await -> Result<NotifyHandle, ServerError>` (Clone). For the scheduler: `report<F: FnOnce(Locale) -> String>(&self, event: NotifyEvent, render: F)` (renders only when the event is selected and notifications are ready; the plan's `report(line)` needs the locale and the event filter, so it takes a renderer), `mute(&self, router: &str, until_unix_secs: u64)`, `scheduled_jobs() -> ScheduledJobs` (`register(id: String)`; a registered job's Failed event is dropped when the 30 s merge window after it ends). These three carry `#[expect(dead_code)]` (and `ScheduledJobs::register`): todo 13 must DELETE those attributes when it calls them. `writer_stopped()`, `follower()`, `stop().await` (flush 2 s + outbox shutdown + task abort) are wired in server.rs (`wind_down`).
+- `status()`/`send_test()`/`reload()` exist only as the `kcc_web::admin_notify::NotifyControl` impl (clippy same_name_method forbids inherent twins). `status()` carries no disabled-chat reasons (the outbox status has ids only): the page falls back to notify_state.json, which the outbox writes when it disables a chat. `send_test` re-reads notify.json + token first (so a token/chat saved a moment ago is used), then `OutboxHandle::send_now`.
+- "Ready" = enabled && token set && >= 1 chat; nothing is rendered, tracked for firmware, or polled while not ready (a firmware version seen before the token was set is announced once the token arrives, not lost).
+- ServerError gets NO new variant (cli/exit_from.rs matches it exhaustively and is todo 12's file): a bad `[schedules] default_timezone` or an unbuildable Bot API client (CA file) is `ServerError::Config(ConfigError::Invalid { field, reason })` and stops `kcc serve` at start.
+- Muted down: tracked, not announced; when the mute ends while the router is still down, the next failed poll announces Down; an Up is announced only if its Down was.
+
+## [2026-11-20] orchestrator: APIs landed in W4 (todos 13+ use these)
+- Todo 10: `crates/kcc/src/server_notify.rs` (+ `server_notify/{arrivals,audits,control,current,failed_jobs,handle,health,memory,render,routers}.rs`): `NotifyHandle::start(Deps, Options)`, methods incl. `report(line)`, `mute(router, until)`, `scheduled_jobs()`, `status()`, `send_test(chat)`, `follower()`, `writer_stopped()`, `stop().await`; `FILES` for the state watch; `render::*` builds localized lines with `notify-*` keys; the scheduler (todo 13) registers `schedules.json` with `StateWatch::with_follower` and adds its job ids to `scheduled_jobs()`; `scheduled_problem`/`scheduled_success` events are emitted through `report`.
+- Todo 12: `kcc notify ...` in `crates/kcc/src/cli/notify.rs` (+ `notify/{chats,send,token,view}.rs`): single-message `test` goes straight through `TelegramClient` (no Outbox).
+- keys.rs is regenerated, never merged: `cargo xtask i18n-gen` after any FTL merge.

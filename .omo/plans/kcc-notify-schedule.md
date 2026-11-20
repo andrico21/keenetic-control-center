@@ -321,7 +321,7 @@ Every wave holds fewer todos than the template's 5-8 target (W1 has 4, W3 has 3,
   Commit: Y | feat(serve): state watch reloads followers of further state files
   Recommended task executor category: unspecified-low - extend an existing watcher
 
-- [ ] 10. Notifier service in kcc serve
+- [x] 10. Notifier service in kcc serve
   What to do / Must NOT do:
   - `crates/kcc/src/server_notify.rs` + `server_notify/` (crate-private), started by `run_serve` only (never stdio or CLI), after `Services::open`, whether or not notifications are enabled (enabling later through the Web or the CLI takes effect through `reload`):
     - **Settings:** reads `NotifySettings`, the token and `NotifyRuntime`; `Follower::reload` re-reads them, reconfigures the outbox and the router followers; registered with `StateWatch::with_follower` for `notify.json` and `notify/telegram.token.sealed` (todo 9). Locale = settings locale, else `[web] default_locale`. The outbox uses `[notify.telegram]` from `kcc.toml` (read at start).
@@ -360,7 +360,7 @@ Every wave holds fewer todos than the template's 5-8 target (W1 has 4, W3 has 3,
   Commit: Y | feat(web): notifications administration page
   Recommended task executor category: visual-engineering - admin page with forms and dialogs (load skill `frontend`)
 
-- [ ] 12. CLI: `kcc notify`
+- [x] 12. CLI: `kcc notify`
   What to do / Must NOT do:
   - `crates/kcc/src/cli/notify.rs` + `NotifyCommand` args in `args_admin.rs`, a `LocalCommand::Notify(NotifyCommand)` variant in `crates/kcc/src/cli/args.rs:76` and its dispatch in `crates/kcc/src/cli/entry.rs:85-100`: `kcc notify show` (settings, token set or not with date, rejected flag, disabled chats; `--json`), `kcc notify enable|disable`, `kcc notify token [--file <path>]` (else `KCC_PASSWORD` or a hidden prompt, `crates/kcc/src/cli/secret.rs:24-45`; the file goes through `read_secret_file` owner-only rules), `kcc notify token --clear`, `kcc notify chat add <id> --label <text> [--thread <n>] [--silent]`, `kcc notify chat remove <id>`, `kcc notify events <list|default>`, `kcc notify locale <tag|default>`, `kcc notify client-details on|off`, `kcc notify test [--chat <id>]` (sends from this process with the client and `[notify.telegram]` of todo 8, through `Outbox::send_now`-equivalent single send; exit `Router` (code of `Exit::Router`) on failure with the failure class).
   - Every command requires `ManageNotifications` (`ctx.principal().require`); audits `cli.notify_settings|token|chat_add|chat_remove|test` with the same parameter rules as todo 11; strings `cli-notify-*` in six locales; `--json` output names no token.
