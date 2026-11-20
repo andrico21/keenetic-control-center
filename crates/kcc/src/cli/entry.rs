@@ -11,7 +11,7 @@ use super::{
     context::{Ctx, Globals},
     dom_jobs, domains,
     exit::{Exit, Failure, Outcome},
-    fleet, migrate,
+    fleet, migrate, notify,
     output::Out,
     persist, preset, rci, routers, tls,
 };
@@ -95,6 +95,7 @@ async fn local(command: LocalCommand, globals: Globals, out: Out) -> Outcome {
         LocalCommand::Apikey(sub) => api_keys::api_key(&Ctx::open(globals, out)?, sub).await,
         LocalCommand::Admin(sub) => accounts::admin(&Ctx::open(globals, out)?, sub).await,
         LocalCommand::Audit(sub) => api_keys::audit(&Ctx::open(globals, out)?, &sub),
+        LocalCommand::Notify(sub) => notify::run(&Ctx::open(globals, out)?, sub).await,
     }
 }
 

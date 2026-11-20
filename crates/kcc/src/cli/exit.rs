@@ -164,7 +164,7 @@ impl Failure {
     }
 
     /// The same failure under the headline `key` instead of the exit family's.
-    const fn headlined(mut self, key: MessageKey) -> Self {
+    pub(crate) const fn headlined(mut self, key: MessageKey) -> Self {
         self.headline = Some(key);
         self
     }

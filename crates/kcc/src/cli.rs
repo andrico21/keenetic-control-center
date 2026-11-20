@@ -50,6 +50,7 @@ mod line_diff;
 mod migrate;
 mod migrate_apply;
 mod migrate_plan;
+mod notify;
 mod outbound;
 mod output;
 mod persist;

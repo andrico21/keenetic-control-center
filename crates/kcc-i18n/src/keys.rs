@@ -429,6 +429,137 @@ pub const CLI_SERVE_BIND: MessageKey = MessageKey::new("cli-serve-bind");
 pub const CLI_SERVE_AUDIT_WRITER_TERMINATED: MessageKey =
     MessageKey::new("cli-serve-audit-writer-terminated");
 
+/// `cli-notify-on` in `cli.ftl`.
+pub const CLI_NOTIFY_ON: MessageKey = MessageKey::new("cli-notify-on");
+
+/// `cli-notify-off` in `cli.ftl`.
+pub const CLI_NOTIFY_OFF: MessageKey = MessageKey::new("cli-notify-off");
+
+/// `cli-notify-enabled` in `cli.ftl`.
+pub const CLI_NOTIFY_ENABLED: MessageKey = MessageKey::new("cli-notify-enabled");
+
+/// `cli-notify-locale` in `cli.ftl`.
+pub const CLI_NOTIFY_LOCALE: MessageKey = MessageKey::new("cli-notify-locale");
+
+/// `cli-notify-locale-default` in `cli.ftl`.
+pub const CLI_NOTIFY_LOCALE_DEFAULT: MessageKey = MessageKey::new("cli-notify-locale-default");
+
+/// `cli-notify-client-details` in `cli.ftl`.
+pub const CLI_NOTIFY_CLIENT_DETAILS: MessageKey = MessageKey::new("cli-notify-client-details");
+
+/// `cli-notify-events` in `cli.ftl`.
+pub const CLI_NOTIFY_EVENTS: MessageKey = MessageKey::new("cli-notify-events");
+
+/// `cli-notify-events-none` in `cli.ftl`.
+pub const CLI_NOTIFY_EVENTS_NONE: MessageKey = MessageKey::new("cli-notify-events-none");
+
+/// `cli-notify-token-set` in `cli.ftl`.
+pub const CLI_NOTIFY_TOKEN_SET: MessageKey = MessageKey::new("cli-notify-token-set");
+
+/// `cli-notify-token-none` in `cli.ftl`.
+pub const CLI_NOTIFY_TOKEN_NONE: MessageKey = MessageKey::new("cli-notify-token-none");
+
+/// `cli-notify-token-rejected` in `cli.ftl`.
+pub const CLI_NOTIFY_TOKEN_REJECTED: MessageKey = MessageKey::new("cli-notify-token-rejected");
+
+/// `cli-notify-chats` in `cli.ftl`.
+pub const CLI_NOTIFY_CHATS: MessageKey = MessageKey::new("cli-notify-chats");
+
+/// `cli-notify-chats-none` in `cli.ftl`.
+pub const CLI_NOTIFY_CHATS_NONE: MessageKey = MessageKey::new("cli-notify-chats-none");
+
+/// `cli-notify-chat-thread` in `cli.ftl`.
+pub const CLI_NOTIFY_CHAT_THREAD: MessageKey = MessageKey::new("cli-notify-chat-thread");
+
+/// `cli-notify-chat-silent` in `cli.ftl`.
+pub const CLI_NOTIFY_CHAT_SILENT: MessageKey = MessageKey::new("cli-notify-chat-silent");
+
+/// `cli-notify-chat-forbidden` in `cli.ftl`.
+pub const CLI_NOTIFY_CHAT_FORBIDDEN: MessageKey = MessageKey::new("cli-notify-chat-forbidden");
+
+/// `cli-notify-chat-not-found` in `cli.ftl`.
+pub const CLI_NOTIFY_CHAT_NOT_FOUND: MessageKey = MessageKey::new("cli-notify-chat-not-found");
+
+/// `cli-notify-settings-saved` in `cli.ftl`.
+pub const CLI_NOTIFY_SETTINGS_SAVED: MessageKey = MessageKey::new("cli-notify-settings-saved");
+
+/// `cli-notify-token-prompt` in `cli.ftl`.
+pub const CLI_NOTIFY_TOKEN_PROMPT: MessageKey = MessageKey::new("cli-notify-token-prompt");
+
+/// `cli-notify-token-saved` in `cli.ftl`.
+pub const CLI_NOTIFY_TOKEN_SAVED: MessageKey = MessageKey::new("cli-notify-token-saved");
+
+/// `cli-notify-token-cleared` in `cli.ftl`.
+pub const CLI_NOTIFY_TOKEN_CLEARED: MessageKey = MessageKey::new("cli-notify-token-cleared");
+
+/// `cli-notify-token-invalid` in `cli.ftl`.
+pub const CLI_NOTIFY_TOKEN_INVALID: MessageKey = MessageKey::new("cli-notify-token-invalid");
+
+/// `cli-notify-event-unknown` in `cli.ftl`.
+pub const CLI_NOTIFY_EVENT_UNKNOWN: MessageKey = MessageKey::new("cli-notify-event-unknown");
+
+/// `cli-notify-locale-unknown` in `cli.ftl`.
+pub const CLI_NOTIFY_LOCALE_UNKNOWN: MessageKey = MessageKey::new("cli-notify-locale-unknown");
+
+/// `cli-notify-chat-id-invalid` in `cli.ftl`.
+pub const CLI_NOTIFY_CHAT_ID_INVALID: MessageKey = MessageKey::new("cli-notify-chat-id-invalid");
+
+/// `cli-notify-chat-label-invalid` in `cli.ftl`.
+pub const CLI_NOTIFY_CHAT_LABEL_INVALID: MessageKey =
+    MessageKey::new("cli-notify-chat-label-invalid");
+
+/// `cli-notify-chat-exists` in `cli.ftl`.
+pub const CLI_NOTIFY_CHAT_EXISTS: MessageKey = MessageKey::new("cli-notify-chat-exists");
+
+/// `cli-notify-chats-full` in `cli.ftl`.
+pub const CLI_NOTIFY_CHATS_FULL: MessageKey = MessageKey::new("cli-notify-chats-full");
+
+/// `cli-notify-chat-unknown` in `cli.ftl`.
+pub const CLI_NOTIFY_CHAT_UNKNOWN: MessageKey = MessageKey::new("cli-notify-chat-unknown");
+
+/// `cli-notify-chat-added` in `cli.ftl`.
+pub const CLI_NOTIFY_CHAT_ADDED: MessageKey = MessageKey::new("cli-notify-chat-added");
+
+/// `cli-notify-chat-removed` in `cli.ftl`.
+pub const CLI_NOTIFY_CHAT_REMOVED: MessageKey = MessageKey::new("cli-notify-chat-removed");
+
+/// `cli-notify-no-chats` in `cli.ftl`.
+pub const CLI_NOTIFY_NO_CHATS: MessageKey = MessageKey::new("cli-notify-no-chats");
+
+/// `cli-notify-test-text` in `cli.ftl`.
+pub const CLI_NOTIFY_TEST_TEXT: MessageKey = MessageKey::new("cli-notify-test-text");
+
+/// `cli-notify-test-sent` in `cli.ftl`.
+pub const CLI_NOTIFY_TEST_SENT: MessageKey = MessageKey::new("cli-notify-test-sent");
+
+/// `cli-notify-test-failed` in `cli.ftl`.
+pub const CLI_NOTIFY_TEST_FAILED: MessageKey = MessageKey::new("cli-notify-test-failed");
+
+/// `cli-notify-test-not-sent` in `cli.ftl`.
+pub const CLI_NOTIFY_TEST_NOT_SENT: MessageKey = MessageKey::new("cli-notify-test-not-sent");
+
+/// `cli-notify-failure-no-token` in `cli.ftl`.
+pub const CLI_NOTIFY_FAILURE_NO_TOKEN: MessageKey = MessageKey::new("cli-notify-failure-no-token");
+
+/// `cli-notify-failure-token-rejected` in `cli.ftl`.
+pub const CLI_NOTIFY_FAILURE_TOKEN_REJECTED: MessageKey =
+    MessageKey::new("cli-notify-failure-token-rejected");
+
+/// `cli-notify-failure-chat-refused` in `cli.ftl`.
+pub const CLI_NOTIFY_FAILURE_CHAT_REFUSED: MessageKey =
+    MessageKey::new("cli-notify-failure-chat-refused");
+
+/// `cli-notify-failure-rate-limited` in `cli.ftl`.
+pub const CLI_NOTIFY_FAILURE_RATE_LIMITED: MessageKey =
+    MessageKey::new("cli-notify-failure-rate-limited");
+
+/// `cli-notify-failure-unreachable` in `cli.ftl`.
+pub const CLI_NOTIFY_FAILURE_UNREACHABLE: MessageKey =
+    MessageKey::new("cli-notify-failure-unreachable");
+
+/// `cli-notify-failure-rejected` in `cli.ftl`.
+pub const CLI_NOTIFY_FAILURE_REJECTED: MessageKey = MessageKey::new("cli-notify-failure-rejected");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -7116,7 +7247,7 @@ pub const WEB_ADMIN_NOTIFY_ERROR_TEST_CHAT: MessageKey =
     MessageKey::new("web-admin-notify-error-test-chat");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2252] = [
+pub static ALL: [MessageKey; 2294] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -7254,6 +7385,48 @@ pub static ALL: [MessageKey; 2252] = [
     CLI_SERVE_LOCALE_UNSUPPORTED,
     CLI_SERVE_BIND,
     CLI_SERVE_AUDIT_WRITER_TERMINATED,
+    CLI_NOTIFY_ON,
+    CLI_NOTIFY_OFF,
+    CLI_NOTIFY_ENABLED,
+    CLI_NOTIFY_LOCALE,
+    CLI_NOTIFY_LOCALE_DEFAULT,
+    CLI_NOTIFY_CLIENT_DETAILS,
+    CLI_NOTIFY_EVENTS,
+    CLI_NOTIFY_EVENTS_NONE,
+    CLI_NOTIFY_TOKEN_SET,
+    CLI_NOTIFY_TOKEN_NONE,
+    CLI_NOTIFY_TOKEN_REJECTED,
+    CLI_NOTIFY_CHATS,
+    CLI_NOTIFY_CHATS_NONE,
+    CLI_NOTIFY_CHAT_THREAD,
+    CLI_NOTIFY_CHAT_SILENT,
+    CLI_NOTIFY_CHAT_FORBIDDEN,
+    CLI_NOTIFY_CHAT_NOT_FOUND,
+    CLI_NOTIFY_SETTINGS_SAVED,
+    CLI_NOTIFY_TOKEN_PROMPT,
+    CLI_NOTIFY_TOKEN_SAVED,
+    CLI_NOTIFY_TOKEN_CLEARED,
+    CLI_NOTIFY_TOKEN_INVALID,
+    CLI_NOTIFY_EVENT_UNKNOWN,
+    CLI_NOTIFY_LOCALE_UNKNOWN,
+    CLI_NOTIFY_CHAT_ID_INVALID,
+    CLI_NOTIFY_CHAT_LABEL_INVALID,
+    CLI_NOTIFY_CHAT_EXISTS,
+    CLI_NOTIFY_CHATS_FULL,
+    CLI_NOTIFY_CHAT_UNKNOWN,
+    CLI_NOTIFY_CHAT_ADDED,
+    CLI_NOTIFY_CHAT_REMOVED,
+    CLI_NOTIFY_NO_CHATS,
+    CLI_NOTIFY_TEST_TEXT,
+    CLI_NOTIFY_TEST_SENT,
+    CLI_NOTIFY_TEST_FAILED,
+    CLI_NOTIFY_TEST_NOT_SENT,
+    CLI_NOTIFY_FAILURE_NO_TOKEN,
+    CLI_NOTIFY_FAILURE_TOKEN_REJECTED,
+    CLI_NOTIFY_FAILURE_CHAT_REFUSED,
+    CLI_NOTIFY_FAILURE_RATE_LIMITED,
+    CLI_NOTIFY_FAILURE_UNREACHABLE,
+    CLI_NOTIFY_FAILURE_REJECTED,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

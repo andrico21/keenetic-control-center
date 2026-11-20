@@ -9,7 +9,9 @@ use clap::{Parser, Subcommand};
 use clap_complete::Shell;
 
 use super::{
-    args_admin::{AdminCommand, ApiKeyCommand, AuditCommand, TlsCommand, UserCommand},
+    args_admin::{
+        AdminCommand, ApiKeyCommand, AuditCommand, NotifyCommand, TlsCommand, UserCommand,
+    },
     args_dom_jobs::ConfigCommand,
     args_domains::DomainCommand,
     args_fleet::{BackupCommand, CatalogCommand, RciCommand, RouterCommand},
@@ -122,6 +124,9 @@ pub enum LocalCommand {
     /// TLS certificates for the server.
     #[command(subcommand)]
     Tls(TlsCommand),
+    /// Telegram notifications: settings, bot token, chats and a test message.
+    #[command(subcommand)]
+    Notify(NotifyCommand),
 }
 
 /// MCP transport commands.

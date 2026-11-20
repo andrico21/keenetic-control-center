@@ -133,6 +133,15 @@ The first release, `0.1.0`, is in preparation and contains:
   `web.notify_chat_add`, `web.notify_chat_remove` (label only) and `web.notify_test`
   (`success` or `failed`). The administration tab bar gains a Notifications tab for roles
   holding the permission.
+- **CLI: `kcc notify`** (`ManageNotifications` for the `[cli] role`): `show` (`--json`
+  without the token), `enable`, `disable`, `events <list|default>`,
+  `locale <tag|default>`, `client-details on|off`, `token [--file <path>]` (else
+  `--password-file`, `KCC_PASSWORD` or a hidden prompt; never an argument value),
+  `token --clear`, `chat add <id> --label <text> [--thread <n>] [--silent]`,
+  `chat remove <id>` and `test [--chat <id>]`, which sends one message from the command
+  and exits 6 naming the failure class. New audit actions `cli.notify_settings`,
+  `cli.notify_token`, `cli.notify_chat_add`, `cli.notify_chat_remove` and
+  `cli.notify_test`, with the Web page's parameters.
 - **Scheduled-action store and run ledger**: `schedules.json` holds weekly scheduled
   actions (client policy switch, preset apply, backup, reboot) with their owner, at most
   64 per router and 256 in total; `schedule_runs.json` records each run before it starts,

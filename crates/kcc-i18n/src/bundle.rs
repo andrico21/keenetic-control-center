@@ -300,6 +300,9 @@ mod tests {
             "kind",
             "file",
             "devices",
+            "known",
+            "id",
+            "class",
         ] {
             args.set(name, "x");
         }

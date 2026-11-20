@@ -152,6 +152,11 @@ impl Ctx {
         self.out
     }
 
+    /// Loaded configuration.
+    pub(crate) const fn config(&self) -> &Config {
+        &self.config
+    }
+
     /// State directory.
     pub(crate) const fn state(&self) -> &StateStore {
         &self.state
@@ -423,7 +428,7 @@ impl Ctx {
     /// Appends `event`; a failing audit write is reported but does not hide the
     /// command's own result.
     // NOT cancel-safe: the writer may append after cancellation.
-    async fn append(&self, services: &Services, event: AuditEvent) {
+    pub(crate) async fn append(&self, services: &Services, event: AuditEvent) {
         if let Err(error) = services.core.audit.append(event).await {
             self.out
                 .note(&Failure::from(error).details(self.out.locale()).join(" "));

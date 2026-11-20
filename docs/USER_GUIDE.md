@@ -388,6 +388,36 @@ Every change is audited (`web.notify_settings`, `web.notify_token`,
 `web.notify_chat_add`, `web.notify_chat_remove`, `web.notify_test`); the entries name a
 chat by its label and never carry the token or a chat id.
 
+`kcc notify` does the same without the Web UI, under the same permission (the `[cli] role`
+needs ManageNotifications) and with the same checks:
+
+- `kcc notify show` prints the settings, whether a token is set and since when, whether
+  Telegram refused it, and the chats with any that Telegram disabled (`--json` for a
+  document; it never contains the token).
+- `kcc notify enable|disable`, `kcc notify events <list|default>` (a comma-separated list
+  such as `router_down_up,job_failed`), `kcc notify locale <tag|default>` and
+  `kcc notify client-details on|off` change the settings.
+- `kcc notify token` reads the token from `--file <path>` (readable by its owner only),
+  `--password-file`, `KCC_PASSWORD` or a hidden prompt, never from an argument;
+  `kcc notify token --clear` removes it.
+- `kcc notify chat add <id> --label <text> [--thread <n>] [--silent]` and
+  `kcc notify chat remove <id>` edit the chats.
+- `kcc notify test [--chat <id>]` sends one test message from the command itself (to the
+  first chat unless `--chat` is given), with the `[notify.telegram]` settings of its
+  `kcc.toml`. On failure it exits with code 6 and names the class (`no_token`,
+  `token_rejected`, `chat_refused`, `rate_limited`, `unreachable`, `rejected`); a refused
+  token or chat is recorded as the running notifier records it.
+
+```bash kcc-doc-test
+kcc notify chat add -1001234567890 --label Family --silent
+kcc notify events router_down_up,change_failed,job_failed
+kcc notify show
+```
+
+The audit actions are `cli.notify_settings`, `cli.notify_token`, `cli.notify_chat_add`,
+`cli.notify_chat_remove` and `cli.notify_test`, with the parameters of their Web
+counterparts. A running `kcc serve` picks the changes up within about 2 seconds.
+
 ## Metrics
 
 The Web UI doesn't chart Prometheus metrics. Enable `[metrics]` and use the Grafana
