@@ -345,11 +345,16 @@ show secrets as `********` unless you hold RevealSecrets on that router. On the 
   admin can't be removed, and nobody can act on their own account here.
 - **Roles**: custom roles with permissions and router-name globs (for example `lab-*`).
   You can grant only roles whose permissions and routers you hold yourself (the CLI's
-  `kcc user add` and `kcc apikey create` apply the same rule to the `[cli] role`).
+  `kcc user add` and `kcc apikey create` apply the same rule to the `[cli] role`). The
+  permissions ManageNotifications and ManageSchedules open the two pages below; the
+  built-in `admin` holds them, `operator` and `viewer` do not, and a custom role gets
+  them with their checkboxes.
 - **API keys**: create keys for MCP clients (shown once) and revoke them. The "Last
   used" column shows the last MCP tool call with the key, recorded at most once a minute.
-- **Notifications**: Telegram notifications (ManageNotifications), described below.
-- **Scheduled actions**: weekly scheduled actions (ManageSchedules), described below.
+- **Notifications**: Telegram notifications (ManageNotifications), described below. The
+  tab shows only to roles that hold the permission.
+- **Scheduled actions**: weekly scheduled actions (ManageSchedules), described below. The
+  tab shows only to roles that hold the permission.
 - **Audit log**: search, filter and export the hash-chained audit log (ViewAudit). A role
   scoped to some routers sees only those routers' entries; entries that name no router
   (sign-ins, account changes) are shown only to a role scoped to all routers.
@@ -390,6 +395,12 @@ live views end within 5 seconds after that.
 Every change is audited (`web.notify_settings`, `web.notify_token`,
 `web.notify_chat_add`, `web.notify_chat_remove`, `web.notify_test`); the entries name a
 chat by its label and never carry the token or a chat id.
+
+The settings and chats are kept in `notify.json` in the state directory, the delivery
+state (when the token was set or refused, chats Telegram refused, the firmware version
+already announced per router) in `notify_state.json`, and the token itself sealed in
+`notify/telegram.token.sealed`. Messages report what the `kcc serve` process itself sees:
+a change or audit entry made by the CLI or `kcc mcp stdio` is not announced.
 
 `kcc notify` does the same without the Web UI, under the same permission (the `[cli] role`
 needs ManageNotifications) and with the same checks:
@@ -452,6 +463,12 @@ router). Scheduled changes are never saved: a router restart undoes them.
   code 5 instead of being tried again. The CLI never starts the scheduler: slots run only
   in `kcc serve`.
 
+A refused check or a run that did not succeed prints the reason and exits with a code
+that follows it: 10 for `forbidden`, `firmware` and `documentation_tier`; 5 for
+`router_busy`; 4 for `client_unknown`, `policy_unknown`, `preset_unavailable`,
+`not_ready`, `management_lines` and `wireguard_key`; 6 for the rest, including a router
+that could not be read.
+
 ```bash kcc-doc-test
 kcc router add home --url "$ROUTER_URL" --login admin --password-file router.pw
 kcc scheduled add --router home --name "Nightly backup" --days mon,thu --at 03:30 --backup
@@ -492,6 +509,11 @@ or restart the router. Scheduled changes are never saved: a router restart undoe
   the background with your permissions checked besides the owner's; its result shows
   under "Last run" and in the Telegram message. A run-now is never retried: on a router
   busy with another change it ends skipped (`router_busy`).
+
+The schedules are kept in `schedules.json` in the state directory; every run is recorded in
+`schedule_runs.json` (the last 20 per schedule) before it starts, which is what keeps a slot
+from running twice. A slot that is more than 2 minutes late is skipped and reported, and
+a router busy with another change is tried again every minute for 10 minutes.
 
 Schedules run only in `kcc serve`. Without it the page says so, and only lists, pauses
 and deletes them. Every change is audited (`web.schedule_create`, `web.schedule_update`,

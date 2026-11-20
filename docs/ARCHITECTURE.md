@@ -43,7 +43,8 @@ kcc <command> ──┴──────── CLI ──────┤
   directory's server lock, so only one server runs per state directory. A state watcher
   (`crates/kcc/src/state_watch.rs`) checks `api_keys.json` and `users.json` every 2 s, so a
   key revoked or an account changed by the CLI reaches the running server without a
-  `SIGHUP` ([SECURITY.md](SECURITY.md)).
+  `SIGHUP` ([SECURITY.md](SECURITY.md)). It also tells the notifier (`notify.json`, the
+  sealed bot token) and the scheduler (`schedules.json`) to re-read their files.
 - `kcc mcp stdio` and CLI runs share the same state directory without that lock;
   per-file locks, per-router leases and the audit append lock keep them consistent.
 - One shared **poller** issues all periodic router reads. Web live views and the
@@ -52,6 +53,14 @@ kcc <command> ──┴──────── CLI ──────┤
   the Web log page and the configured sinks.
 - Long operations (diagnostics, component commits, migrations, preset applies) run as
   **jobs** with progress events; one write job per router at a time.
+- The **notifier** (`crates/kcc/src/server_notify.rs`) runs in `kcc serve` and only
+  observes: router poll results, this process's own audit entries (the audit writer
+  broadcasts each durable entry) and the job runner's events. It renders each line in the
+  chosen language and hands it to the outbox of `kcc-telemetry`, which merges lines per
+  chat, paces them to Telegram's limits and sends them with a client that calls only
+  `sendMessage` at the `[notify.telegram] api_url` address. Entries that the CLI or
+  `kcc mcp stdio` append to the shared audit log are not announced. It keeps nothing about
+  clients on disk.
 - The **scheduler** (`crates/kcc/src/server_schedules.rs`) runs only in `kcc serve`,
   started after the notifier. Its timetable follows `schedules.json` through the state
   watcher and the registry's profile changes, reads `last_fired_slot` from

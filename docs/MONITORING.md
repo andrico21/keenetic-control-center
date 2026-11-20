@@ -94,7 +94,8 @@ Next to Alertmanager, `kcc serve` can send short Telegram messages itself: a rou
 offline (after two failed polls in a row) and back online, a router refusing kcc's
 login, a failed change (saying whether the router's fail-safe timer is still armed), an
 account lockout, an audit log repair or a stopped audit writer, new router firmware, a
-failed job and, off by default, a new unregistered device. Switch them on, pick the
+failed job, a scheduled action that failed, did not run or was paused and, off by
+default, a scheduled action that succeeded and a new unregistered device. Switch them on, pick the
 events and add chats on the Web page Administration > Notifications; the Bot API
 address is `[notify.telegram] api_url` in `kcc.toml`. Messages
 are merged per chat within 30 seconds and paced to Telegram's limits; the self-metrics

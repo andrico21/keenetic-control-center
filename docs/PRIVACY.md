@@ -102,7 +102,9 @@ in `notify.json`. They name routers by id and Web accounts by user name, and say
 happened: a router offline or back online, a refused login, the firmware version a router
 offers, a failed change with its action and actor (`web:alice`), an account lockout and
 until when, an audit log repair with the name of the file the torn entry was moved to, a
-stopped audit writer, or a failed job with its kind. Telegram stores the chat history on
+stopped audit writer, a failed job with its kind, or the outcome of a scheduled action,
+which names the schedule, the router and, for a policy switch, the policy (never the
+client). Telegram stores the chat history on
 its own servers, where its retention policy applies, and anyone in a chat reads them.
 
 The new-device event is off by default. When it is on, new unregistered devices are named

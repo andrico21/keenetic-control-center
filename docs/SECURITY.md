@@ -48,7 +48,9 @@ admit (cloud metadata, unspecified, multicast and broadcast addresses); a litera
 of that kind is refused outright. It calls only `sendMessage` and never receives anything
 from Telegram. The bot token travels in the request URL path, so kcc never logs a request,
 its URL or its body, and strips the URL from every HTTP client error before mapping it to
-a plain delivery outcome.
+a plain delivery outcome. The token is sealed under the master key; the Web page and
+`kcc notify show` only say whether one is set, and audit entries record that it changed,
+never its value.
 
 ## Secrets at rest
 

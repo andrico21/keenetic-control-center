@@ -247,6 +247,27 @@ The first release, `0.1.0`, is in preparation and contains:
   next scheduled action, and the configuration page names a scheduled change the router
   has not saved. `kcc_web::admin_scheduled::ScheduleControl` and
   `WebState::with_schedules` attach the scheduler.
+- **Weekly slot times and the time zone database** (library): `kcc-app` computes the
+  slots of a weekly schedule (days, hour and minute in an IANA zone) on the `jiff` crate's
+  bundled time zone database; the system time zone and zoneinfo files are never read, so a
+  slot falls at the same instant on every host. `jiff` is a new dependency (listed in
+  `THIRD_PARTY_NOTICES.md`).
+- **Audit entry broadcast and a distinct polling login failure** (library):
+  `AuditLog::subscribe` hands out every entry the writer appends once it is durable, in
+  chain order (the notifier reads it); the audit file format and hashes are unchanged. A
+  refused polling login is reported as `PollError::Auth` instead of a reason text.
+- **State files followed by the running server**: besides `api_keys.json` and
+  `users.json`, the 2-second state watch now reloads the notifier (`notify.json`, the
+  sealed bot token) and the scheduler (`schedules.json`).
+- **Fake Telegram Bot API** (`kcc-testkit`): `FakeTelegram` serves `sendMessage` with
+  scripted faults (429 with `retry_after`, 401, 403, chat not found, 500) and records
+  requests without logging a token; `kcc-fake-sinks` serves one next to the fake Loki and
+  Elasticsearch and prints a `telegram <url>` line.
+- **Live Telegram suite**: `crates/kcc/tests/live_telegram.rs` (`#[ignore]`d) sends one
+  message through the real Bot API with the owner's bot and chat. It needs
+  `KCC_LIVE_TELEGRAM_TOKEN_FILE` and `KCC_LIVE_TELEGRAM_CHAT` and contacts no router, so
+  it is exempt from `KCC_LIVE_TARGET_CONFIG` and `KCC_LIVE_ALLOW_SERIAL` (`AGENTS.md`,
+  "Live env contract").
 
 ### Changed
 
@@ -1483,7 +1504,7 @@ The first release, `0.1.0`, is in preparation and contains:
   letters, dots or more than 32 characters now fails config validation; rename it.
 - **Router `url` values in `kcc.toml` must be origins**: a `[[routers]] url` with a path,
   query or fragment now fails config validation; remove the extra part.
-- **Copy the new Quadlet unit** (`StopTimeout=80`) when you deploy with Podman.
+- **Copy the new Quadlet unit** (`StopTimeout=100`) when you deploy with Podman.
 - **Machine consumers**: new MCP error codes `router_mode_unknown`,
   `management_not_sent_fail_safe_armed`, `management_saved_fail_safe_armed` and
   `migration_rollback_restarting`; write results carry `"audit_pending": true` when the

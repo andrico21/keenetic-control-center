@@ -6,8 +6,9 @@ workflow:
 
 - a **Web UI**, the main interface: fleet dashboard, clients, DHCP, segments, network
   and Wi-Fi, routing, NAT, firewall, DNS, VPN, system pages, configuration backups,
-  presets, migration between routers, a command explorer, and user, role and API-key
-  administration;
+  presets, migration between routers, a command explorer, user, role and API-key
+  administration, Telegram notifications and weekly scheduled actions (client policy
+  switch, preset, backup, reboot);
 - an **MCP server** (Streamable HTTP with API keys, or stdio) for AI assistants;
 - a **command-line interface** (`kcc --help`).
 
@@ -212,6 +213,11 @@ described in [docs/PRIVACY.md](docs/PRIVACY.md).
   its action's permissions on its router: a policy switch or backup `Write`, a reboot
   `Destructive`, a preset `Read`, `Migrate`, `Write` and `Save` on the target (plus
   `Read` and `Migrate` on its source router when it names one).
+- **Scheduled actions run as their owner.** Before every run kcc reads the owner's
+  account and role again; a missing, disabled or out-of-scope owner, or a role that lost
+  a permission of the action, pauses the schedule and nothing reaches the router.
+  Scheduled changes are never saved, so a router restart undoes them; the messages about
+  policy and preset runs say so.
 - **Change workflow.** Each write takes a per-router lease, makes an encrypted backup of
   the startup configuration, refuses if someone else changed the router in between,
   verifies the result by reading it back and appends a hash-chained audit entry.
@@ -250,6 +256,13 @@ The threat model is in [docs/SECURITY.md](docs/SECURITY.md).
   2 seconds, the time between its checks of the state files; changes on the Web UI
   administration page apply at once. The same checks follow the notification settings
   (`notify.json`, the sealed bot token) and `schedules.json`.
+- Scheduled actions run only while `kcc serve` runs; the CLI never starts them. A slot
+  more than 2 minutes late (for example the server was stopped) is skipped and
+  reported, not run afterwards, and a router busy with another change is tried again
+  every minute for 10 minutes. `kcc scheduled run-now` runs in the CLI process and sends
+  no Telegram message.
+- Telegram notifications cover the events of the `kcc serve` process: a change or audit
+  entry made by the CLI or `kcc mcp stdio` is not announced.
 - OpenVPN credentials can't be written (the 5.1 catalog has no command for them); IPv6
   access lists are read-only (no catalog has `ipv6 access-list`).
 - MCP migration plans, transient MCP presets and unsaved preset drafts in the Web UI live
