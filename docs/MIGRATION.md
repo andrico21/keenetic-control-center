@@ -113,7 +113,9 @@ interactive one:
   (`preset_state_unknown`); check the router then.
 - An apply that fails before any line is sent is not rolled back; when the fail-safe
   timer's arming could not be confirmed, the message says the timer may still be armed
-  (`preset_failed_armed`).
+  (`preset_failed_armed`), and the run keeps the router's lease until the timer's
+  interval plus one second has passed, then ends. Interactive applies free the lease at
+  once.
 - A busy router (lease or job) is tried again like any scheduled action, with a new
   plan each time. The run is the migration job of the applier.
 

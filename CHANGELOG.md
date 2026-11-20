@@ -206,8 +206,9 @@ The first release, `0.1.0`, is in preparation and contains:
   (`preset_rolled_back`). When the rollback or the keep-unsaved step fails, it keeps the
   lease until the fail-safe timer ran out, then reports `preset_restored` or
   `preset_state_unknown` from `show last-change`; a failed preparation is not rolled back
-  (`preset_failed`, or `preset_failed_armed` when the timer may be armed). Nothing is
-  ever saved. New notification line for an applied preset and reasons for these codes.
+  (`preset_failed`, or `preset_failed_armed` when the timer may be armed, in which case it
+  also keeps the lease until the timer's interval plus one second has passed; interactive
+  applies are unchanged). Nothing is ever saved. New notification line for an applied preset and reasons for these codes.
   `docs/MIGRATION.md` "Scheduled presets".
 - **CLI: `kcc scheduled`** (`ManageSchedules` for the `[cli] role`, plus the action's
   permissions on the router): `list`, `show <id>` (with the last runs), `add --router

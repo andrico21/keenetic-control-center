@@ -1,8 +1,8 @@
 //! `GET`/`POST /ui/admin/scheduled/run-now?id=`: runs a schedule now.
 //!
 //! The run goes through the running scheduler once confirmed (a restart with the router's
-//! name typed) and goes on in the background; a busy router refuses it instead of
-//! waiting.
+//! name typed) and goes on in the background; a busy router does not refuse it: the run
+//! is admitted and ends `Skipped router_busy`.
 
 use axum::{
     Form,

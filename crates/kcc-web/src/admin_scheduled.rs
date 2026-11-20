@@ -72,8 +72,8 @@ pub trait ScheduleControl: fmt::Debug + Send + Sync {
 
     /// Starts schedule `id` now for `actor` (`web:<username>`), whose `role` must hold
     /// `ManageSchedules` and the action's permissions on the router, besides the owner's
-    /// check every run makes. The run goes on in the background; a busy router refuses it
-    /// with [`ScheduleRefusal::Busy`] instead of retrying.
+    /// check every run makes. The run goes on in the background; a busy router does not
+    /// refuse it: the run ends `Skipped router_busy` and is not retried.
     fn run_now<'call>(
         &'call self,
         role: &'call Role,
