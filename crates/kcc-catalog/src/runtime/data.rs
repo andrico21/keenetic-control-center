@@ -110,6 +110,9 @@ pub(super) const DESTRUCTIVE_PATHS: &[&str] = &[
     "mws reboot",
     "system eject",
     "interface esim profile delete",
+    "opkg disk",
+    "opkg initrc",
+    "media initialize",
 ];
 
 /// Overlay paths the router persists at once, without a configuration save
@@ -130,7 +133,10 @@ pub(super) const MANAGEMENT_PREFIXES: &[&str] = &[
 ];
 
 /// Exact command paths that can replace the management interface or its routing context.
-pub(super) const MANAGEMENT_PATHS: &[&str] = &["ip route", "system mode"];
+///
+/// `opkg dns-override` disables TCP and UDP port 53 of the DNS proxy; clients and kcc may
+/// lose name resolution.
+pub(super) const MANAGEMENT_PATHS: &[&str] = &["ip route", "system mode", "opkg dns-override"];
 
 /// Interface command endings affecting management access.
 pub(super) const MANAGEMENT_INTERFACE_SUFFIXES: &[&str] = &[

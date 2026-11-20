@@ -3,8 +3,8 @@ paths = ["tools ping", "tools ping6", "tools traceroute", "tools arping", "tools
 reason = "Router responses expose continued:true at runtime; the manuals do not classify background processes."
 
 [[destructive]]
-paths = ["system reboot", "system configuration factory-reset", "system configuration fail-safe rollback", "components commit", "erase", "copy", "media * format", "mws member reboot", "mws reboot", "system eject", "interface esim profile delete"]
-reason = "These operations erase data, reboot hardware, replace configuration, or irreversibly mutate components."
+paths = ["system reboot", "system configuration factory-reset", "system configuration fail-safe rollback", "system configuration fail-safe timer", "system configuration fail-safe keep-alive", "components commit", "erase", "copy", "media * format", "mws member reboot", "mws reboot", "system eject", "interface esim profile delete", "opkg disk", "opkg initrc", "media initialize"]
+reason = "These operations erase data, reboot hardware, replace configuration, or irreversibly mutate components. opkg disk mounts a drive and runs its init scripts as root; opkg initrc chooses the root init script; media initialize wipes the partition table."
 
 [[secret]]
 paths = ["interface wireguard private-key", "interface wireguard peer preshared-key", "user password"]

@@ -272,6 +272,9 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **Entware drive and init-script commands are destructive.** Raw and explorer `opkg disk`,
+  `opkg initrc` and `media initialize` now need the Destructive confirmation; `opkg
+  dns-override` runs under the fail-safe timer.
 - **Container stop timeout 100 s**: `deploy/podman/kcc.container` sets `StopTimeout=100`
   (was 80): 10 s are reserved for stopping the scheduler and 2 s for queued Telegram
   notifications, and the margin grows to 13 s.

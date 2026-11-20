@@ -6,6 +6,7 @@
     reason = "test assertions report dead safety rules"
 )]
 
+use alloc::collections::BTreeSet;
 use core::{error::Error, str::FromStr as _};
 
 use kcc_rci::version::FirmwareVersion;
@@ -18,7 +19,7 @@ use super::{
     },
     path_matches,
 };
-use crate::{ArgumentKind, CatalogError};
+use crate::{ArgumentKind, CatalogError, Risk};
 
 /// A misspelled overlay must fail with its pattern, even if risk tests share that rule.
 #[test]
@@ -103,4 +104,58 @@ fn unknown_generated_argument_types_are_refused() {
             "{unknown}"
         );
     }
+}
+
+fn catalog_for(line: &str) -> Result<Catalog, Box<dyn Error>> {
+    Ok(Catalog::for_firmware_and_model(
+        FirmwareVersion::from_str(line)?,
+        None,
+    )?)
+}
+
+/// Todo 2: the Entware drive and init-script commands are destructive, the DNS override
+/// runs under the fail-safe, and the remaining `opkg` settings stay plain writes.
+#[test]
+fn entware_commands_carry_their_risk_class() -> Result<(), Box<dyn Error>> {
+    for line in ["5.1.0", "5.0.0", "4.3.0"] {
+        let catalog = catalog_for(line)?;
+        for (path, risk) in [
+            ("opkg disk", Risk::Destructive),
+            ("opkg initrc", Risk::Destructive),
+            ("opkg dns-override", Risk::Management),
+            ("opkg chroot", Risk::Write),
+            ("opkg timezone", Risk::Write),
+        ] {
+            assert_eq!(catalog.risk(path), Some(risk), "{line}: {path}");
+        }
+    }
+    assert_eq!(
+        catalog_for("5.1.0")?.risk("media initialize"),
+        Some(Risk::Destructive)
+    );
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+struct OverlayFile {
+    destructive: Vec<OverlayRule>,
+}
+
+#[derive(serde::Deserialize)]
+struct OverlayRule {
+    paths: Vec<String>,
+}
+
+/// Todo 2: `catalog/overlay.toml` documents exactly the destructive paths the runtime enforces.
+#[test]
+fn overlay_destructive_paths_mirror_the_runtime_table() -> Result<(), Box<dyn Error>> {
+    let overlay: OverlayFile = toml::from_str(include_str!("../../../../catalog/overlay.toml"))?;
+    let documented: BTreeSet<&str> = overlay
+        .destructive
+        .iter()
+        .flat_map(|rule| rule.paths.iter().map(String::as_str))
+        .collect();
+    let enforced: BTreeSet<&str> = DESTRUCTIVE_PATHS.iter().copied().collect();
+    assert_eq!(documented, enforced);
+    Ok(())
 }
