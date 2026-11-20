@@ -169,3 +169,13 @@ A test fake that answers (404/405) without reading the request body can reset th
 
 ## [2026-11-20] Todo 15 phase 1 progress (n15)
 - Phase 1 (kcc-web only) done and uncommitted in /home/andrico/kcc-wt/n15; phase 2 (crates/kcc ScheduleControl impl, server wiring, serve_scheduled_web.rs) pending todo 16. Evidence: task-15-kcc-notify-schedule{,-red}.log. No existing test expectation changed; the admin tab bar gains only the Scheduled actions tab (golden diff on /ui/admin/users and /ui/admin/server), dashboard and configuration page goldens unchanged.
+
+## [2026-11-20] Todo 15 phase 2 (n15)
+- `NotifyEvent::ScheduledSuccess` is OFF by default (noise): a serve test that waits for a scheduled success line must add it to `NotifySettings.events`.
+- The Web page answers a refused dialog (store refusal, scheduler refusal, field error) with 422, not 200.
+- A fixture-registered client (`02:00:00:00:10:01`, policy Policy0 in the fake's fixture) switched to `Policy0` reads back fine: the serve run succeeds
+  and the running config gets `ip hotspot host <mac> policy Policy0` (startup config does not).
+- Dropping a `tokio::task::JoinSet` ABORTS its tasks: wrap it in a type whose Drop calls `detach_all()` when tasks must never be aborted.
+- clippy: `redundant_guards` prefers `Ok(Err(Foreign::A | Foreign::B))` over a `matches!` guard; `significant_drop_tightening` wants an explicit
+  `drop(guard)` right after the last use; `drop(bool)`/`drop(i64)` is `dropping_copy_types` (use `let _: T =`); `Result<(), ()>` from a oneshot send:
+  `.unwrap_or_default()`.

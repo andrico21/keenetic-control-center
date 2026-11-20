@@ -162,3 +162,22 @@
 - The page calls `check` BEFORE create/update/resume (as the clicker's role), then stores with `Owner::Web { username }`; store refusals are shown in the dialog (forbidden/limit/duplicate name), audited `Change::refused(action, target, code)`. `run_now` is called after `ScheduleStore::get` (404/403 for invisible) and the confirmation (a reboot needs the router id typed); the page does NOT check the action permissions itself: the control must (ManageSchedules + action permissions on the router for the clicker) and answer `Forbidden`.
 - `[schedules] default_timezone` reaches the page through `ServerFacts::from_config` (private field, not a summary row: the server page is unchanged).
 - Notes: dashboard line only when a control is attached and `next_slots()` names the router; configuration note only when `show last-change` reports `unsaved == Some(true)` and its checksum equals `RunLedger::last_unsaved(router).checksum` (both read from `fleet.workflow().state()`).
+
+## [2026-11-20] Todo 15 phase 2 (n15): the scheduler's Web control
+- `crates/kcc/src/server_schedules/control.rs`: `Control` (private to `server_schedules`) implements `kcc_web::admin_scheduled::ScheduleControl`.
+  `check` = `eligible::check` with the clicker's role; `run_now` = `ScheduleStore::get(clicker)` (Forbidden/NotFound -> `Forbidden`, other errors -> `Unavailable`),
+  `eligible::check(clicker)`, then `run::run_once(server RunDeps, id, Trigger::Now { requested_by: "web:<user>" })` spawned; `next_slots` = `control::upcoming(state, now)`
+  (active schedules, `next_slot_unix(max(last_fired_slot, updated_at, now))`, earliest per router). Refusal mapping by code; an unknown code reads as
+  `PresetUnavailable` for a preset refusal, `Forbidden` otherwise.
+- Busy router: NOT refused up front (no engine API tells whether the lease/job slot is held without taking it; a probe `workflow.reserve` would make a
+  concurrent real change see busy). The run ends `Skipped router_busy` (Trigger::Now never retries), shown in the last-run column and the Telegram line.
+  `ScheduleRefusal::Busy` stays in the page API unused. Docs (USER_GUIDE, CHANGELOG) say so.
+- Tracking: `control::Runs` = `Arc<Mutex<Option<Detached(JoinSet<()>)>>>` owned by `Scheduler` and shared with the control; `Detached`'s Drop calls
+  `detach_all()` (dropping a JoinSet would abort). `Scheduler::finish(grace)` cancels the stop token, waits for the timetable, then `runs.close(grace - elapsed)`:
+  takes the set (later run-nows answer `Unavailable`), joins within the rest of the grace, leaves the rest detached. A run-now after the stop token is cancelled
+  answers `Unavailable` too.
+- Wiring: `wiring::start_for_server` returns `(Scheduler, Arc<dyn ScheduleControl>)` (`Scheduler::control(ActionDeps)`); `server_web::web_state` takes
+  `(notify, schedules)` as one tuple parameter (keeps 4 params and `run_serve` under 100 lines) and calls `.with_schedules`. Only built into a WebState when `[web] enabled`.
+- Worktree note: base 34684103 lacks master's todo-16 CLI (756b7741), so the copied foundation was dead code (`-D unused`); the CLI files of 756b7741
+  (`crates/kcc/src/cli{.rs,/args.rs,/args_scheduled.rs,/context.rs,/entry.rs,/scheduled.rs,/scheduled/*}`, `crates/kcc/tests/cli_scheduled*`, the six `cli.ftl`)
+  were copied unchanged from git and `keys.rs` regenerated with `cargo xtask i18n-gen`; they are identical to master and drop out at landing.
