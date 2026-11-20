@@ -41,6 +41,17 @@ None of the Entware work has run against a real router. These facts rest on the 
 - Whether dropbear kills the running command when the channel closes. Live test: todo 19 (to be named there).
 - NetcrazeOS parity: that all of the above hold on Netcraze routers. Live test: todo 19 (to be named there).
 
+## MCP authentication: not in this plan
+
+- The kit's authorization-server proxy for external identity providers, once the kit has a localizable consent page.
+- Client ID Metadata Documents (CIMD).
+- Signing-key rotation.
+- OIDC discovery and `id_token`s.
+- Confidential clients.
+- DPoP or certificate-bound tokens.
+- Web editing of the main listener's bind address, port and TLS files.
+- An rmcp-server-kit release that uses `jsonwebtoken` 12, so the D-RSA ignore can be removed.
+
 ## Upstream (rmcp-server-kit)
 
 - `[server] max_concurrent_requests` is unset by default (`docs/CONFIG.md`; `crates/kcc/src/server.rs:59-67` passes the table to the kit), and the kit logs that in-flight requests are unlimited. A default bound would cap held requests besides the per-router lease. Whether the kit should default it, or kcc should ship a value, is the maintainer's call.

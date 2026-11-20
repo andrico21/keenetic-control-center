@@ -60,7 +60,11 @@
   log, tool results, error text or `Debug` output.
 - **(e) Web UI hardening.** No inline script or style; CSP `default-src 'none'` plus
   explicit `'self'` sources; CSRF protection on every state-changing request; askama
-  auto-escaping only, no bypass.
+  auto-escaping only, no bypass. OAuth protocol endpoints (`/oauth/token`,
+  `/oauth/register`, `/oauth/revoke`, `/oauth/jwks`,
+  `/.well-known/oauth-authorization-server`) carry no cookie authority, so the CSRF rule
+  does not apply to them; the consent page under `/ui/` keeps it (added 2026-11-20,
+  owner decisions D-AUTH, D-MERGE).
 - **(f) Localization.** Every user-visible string comes from `kcc-i18n`, and
   `cargo xtask i18n-check` passes for en, ru, uk, de, be and kk.
 - **(g) Live tests only against test devices.** Live suites run only against router
@@ -101,7 +105,9 @@
    cooldown unless named: bytes 1.12.2, clap/clap_derive 4.6.9,
    jiff/jiff-core/jiff-static 1.0.1, pin-project-lite 0.2.18, regex-automata 0.4.19,
    regex-syntax 0.8.12, rmcp/rmcp-macros 3.11.0, smallvec 1.16.6, zeroize 1.9.2;
-   matchit 0.8.6 is held by axum 0.8.9's `matchit = "=0.8.4"`. Repeat the check at least monthly (core Section 12).
+   matchit 0.8.6 is held by axum 0.8.9's `matchit = "=0.8.4"`; `jsonwebtoken` 12 is held
+   by rmcp-server-kit 3.21.1's `jsonwebtoken` 11 (added 2026-11-20, owner decisions
+   D-AUTH, D-MERGE). Repeat the check at least monthly (core Section 12).
 4. **Rust versions in workflow files are unquoted** (opened 2026-11-14, resolved
    2026-11-18). Core Section 11 (Tooling) asks to quote every Rust version in YAML.
    `ci.yml`, `container.yml` and `release.yml` now quote every toolchain
@@ -125,9 +131,22 @@
    file). The Telegram client also refuses any resolved address that no outbound-policy
    setting could admit (`kcc_rci::outbound::never_admitted`: cloud metadata, unspecified,
    multicast, broadcast); extending that check to log sinks is listed in
-   `docs/BACKLOG.md`. Neither address can be set from the Web UI, MCP or a state file.
-   Telegram is outbound only: no `getUpdates`, no webhook. This is not a licence to add
-   further destinations; each needs its own entry here.
+   `docs/BACKLOG.md`. Neither of these two addresses can be set from the Web UI, MCP or
+   a state file; the Web UI may set only the identity provider URLs named next.
+   Telegram is outbound only: no `getUpdates`, no webhook.
+
+   Added 2026-11-20 (owner decisions D-AUTH, D-MERGE): three more admin- or
+   operator-configured non-router destinations, all under the kit's SSRF guard: OIDC
+   identity provider endpoints (issuer, JWKS URL) that an admin enters on the Web or the
+   operator in `kcc.toml`, the CRL distribution points named in an uploaded mTLS CA, and
+   kcc's own internal loopback JWKS listener (`http://localhost:<ephemeral>`) fetched by
+   rmcp-server-kit. Limits: `https` only for identity provider URLs; cloud-metadata
+   addresses are always refused; a private identity provider host or CIDR is admitted
+   only through `kcc.toml` `[mcp.auth.oidc] ssrf_allow_hosts` / `ssrf_allow_cidrs`, never
+   from the Web UI, MCP or a state file. Neither MCP nor an AI assistant can set any of
+   these destinations.
+
+   This is not a licence to add further destinations; each needs its own entry here.
 
 ## Common alignment steps
 
