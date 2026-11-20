@@ -43,7 +43,7 @@ pub(super) async fn client(ca_file: Option<&Path>) -> Result<Client, DeliveryErr
 /// Reads a whole reply body of at most `cap` bytes; `None` when the body is longer or
 /// breaks off. Reading stops at the cap, so a longer body is never buffered whole.
 // cancel-safe: reading a response body changes no state.
-pub(super) async fn read_capped(mut response: Response, cap: usize) -> Option<Vec<u8>> {
+pub(crate) async fn read_capped(mut response: Response, cap: usize) -> Option<Vec<u8>> {
     let mut body = Vec::new();
     loop {
         match response.chunk().await {

@@ -442,6 +442,20 @@ pub const FAMILIES: &[Family] = &[
         &["sink", "reason"],
         SelfMetric,
     ),
+    family(
+        "kcc_notify_messages_total",
+        Counter,
+        "Telegram messages by outcome: sent, rejected (token, chat or message refused) or failed (to be retried).",
+        &["result"],
+        SelfMetric,
+    ),
+    family(
+        "kcc_notify_dropped_total",
+        Counter,
+        "Notification lines dropped per chat, by reason (queue_full, expired, chat_disabled, token_rejected).",
+        &["reason"],
+        SelfMetric,
+    ),
 ];
 
 /// Looks up a family by name.

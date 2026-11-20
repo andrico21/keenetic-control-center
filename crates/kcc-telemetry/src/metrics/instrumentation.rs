@@ -46,6 +46,10 @@ pub struct SelfMetrics {
     log_forwarded: IntCounterVec,
     /// `kcc_log_retries_total{sink}`.
     log_retries: IntCounterVec,
+    /// `kcc_notify_messages_total{result}`.
+    notify_messages: IntCounterVec,
+    /// `kcc_notify_dropped_total{reason}`.
+    notify_dropped: IntCounterVec,
 }
 
 /// Catalogue options for `name`.
@@ -77,6 +81,8 @@ impl SelfMetrics {
         let (log_received, received_labels) = opts("kcc_log_records_received_total")?;
         let (log_forwarded, forwarded_labels) = opts("kcc_log_records_forwarded_total")?;
         let (log_retries, retry_labels) = opts("kcc_log_retries_total")?;
+        let (notify_messages, message_labels) = opts("kcc_notify_messages_total")?;
+        let (notify_dropped, notify_dropped_labels) = opts("kcc_notify_dropped_total")?;
         let metrics = Self {
             build_info: IntGaugeVec::new(build, build_labels)?,
             requests: IntCounterVec::new(requests, request_labels)?,
@@ -92,6 +98,8 @@ impl SelfMetrics {
             log_received: IntCounterVec::new(log_received, received_labels)?,
             log_forwarded: IntCounterVec::new(log_forwarded, forwarded_labels)?,
             log_retries: IntCounterVec::new(log_retries, retry_labels)?,
+            notify_messages: IntCounterVec::new(notify_messages, message_labels)?,
+            notify_dropped: IntCounterVec::new(notify_dropped, notify_dropped_labels)?,
         };
         metrics
             .build_info
@@ -118,6 +126,8 @@ impl SelfMetrics {
         registry.register(Box::new(self.log_received.clone()))?;
         registry.register(Box::new(self.log_forwarded.clone()))?;
         registry.register(Box::new(self.log_retries.clone()))?;
+        registry.register(Box::new(self.notify_messages.clone()))?;
+        registry.register(Box::new(self.notify_dropped.clone()))?;
         Ok(())
     }
 
@@ -173,6 +183,22 @@ impl SelfMetrics {
     pub fn log_retry(&self, sink: &str) {
         if let Ok(counter) = self.log_retries.get_metric_with_label_values(&[sink]) {
             counter.inc();
+        }
+    }
+
+    /// Counts one Telegram message that was `sent`, `rejected` or `failed`.
+    #[inline]
+    pub fn notify_message(&self, result: &str) {
+        if let Ok(counter) = self.notify_messages.get_metric_with_label_values(&[result]) {
+            counter.inc();
+        }
+    }
+
+    /// Counts `count` notification lines dropped for `reason`.
+    #[inline]
+    pub fn notify_dropped(&self, reason: &str, count: u64) {
+        if let Ok(counter) = self.notify_dropped.get_metric_with_label_values(&[reason]) {
+            counter.inc_by(count);
         }
     }
 

@@ -18,7 +18,7 @@ secrecy = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["fs", "rt", "sync", "time"] }
+tokio = { workspace = true, features = ["fs", "net", "rt", "sync", "time"] }
 tokio-util = { workspace = true }
 tracing = { workspace = true, features = ["std"] }
 
@@ -27,7 +27,7 @@ kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
 tempfile = { workspace = true }
 url = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "test-util"] }
-tracing-subscriber = { workspace = true, features = ["fmt", "std"] }
+tracing-subscriber = { workspace = true, features = ["fmt", "std", "tracing-log"] }
 
 [lints]
 workspace = true

@@ -16,5 +16,5 @@ pub mod retry;
 pub mod runtime;
 pub mod service;
 pub mod sink;
-mod sink_http;
+pub(crate) mod sink_http;
 pub mod types;

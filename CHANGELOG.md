@@ -129,6 +129,14 @@ The first release, `0.1.0`, is in preparation and contains:
   64 per router and 256 in total; `schedule_runs.json` records each run before it starts,
   so a slot runs at most once, and keeps the last 20 runs per schedule. New `kcc.toml`
   table `[schedules]` with `default_timezone` (default `"UTC"`).
+- **Telegram delivery (library only)**: `kcc-telemetry` gains a Bot API client that sends
+  plain-text `sendMessage` requests only (no proxy, no redirects, metadata and other
+  never-admitted addresses refused by its resolver, the token never logged) and a
+  delivery outbox with storm control: 30 s merge window, 1 message/s and 20/min per chat,
+  256 waiting lines per chat, `retry_after` on 429, backoff from 5 s to 5 min, lines older
+  than 1 h dropped, a refused token or chat recorded in `notify_state.json`. New
+  self-metrics `kcc_notify_messages_total{result}` and `kcc_notify_dropped_total{reason}`.
+  Nothing starts it yet.
 
 ### Changed
 

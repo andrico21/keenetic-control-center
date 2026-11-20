@@ -39,6 +39,17 @@ Log sinks are configured only in `kcc.toml`, must use HTTPS (plain HTTP is accep
 for a loopback test sink), ignore proxy environment variables and don't follow redirects
 either.
 
+The Telegram notifier is the other non-router destination. Its Bot API base URL comes
+only from `[notify.telegram] api_url` in `kcc.toml` (the Web UI, MCP and state files can't
+set it) and must use HTTPS, or plain HTTP to a loopback host. Its client ignores proxy
+environment variables, follows no redirect (a redirect counts as a failed attempt) and
+resolves the host itself, dropping every address that no outbound-policy setting could
+admit (cloud metadata, unspecified, multicast and broadcast addresses); a literal address
+of that kind is refused outright. It calls only `sendMessage` and never receives anything
+from Telegram. The bot token travels in the request URL path, so kcc never logs a request,
+its URL or its body, and strips the URL from every HTTP client error before mapping it to
+a plain delivery outcome.
+
 ## Secrets at rest
 
 - **Master key.** A 32-byte key file (`KCC_MASTER_KEY_FILE`, else

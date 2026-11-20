@@ -74,3 +74,5 @@ ports below 1024 are refused.
 | `kcc_log_records_forwarded_total` | counter | `sink` | self-metric | Router log records accepted by a configured sink. |
 | `kcc_log_retries_total` | counter | `sink` | self-metric | Log sink delivery retries. |
 | `kcc_log_records_dropped_total` | counter | `sink`, `reason` | self-metric | Router log records a log sink dropped, by sink and reason. |
+| `kcc_notify_messages_total` | counter | `result` | self-metric | Telegram messages by outcome: sent, rejected (token, chat or message refused) or failed (to be retried). |
+| `kcc_notify_dropped_total` | counter | `reason` | self-metric | Notification lines dropped per chat, by reason (queue_full, expired, chat_disabled, token_rejected). |
