@@ -29,8 +29,9 @@ accounts (the Web sessions of a deleted or disabled account, or one with another
 password, end), roles (to MCP and to signed-in Web UI sessions) and router profiles
 (added routers are exported to `/metrics` at once, removed ones dropped); a rejected file
 keeps the previous one, and keys and accounts still apply. `kcc serve` also applies API
-key and account changes by itself within about 2 seconds, without `SIGHUP`. Other changes
-need a restart.
+key and account changes by itself within about 2 seconds, without `SIGHUP`; the
+notification settings (`notify.json`, the sealed bot token) and `schedules.json` follow
+the same way. Other changes need a restart.
 
 ## Top level
 

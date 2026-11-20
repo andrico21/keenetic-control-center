@@ -1,12 +1,26 @@
 //! Applies what other processes change in `api_keys.json` and `users.json` (the CLI, an
 //! edited or restored state file) to the running server within one poll interval.
 //!
+//! The same pass tells the [`Follower`]s registered with [`StateWatch::with_follower`] to
+//! reload once when any of their files changed (the notifier's `notify.json` and sealed
+//! bot token, the scheduler's `schedules.json`).
+//!
 //! Each file is checked by inode, modification time and size, and only then by content:
 //! a key set (name, hash, role) that differs is reloaded into the MCP transport, and the
 //! Web sessions whose account is gone, disabled, holds another role or has another
 //! password end. A rewrite that changes none of that (a key's `last_used`, a sign-in's
 //! failure counter) reloads nothing. A file that cannot be read keeps the last good state
-//! and is retried on the next pass. A SIGHUP runs the same pass for both files.
+//! and is retried on the next pass. A SIGHUP runs the same pass for both files and reloads every follower.
+
+mod follow;
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "test assertions are not rendered API documentation"
+)]
+mod tests;
 
 extern crate alloc;
 
@@ -21,6 +35,8 @@ use core::{fmt::Display, time::Duration};
 use std::os::unix::fs::MetadataExt as _;
 use std::{fs, io, path::Path, time::UNIX_EPOCH};
 
+pub(crate) use follow::Follower;
+use follow::{Followers, observe_all};
 use kcc_app::{
     accounts::{UsersDocument, standing::AccountStanding},
     api_keys::ApiKeysDocument,
@@ -122,7 +138,7 @@ impl<T> Tracked<T> {
     }
 }
 
-/// The watcher of one server's key and account files.
+/// The watcher of one server's key, account and follower files.
 #[derive(Debug)]
 pub(crate) struct StateWatch {
     /// State directory holding both files.
@@ -135,6 +151,8 @@ pub(crate) struct StateWatch {
     keys: Tracked<KeySet>,
     /// `users.json`.
     users: Tracked<Standings>,
+    /// The components that follow further state files.
+    followers: Followers,
 }
 
 impl StateWatch {
@@ -146,7 +164,23 @@ impl StateWatch {
             web,
             keys: Tracked::default(),
             users: Tracked::default(),
+            followers: Followers::default(),
         }
+    }
+
+    /// Also watches `files` (relative to the state directory): `follower` reloads once
+    /// per pass in which any of them changed, and on SIGHUP.
+    #[expect(
+        dead_code,
+        reason = "the notifier and the scheduler register their files"
+    )]
+    pub(crate) fn with_follower(
+        mut self,
+        files: &'static [&'static str],
+        follower: Arc<dyn Follower>,
+    ) -> Self {
+        self.followers.add(files, follower);
+        self
     }
 
     /// The MCP transport's reload bridge.
@@ -213,14 +247,16 @@ impl StateWatch {
     // applies it again.
     async fn sync(&mut self, trigger: Trigger) {
         let dir = self.state.dir().to_owned();
+        let plan = self.followers.plan();
         let observed = spawn_blocking(move || {
             (
                 observe(&dir.join(ApiKeysDocument::FILE_NAME)),
                 observe(&dir.join(UsersDocument::FILE_NAME)),
+                observe_all(&dir, &plan),
             )
         })
         .await;
-        let Ok((keys, users)) = observed.inspect_err(|error| {
+        let Ok((keys, users, followed)) = observed.inspect_err(|error| {
             tracing::warn!(target: WATCH, %error, "state file check failed");
         }) else {
             return;
@@ -229,6 +265,7 @@ impl StateWatch {
         if let Some(web) = self.web.clone() {
             self.sync_users(trigger, users, &web).await;
         }
+        self.followers.apply(trigger, followed);
     }
 
     /// Reloads the keys when their set changed.
