@@ -253,6 +253,11 @@ The first release, `0.1.0`, is in preparation and contains:
 - **Container stop timeout 100 s**: `deploy/podman/kcc.container` sets `StopTimeout=100`
   (was 80): 10 s are reserved for stopping the scheduler and 2 s for queued Telegram
   notifications, and the margin grows to 13 s.
+- **The container end-to-end run covers notifications and scheduled actions.**
+  `deploy/podman/e2e.sh` stores a fake bot token and a chat with `kcc notify`, sends a
+  test message to a fake Telegram Bot API, and creates a backup schedule on the Web admin
+  page whose "run now" must leave a backup and a Telegram message. The seccomp profile,
+  re-traced over these paths, is unchanged: no syscall added or removed.
 
 - **Interface changes fail closed when kcc cannot tell which interface carries its
   connection.** When no router interface owns the address kcc reaches the router at (a

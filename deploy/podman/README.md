@@ -173,12 +173,14 @@ Names only the profile allows pass, because they vary between traces.
 [--seccomp <profile.json>]` runs named steps. Each step runs with `set -e`, so a command
 that fails in the middle of a step fails it: the script prints `FAIL <step>` and its log and
 exits 1 at the first failure, or after every step with `--keep-going`. kcc refuses a
-password file others can read, so the script writes the web user's password file with mode
-0600 and, in container mode, delivers it as a Podman secret. It drives: startup including
+password file others can read, so the script writes the web user's password file and the
+fake bot token file with mode 0600 and, in container mode, delivers them as Podman secrets. It drives: startup including
 the privilege floor and the root refusal, the TLS handshake, Web login, the dashboard SSE stream, a domain read, write
 and save against a fake router, a migration plan/apply/commit between two fake
 routers, a backup download, the `/metrics` scrape, log forwarding to fake Loki and fake
-Elasticsearch, MCP over HTTP (`tools/list` and one call), `kcc healthcheck`, router URLs
+Elasticsearch, a Telegram test message (`kcc notify test`) to a fake Bot API, a backup
+schedule created on the Web admin page and started with "run now" (its backup and its
+Telegram message), MCP over HTTP (`tools/list` and one call), `kcc healthcheck`, router URLs
 that need name resolution (`/etc/hosts` and a real resolver query), the outbound
 connection to the router, a `SIGHUP` configuration reload, and a graceful `SIGTERM`.
 The fakes run on the host from the `kcc-testkit` binaries (`kcc-fake-router`,
