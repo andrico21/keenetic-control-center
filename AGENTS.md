@@ -84,6 +84,11 @@ Models: `KN-1811`, `KN-1010`, `KN-3810`, `NC-3013`.
   the suites (the `kcc` child, the MCP registry, the migration probe) use this file's
   `[outbound]` table, so its `allowed_networks` must admit the router.
 - `KCC_LIVE_COMMIT=1`: the live migration rehearsal commits instead of its default rollback.
+- `KCC_LIVE_TELEGRAM_TOKEN_FILE`: path of a file holding a Telegram bot token (owner-readable).
+- `KCC_LIVE_TELEGRAM_CHAT`: the chat id the Telegram live suite sends to. That suite
+  (`crates/kcc/tests/live_telegram.rs`) contacts the real Bot API and no router, so it is
+  exempt from `KCC_LIVE_TARGET_CONFIG` and `KCC_LIVE_ALLOW_SERIAL`; every other live suite
+  keeps both.
 
 A missing variable makes the live test log `live-skip:<reason>` through `tracing` and
 return `Ok(())`. It never passes silently.
