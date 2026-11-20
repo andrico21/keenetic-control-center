@@ -437,7 +437,7 @@ Every wave holds fewer todos than the template's 5-8 target (W1 has 4, W3 has 3,
   Commit: Y | feat(web): scheduled actions page, run now and unsaved-schedule notes
   Recommended task executor category: visual-engineering - admin page with dynamic forms (load skill `frontend`)
 
-- [ ] 16. CLI: `kcc scheduled`
+- [x] 16. CLI: `kcc scheduled`
   What to do / Must NOT do:
   - `crates/kcc/src/cli/scheduled.rs` + `ScheduledCommand` args, a `LocalCommand::Scheduled(ScheduledCommand)` variant in `crates/kcc/src/cli/args.rs:76` and its dispatch in `crates/kcc/src/cli/entry.rs` (the name avoids the existing router-domain `kcc schedules`): `list` (`--json`), `show <id>`, `add --router <id> --name <text> --days mon,tue,... --at HH:MM [--tz <zone>] (--policy-switch --mac <mac> --policy <name> | --preset <id> [--ack-documentation-tier] | --backup | --reboot)`, `edit <id>` with the same optional options, `pause <id>`, `resume <id>`, `delete <id>`, `run-now <id>`. Owner = `Owner::Cli { os_user }` of the principal. Every command requires `ManageSchedules`; `add`/`edit`/`resume`/`run-now` run the same eligibility check against the router as todo 15 (built from `ActionDeps` of todo 13 in this process); a reboot schedule (add or run-now) needs `--confirm-destructive <router-id>`, a preset or policy one `--yes` or a prompt, like other changes.
   - `run-now` runs in this CLI process through the todo 13/14 action code (job runner opened like `crates/kcc/src/cli/preset/run.rs:131-140`), records the run in the ledger (`slot: None`), audits `schedule.run` with `requested_by` = `cli:<user>`, prints the outcome, sends no Telegram message (documented; a running server shows the run on its next ledger read) and never retries a busy router.

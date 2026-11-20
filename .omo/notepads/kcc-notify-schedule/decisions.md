@@ -128,3 +128,37 @@
 ## [2026-11-20] orchestrator: API landed in W6 (todos 15 and 16)
 - Todo 14: `crates/kcc/src/server_schedules/preset.rs` (+ `preset/{prepare,finish}.rs`): `preset::Target::new(router, preset_id, ack_documentation_tier)`, `preset::eligible(&ActionDeps, &Role, Target) -> Result<Option<String /*source router for NewSchedule::with_preset_source*/>, PresetRefusal>` (REMOVE its `#[cfg_attr(not(test), expect(dead_code))]` when first called), `PresetRefusal::code()` in {forbidden, preset_unavailable, router, firmware, documentation_tier, not_ready, management_lines, wireguard_key}; `kcc_migrate::presets::unattended::refusal`; `kcc_migrate::presets::store::recorded_source(&StateStore, id)`; run-time owner check now includes the preset's source router (Read, Migrate).
 - Run outcome codes for preset runs: Failed {preset_rolled_back, preset_failed, preset_failed_armed, preset_restored, preset_state_unknown, forbidden, router}, Skipped {not_ready, management_lines, wireguard_key, documentation_tier, firmware, preset_unavailable}.
+
+## [2026-11-20] Todo 16 (n16): kcc scheduled + shared foundation - actual API (todo 15 plugs into THIS)
+- `crate::server_schedules::eligible::{Draft, ScheduleRefusal, check}`: `Draft::new(router: &str, action: &Action)`;
+  `check(&ActionDeps, &Role, &Draft<'_>).await -> Result<Option<String /*preset source router, for NewSchedule::with_preset_source*/>, ScheduleRefusal>`.
+  `ScheduleRefusal::{Forbidden, Router, ClientUnknown, PolicyUnknown, Preset(PresetRefusal)}` (Copy, Eq), `code(self)`:
+  forbidden | router | client_unknown | policy_unknown | preset codes (preset_unavailable, firmware, documentation_tier, not_ready,
+  management_lines, wireguard_key, plus forbidden/router). Order: ManageSchedules + action permissions on the router (no router
+  contact) -> policy switch: shared registry client + poll_info catalog, `read_client` registered==Some(true), `policies` name ->
+  preset: `preset::eligible` (its dead_code expect is gone) -> backup/reboot: Ok(None).
+- The run-time policy action uses the same rule: `eligible::registered(&RouterCtx, (mac, policy)) -> Result<Client, ScheduleRefusal>`
+  (pub(super)); `actions/policy.rs` `checked` was replaced by it (codes unchanged).
+- Standalone run deps: `server_schedules::standalone::{actions(&Core, &StateStore).await -> Result<ActionDeps, JobError>` (opens its
+  own JobRunner, notify None, SystemClock apply clock, default Timings), `Owners::new(Arc<dyn AccountLookup>, RoleSource, CliConfig)`,
+  `run_deps(&ActionDeps, &StateStore, Owners) -> Arc<RunDeps>` (notices None, SystemClock, stop token never cancelled)}. The struct
+  literal lives in `actions/standalone.rs::deps` (actions.rs would pass 250 pure LOC otherwise). `lines::reason` is now pub(crate).
+- CLI context: `Globals::router()` and `cli::context::Services::core()` added.
+- CLI decisions: the busy test holds the router lease from the test process (`StateStore::try_lease`, as cli/busy.rs does) instead
+  of a stalled second `kcc config` process: deterministic and portable (a Handle::stall holds every request, including the second
+  process's sign-in before it takes the lease). run-now of a PAUSED schedule is allowed (plan: the caller decides; the owner is
+  re-checked by run_once). Confirmations: add/edit/run-now (reboot -> --confirm-destructive <router>, policy/preset -> --yes or
+  prompt, backup none); resume runs the check but asks nothing. run-now flushes the audit writer (10 s) before exit because
+  run_once only `submit`s. Exit codes: refusal/run codes forbidden|firmware|documentation_tier -> 10, router_busy -> 5,
+  client_unknown|policy_unknown|preset_unavailable|not_ready|management_lines|wireguard_key -> 4, else 6; paused instead -> 10.
+- Audit `cli.schedule_add|edit|pause|resume|delete`, router set, params exactly `{id, action (kind), router}`.
+
+## [2026-11-20] Todo 15 phase 1 (n15): Web Administration > Scheduled actions - actual API (phase 2 implements THIS)
+- `kcc_web::admin_scheduled::{ScheduleControl, ScheduleDraft, ScheduleRefusal, RunNowStarted, Checked, RunNow}`; `WebState::with_schedules(Arc<dyn ScheduleControl>)`.
+  `check(&Role, &ScheduleDraft) -> Checked` (= `Pin<Box<dyn Future<Output = Result<Option<String>, ScheduleRefusal>> + Send>>`; Ok = the preset's SOURCE router for `NewSchedule::with_preset_source`, `None` otherwise);
+  `run_now(&Role clicker, actor: &str /* "web:<username>" = Owner::Web.to_string() */, id) -> RunNow` (Ok(`RunNowStarted::new()`) = admitted, the run goes on in the background; `Err(Busy)` instead of retrying);
+  `next_slots() -> BTreeMap<router, (schedule name, next slot unix)>` (sync, cheap; the dashboard looks the schedule's zone up in schedules.json by router + name).
+- `ScheduleDraft { router, action }` (non_exhaustive, `ScheduleDraft::new(router, action)`). `ScheduleRefusal` enum with `code()` in {forbidden, router, client_unknown, policy_unknown, preset_unavailable, firmware, documentation_tier, not_ready, management_lines, wireguard_key, busy, unavailable} and `from_code(&str)` (maps `PresetRefusal::code()` 1:1).
+- The page calls `check` BEFORE create/update/resume (as the clicker's role), then stores with `Owner::Web { username }`; store refusals are shown in the dialog (forbidden/limit/duplicate name), audited `Change::refused(action, target, code)`. `run_now` is called after `ScheduleStore::get` (404/403 for invisible) and the confirmation (a reboot needs the router id typed); the page does NOT check the action permissions itself: the control must (ManageSchedules + action permissions on the router for the clicker) and answer `Forbidden`.
+- `[schedules] default_timezone` reaches the page through `ServerFacts::from_config` (private field, not a summary row: the server page is unchanged).
+- Notes: dashboard line only when a control is attached and `next_slots()` names the router; configuration note only when `show last-change` reports `unsaved == Some(true)` and its checksum equals `RunLedger::last_unsaved(router).checksum` (both read from `fleet.workflow().state()`).

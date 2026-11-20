@@ -150,3 +150,22 @@ A test fake that answers (404/405) without reading the request body can reset th
 - Fake router: `fail_parse_matching("system configuration fail-safe timer", 2)` refuses both the arm and its cleanup disarm -> ApplyError::ArmUnconfirmed (recovery_armed) from preparation; `silent_noop_path(<exact parser line>)` ignores just that line.
 - Clippy: `too_long_first_doc_paragraph` fires on ~3-line first paragraphs (tests included): one short sentence, blank `///`, details. `shadow_reuse` fires on closure params named like the receiver (`waits.wait_for(|waits| ..)`) and on `let (x, role, id) = (.., role.clone(), id.to_owned())`. `module_name_repetitions` on `unattended::UnattendedRefusal` (kept the plan's name with an expect).
 - `#[cfg_attr(not(test), expect(dead_code, reason))]` keeps a crate-visible fn for a later todo that tests already call.
+
+## [2026-11-20] Todo 16 progress (n16)
+- clippy `missing_assert_message` does not fire inside #[test]/#[tokio::test] fns but DOES in test helper fns.
+- clippy `struct_excessive_bools` (>3 bools) bites clap Args structs: split into flattened sub-structs with `#[group(skip)]`;
+  an `ArgGroup` on the outer struct can still name the inner fields' ids.
+- A RED stub of a new crate-visible fn trips `dead_code` under warnings=deny in the non-test build: for the process-level RED
+  run the module line was commented out temporarily, then restored.
+- A wrapper `cmd | grep -v ...; echo $?` under pipefail reports grep's 1 when the command prints nothing (fmt --check):
+  capture the command's own status first.
+
+## [2026-11-20] Todo 15 phase 1 (n15)
+- askama: a `for (value, label) in array_field` binds `label` as `&&MessageKey` -> `t(**label)`; a plain `MessageKey` field passed to `t(..)` fails (reference): expose a `const fn` getter.
+- askama strips `{% if false %}` blocks entirely, so a field only read there becomes dead code (useful to know when neutralizing a template for a RED run: use a runtime-false condition such as `x.is_some() && router.is_empty()`).
+- Foreign `#[non_exhaustive]` enums (Action, ScheduleState, PauseReason, RunState, TimeError, ScheduleError): match with `Known | _ =>` (the codebase precedent, view.rs) or `matches!` chains; a bare `_` arm trips wildcard_enum_match_arm.
+- A type gets ONE inherent impl (clippy multiple_inherent_impl): a child module that parses a parent's struct uses free functions taking `&Parent`.
+- Golden HTML: dump with a scratch integration test writing to a dir from an env var; normalize the CSRF meta and the `/tmp/.tmpXXXX` state path (server page), nothing else varies.
+
+## [2026-11-20] Todo 15 phase 1 progress (n15)
+- Phase 1 (kcc-web only) done and uncommitted in /home/andrico/kcc-wt/n15; phase 2 (crates/kcc ScheduleControl impl, server wiring, serve_scheduled_web.rs) pending todo 16. Evidence: task-15-kcc-notify-schedule{,-red}.log. No existing test expectation changed; the admin tab bar gains only the Scheduled actions tab (golden diff on /ui/admin/users and /ui/admin/server), dashboard and configuration page goldens unchanged.
