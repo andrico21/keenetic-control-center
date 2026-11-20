@@ -107,6 +107,12 @@ pub struct ApplyOptions {
     pub safety_seconds: u64,
     /// Time source.
     pub clock: Arc<dyn Clock>,
+    /// Keeps the job of [`Applier::start`](super::Applier::start), and with it the
+    /// router's lease, until the recovery timer has run out on `clock` when preparation
+    /// fails with the timer possibly armed
+    /// ([`ApplyError::recovery_armed`](super::ApplyError::recovery_armed)); the failure is
+    /// handed over at once. Off, the lease ends with the failed preparation.
+    pub hold_armed_failure: bool,
     /// Progress message language.
     pub locale: Locale,
     /// Warnings established while converting a reviewed specialized plan.
@@ -126,6 +132,7 @@ impl Default for ApplyOptions {
             source_firmware: None,
             safety_seconds: 900,
             clock: Arc::new(SystemClock::default()),
+            hold_armed_failure: false,
             locale: Locale::En,
             initial_warnings: Vec::new(),
         }

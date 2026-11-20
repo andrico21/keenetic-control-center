@@ -2,6 +2,7 @@
 //! preset is captured from `office` and applied to `home`.
 
 mod apply;
+mod armed;
 mod recover;
 mod refuse;
 

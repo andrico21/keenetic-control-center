@@ -8,7 +8,7 @@ use kcc_app::{audit::ActorKind, schedules::ledger::RunOutcome, workflow::Workflo
 use kcc_testkit::FaultInjection;
 use tokio::time::timeout;
 
-use super::{Bench, FIRST, ID, SECOND, Setup, WAIT, lines, now};
+use super::{Bench, FIRST, HandClock, ID, SECOND, Setup, WAIT, armed::held, lines, now};
 use crate::server_schedules::{
     lines::LineKind,
     run::{Report, run_once},
@@ -158,19 +158,24 @@ async fn a_leased_router_is_busy() -> TestResult {
 /// Todo 14: a failed preparation is not rolled back.
 ///
 /// The fail-safe timer was refused, and so was its cleanup: the run fails saying that the
-/// timer may be armed, sends no rollback and leaves the router's lease free.
+/// timer may be armed and sends no rollback; it keeps the router's lease until the timer
+/// has run out on the apply clock (todo 21).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_failed_preparation_is_not_rolled_back() -> TestResult {
+    let clock = Arc::new(HandClock::default());
     let bench = Bench::start(Setup {
         faults: FaultInjection::default()
             .fail_parse_matching("system configuration fail-safe timer", 2),
+        clock: Arc::<HandClock>::clone(&clock),
         ..Setup::default()
     })
     .await?;
     bench.capture_office("dns-secure", &[FIRST]).await?;
     bench.schedule(false)?;
+    let (running, left) = held(&bench, &clock).await?;
 
-    let report = bench.run().await?;
+    clock.advance(left);
+    let report = timeout(WAIT, running).await??;
 
     assert_eq!(
         report,

@@ -19,8 +19,11 @@
 //! - A rollback or disarm that fails keeps the applier, and so the lease, until the
 //!   fail-safe timer has run out on the apply clock; `show last-change` then tells whether
 //!   the router restored its saved configuration.
-//! - A preparation that failed leaves no applier: its lease ended with it, and nothing is
-//!   rolled back (a timer whose arming was not confirmed is reported as possibly armed).
+//! - A preparation that failed leaves no applier, and nothing is rolled back. When the
+//!   fail-safe timer may still be armed (its arming or its cleanup was not confirmed), it
+//!   is reported as possibly armed and the applier's job keeps the lease until the timer
+//!   has run out on the apply clock; the run ends with the job. Otherwise the lease ends
+//!   with the preparation.
 //!
 //! Nothing is ever saved, and Mirror mode is never used.
 

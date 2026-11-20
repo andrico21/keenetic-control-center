@@ -13,6 +13,9 @@ use crate::server_schedules::actions::{ActionDeps, ActionResult, failed};
 
 /// Reserves the router's lease for `request`, starts the applier's job, and ends the
 /// apply once its verdict is in; the result carries the job, which has ended by then.
+///
+/// A preparation that failed with the fail-safe timer possibly armed keeps the job, and
+/// so the lease, until the timer has run out on the apply clock.
 // NOT cancel-safe: dropped after the job started, the applier runs on detached, and a
 // dropped applier leaves the router's fail-safe timer armed.
 pub(super) async fn run(deps: &ActionDeps, mut request: ApplyRequest) -> ActionResult {
@@ -24,6 +27,7 @@ pub(super) async fn run(deps: &ActionDeps, mut request: ApplyRequest) -> ActionR
         Err(WorkflowError::RouterBusy { actor: _ }) => return ActionResult::Busy,
         Err(_error) => return failed("router"),
     }
+    request.options.hold_armed_failure = true;
     let router = request.target.clone();
     let (id, done) = match Applier::start(deps.jobs(), request).await {
         Ok(started) => started,
@@ -80,8 +84,11 @@ async fn conclude(
     }
 }
 
-/// The error code of an apply whose preparation failed: no applier exists, so nothing is
-/// rolled back; the fail-safe timer may still be armed when its arming went unconfirmed.
+/// The error code of an apply whose preparation failed.
+///
+/// No applier exists, so nothing is rolled back; the fail-safe timer may still be armed
+/// when its arming or its cleanup went unconfirmed, and the job then keeps the lease until
+/// the timer has run out.
 pub(super) const fn unprepared(error: ApplyError) -> &'static str {
     if error.recovery_armed() {
         "preset_failed_armed"

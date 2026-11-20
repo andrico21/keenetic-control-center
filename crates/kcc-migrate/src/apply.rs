@@ -26,6 +26,7 @@ mod raw;
 mod reconnect;
 mod settle;
 mod types;
+mod unprepared;
 mod verify;
 
 use alloc::sync::Arc;
@@ -93,6 +94,11 @@ pub struct Applier {
 impl Applier {
     /// Starts the complete apply as a persisted job, returning the lease through a completion channel.
     ///
+    /// A preflight failure arrives on the channel at once. With
+    /// [`ApplyOptions::hold_armed_failure`], one that leaves the recovery timer possibly
+    /// armed ([`ApplyError::recovery_armed`]) keeps the job running, and with it the
+    /// router's lease, until the timer has run out on the apply's clock.
+    ///
     /// # Errors
     /// Returns job admission or persistence errors; preflight failures arrive on the channel.
     // NOT cancel-safe: once admitted, the persisted job continues independently.
@@ -113,7 +119,7 @@ impl Applier {
                 "migration".to_owned(),
                 JobTarget::Write(router),
                 async move |context| {
-                    let result = Self::prepare(request).await;
+                    let result = preflight::prepare(request).await;
                     match result {
                         Ok(mut applier) => {
                             let execution = applier.apply(&context).await;
@@ -123,13 +129,16 @@ impl Applier {
                             drop(sender.send(Ok(applier)));
                             job_result
                         }
-                        Err(error) => {
+                        Err(failed) => {
                             let report = ApplyReport {
-                                failure: Some(error),
+                                failure: Some(failed.error()),
                                 ..ApplyReport::default()
                             };
                             let message = report.message(locale);
-                            drop(sender.send(Err(error)));
+                            drop(sender.send(Err(failed.error())));
+                            // The caller has the failure; a lease kept for a timer that may
+                            // be armed ends, with the job, once the timer has run out.
+                            failed.hold().await;
                             Err(message)
                         }
                     }
@@ -168,7 +177,9 @@ impl Applier {
     // NOT cancel-safe: after arming, cancellation leaves the router safety timer active.
     #[inline]
     pub async fn prepare(request: ApplyRequest) -> Result<Self, ApplyError> {
-        preflight::prepare(request).await
+        preflight::prepare(request)
+            .await
+            .map_err(|failed| failed.error())
     }
 
     /// Executes the reviewed plan, reporting each line through its job context.

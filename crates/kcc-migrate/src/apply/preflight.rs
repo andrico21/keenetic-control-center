@@ -12,12 +12,16 @@ use kcc_domain::{
     RouterCtx,
     configuration::{SafetyMode, TIMER_RANGE},
 };
-use kcc_rci::{ConfigKind, RciClient, SecretBytes, capabilities::SupportTier};
+use kcc_rci::{
+    ConfigKind, RciClient, SecretBytes,
+    capabilities::{RouterInfo, SupportTier},
+};
 use secrecy::ExposeSecret as _;
 
 use super::{
     Applier, ApplyError, ApplyReport, ApplyRequest, ApplySource, agreements, agreements::audit,
     bootstrap, command, components, credential::LoginCredential, drift, settle::Stop,
+    unprepared::Unprepared,
 };
 use crate::{
     planner::{LoginPassword, plain_password},
@@ -27,11 +31,12 @@ use crate::{
 /// Checks all read-only prerequisites before arming the first protected mutation.
 ///
 /// # Errors
-/// Returns typed source, firmware, drift, agreement, or workflow failures.
+/// Returns typed source, firmware, drift, agreement, or workflow failures; a failure that
+/// leaves the recovery timer possibly armed keeps the lease when the request asks for it.
 // NOT cancel-safe: cancellation after arming leaves router recovery active.
-pub(super) async fn prepare(mut request: ApplyRequest) -> Result<Applier, ApplyError> {
+pub(super) async fn prepare(mut request: ApplyRequest) -> Result<Applier, Unprepared> {
     if !TIMER_RANGE.contains(&request.options.safety_seconds) {
-        return Err(ApplyError::Validation);
+        return Err(ApplyError::Validation.into());
     }
     authorize(&request.role, Permission::Migrate, &request.target)
         .map_err(|_error| ApplyError::Workflow)?;
@@ -53,19 +58,12 @@ pub(super) async fn prepare(mut request: ApplyRequest) -> Result<Applier, ApplyE
         .detect()
         .await
         .map_err(|_error| ApplyError::Unreachable)?;
-    match info.support_tier() {
-        SupportTier::HardwareVerified => {}
-        SupportTier::DocumentationBased if request.options.ack_documentation_tier => {
-            audit(&request, "migration.ack_documentation_tier").await?;
-        }
-        SupportTier::DocumentationBased => return Err(ApplyError::UnverifiedFirmwareTier),
-        SupportTier::Unsupported | _ => return Err(ApplyError::Firmware),
-    }
+    support_tier(&request, &info).await?;
     let firmware = source
         .firmware_or(request.options.source_firmware)
         .ok_or(ApplyError::Firmware)?;
     if info.firmware.is_none_or(|target| target < firmware) {
-        return Err(ApplyError::Firmware);
+        return Err(ApplyError::Firmware.into());
     }
     let backup = original
         .download_config(ConfigKind::Startup)
@@ -77,7 +75,7 @@ pub(super) async fn prepare(mut request: ApplyRequest) -> Result<Applier, ApplyE
         .map_err(|_error| ApplyError::Unreachable)?;
     drift::check(&request, &source, &backup, &running)?;
     if changes.baseline().checksum != request.plan.target_fingerprint.last_change_checksum {
-        return Err(ApplyError::Drift);
+        return Err(ApplyError::Drift.into());
     }
     let agreements = agreements::pending(&request, &original).await?;
     let catalog = Catalog::for_router(&info).map_err(|_error| ApplyError::Validation)?;
@@ -96,13 +94,17 @@ pub(super) async fn prepare(mut request: ApplyRequest) -> Result<Applier, ApplyE
         .map_err(|_unknown| ApplyError::ModeUnknown)?;
     let ctx = RouterCtx::new(Arc::clone(&original), catalog);
     bootstrap::initialize(&request, &mut changes, &ctx).await?;
-    Stop::arm(&mut changes, &ctx, mode, request.options.safety_seconds).await?;
+    let seconds = request.options.safety_seconds;
+    if let Err(error) = Stop::arm(&mut changes, &ctx, mode, seconds).await {
+        return Err(Unprepared::after_arm(error, changes, &request.options));
+    }
     let prepared = match initialize(&request, &mut changes, agreements).await {
         Ok(()) => components::install(&request, &mut changes, &ctx).await,
         Err(error) => Err(Stop::Armed(error)),
     };
     if let Err(stop) = prepared {
-        return Err(stop.settle(&mut changes, &ctx, mode).await);
+        let error = stop.settle(&mut changes, &ctx, mode).await;
+        return Err(Unprepared::after_arm(error, changes, &request.options));
     }
     let armed_at = request.options.clock.now();
     let credential = LoginCredential::new(
@@ -125,6 +127,24 @@ pub(super) async fn prepare(mut request: ApplyRequest) -> Result<Applier, ApplyE
         armed_at,
         report,
     })
+}
+
+/// Refuses a target firmware line the request does not accept; an acknowledged
+/// documentation-based line is audited.
+///
+/// # Errors
+/// [`ApplyError::UnverifiedFirmwareTier`] without the acknowledgement,
+/// [`ApplyError::Firmware`] for an unsupported line, or the audit failure.
+// NOT cancel-safe: the audit writer may append after cancellation.
+async fn support_tier(request: &ApplyRequest, info: &RouterInfo) -> Result<(), ApplyError> {
+    match info.support_tier() {
+        SupportTier::HardwareVerified => Ok(()),
+        SupportTier::DocumentationBased if request.options.ack_documentation_tier => {
+            audit(request, "migration.ack_documentation_tier").await
+        }
+        SupportTier::DocumentationBased => Err(ApplyError::UnverifiedFirmwareTier),
+        SupportTier::Unsupported | _ => Err(ApplyError::Firmware),
+    }
 }
 
 /// Requires the new password for every line that sets kcc's own login password.
