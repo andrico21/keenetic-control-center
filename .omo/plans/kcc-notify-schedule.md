@@ -401,7 +401,7 @@ Every wave holds fewer todos than the template's 5-8 target (W1 has 4, W3 has 3,
   Commit: Y | feat(serve): weekly scheduled policy switches, backups and reboots
   Recommended task executor category: deep-high - time-driven executor with at-most-once, ownership and shutdown invariants
 
-- [ ] 14. Scheduled preset action
+- [x] 14. Scheduled preset action
   What to do / Must NOT do:
   - `crates/kcc-migrate/src/presets/unattended.rs` (`pub mod unattended`): `pub fn refusal(plan: &PresetPlan, request: &ApplyRequest) -> Option<UnattendedRefusal>` with variants `NotReady` (`!plan.is_ready()`), `ManagementLines` (`request.plan.phases.management` not empty), `WireGuardKey` (any planned command whose words start `interface <name> wireguard private-key`, the shape `presets/apply/convert.rs:130-160` handles); unit tests per variant with built plans. (A missing documentation-tier acknowledgement is already refused by `plan` itself as `PresetPlanError::DocumentationTierAcknowledgementRequired`, `crates/kcc-migrate/src/presets/plan.rs:143-186`; the action maps it to the skip reason `documentation_tier`.)
   - `crates/kcc/src/server_schedules/preset.rs`: with the owner's role narrowed to the target (and the preset's source router, `crates/kcc/src/cli/preset/plan.rs:49-95`): `PresetStore::load_for_apply`, `registry.bootstrap_client`, `TargetInventory::collect`, `plan(.., PresetMode::Merge, &MigrationMaps::default(), &choices)` with `choices.ack_documentation_tier` from the schedule, `presets::apply::request(PresetApplyRequest::new(.., actor = schedule actor, role))` with default options (WireGuard regeneration irrelevant: such presets are refused), then `unattended::refusal` -> skipped with its reason.
