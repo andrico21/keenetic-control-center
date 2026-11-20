@@ -11,7 +11,7 @@
   `publish = false`.
 - **Workspace:** root `Cargo.toml` with `members = ["crates/*"]` and `exclude = ["xtask"]`.
   Library crates `kcc-rci`, `kcc-catalog`, `kcc-config`, `kcc-domain`, `kcc-migrate`,
-  `kcc-app`, `kcc-telemetry`, `kcc-i18n`, `kcc-web`, `kcc-mcp`, `kcc-testkit`; binary crate
+  `kcc-app`, `kcc-telemetry`, `kcc-i18n`, `kcc-web`, `kcc-mcp`, `kcc-ssh`, `kcc-testkit`; binary crate
   `kcc`. `xtask/` is a separate workspace with lint tables equal to the root profile.
 - **Toolchain:** edition 2024, `rust-version = "1.100.0"` (root and `xtask/`),
   `unsafe_code = "forbid"`. No `rust-toolchain.toml`; CI pins `1.100.0`. Formatting uses
@@ -41,9 +41,19 @@
   (`169.254.169.254` and equivalents) are always refused; TLS is verify-or-pin, never
   skipped. This is the LAN-management adaptation of the http-services SSRF rule (see
   deviation 1).
+- **(a') SSH to Entware** (added 2026-11-19, owner decision D-SCOPE (Option 2)). SSH to
+  Entware connects only to an address the router profile's host resolves to and that the
+  outbound policy admits for that host, on that router's configured SSH port. When the
+  host is admitted only through `allowed_suffixes`, the address must also be inside
+  `allowed_networks`. Host-key pinning is mandatory; no agent, jump host, port forwarding
+  or SFTP.
 - **(b) Raw RCI input is validated before sending.** Every raw RCI request or CLI line that
   comes from a tool argument, a form field or a CLI argument is validated against
   `kcc-catalog` and the identifier validators before it reaches a router.
+- **(b') Typed SSH commands** (added 2026-11-19, owner decision D-SCOPE (Option 2)).
+  Every SSH command is one variant of a closed, typed Entware command set in `kcc-ssh`;
+  arguments are validated by token grammars and by router listings from the same session;
+  no command text comes from input.
 - **(c) Every curated write is read back and compared.** A write that the router accepts
   but does not apply fails with a verification error naming the field.
 - **(d) Secrets live in `secrecy`/`zeroize` types.** They never reach logs, the audit

@@ -47,6 +47,7 @@ Guidelines checksum: `(cd docs/rust-guidelines && sha256sum -c SHA256SUMS)`.
 - `kcc-i18n`: every user-visible string (en, ru, uk, de, be, kk)
 - `kcc-web`: Web UI
 - `kcc-mcp`: MCP server
+- `kcc-ssh`: SSH transport to Entware: policy-admitted pinned TCP, pinned host key, closed typed command set
 - `kcc-testkit`: fake router, fixtures, capture tool
 - `kcc`: the binary
 - `xtask/`: separate workspace for project gates and generators

@@ -24,6 +24,23 @@ rest on the manuals and the fake router only:
 - The default `[outbound] argon2_max_iterations = 16` (`crates/kcc-app/src/settings.rs`) is not verified on a real KeeneticOS 5.2 router. If a real router asks for more than 16 Argon2 iterations at ndw4 sign-in, sign-in fails with "router authentication cost exceeds local policy" until the operator raises the setting.
 - `crates/kcc-domain/src/configuration.rs:109-114`: the recovery mode for a router that reports no system mode assumes that 4.3 and 5.0 report a boolean `fail-safe.active` in `show last-change`. This is from the documentation. If it is wrong, kcc refuses the change with `router_mode_unknown`, which is the safe direction.
 
+## Entware: unverified on hardware
+
+None of the Entware work has run against a real router. These facts rest on the manuals and the fake router, and the owner-run suites in `crates/kcc/tests/live_entware.rs` (read-only probe, write suite, SSH suite) are meant to check them. The suites are gated by the live env contract in `AGENTS.md` and need a `test_device = true` profile. Each line names the check:
+
+- Component ids `opkg` and `ext`, and whether `components list` also shows components that are not installed. Live test: the read-only probe of todo 19.
+- The real `show media` fields (label, uuid, `initialize-supported`). Live test: the read-only probe of todo 19.
+- Whether `show rc` returns the `opkg` settings in the shape the fake router uses. Live test: the read-only probe of todo 19.
+- The install log markers on 5.x. Live test: the write suite of todo 19 (guided setup, records the markers it sees).
+- SSH port 222 against 22. Live test: the SSH suite of todo 19.
+- The `/opt/etc/dropbear/authorized_keys` path. Live test: the SSH suite of todo 19. Its permissions: live test: todo 19 (to be named there).
+- That `grep`, `mv`, `chmod`, `touch`, `mkdir` and `printf` exist in the Entware exec environment (kcc sets `PATH` explicitly). Live test: the SSH suite of todo 19 (implied by a successful bootstrap; on failure it reports the exit code).
+- The init.d actions and exit codes per `rc.func`: `check`, 8 when the service is disabled, 255 on failure. Live test: the SSH suite of todo 19 covers `services list` and `check` of one service; the exit codes 8 and 255: live test: todo 19 (to be named there).
+- The raw `show log` record shape, and the `component` and `process` prefixes that Entware services and the installer produce (for example whether installer lines carry an `ndm: ` prefix). Live test: todo 19 (to be named there).
+- That `opkg chroot` breaks kcc's paths, so kcc refuses while it is on. Live test: todo 19 (to be named there).
+- Whether dropbear kills the running command when the channel closes. Live test: todo 19 (to be named there).
+- NetcrazeOS parity: that all of the above hold on Netcraze routers. Live test: todo 19 (to be named there).
+
 ## Upstream (rmcp-server-kit)
 
 - `[server] max_concurrent_requests` is unset by default (`docs/CONFIG.md`; `crates/kcc/src/server.rs:59-67` passes the table to the kit), and the kit logs that in-flight requests are unlimited. A default bound would cap held requests besides the per-router lease. Whether the kit should default it, or kcc should ship a value, is the maintainer's call.
