@@ -16,6 +16,7 @@ use super::{
     args_domains::DomainCommand,
     args_fleet::{BackupCommand, CatalogCommand, RciCommand, RouterCommand},
     args_migrate::MigrateCommand,
+    args_scheduled::ScheduledCommand,
     preset::args::{CopyCommand, PresetCommand},
 };
 
@@ -127,6 +128,9 @@ pub enum LocalCommand {
     /// Telegram notifications: settings, bot token, chats and a test message.
     #[command(subcommand)]
     Notify(NotifyCommand),
+    /// Weekly scheduled actions: policy switch, preset, backup, reboot; never saved.
+    #[command(subcommand)]
+    Scheduled(ScheduledCommand),
 }
 
 /// MCP transport commands.

@@ -13,7 +13,7 @@ use super::{
     exit::{Exit, Failure, Outcome},
     fleet, migrate, notify,
     output::Out,
-    persist, preset, rci, routers, tls,
+    persist, preset, rci, routers, scheduled, tls,
 };
 use crate::{server, server_error};
 
@@ -96,6 +96,7 @@ async fn local(command: LocalCommand, globals: Globals, out: Out) -> Outcome {
         LocalCommand::Admin(sub) => accounts::admin(&Ctx::open(globals, out)?, sub).await,
         LocalCommand::Audit(sub) => api_keys::audit(&Ctx::open(globals, out)?, &sub),
         LocalCommand::Notify(sub) => notify::run(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Scheduled(sub) => scheduled::run(&Ctx::open(globals, out)?, sub).await,
     }
 }
 

@@ -21,6 +21,7 @@
 //! a `Trigger::Now`, which is never retried.
 
 pub(crate) mod actions;
+pub(crate) mod eligible;
 pub(crate) mod lines;
 pub(crate) mod notices;
 pub(crate) mod owner;
@@ -29,6 +30,7 @@ mod queue;
 mod record;
 pub(crate) mod run;
 mod slots;
+pub(crate) mod standalone;
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,

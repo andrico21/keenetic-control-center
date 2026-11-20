@@ -8,6 +8,7 @@
 mod backup;
 mod policy;
 mod reboot;
+pub(super) mod standalone;
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,

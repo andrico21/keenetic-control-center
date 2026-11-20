@@ -560,6 +560,138 @@ pub const CLI_NOTIFY_FAILURE_UNREACHABLE: MessageKey =
 /// `cli-notify-failure-rejected` in `cli.ftl`.
 pub const CLI_NOTIFY_FAILURE_REJECTED: MessageKey = MessageKey::new("cli-notify-failure-rejected");
 
+/// `cli-scheduled-invalid` in `cli.ftl`.
+pub const CLI_SCHEDULED_INVALID: MessageKey = MessageKey::new("cli-scheduled-invalid");
+
+/// `cli-scheduled-col-router` in `cli.ftl`.
+pub const CLI_SCHEDULED_COL_ROUTER: MessageKey = MessageKey::new("cli-scheduled-col-router");
+
+/// `cli-scheduled-col-when` in `cli.ftl`.
+pub const CLI_SCHEDULED_COL_WHEN: MessageKey = MessageKey::new("cli-scheduled-col-when");
+
+/// `cli-scheduled-col-action` in `cli.ftl`.
+pub const CLI_SCHEDULED_COL_ACTION: MessageKey = MessageKey::new("cli-scheduled-col-action");
+
+/// `cli-scheduled-col-state` in `cli.ftl`.
+pub const CLI_SCHEDULED_COL_STATE: MessageKey = MessageKey::new("cli-scheduled-col-state");
+
+/// `cli-scheduled-action-policy` in `cli.ftl`.
+pub const CLI_SCHEDULED_ACTION_POLICY: MessageKey = MessageKey::new("cli-scheduled-action-policy");
+
+/// `cli-scheduled-action-preset` in `cli.ftl`.
+pub const CLI_SCHEDULED_ACTION_PRESET: MessageKey = MessageKey::new("cli-scheduled-action-preset");
+
+/// `cli-scheduled-action-backup` in `cli.ftl`.
+pub const CLI_SCHEDULED_ACTION_BACKUP: MessageKey = MessageKey::new("cli-scheduled-action-backup");
+
+/// `cli-scheduled-action-reboot` in `cli.ftl`.
+pub const CLI_SCHEDULED_ACTION_REBOOT: MessageKey = MessageKey::new("cli-scheduled-action-reboot");
+
+/// `cli-scheduled-state-active` in `cli.ftl`.
+pub const CLI_SCHEDULED_STATE_ACTIVE: MessageKey = MessageKey::new("cli-scheduled-state-active");
+
+/// `cli-scheduled-state-paused` in `cli.ftl`.
+pub const CLI_SCHEDULED_STATE_PAUSED: MessageKey = MessageKey::new("cli-scheduled-state-paused");
+
+/// `cli-scheduled-reason-manual` in `cli.ftl`.
+pub const CLI_SCHEDULED_REASON_MANUAL: MessageKey = MessageKey::new("cli-scheduled-reason-manual");
+
+/// `cli-scheduled-heading` in `cli.ftl`.
+pub const CLI_SCHEDULED_HEADING: MessageKey = MessageKey::new("cli-scheduled-heading");
+
+/// `cli-scheduled-router` in `cli.ftl`.
+pub const CLI_SCHEDULED_ROUTER: MessageKey = MessageKey::new("cli-scheduled-router");
+
+/// `cli-scheduled-when` in `cli.ftl`.
+pub const CLI_SCHEDULED_WHEN: MessageKey = MessageKey::new("cli-scheduled-when");
+
+/// `cli-scheduled-action` in `cli.ftl`.
+pub const CLI_SCHEDULED_ACTION: MessageKey = MessageKey::new("cli-scheduled-action");
+
+/// `cli-scheduled-owner` in `cli.ftl`.
+pub const CLI_SCHEDULED_OWNER: MessageKey = MessageKey::new("cli-scheduled-owner");
+
+/// `cli-scheduled-state` in `cli.ftl`.
+pub const CLI_SCHEDULED_STATE: MessageKey = MessageKey::new("cli-scheduled-state");
+
+/// `cli-scheduled-next` in `cli.ftl`.
+pub const CLI_SCHEDULED_NEXT: MessageKey = MessageKey::new("cli-scheduled-next");
+
+/// `cli-scheduled-last-run` in `cli.ftl`.
+pub const CLI_SCHEDULED_LAST_RUN: MessageKey = MessageKey::new("cli-scheduled-last-run");
+
+/// `cli-scheduled-run-succeeded` in `cli.ftl`.
+pub const CLI_SCHEDULED_RUN_SUCCEEDED: MessageKey = MessageKey::new("cli-scheduled-run-succeeded");
+
+/// `cli-scheduled-run-failed` in `cli.ftl`.
+pub const CLI_SCHEDULED_RUN_FAILED: MessageKey = MessageKey::new("cli-scheduled-run-failed");
+
+/// `cli-scheduled-run-skipped` in `cli.ftl`.
+pub const CLI_SCHEDULED_RUN_SKIPPED: MessageKey = MessageKey::new("cli-scheduled-run-skipped");
+
+/// `cli-scheduled-run-started` in `cli.ftl`.
+pub const CLI_SCHEDULED_RUN_STARTED: MessageKey = MessageKey::new("cli-scheduled-run-started");
+
+/// `cli-scheduled-run-interrupted` in `cli.ftl`.
+pub const CLI_SCHEDULED_RUN_INTERRUPTED: MessageKey =
+    MessageKey::new("cli-scheduled-run-interrupted");
+
+/// `cli-scheduled-added` in `cli.ftl`.
+pub const CLI_SCHEDULED_ADDED: MessageKey = MessageKey::new("cli-scheduled-added");
+
+/// `cli-scheduled-edited` in `cli.ftl`.
+pub const CLI_SCHEDULED_EDITED: MessageKey = MessageKey::new("cli-scheduled-edited");
+
+/// `cli-scheduled-paused` in `cli.ftl`.
+pub const CLI_SCHEDULED_PAUSED: MessageKey = MessageKey::new("cli-scheduled-paused");
+
+/// `cli-scheduled-resumed` in `cli.ftl`.
+pub const CLI_SCHEDULED_RESUMED: MessageKey = MessageKey::new("cli-scheduled-resumed");
+
+/// `cli-scheduled-deleted` in `cli.ftl`.
+pub const CLI_SCHEDULED_DELETED: MessageKey = MessageKey::new("cli-scheduled-deleted");
+
+/// `cli-scheduled-unknown` in `cli.ftl`.
+pub const CLI_SCHEDULED_UNKNOWN: MessageKey = MessageKey::new("cli-scheduled-unknown");
+
+/// `cli-scheduled-name-taken` in `cli.ftl`.
+pub const CLI_SCHEDULED_NAME_TAKEN: MessageKey = MessageKey::new("cli-scheduled-name-taken");
+
+/// `cli-scheduled-limit-router` in `cli.ftl`.
+pub const CLI_SCHEDULED_LIMIT_ROUTER: MessageKey = MessageKey::new("cli-scheduled-limit-router");
+
+/// `cli-scheduled-limit-total` in `cli.ftl`.
+pub const CLI_SCHEDULED_LIMIT_TOTAL: MessageKey = MessageKey::new("cli-scheduled-limit-total");
+
+/// `cli-scheduled-router-unreadable` in `cli.ftl`.
+pub const CLI_SCHEDULED_ROUTER_UNREADABLE: MessageKey =
+    MessageKey::new("cli-scheduled-router-unreadable");
+
+/// `cli-scheduled-refused` in `cli.ftl`.
+pub const CLI_SCHEDULED_REFUSED: MessageKey = MessageKey::new("cli-scheduled-refused");
+
+/// `cli-scheduled-ran` in `cli.ftl`.
+pub const CLI_SCHEDULED_RAN: MessageKey = MessageKey::new("cli-scheduled-ran");
+
+/// `cli-scheduled-unsaved` in `cli.ftl`.
+pub const CLI_SCHEDULED_UNSAVED: MessageKey = MessageKey::new("cli-scheduled-unsaved");
+
+/// `cli-scheduled-not-done` in `cli.ftl`.
+pub const CLI_SCHEDULED_NOT_DONE: MessageKey = MessageKey::new("cli-scheduled-not-done");
+
+/// `cli-scheduled-busy` in `cli.ftl`.
+pub const CLI_SCHEDULED_BUSY: MessageKey = MessageKey::new("cli-scheduled-busy");
+
+/// `cli-scheduled-paused-instead` in `cli.ftl`.
+pub const CLI_SCHEDULED_PAUSED_INSTEAD: MessageKey =
+    MessageKey::new("cli-scheduled-paused-instead");
+
+/// `cli-scheduled-dropped` in `cli.ftl`.
+pub const CLI_SCHEDULED_DROPPED: MessageKey = MessageKey::new("cli-scheduled-dropped");
+
+/// `cli-scheduled-run-router` in `cli.ftl`.
+pub const CLI_SCHEDULED_RUN_ROUTER: MessageKey = MessageKey::new("cli-scheduled-run-router");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -7358,7 +7490,7 @@ pub const WEB_ADMIN_NOTIFY_ERROR_TEST_CHAT: MessageKey =
     MessageKey::new("web-admin-notify-error-test-chat");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2323] = [
+pub static ALL: [MessageKey; 2366] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -7538,6 +7670,49 @@ pub static ALL: [MessageKey; 2323] = [
     CLI_NOTIFY_FAILURE_RATE_LIMITED,
     CLI_NOTIFY_FAILURE_UNREACHABLE,
     CLI_NOTIFY_FAILURE_REJECTED,
+    CLI_SCHEDULED_INVALID,
+    CLI_SCHEDULED_COL_ROUTER,
+    CLI_SCHEDULED_COL_WHEN,
+    CLI_SCHEDULED_COL_ACTION,
+    CLI_SCHEDULED_COL_STATE,
+    CLI_SCHEDULED_ACTION_POLICY,
+    CLI_SCHEDULED_ACTION_PRESET,
+    CLI_SCHEDULED_ACTION_BACKUP,
+    CLI_SCHEDULED_ACTION_REBOOT,
+    CLI_SCHEDULED_STATE_ACTIVE,
+    CLI_SCHEDULED_STATE_PAUSED,
+    CLI_SCHEDULED_REASON_MANUAL,
+    CLI_SCHEDULED_HEADING,
+    CLI_SCHEDULED_ROUTER,
+    CLI_SCHEDULED_WHEN,
+    CLI_SCHEDULED_ACTION,
+    CLI_SCHEDULED_OWNER,
+    CLI_SCHEDULED_STATE,
+    CLI_SCHEDULED_NEXT,
+    CLI_SCHEDULED_LAST_RUN,
+    CLI_SCHEDULED_RUN_SUCCEEDED,
+    CLI_SCHEDULED_RUN_FAILED,
+    CLI_SCHEDULED_RUN_SKIPPED,
+    CLI_SCHEDULED_RUN_STARTED,
+    CLI_SCHEDULED_RUN_INTERRUPTED,
+    CLI_SCHEDULED_ADDED,
+    CLI_SCHEDULED_EDITED,
+    CLI_SCHEDULED_PAUSED,
+    CLI_SCHEDULED_RESUMED,
+    CLI_SCHEDULED_DELETED,
+    CLI_SCHEDULED_UNKNOWN,
+    CLI_SCHEDULED_NAME_TAKEN,
+    CLI_SCHEDULED_LIMIT_ROUTER,
+    CLI_SCHEDULED_LIMIT_TOTAL,
+    CLI_SCHEDULED_ROUTER_UNREADABLE,
+    CLI_SCHEDULED_REFUSED,
+    CLI_SCHEDULED_RAN,
+    CLI_SCHEDULED_UNSAVED,
+    CLI_SCHEDULED_NOT_DONE,
+    CLI_SCHEDULED_BUSY,
+    CLI_SCHEDULED_PAUSED_INSTEAD,
+    CLI_SCHEDULED_DROPPED,
+    CLI_SCHEDULED_RUN_ROUTER,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

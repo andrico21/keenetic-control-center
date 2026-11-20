@@ -157,13 +157,6 @@ struct Prepared {
 /// Why the schedule could not run.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
 // router session. Apart from that, reads.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the Web and CLI schedule forms call it when a preset schedule is created"
-    )
-)]
 pub(crate) async fn eligible(
     deps: &ActionDeps,
     role: &Role,

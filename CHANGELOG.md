@@ -209,6 +209,22 @@ The first release, `0.1.0`, is in preparation and contains:
   (`preset_failed`, or `preset_failed_armed` when the timer may be armed). Nothing is
   ever saved. New notification line for an applied preset and reasons for these codes.
   `docs/MIGRATION.md` "Scheduled presets".
+- **CLI: `kcc scheduled`** (`ManageSchedules` for the `[cli] role`, plus the action's
+  permissions on the router): `list`, `show <id>` (with the last runs), `add --router
+  <id> --name <text> --days mon,... --at HH:MM [--tz <zone>]` with one of
+  `--policy-switch --mac <mac> --policy <name>`, `--preset <id>
+  [--ack-documentation-tier]`, `--backup` or `--reboot` (zone default
+  `[schedules] default_timezone`), `edit <id>`, `pause <id>`, `resume <id>`,
+  `delete <id>` and `run-now <id>`, all with `--json`. Add, edit, resume and run-now
+  check the router first (refusal codes `forbidden`, `router`, `client_unknown`,
+  `policy_unknown` and the preset codes, the same check the Web page uses); a policy
+  switch or preset needs `--yes`, a reboot `--confirm-destructive <router-id>`. The CLI
+  user becomes the owner (`cli:<user>`). `run-now` runs in the CLI process through the
+  server's run path as the schedule's owner, records the run without a slot, audits
+  `schedule.run` with `requested_by` `cli:<user>`, sends no Telegram message and ends a
+  busy router at once (`router_busy`, exit 5). New audit actions `cli.schedule_add`,
+  `cli.schedule_edit`, `cli.schedule_pause`, `cli.schedule_resume`,
+  `cli.schedule_delete` (params `id`, `action`, `router`).
 - **Fake router**: `show system` reports as `uptime` the seconds since the last
   simulated reboot once one happened.
 

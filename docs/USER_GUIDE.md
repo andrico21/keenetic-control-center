@@ -418,6 +418,48 @@ The audit actions are `cli.notify_settings`, `cli.notify_token`, `cli.notify_cha
 `cli.notify_chat_remove` and `cli.notify_test`, with the parameters of their Web
 counterparts. A running `kcc serve` picks the changes up within about 2 seconds.
 
+### Scheduled actions from the command line
+
+`kcc scheduled` manages the weekly scheduled actions without the Web UI. Every command
+needs ManageSchedules for the `[cli] role`; a schedule also needs the permissions of its
+action on its router (policy switch and backup `Write`, reboot `Destructive`, preset
+`Read`, `Migrate`, `Write` and `Save`, plus `Read` and `Migrate` on the preset's source
+router). Scheduled changes are never saved: a router restart undoes them.
+
+- `kcc scheduled list` and `kcc scheduled show <id>` print the schedules the role sees,
+  with the next run in the schedule's time zone; `show` adds the last runs (`--json` for
+  a document).
+- `kcc scheduled add --router <id> --name <text> --days mon,tue,... --at HH:MM
+  [--tz <zone>]` with exactly one action: `--policy-switch --mac <mac> --policy <name>`,
+  `--preset <id> [--ack-documentation-tier]`, `--backup` or `--reboot`. The zone
+  defaults to `[schedules] default_timezone`. Before anything is stored, kcc checks the
+  router as the Web page does: the client must be registered and the policy must exist;
+  a preset must plan without input, management or WireGuard private-key lines. A policy
+  switch or preset needs `--yes` (or a "yes" on the terminal), a reboot
+  `--confirm-destructive <router-id>`.
+- `kcc scheduled edit <id>` takes the same options (each optional; `--router` moves the
+  schedule) and runs the same check and confirmation.
+- `kcc scheduled pause <id>`, `kcc scheduled resume <id>` (checked again) and
+  `kcc scheduled delete <id>`. Adding, editing and resuming make the CLI user
+  (`cli:<user>`) the owner whose authority later runs use.
+- `kcc scheduled run-now <id>` runs the schedule once in this process, as its owner,
+  with the same confirmation; the run is recorded without a slot and audited as
+  `schedule.run` requested by `cli:<user>`. It sends no Telegram message (a running
+  `kcc serve` shows the run in its ledger), and a busy router ends it at once with exit
+  code 5 instead of being tried again. The CLI never starts the scheduler: slots run only
+  in `kcc serve`.
+
+```bash kcc-doc-test
+kcc router add home --url "$ROUTER_URL" --login admin --password-file router.pw
+kcc scheduled add --router home --name "Nightly backup" --days mon,thu --at 03:30 --backup
+kcc scheduled list
+```
+
+The audit actions are `cli.schedule_add`, `cli.schedule_edit`, `cli.schedule_pause`,
+`cli.schedule_resume` and `cli.schedule_delete`, with the parameters `id`, `action`
+(the action kind) and `router`; never a client or a policy. A running `kcc serve` picks
+the changes up within about 2 seconds.
+
 ## Metrics
 
 The Web UI doesn't chart Prometheus metrics. Enable `[metrics]` and use the Grafana

@@ -68,6 +68,11 @@ impl Globals {
         self.config.as_deref()
     }
 
+    /// `--router`.
+    pub(crate) fn router(&self) -> Option<&str> {
+        self.router.as_deref()
+    }
+
     /// `--yes`.
     pub(crate) const fn yes(&self) -> bool {
         self.yes
@@ -437,6 +442,11 @@ impl Ctx {
 }
 
 impl Services {
+    /// The shared composition root.
+    pub(crate) const fn core(&self) -> &Core {
+        &self.core
+    }
+
     /// Router profiles and clients.
     pub(crate) const fn registry(&self) -> &Arc<RouterRegistry> {
         &self.core.registry

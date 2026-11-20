@@ -169,7 +169,7 @@ pub(crate) const fn pause_code(reason: PauseReason) -> &'static str {
 }
 
 /// The localized explanation of the reason or error code `code`.
-fn reason(locale: Locale, code: &str) -> String {
+pub(crate) fn reason(locale: Locale, code: &str) -> String {
     let known: Option<MessageKey> = match code {
         "router_busy" => Some(keys::NOTIFY_SCHEDULED_REASON_ROUTER_BUSY),
         "client_unknown" => Some(keys::NOTIFY_SCHEDULED_REASON_CLIENT_UNKNOWN),

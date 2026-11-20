@@ -17,13 +17,12 @@ use kcc_app::{
 };
 use kcc_catalog::{Catalog, Risk};
 use kcc_domain::{
-    RouterCtx,
-    clients::{self, Client},
+    RouterCtx, clients,
     configuration::{SafetyMode, bracket::guarded},
-    policies::read::policies,
 };
 
 use super::{ActionDeps, ActionResult, Call, failed, failure};
+use crate::server_schedules::eligible::registered;
 
 /// What the job needs, owned.
 struct Switch {
@@ -80,9 +79,9 @@ async fn run(switch: Switch) -> ActionResult {
         Ok(router) => router,
         Err(result) => return result,
     };
-    let client = match checked(&router, &switch).await {
+    let client = match registered(&router, (&switch.mac, &switch.policy)).await {
         Ok(client) => client,
-        Err(result) => return result,
+        Err(refusal) => return failed(refusal.code()),
     };
     let Ok(operation) = clients::plan_policy(
         &router,
@@ -149,27 +148,4 @@ async fn context(
         .map_err(|_error| failed("router"))?;
     let catalog = Catalog::for_router(&info).map_err(|_error| failed("router"))?;
     Ok(RouterCtx::new(changes.client(), catalog))
-}
-
-/// The client, when it is registered and the policy exists; nothing is sent otherwise.
-///
-/// # Errors
-///
-/// Failed `client_unknown` or `policy_unknown`, or `router` for a failed read.
-// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
-// router session. Apart from that, reads.
-async fn checked(router: &RouterCtx, switch: &Switch) -> Result<Client, ActionResult> {
-    let client = clients::read_client(router, &switch.mac)
-        .await
-        .map_err(|_error| failed("router"))?
-        .filter(|client| client.registered == Some(true))
-        .ok_or_else(|| failed("client_unknown"))?;
-    let known = policies(router)
-        .await
-        .map_err(|_error| failed("router"))?
-        .iter()
-        .any(|state| state.name.as_deref() == Some(switch.policy.as_str()));
-    known
-        .then_some(client)
-        .ok_or_else(|| failed("policy_unknown"))
 }
