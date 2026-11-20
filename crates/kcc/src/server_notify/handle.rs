@@ -104,7 +104,6 @@ impl NotifyHandle {
 
     /// Queues the line `render` writes in the message language when `event` is selected
     /// and notifications are on.
-    #[expect(dead_code, reason = "the scheduler reports its runs")]
     pub(crate) fn report<F>(&self, event: NotifyEvent, render: F)
     where
         F: FnOnce(Locale) -> String,
@@ -113,13 +112,11 @@ impl NotifyHandle {
     }
 
     /// Mutes `router`'s offline and online messages until `until` (Unix seconds).
-    #[expect(dead_code, reason = "the scheduler mutes the routers it restarts")]
     pub(crate) fn mute(&self, router: &str, until: u64) {
         self.shared.mute(router, until);
     }
 
     /// The set the scheduler registers its jobs in.
-    #[expect(dead_code, reason = "the scheduler registers the jobs it starts")]
     pub(crate) fn scheduled_jobs(&self) -> ScheduledJobs {
         self.shared.scheduled.clone()
     }

@@ -29,7 +29,6 @@ pub(crate) struct ScheduledJobs {
 
 impl ScheduledJobs {
     /// Registers a job the scheduler started.
-    #[expect(dead_code, reason = "the scheduler registers the jobs it starts")]
     pub(crate) fn register(&self, id: String) {
         let mut ids = self.ids.lock().unwrap_or_else(PoisonError::into_inner);
         if ids.len() >= MAX_WAITING {

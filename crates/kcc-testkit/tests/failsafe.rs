@@ -194,6 +194,45 @@ mod tests {
         Ok(())
     }
 
+    /// The uptime `show system` reports, as text.
+    async fn uptime(app: &Router, cookie: &str) -> TestResult<Option<String>> {
+        let (_, body) = send(
+            app,
+            Method::GET,
+            "/rci/show/system",
+            Some(cookie),
+            Body::empty(),
+        )
+        .await?;
+        Ok(serde_json::from_str::<Value>(&body)?
+            .get("uptime")
+            .and_then(Value::as_str)
+            .map(str::to_owned))
+    }
+
+    /// Todo 13: `show system` reports the fixture's uptime until a simulated reboot, and
+    /// the seconds since the last reboot after one.
+    #[tokio::test]
+    async fn uptime_counts_from_the_last_reboot() -> TestResult {
+        let clock = Arc::new(MockClock::new());
+        let injected: Arc<dyn Clock> = Arc::<MockClock>::clone(&clock);
+        let fake = FakeRouter::builder(Profile::default())
+            .clock(injected)
+            .build()?;
+        let app = fake.router();
+        let cookie = login(&app, fake.realm()).await?;
+        let before = uptime(&app, &cookie).await?;
+
+        clock.advance(Duration::from_secs(100));
+        drop(parse(&app, &cookie, "system reboot").await?);
+        clock.advance(Duration::from_secs(42));
+        let fresh = login(&app, fake.realm()).await?;
+
+        assert_eq!(before.as_deref(), Some("3723"), "the fixture's value");
+        assert_eq!(uptime(&app, &fresh).await?.as_deref(), Some("42"));
+        Ok(())
+    }
+
     #[tokio::test]
     async fn scheduled_reboot_expiry_restores_startup_and_drops_sessions() -> TestResult {
         let clock = Arc::new(MockClock::new());

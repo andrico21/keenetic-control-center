@@ -213,7 +213,25 @@ runs: a policy switch needs Write; a backup needs Write; a reboot needs Destruct
 preset needs Read, Migrate, Write and Save on the target router, plus Read and Migrate
 on the preset's source router when it names one. Every front end checks the exact
 permission and router scope before any router request, and the change workflow checks
-again. Raw router answers (explorer, consoles,
+again.
+
+A scheduled run acts as audit actor `system`/`schedule:<id>` (no actor kind of its own)
+with its owner's authority as it is when the run starts, not when the schedule was
+created: a Web owner's account must exist and be enabled and its role is read from the
+roles in force; a CLI owner uses the `[cli] role` and `[cli] router_scope` of the
+`kcc.toml` the server loaded. A missing, disabled or out-of-scope owner pauses the
+schedule (`owner_unavailable`); a role without ManageSchedules or a permission of the
+action on the router pauses it (`forbidden`); either pause is audited (`schedule.pause`)
+and reported, and nothing is sent to the router. Each slot runs at most once: the run is
+recorded as started in `schedule_runs.json` (one locked update that also marks the slot
+fired) before the first router request, a slot at or before the last fired one is
+dropped (so a wall clock stepped back repeats nothing), and a run found started when a
+server starts is marked interrupted, reported and never run again. Only `kcc serve` runs
+schedules. A scheduled change is never saved: it stays in the running configuration
+until a save or a router restart, which undoes it; a failed policy switch is reported
+and leaves at most that one host line changed, unsaved.
+
+Raw router answers (explorer, consoles,
 `kcc show`, `kcc rci`, the MCP raw tools) show stored secrets only to a role holding
 RevealSecrets on that router; every other role sees them redacted. A user can grant
 (to an account or an API key, in the Web UI or the CLI) only roles whose permissions and

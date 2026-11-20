@@ -170,6 +170,31 @@ The first release, `0.1.0`, is in preparation and contains:
   its state watch. While a router event is selected, every router is polled around the
   clock. Only `kcc serve` sends; entries other processes append to the audit log are not
   notified. The test message of the Web page now goes through the running notifier.
+- **Scheduled actions run in `kcc serve`**: the server keeps the active schedules of
+  `schedules.json` (an edit made elsewhere applies within its state watch) and runs each
+  weekly slot at most once: a slot up to 2 minutes late still runs; later ones are
+  skipped as `late` in one ledger step with one message naming how many were missed;
+  a wall clock stepped back never repeats a slot. Runs of one router go one after the
+  other. Each run acts as audit actor `system`/`schedule:<id>` with its owner's
+  authority at run time: a missing, disabled or out-of-scope owner pauses the schedule
+  `owner_unavailable`, a role that lost a permission of the action pauses it
+  `forbidden`, a removed router pauses its schedules `router_removed` (at start and on
+  every profile change). A busy router is tried again every minute until 10 minutes
+  after the slot, then the run is skipped `router_busy`. A policy switch changes one
+  registered client's host line and is never saved (a router restart undoes it); a
+  backup stores the startup configuration as `scheduled-<id>`; a reboot mutes the
+  router's offline and online messages for 15 minutes and succeeds only when the router
+  answers again within 15 minutes with a fresh uptime (`did_not_come_back` otherwise);
+  a preset schedule is skipped `preset_unavailable` for now. Policy, backup and reboot
+  run as jobs `scheduled.policy_switch`, `scheduled.backup` and `scheduled.reboot`. A run
+  left started by a previous server is marked `interrupted`, reported once and never
+  run again. New audit actions `schedule.run` (target the action, params `owner`,
+  `slot`, `requested_by`, `job`; outcome `success`, `failed` or `skipped`) and
+  `schedule.pause` (params `owner`, `reason`). New notification lines for the scheduled
+  events. On a stop the scheduler admits no further run before the jobs are drained;
+  the server waits at most 10 s for a run in progress.
+- **Fake router**: `show system` reports as `uptime` the seconds since the last
+  simulated reboot once one happened.
 
 ### Changed
 

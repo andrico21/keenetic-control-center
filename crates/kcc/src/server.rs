@@ -26,13 +26,16 @@ use rmcp_server_kit::{
     transport::{McpServerConfig, ReadinessCheck, serve_stdio, serve_with_listener},
 };
 use serde_json::json;
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     server_error::{Outcome, ServerError},
     server_metrics::with_metrics,
     server_notify::{self, Deps, NotifyHandle, Options},
     server_reload::{hangups, with_reload},
+    server_schedules::{self, wiring::start_for_server},
     server_services::{Services, ServicesMode},
+    server_shutdown::BRACKET_GRACE,
     server_web::web_state,
     state_watch::StateWatch,
 };
@@ -57,6 +60,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         Options::from_config(&config)?,
     )
     .await?;
+    let scheduler = start_for_server(&services, &notify, &config);
     let handler = services.handler(&config, config.mcp.http_enabled)?;
     let rbac = Arc::new(RbacPolicy::new(&handler.rbac_config()));
     let auth = AuthConfig::with_keys(api_key_entries(&services.state)?)
@@ -98,7 +102,8 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     server_with_origins = with_reload(
         server_with_origins,
         StateWatch::new(Arc::clone(&auth_reload), web_state)
-            .with_follower(server_notify::FILES, notify.follower()),
+            .with_follower(server_notify::FILES, notify.follower())
+            .with_follower(server_schedules::FILES, scheduler.follower()),
         hangups,
         (path, Arc::clone(&services.registry)),
     );
@@ -114,23 +119,21 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         port: config.server.listen_port,
         source,
     })?;
-    #[expect(
-        clippy::default_trait_access,
-        reason = "the kit's `CancellationToken`, inferred from `serve_with_listener`, is not a dependency of this crate"
-    )]
-    let shutdown = Default::default();
+    let shutdown = CancellationToken::new();
     let serving = serve_with_listener(
         listener,
         validated,
         move || handler.clone(),
         None,
-        Some(Clone::clone(&shutdown)),
+        Some(shutdown.clone()),
     );
     let serve_result =
         crate::server_shutdown::serve_until_shutdown(serving, &services.audit, || {
             shutdown.cancel();
+            scheduler.stop_token().cancel();
         })
         .await;
+    scheduler.finish(BRACKET_GRACE).await;
     if !services.audit.is_alive() {
         notify.writer_stopped();
     }
@@ -140,11 +143,11 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     Ok(Outcome::Ok)
 }
 
-/// Stops `kcc serve`'s services once the listener has stopped.
+/// Stops `kcc serve`'s services once the listener and the scheduler have stopped.
 ///
-/// Requests closing a safety bracket get their grace, the jobs are drained, the queued
-/// notifications get theirs, the audit entries are flushed, and the router sessions and
-/// log collectors end.
+/// Requests and scheduled runs closing a safety bracket get their grace, the jobs are
+/// drained, the queued notifications get theirs, the audit entries are flushed, and the
+/// router sessions and log collectors end.
 // NOT cancel-safe: dropped midway, later steps never run and entries or lines queued for
 // them are lost.
 async fn wind_down(services: &mut Services, notify: &NotifyHandle) {

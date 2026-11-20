@@ -303,6 +303,7 @@ mod tests {
             "known",
             "id",
             "class",
+            "policy",
         ] {
             args.set(name, "x");
         }

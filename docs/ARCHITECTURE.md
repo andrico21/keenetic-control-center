@@ -52,6 +52,19 @@ kcc <command> ──┴──────── CLI ──────┤
   the Web log page and the configured sinks.
 - Long operations (diagnostics, component commits, migrations, preset applies) run as
   **jobs** with progress events; one write job per router at a time.
+- The **scheduler** (`crates/kcc/src/server_schedules.rs`) runs only in `kcc serve`,
+  started after the notifier. Its timetable follows `schedules.json` through the state
+  watcher and the registry's profile changes, reads `last_fired_slot` from
+  `schedule_runs.json`, and wakes at the earliest slot or every 30 s to read the wall
+  clock again. A due slot goes to its router's queue; one worker per router runs the
+  queue in order through `run_once`: it re-reads the schedule and its owner (pausing it
+  when the owner can no longer run it), records the run as started in the ledger, runs
+  the action as a `scheduled.<action>` job under a workflow bracket guard (the change
+  goes through the change workflow), records the outcome, appends `schedule.run` to the
+  audit log and hands a line to the notifier. A run-now from the Web UI or the CLI uses
+  the same `run_once`. At shutdown the scheduler's own cancellation token is cancelled
+  as soon as the listener stops; the server waits at most 10 s for the run in progress,
+  then for open brackets, the jobs, the notifications and the audit writer.
 
 `show rc` and `show sc` return an opaque `ConfigurationAnswer`, not the general RCI
 response type. Its private router envelope is projected inside `kcc-rci`; consumers can

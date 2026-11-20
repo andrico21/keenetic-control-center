@@ -720,6 +720,73 @@ pub const NOTIFY_DROPPED: MessageKey = MessageKey::new("notify-dropped");
 /// `notify-test` in `common.ftl`.
 pub const NOTIFY_TEST: MessageKey = MessageKey::new("notify-test");
 
+/// `notify-scheduled-done-policy` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_DONE_POLICY: MessageKey =
+    MessageKey::new("notify-scheduled-done-policy");
+
+/// `notify-scheduled-done-backup` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_DONE_BACKUP: MessageKey =
+    MessageKey::new("notify-scheduled-done-backup");
+
+/// `notify-scheduled-done-reboot` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_DONE_REBOOT: MessageKey =
+    MessageKey::new("notify-scheduled-done-reboot");
+
+/// `notify-scheduled-failed` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_FAILED: MessageKey = MessageKey::new("notify-scheduled-failed");
+
+/// `notify-scheduled-skipped` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_SKIPPED: MessageKey = MessageKey::new("notify-scheduled-skipped");
+
+/// `notify-scheduled-missed` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_MISSED: MessageKey = MessageKey::new("notify-scheduled-missed");
+
+/// `notify-scheduled-paused` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_PAUSED: MessageKey = MessageKey::new("notify-scheduled-paused");
+
+/// `notify-scheduled-interrupted` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_INTERRUPTED: MessageKey =
+    MessageKey::new("notify-scheduled-interrupted");
+
+/// `notify-scheduled-unsaved` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_UNSAVED: MessageKey = MessageKey::new("notify-scheduled-unsaved");
+
+/// `notify-scheduled-reason-router-busy` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_ROUTER_BUSY: MessageKey =
+    MessageKey::new("notify-scheduled-reason-router-busy");
+
+/// `notify-scheduled-reason-client-unknown` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_CLIENT_UNKNOWN: MessageKey =
+    MessageKey::new("notify-scheduled-reason-client-unknown");
+
+/// `notify-scheduled-reason-policy-unknown` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_POLICY_UNKNOWN: MessageKey =
+    MessageKey::new("notify-scheduled-reason-policy-unknown");
+
+/// `notify-scheduled-reason-did-not-come-back` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_DID_NOT_COME_BACK: MessageKey =
+    MessageKey::new("notify-scheduled-reason-did-not-come-back");
+
+/// `notify-scheduled-reason-preset-unavailable` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_PRESET_UNAVAILABLE: MessageKey =
+    MessageKey::new("notify-scheduled-reason-preset-unavailable");
+
+/// `notify-scheduled-reason-owner-unavailable` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_OWNER_UNAVAILABLE: MessageKey =
+    MessageKey::new("notify-scheduled-reason-owner-unavailable");
+
+/// `notify-scheduled-reason-forbidden` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_FORBIDDEN: MessageKey =
+    MessageKey::new("notify-scheduled-reason-forbidden");
+
+/// `notify-scheduled-reason-router-removed` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_ROUTER_REMOVED: MessageKey =
+    MessageKey::new("notify-scheduled-reason-router-removed");
+
+/// `notify-scheduled-reason-other` in `common.ftl`.
+pub const NOTIFY_SCHEDULED_REASON_OTHER: MessageKey =
+    MessageKey::new("notify-scheduled-reason-other");
+
 /// `domains-system` in `domains.ftl`.
 pub const DOMAINS_SYSTEM: MessageKey = MessageKey::new("domains-system");
 
@@ -7247,7 +7314,7 @@ pub const WEB_ADMIN_NOTIFY_ERROR_TEST_CHAT: MessageKey =
     MessageKey::new("web-admin-notify-error-test-chat");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2294] = [
+pub static ALL: [MessageKey; 2312] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -7480,6 +7547,24 @@ pub static ALL: [MessageKey; 2294] = [
     NOTIFY_JOB_FAILED_FLEET,
     NOTIFY_DROPPED,
     NOTIFY_TEST,
+    NOTIFY_SCHEDULED_DONE_POLICY,
+    NOTIFY_SCHEDULED_DONE_BACKUP,
+    NOTIFY_SCHEDULED_DONE_REBOOT,
+    NOTIFY_SCHEDULED_FAILED,
+    NOTIFY_SCHEDULED_SKIPPED,
+    NOTIFY_SCHEDULED_MISSED,
+    NOTIFY_SCHEDULED_PAUSED,
+    NOTIFY_SCHEDULED_INTERRUPTED,
+    NOTIFY_SCHEDULED_UNSAVED,
+    NOTIFY_SCHEDULED_REASON_ROUTER_BUSY,
+    NOTIFY_SCHEDULED_REASON_CLIENT_UNKNOWN,
+    NOTIFY_SCHEDULED_REASON_POLICY_UNKNOWN,
+    NOTIFY_SCHEDULED_REASON_DID_NOT_COME_BACK,
+    NOTIFY_SCHEDULED_REASON_PRESET_UNAVAILABLE,
+    NOTIFY_SCHEDULED_REASON_OWNER_UNAVAILABLE,
+    NOTIFY_SCHEDULED_REASON_FORBIDDEN,
+    NOTIFY_SCHEDULED_REASON_ROUTER_REMOVED,
+    NOTIFY_SCHEDULED_REASON_OTHER,
     DOMAINS_SYSTEM,
     DOMAINS_UPTIME,
     DOMAINS_FIRMWARE,

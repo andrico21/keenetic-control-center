@@ -18,6 +18,7 @@ mod server_notify;
 mod server_origins;
 mod server_outbound;
 mod server_reload;
+mod server_schedules;
 mod server_services;
 mod server_shutdown;
 mod server_tasks;

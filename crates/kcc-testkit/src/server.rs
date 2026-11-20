@@ -229,6 +229,8 @@ pub(crate) struct Shared {
     fail_safe: Mutex<FailSafe>,
     /// Scheduled reboot timer state.
     scheduled_reboot: Mutex<ScheduledReboot>,
+    /// When the last simulated reboot happened, on the server's clock; `None` before one.
+    rebooted_at: Mutex<Option<Duration>>,
     /// Per-instance fault injection controls.
     faults: FaultInjection,
     /// Mutable bounded parser-failure state.
@@ -351,6 +353,7 @@ impl Shared {
             migration: Mutex::new(MigrationState::default()),
             fail_safe: Mutex::new(FailSafe::default()),
             scheduled_reboot: Mutex::new(ScheduledReboot::default()),
+            rebooted_at: Mutex::new(None),
             faults,
             parse_fault: Mutex::new(parse_fault),
             read_fault: Mutex::new(read_fault),
@@ -585,6 +588,7 @@ impl Shared {
         lock(&self.fail_safe).disarm();
         lock(&self.scheduled_reboot).disarm();
         lock(&self.sessions).clear();
+        *lock(&self.rebooted_at) = Some(self.clock.now());
     }
 
     /// Applies a full-path CLI parser command.
@@ -921,7 +925,22 @@ impl Shared {
         if normalized_path == "interface" {
             lock(&self.migration).overlay_interfaces(&mut answer);
         }
+        if normalized_path == "system" {
+            self.overlay_uptime(&mut answer);
+        }
         tree::select_show(&answer, selector)
+    }
+
+    /// Replaces `show system`'s uptime with the seconds since the last simulated reboot,
+    /// once one happened.
+    fn overlay_uptime(&self, answer: &mut Value) {
+        let Some(at) = *lock(&self.rebooted_at) else {
+            return;
+        };
+        let uptime = self.clock.now().saturating_sub(at).as_secs();
+        if let Some(system) = answer.as_object_mut() {
+            drop(system.insert("uptime".to_owned(), Value::String(uptime.to_string())));
+        }
     }
 
     /// Checks one name against the profile's interface list.
