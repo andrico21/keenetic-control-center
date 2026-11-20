@@ -186,3 +186,10 @@ A test fake that answers (404/405) without reading the request body can reset th
 - Web schedule create: POST /ui/admin/scheduled fields name, router, days (repeatable), hour, minute, zone, kind=backup; field errors also answer 200, so the id is read back with `kcc --json scheduled list`. run-now: POST ?id= with confirm=yes, 200 on admit, 422 on refusal. CSRF token must be read from a page AFTER login (session-bound).
 - Gotcha: `kcc-cargo xtask seccomp trace` deadlocks: xtask inherits the wrapper's flock fds, so the e2e's inner `cargo build` (through a kcc-cargo shim) never gets a slot. Build xtask once, then run `$CARGO_TARGET_DIR/debug/xtask seccomp trace ...` directly.
 - A union of only local x86_64 traces drops `fchmodat` (arm64-only, CHANGELOG). Unioned with the arm64 traces of CI run 44703192182 (base c1cd67e9, `gh run download -n seccomp-trace-arm64`): profile byte-identical, no syscall added or removed; the new legs need nothing new on x86_64.
+
+## [2026-11-20] Todo 19 (worktree n19): latest-version recheck
+- Dry run at 09:37 UTC equal to the RED one of 08:57: root clap/clap_derive 4.6.7->4.6.8, clap_complete 4.6.11->4.6.12, clap_lex 1.1.1->1.1.2, uuid 1.29.2->1.29.3; xtask clap/clap_derive/clap_lex. clap_builder stays 4.6.7 (clap 4.6.8 pins `clap_builder = "=4.6.7"`).
+- check_dep_reqs.py flags a patch bump of a DIRECT dependency (clap, clap_complete): raise the manifest requirement even for compatible updates; uuid is transitive (rmcp) so no edit.
+- crates.io created_at (for exact cooldown ends): zeroize 1.9.2 2026-11-17T14:47Z, rmcp 3.11.0 15:33Z, bytes 1.12.2 20:59Z, jiff 1.0.1 2026-11-18T00:50Z, regex-* 02:53Z, smallvec 08:10Z, pin-project-lite 0.2.18 2026-11-19T16:48Z, clap 4.6.9 2026-11-20T01:41Z. A dry run after 2026-11-20T21:00Z will show updates again (not a finding per the convergence rule).
+- uuid 1.29.3 removes its optional `atomic` dependency (v1/v6 features) and gives ParseOther a message; nothing new pulled in, no build scripts.
+- cleanup: /home/andrico/kcc-target-n19 and /home/andrico/n19-* removed at 10:27:29Z

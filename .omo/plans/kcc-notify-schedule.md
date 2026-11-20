@@ -480,7 +480,7 @@ Every wave holds fewer todos than the template's 5-8 target (W1 has 4, W3 has 3,
   Commit: Y | test(kcc): owner-run live Telegram delivery check
   Recommended task executor category: unspecified-low - live test scaffolding following an existing pattern
 
-- [ ] 19. Latest-version recheck and gate G1
+- [x] 19. Latest-version recheck and gate G1
   What to do / Must NOT do:
   - Re-run D-LATEST for both workspaces: `cargo update --dry-run --verbose` (output to `.omo/evidence/task-19-dry-*.txt`, then `! grep -E '^\s+(Updating|Adding|Removing|Downgrading) [A-Za-z0-9_-]+ v'`); raise semver-incompatible direct requirements that passed the cooldown (jiff included: 1.0.1 or newer once eligible); plain `cargo update`; requirements equal locked versions (`check_dep_reqs.py` exit 0); vet with imports and targeted exemptions; deny/clippy duplicate lists and reasons accurate; record held-back versions in overlay deviation 3's list with the check time.
   - Run G1 in full and fix anything it reports.
@@ -493,7 +493,7 @@ Every wave holds fewer todos than the template's 5-8 target (W1 has 4, W3 has 3,
   Commit: Y | build(deps): latest versions past the cooldown after the notification and scheduler work
   Recommended task executor category: deep-low - supply-chain and gate fixes
 
-- [ ] 20. Docs sweep and CHANGELOG audit
+- [x] 20. Docs sweep and CHANGELOG audit
   What to do / Must NOT do:
   - Update README (features list: Telegram notifications, scheduled actions; "Safety model": scheduled changes are never saved and run as their owner; "Limitations": scheduled actions run only while `kcc serve` runs, run at most 2 minutes late, CLI changes reach a running server within about 2 seconds, CLI run-now sends no Telegram message, notifications cover this server process's own events only), `docs/USER_GUIDE.md` (Administration > Notifications and > Scheduled actions, the dashboard line, the configuration note), `docs/CONFIG.md` (verify `[notify.telegram]`, `[schedules]`), `docs/SECURITY.md` (verify: deviation 6 summary, token handling, run identity, permissions), `docs/PRIVACY.md` (verify), `docs/ARCHITECTURE.md` (verify), `docs/MONITORING.md` (verify), `docs/MIGRATION.md` (verify), `docs/BACKLOG.md` (remaining items from todo 1 updated), `deploy/podman/README.md` (verify).
   - Audit that every behaviour-changing todo added its CHANGELOG line (including the state-file changes and the `roles.json` downgrade note); add only what is missing.

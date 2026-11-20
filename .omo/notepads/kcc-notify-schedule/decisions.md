@@ -186,3 +186,8 @@
 - README, USER_GUIDE, PRIVACY, MONITORING, ARCHITECTURE, SECURITY, CHANGELOG edited (prose only). CONFIG, MIGRATION, BACKLOG verified unchanged. `[notify]` has only `telegram`; the plan's "`[notify]` keys" do not exist in kcc.toml (settings live in notify.json).
 - CHANGELOG upgrade note named `StopTimeout=80` for the Quadlet unit; the unit now ships 100, note corrected.
 - Verified code facts: late limit 120 s, busy retry 60 s / window 10 min (server_schedules.rs Timings), state watch poll 2 s, notifier follows notify.json + notify/telegram.token.sealed, scheduler follows schedules.json.
+
+## [2026-11-20] Todo 19
+- Vet: no import covered the bumps; 5 root + 3 xtask targeted `add-exemption --criteria safe-to-deploy`, then `cargo vet prune --no-imports --no-audits` (replaced the old-version exemptions only). `cargo vet` suggested `trust epage`; not used (D-VET: imports + exemptions only).
+- No CHANGELOG line: precedent commits b88a22f3/e1d9068f log patch bumps with no behaviour change without one.
+- deny.toml unchanged: no new duplicates; the xtask deny run's "no crate matched" note for RUSTSEC-2026-0543 is pre-existing (xtask shares the root deny.toml, has no chrono).
