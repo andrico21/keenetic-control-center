@@ -20,3 +20,7 @@
 
 ## [2026-11-21] Todo 7 fix (e7f): hardening idea, not changed
 - kcc-ssh AppendKey/RemoveKey scripts follow a pre-planted `/opt/etc/dropbear/authorized_keys.kcc` symlink (the `>` redirection writes its target, then `mv` makes the file the link). Planting it needs root write in `/opt/etc/dropbear`, so it is not a trust-boundary crossing. A leading `rm -f A.kcc` would close it, but the plan fixes the rendered strings character for character, so the scripts were left unchanged; a plan change is needed to add it.
+
+## [2026-11-21] Todo 25 (e25): residuals, not changed
+- `crates/kcc-web/src/admin.rs` was 262 pure LOC at HEAD (over 250) and is 283 after todo 25 (TransportReload fan-out). `TransportReload` cannot move to a child module without a path change (`pub use` is banned); a split that moves `ServerFacts`/`Fact` out (todo 27 touches the server page) would bring it back under the ceiling.
+- `KccMcp` keeps the rmcp `#[tool_handler]`-generated `get_tool` (schema lookup for SEP-2243 headers) ungated: a tool a tightening removed still resolves its input schema there; the call itself is refused by `call_tool`. Harmless today; gate it if a later rmcp uses `get_tool` for dispatch.

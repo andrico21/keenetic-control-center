@@ -46,3 +46,14 @@ New for this plan:
 - To capture a runtime red for surface wiring without lint trouble, neuter with `x.as_deref().filter(|_| false)` (no unused binding); `RUSTFLAGS=--cap-lints=warn` would rebuild every dependency in the private target (avoid).
 - Fake-router setup without a request: `Handle::configure(line)`; actions (not config lines) belong in `server/parse_command.rs::intercept`, since `Shared::parse_command` is at the 100-line clippy limit.
 - clippy in tests: `assert!(x.is_ok())` is refused (`assertions_on_result_states`): use `drop(x?)`; the first doc paragraph of a test is limited (`too_long_first_doc_paragraph`).
+
+## [2026-11-21] Todo 7 fix (e7f) learnings
+- A tracing capture test that shares its test binary with other tests misses tracing-native DEBUG/TRACE events (thread-local `set_default` plus callsite-interest caching): put the capture test in its own integration target and install the subscriber process-wide (`SubscriberInitExt::try_init`, which also installs the `log` bridge) before any work, then assert a positive control of the crate's own DEBUG line (`DEBUG kcc_ssh::transport`). With that, an output leak at TRACE went red 5/5 in the plain parallel run.
+- A second test target that reuses `tests/ssh/support.rs` via `#[path]` needs `#[expect(dead_code, reason)]` on the `mod support;`; removing a module that used `alloc` from a target makes its `extern crate alloc;` an error (`unused extern crate` is denied).
+- clippy `missing_panics_doc` fires on an inline `#[cfg(test)] mod tests` fn with `assert_eq!` here: use the crate's `#[expect(clippy::missing_panics_doc, reason)]` on the mod.
+
+## [2026-11-21] Todo 25 (e25) learnings
+- `#[path]` on a module declared INSIDE an inline `mod tests { }` of a test crate root resolves under `tests/tests/...` (the inline module is a directory component); `../` does not help because `tests/tests` does not exist. Keep such tests inline or declare them at the crate root.
+- The kit's `serve_with_listener(.., ready_tx, ..)` sends the address after the "listening" log and BEFORE it calls the reload callback: gate one-time background work (the state watcher) on it to keep "runs once serving" semantics (serve.rs F-23 test).
+- Moving a helper's only caller under `cfg(unix)` makes the helper dead on Windows: the Windows cross-check catches it, Linux clippy does not.
+- Never `pgrep -f`/`pkill -s` a pattern that also appears in your own bash command line: it killed the tool shell (no harm beyond an interrupted run).
