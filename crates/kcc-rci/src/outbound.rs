@@ -211,6 +211,63 @@ impl OutboundPolicy {
         self.client_builder_for_resolved(router, tls_mode, timeouts, &resolved)
     }
 
+    /// Resolves the router's host and returns the addresses an SSH connection to `port`
+    /// may dial, in resolver order.
+    ///
+    /// SSH admission is narrower than RCI admission: an address is kept only when the
+    /// policy admits it for the host and it lies inside `allowed_networks`, or it is a
+    /// loopback address and loopback is admitted. A hostname admitted only through
+    /// `allowed_suffixes` therefore gets no SSH address, and metadata, unspecified,
+    /// multicast and broadcast addresses never do. The default policy admits nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RciError::Policy`] when the URL has no host, resolution fails, or no
+    /// resolved address is admitted.
+    // cancel-safe: dropped, it abandons a blocking DNS lookup whose result is discarded; no
+    // connection is opened and nothing is changed.
+    #[inline]
+    pub async fn admit_ssh(
+        &self,
+        router: &RouterUrl,
+        port: u16,
+    ) -> Result<Vec<SocketAddr>, RciError> {
+        let host = router.host().ok_or(RciError::Policy)?;
+        let resolved = Self::resolve(router).await?;
+        self.ssh_addresses(&host, &resolved, port)
+    }
+
+    /// Keeps the resolved addresses SSH may dial for `host`, moved to `port`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RciError::Policy`] when no address is kept.
+    fn ssh_addresses(
+        &self,
+        host: &str,
+        resolved: &[SocketAddr],
+        port: u16,
+    ) -> Result<Vec<SocketAddr>, RciError> {
+        let mut admitted = Vec::new();
+        for address in resolved {
+            let ip = address.ip();
+            let canonical = ip.to_canonical();
+            let reachable = canonical.is_loopback()
+                || self
+                    .allowed_networks
+                    .iter()
+                    .any(|network| network.contains(canonical));
+            let candidate = SocketAddr::new(ip, port);
+            if reachable && self.allows(host, ip) && !admitted.contains(&candidate) {
+                admitted.push(candidate);
+            }
+        }
+        if admitted.is_empty() {
+            return Err(RciError::Policy);
+        }
+        Ok(admitted)
+    }
+
     /// Resolves the router host once, off the async workers; the caller pins the result.
     ///
     /// # Errors
@@ -490,6 +547,15 @@ fn is_global(address: IpAddr) -> bool {
         }
     }
 }
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+mod tests;
 
 /// Masks an address to `prefix_len` bits, returning a sentinel on family mismatch.
 fn network_address(address: IpAddr, prefix_len: u8) -> IpAddr {

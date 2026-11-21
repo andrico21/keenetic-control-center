@@ -1,0 +1,248 @@
+//! The Entware userland behind the fake: `opkg` and init scripts following `rc.func`.
+//!
+//! The init script actions reproduce Entware's `rc.func`
+//! (`Entware/rtndev/master/entware-opt/files/rc.func`): `start` returns 8 for a disabled
+//! service, 0 when started or already running and 255 when the process did not start;
+//! `stop` and `kill` run `check && stop`; `restart` runs `check > /dev/null && stop; start`;
+//! `check` prints `alive.` (0) or `dead.` (1); any other action prints the usage line and
+//! exits 1. The `opkg` messages and exit codes are assumed, not captured from a router.
+
+use super::{
+    Reply, Service, System,
+    command::{Command, INIT_D},
+};
+
+/// rc.func's `ansi_white`.
+const WHITE: &str = "\u{1b}[1;37m";
+/// rc.func's `ansi_green`.
+const GREEN: &str = "\u{1b}[1;32m";
+/// rc.func's `ansi_red`.
+const RED: &str = "\u{1b}[1;31m";
+/// rc.func's `ansi_yellow`.
+const YELLOW: &str = "\u{1b}[1;33m";
+/// rc.func's `ansi_std`.
+const STD: &str = "\u{1b}[m";
+/// The indentation rc.func prints before a result word.
+const PAD: &str = "            ";
+
+impl System {
+    /// Runs one understood command against the userland.
+    pub(super) fn run(&mut self, command: Command) -> Reply {
+        match command {
+            Command::ListInstalled => {
+                let mut out = String::new();
+                for (name, version) in &self.installed {
+                    put(&mut out, &[name, " - ", version, "\n"]);
+                }
+                success(out)
+            }
+            Command::ListUpgradable => {
+                let mut out = String::new();
+                for (name, new) in &self.upgradable {
+                    if let Some(old) = self.installed.get(name) {
+                        put(&mut out, &[name, " - ", old, " - ", new, "\n"]);
+                    }
+                }
+                success(out)
+            }
+            Command::Update => success(
+                "Downloading http://bin.entware.net/aarch64-k3.10/Packages.gz\n\
+                 Updated list of available packages in /opt/var/opkg-lists/entware\n"
+                    .to_owned(),
+            ),
+            Command::Install(name) => self.install(&name),
+            Command::Remove(name) => self.remove(&name),
+            Command::Upgrade(name) => self.upgrade(&name),
+            Command::ListServices => {
+                let mut out = String::new();
+                for name in self.services.keys() {
+                    put(&mut out, &[name, "\n"]);
+                }
+                success(out)
+            }
+            Command::Service { name, action } => self.services.get_mut(&name).map_or_else(
+                || not_found(&format!("{INIT_D}{name}")),
+                |service| rc_func(&name, service, &action),
+            ),
+            Command::NotFound(word) => not_found(&word),
+        }
+    }
+
+    /// `opkg install`.
+    fn install(&mut self, name: &str) -> Reply {
+        if let Some(version) = self.installed.get(name) {
+            return success(format!(
+                "Package {name} ({version}) installed in root is up to date.\n"
+            ));
+        }
+        let Some(version) = self.installable.remove(name) else {
+            return unknown_package(name, "opkg_install_cmd: Cannot install package");
+        };
+        let reply = success(format!(
+            "Installing {name} ({version}) to root...\nConfiguring {name}.\n"
+        ));
+        drop(self.installed.insert(name.to_owned(), version));
+        reply
+    }
+
+    /// `opkg remove`; the package goes back to the feed.
+    fn remove(&mut self, name: &str) -> Reply {
+        let Some(version) = self.installed.remove(name) else {
+            return success("No packages removed.\n".to_owned());
+        };
+        drop(self.upgradable.remove(name));
+        drop(self.installable.insert(name.to_owned(), version));
+        success(format!("Removing package {name} from root...\n"))
+    }
+
+    /// `opkg upgrade`.
+    fn upgrade(&mut self, name: &str) -> Reply {
+        let Some(old) = self.installed.get(name).cloned() else {
+            return unknown_package(name, "opkg_upgrade_cmd: Cannot upgrade package");
+        };
+        let Some(new) = self.upgradable.remove(name) else {
+            return success(String::new());
+        };
+        let reply = success(format!(
+            "Upgrading {name} on root from {old} to {new}...\nConfiguring {name}.\n"
+        ));
+        drop(self.installed.insert(name.to_owned(), new));
+        reply
+    }
+}
+
+/// Exit 0 with `stdout`.
+fn success(stdout: String) -> Reply {
+    Reply {
+        stdout,
+        ..Reply::default()
+    }
+}
+
+/// opkg's answer for a package it does not know.
+fn unknown_package(name: &str, collected: &str) -> Reply {
+    Reply {
+        stderr: format!("Unknown package '{name}'.\nCollected errors:\n * {collected} {name}.\n"),
+        exit: 255,
+        ..Reply::default()
+    }
+}
+
+/// The shell's answer for a program it cannot find.
+fn not_found(word: &str) -> Reply {
+    Reply {
+        stderr: format!("sh: {word}: not found\n"),
+        exit: 127,
+        ..Reply::default()
+    }
+}
+
+/// Runs `/opt/etc/init.d/<name> <action>` as rc.func does.
+fn rc_func(name: &str, service: &mut Service, action: &str) -> Reply {
+    let mut out = String::new();
+    let exit = match action {
+        "start" => start(service, &mut out),
+        "stop" | "kill" => match check(service, &mut out) {
+            0 => stop(service, action, &mut out),
+            dead => dead,
+        },
+        "restart" => {
+            if check(service, &mut String::new()) == 0 {
+                let _: u32 = stop(service, action, &mut out);
+            }
+            start(service, &mut out)
+        }
+        "check" => check(service, &mut out),
+        "reconfigure" => {
+            put(
+                &mut out,
+                &[
+                    WHITE,
+                    " Sending SIGHUP to ",
+                    &service.process,
+                    "... ",
+                    STD,
+                    "\n",
+                ],
+            );
+            u32::from(!service.running)
+        }
+        _ => {
+            put(
+                &mut out,
+                &[
+                    WHITE,
+                    " Usage: ",
+                    INIT_D,
+                    name,
+                    " (start|stop|restart|check|kill|reconfigure)",
+                    STD,
+                    "\n",
+                ],
+            );
+            1
+        }
+    };
+    Reply {
+        stdout: out,
+        exit,
+        ..Reply::default()
+    }
+}
+
+/// rc.func's `start`.
+fn start(service: &mut Service, out: &mut String) -> u32 {
+    if !service.enabled {
+        return 8;
+    }
+    put(out, &[WHITE, " Starting ", &service.process, "... ", STD]);
+    if service.running {
+        put(out, &[PAD, YELLOW, " already running. ", STD, "\n"]);
+        return 0;
+    }
+    if service.failing {
+        put(out, &[PAD, RED, " failed. ", STD, "\n"]);
+        return 255;
+    }
+    service.running = true;
+    put(out, &[PAD, GREEN, " done. ", STD, "\n"]);
+    0
+}
+
+/// rc.func's `stop` for `stop`, `restart` and `kill`.
+fn stop(service: &mut Service, action: &str, out: &mut String) -> u32 {
+    let verb = if action == "kill" {
+        " Killing "
+    } else {
+        " Shutting down "
+    };
+    put(out, &[WHITE, verb, &service.process, "... ", STD]);
+    if !service.failing {
+        service.running = false;
+    }
+    if service.running {
+        put(out, &[PAD, RED, " failed. ", STD, "\n"]);
+        return 255;
+    }
+    put(out, &[PAD, GREEN, " done. ", STD, "\n"]);
+    0
+}
+
+/// rc.func's `check`.
+fn check(service: &Service, out: &mut String) -> u32 {
+    put(out, &[WHITE, " Checking ", &service.process, "... "]);
+    if service.running {
+        put(out, &[PAD, GREEN, " alive. ", STD, "\n"]);
+        0
+    } else {
+        put(out, &[PAD, RED, " dead. ", STD, "\n"]);
+        1
+    }
+}
+
+/// Appends `parts` to `out`.
+fn put(out: &mut String, parts: &[&str]) {
+    for part in parts {
+        out.push_str(part);
+    }
+}

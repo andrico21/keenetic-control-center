@@ -31,8 +31,9 @@ disallowed-methods = [ # kcc never starts a process: an inherited capability bou
 ]
 allowed-duplicate-crates = [ # each unavoidable duplicate, with a reason comment
     "bitflags", # =1.3.2: windows-permissions 0.2.4 -> rmcp-server-kit 3.21.1 (Windows-only)
-    "getrandom", # =0.2.17: only ring 0.17.14 -> rustls 0.23 / rustls-webpki 0.103 / rcgen 0.14 -> reqwest 0.13.5, rmcp-server-kit and kcc; =0.3.4: governor 0.10.4 and rand_core 0.9.5 -> rmcp-server-kit
+    "getrandom", # =0.2.17: only ring 0.17.14 -> rustls 0.23 / rustls-webpki 0.103 / rcgen 0.14 -> reqwest 0.13.5, rmcp-server-kit and kcc, and ring 0.17.14 -> russh 0.65.2 -> kcc-testkit; =0.3.4: governor 0.10.4 and rand_core 0.9.5 -> rmcp-server-kit
     "hashbrown", # =0.14.5: dashmap 6.2.1 -> governor 0.10.4; =0.16.1: governor 0.10.4 -> rmcp-server-kit; =0.17.1: indexmap 2.14.2 -> rmcp 3.10.0 -> rmcp-server-kit
+    "num-bigint", # =0.4.8: der-parser 10.0.0 -> x509-parser 0.18.1 -> kcc-rci and rmcp-server-kit; =0.5.1: russh 0.65.2 -> kcc-testkit
     "r-efi", # =5.3.0: getrandom 0.3.4 -> governor 0.10.4 -> rmcp-server-kit (UEFI target only)
     "rand", # =0.9.5: governor 0.10.4 -> rmcp-server-kit
     "rand_core", # =0.9.5: rand 0.9.5 / rand_chacha 0.9.0 -> governor 0.10.4 -> rmcp-server-kit
@@ -41,6 +42,6 @@ allowed-duplicate-crates = [ # each unavoidable duplicate, with a reason comment
     "thiserror", # =1.0.69: protobuf 3.7.2 -> prometheus 0.14.0 -> rmcp-server-kit `metrics` and kcc-telemetry
     "thiserror-impl", # =1.0.69: thiserror 1.0.69 -> protobuf 3.7.2 -> prometheus 0.14.0
     "tower-http", # =0.6.11: reqwest 0.13.5 -> rmcp-server-kit; 0.7.1 is the kit's direct dependency
-    "windows-sys", # =0.52.0: ring 0.17.14 -> rustls 0.23 -> rmcp-server-kit (Windows-only)
+    "windows-sys", # =0.52.0: ring 0.17.14 -> rustls 0.23 -> rmcp-server-kit and ring 0.17.14 -> russh 0.65.2 -> kcc-testkit, check_elevation 0.3.0 -> kcc (Windows-only)
 ]
 doc-valid-idents = ["..", "KeeneticOS", "NetcrazeOS", "Keenetic", "Netcraze", "KeenDNS", "WireGuard", "OpenVPN", "OpenConnect", "ZeroTier", "IPsec", "IKEv2", "SSTP", "L2TP", "PPTP", "PPPoE", "IPoE", "NDMS", "RCI", "htmx", "SSE", "SCRAM", "Argon2id", "SHA3", "DoT", "DoH", "UPnP", "DLNA", "IPTV"]

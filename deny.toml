@@ -40,13 +40,14 @@ wildcards = "deny" # No * version specs
 allow-wildcard-paths = false
 highlight = "all"
 
-# Unavoidable duplicates, all inherited from rmcp-server-kit 3.21.1 (incl. its `metrics` prometheus 0.14); mirrors clippy.toml `allowed-duplicate-crates`.
+# Unavoidable duplicates, inherited from rmcp-server-kit 3.21.1 (incl. its `metrics` prometheus 0.14) and russh 0.65.2; mirrors clippy.toml `allowed-duplicate-crates`.
 skip = [
     { crate = "bitflags@1.3.2", reason = "windows-permissions 0.2.4 -> rmcp-server-kit 3.21.1 (Windows-only)" },
-    { crate = "getrandom@0.2.17", reason = "only ring 0.17.14 -> rustls 0.23 / rustls-webpki 0.103 / rcgen 0.14 -> reqwest 0.13.5, rmcp-server-kit and kcc" },
+    { crate = "getrandom@0.2.17", reason = "only ring 0.17.14 -> rustls 0.23 / rustls-webpki 0.103 / rcgen 0.14 -> reqwest 0.13.5, rmcp-server-kit and kcc, and ring 0.17.14 -> russh 0.65.2 -> kcc-testkit" },
     { crate = "getrandom@0.3.4", reason = "governor 0.10.4 and rand_core 0.9.5 -> rmcp-server-kit" },
     { crate = "hashbrown@0.14.5", reason = "dashmap 6.2.1 -> governor 0.10.4 -> rmcp-server-kit" },
     { crate = "hashbrown@0.16.1", reason = "governor 0.10.4 -> rmcp-server-kit" },
+    { crate = "num-bigint@0.4.8", reason = "der-parser 10.0.0 -> x509-parser 0.18.1 -> kcc-rci and rmcp-server-kit; 0.5.1 comes through russh 0.65.2 -> kcc-testkit" },
     { crate = "r-efi@5.3.0", reason = "getrandom 0.3.4 -> governor 0.10.4 -> rmcp-server-kit (UEFI target only)" },
     { crate = "rand@0.9.5", reason = "governor 0.10.4 -> rmcp-server-kit" },
     { crate = "rand_core@0.9.5", reason = "rand 0.9.5 / rand_chacha 0.9.0 -> governor 0.10.4 -> rmcp-server-kit" },
@@ -55,7 +56,7 @@ skip = [
     { crate = "thiserror@1.0.69", reason = "protobuf 3.7.2 -> prometheus 0.14.0 -> rmcp-server-kit `metrics` and kcc-telemetry" },
     { crate = "thiserror-impl@1.0.69", reason = "thiserror 1.0.69 -> protobuf 3.7.2 -> prometheus 0.14.0" },
     { crate = "tower-http@0.6.11", reason = "reqwest 0.13.5 -> rmcp-server-kit; 0.7.1 is the kit's direct dependency" },
-    { crate = "windows-sys@0.52.0", reason = "ring 0.17.14 -> rustls 0.23 -> rmcp-server-kit (Windows-only)" },
+    { crate = "windows-sys@0.52.0", reason = "ring 0.17.14 -> rustls 0.23 -> rmcp-server-kit and ring 0.17.14 -> russh 0.65.2 -> kcc-testkit, check_elevation 0.3.0 -> kcc (Windows-only)" },
 ]
 
 [sources]

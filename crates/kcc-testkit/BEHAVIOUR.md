@@ -321,3 +321,21 @@ documentation (the live probes were not run), not observations of real firmware.
 Legacy-firmware fixtures (4.3 and 5.0 derived trees) also carry `cifs master` and `kabinet port`
 nodes, which exist only in those catalogs, so raw-tool tests can create and remove a
 legacy-only command. These nodes are test fixtures, not observations of real firmware.
+
+## Entware SSH (`entware_ssh`, assumed)
+
+`FakeEntwareSsh` answers only the exec strings of kcc's closed Entware command set: the
+`PATH=/opt/bin:/opt/sbin:/bin:/sbin:/usr/bin:/usr/sbin; export PATH; ` prologue followed by
+a fixed `opkg` command, `opkg install|remove|upgrade` with one POSIX single-quoted
+argument, the init script listing loop, or `'/opt/etc/init.d/<name>' <action>`, where `<action>` is one bare
+lowercase ASCII word of 1 to 16 characters and nothing else (shell syntax, quotes, a second
+word, a newline or an empty action are no template). Anything
+else exits 127 with `sh: <word>: not found` on stderr, as for a program the shell cannot
+find. Init script actions follow Entware's `rc.func`
+(`Entware/rtndev/master/entware-opt/files/rc.func`, read 2026-11-20): output with its ANSI
+colours, `start` 0/8/255, `stop` and `kill` as `check && stop` (1 for a stopped service),
+`restart` as `check > /dev/null && stop; start`, `check` 0 `alive.` / 1 `dead.`, usage and
+exit 1 for any other action. The `opkg` messages and exit codes (255 for an unknown
+package, `No packages removed.` with 0) are assumed, not captured from a router. Faults
+(hang, output over 256 KiB, no exit status, connection dropped after N commands) are
+injected, not observed behaviour.

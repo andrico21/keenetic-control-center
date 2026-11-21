@@ -35,6 +35,7 @@ mod cli_engine;
 mod components;
 mod config_state;
 mod connection_fault;
+pub mod entware_ssh;
 mod failsafe;
 pub mod fake_elasticsearch;
 pub mod fake_loki;

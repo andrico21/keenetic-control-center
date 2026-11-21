@@ -39,6 +39,7 @@ reqwest = { version = "0.13.5", default-features = false }
 rmcp = "3.10.0"
 rmcp-server-kit = "3.21.1"
 rustls = { version = "0.23.46", default-features = false }
+russh = { version = "0.65.2", default-features = false, features = ["ring"] }
 secrecy = "0.10.3"
 serde = "1.0.229"
 serde_json = "1.0.154"

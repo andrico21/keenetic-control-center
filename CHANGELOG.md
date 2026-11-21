@@ -275,6 +275,14 @@ The first release, `0.1.0`, is in preparation and contains:
   `KCC_LIVE_TELEGRAM_TOKEN_FILE` and `KCC_LIVE_TELEGRAM_CHAT` and contacts no router, so
   it is exempt from `KCC_LIVE_TARGET_CONFIG` and `KCC_LIVE_ALLOW_SERIAL` (`AGENTS.md`,
   "Live env contract").
+- **SSH address admission and a fake Entware SSH server** (library and test kit):
+  `OutboundPolicy::admit_ssh(router, port)` resolves a router's host and keeps only
+  addresses inside `allowed_networks` (loopback only when admitted; a host admitted only
+  through `allowed_suffixes` gets none; metadata addresses never). `kcc-testkit` gains
+  `entware_ssh::FakeEntwareSsh` (russh 0.65.2, `ring` backend, a new dependency): an
+  ed25519 host key that can be replaced, password and `authorized_keys` sign-in, an
+  `opkg` package database, init scripts that follow Entware's `rc.func`, counters and
+  fault switches; `kcc-fake-router --entware-ssh-port <port>` serves one.
 
 ### Changed
 

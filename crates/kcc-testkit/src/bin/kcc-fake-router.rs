@@ -5,9 +5,12 @@ use std::{fs, io, path::PathBuf, process::ExitCode};
 
 use clap::Parser;
 use kcc_testkit::{
-    DEFAULT_LOGIN, FakeRouter, migration,
+    DEFAULT_LOGIN, FakeRouter,
+    entware_ssh::{self, FakeEntwareSsh, Service},
+    migration,
     model::{Firmware, Model, Profile},
 };
+use russh::keys::HashAlg;
 use tokio::{net::TcpListener, runtime::Builder, signal};
 use zeroize::Zeroizing;
 
@@ -37,6 +40,42 @@ struct Args {
     /// Number of synthetic `show log` records present at startup (for log forwarding).
     #[arg(long, default_value_t = 0)]
     seed_log: u64,
+    /// Also serve the fake Entware SSH server (password `keenetic`) on this port of the
+    /// `--bind` address.
+    #[arg(long)]
+    entware_ssh_port: Option<u16>,
+}
+
+/// The Entware userland the binary's SSH server starts with.
+fn entware_config(bind: SocketAddr) -> entware_ssh::Config {
+    entware_ssh::Config::default()
+        .bind(bind)
+        .installed("entware-opt", "227000-3")
+        .installed("opkg", "2024.10.16~38eccbb1-1")
+        .installed("dropbear", "2024.86-1")
+        .upgradable("opkg", "2024.10.16~38eccbb1-2")
+        .installable("mc", "4.8.31-1")
+        .service("S51dropbear", Service::new("dropbear").running())
+        .service("S80nginx", Service::new("nginx"))
+}
+
+/// Starts the fake Entware SSH server on `bind`, when asked, and logs its host key.
+///
+/// # Errors
+///
+/// Binding errors.
+// cancel-safe: dropping it before the bind completes leaves nothing running.
+async fn entware(requested: Option<SocketAddr>) -> io::Result<Option<entware_ssh::Handle>> {
+    let Some(bind) = requested else {
+        return Ok(None);
+    };
+    let (address, handle) = FakeEntwareSsh::spawn(entware_config(bind)).await?;
+    tracing::info!(
+        addr = %address,
+        host_key = %handle.host_key().fingerprint(HashAlg::Sha256),
+        "fake Entware SSH listening"
+    );
+    Ok(Some(handle))
 }
 
 /// Serves `router` on `bind` until Ctrl-C.
@@ -85,10 +124,20 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
             serde_json::json!({"message":{"label":"I","message":format!("[Jan 01 00:00:{:02}] kcc-fake-router record {id}", id.min(59))}}),
         );
     }
+    let ssh_bind = args
+        .entware_ssh_port
+        .map(|port| SocketAddr::new(args.bind.ip(), port));
     Builder::new_multi_thread()
         .enable_all()
         .build()?
-        .block_on(serve(router, args.bind))?;
+        .block_on(async {
+            let ssh = entware(ssh_bind).await?;
+            serve(router, args.bind).await?;
+            match ssh {
+                Some(handle) => handle.shutdown().await,
+                None => Ok(()),
+            }
+        })?;
     Ok(())
 }
 
