@@ -353,6 +353,9 @@ impl From<DomainError> for Failure {
             DomainError::FirewallVerificationFailed => {
                 return Self::message(Exit::Router, keys::CLI_ERROR_FIREWALL_VERIFICATION, &[]);
             }
+            DomainError::EntwareDriveInUse => {
+                return Self::message(Exit::Policy, keys::DOMAINS_ENTWARE_DRIVE_IN_USE, &[]);
+            }
             DomainError::PermissionDenied | DomainError::ConfirmationRequired => Exit::Policy,
             DomainError::InvalidResponse
             | DomainError::SafetyAbort

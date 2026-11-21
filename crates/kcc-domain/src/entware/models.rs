@@ -5,6 +5,8 @@ use alloc::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::ChangeOp;
+
 /// The router's `opkg` settings from the running configuration.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(from = "RawSettings")]
@@ -141,6 +143,29 @@ impl Installer {
             Self::Mips => "https://bin.entware.net/mipssf-k3.4/installer/mips-installer.tar.gz",
         }
     }
+}
+
+/// What a surface must tell the user before an Entware settings change.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum EntwareWarning {
+    /// Enabling `opkg chroot` runs the init scripts with `/opt` as root, so kcc's SSH
+    /// management of Entware stops working while it is on.
+    ChrootStopsSshManagement,
+    /// Enabling `opkg dns-override` frees port 53 of the router's DNS proxy for an Entware
+    /// resolver: the household's DNS depends on that resolver from then on.
+    DnsOverrideStopsRouterDns,
+}
+
+/// A planned Entware settings change with the warnings its surface shows.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct EntwarePlan {
+    /// The catalog-validated change, read back from `show rc` `opkg`.
+    pub operation: ChangeOp,
+    /// The warnings to show before applying it.
+    pub warnings: Vec<EntwareWarning>,
 }
 
 /// The `opkg` tree of `show rc` as the router sends it: each setting either as a plain

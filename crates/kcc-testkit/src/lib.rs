@@ -895,6 +895,16 @@ impl Handle {
         )
     }
 
+    /// Applies the configuration line `line` directly, as test setup: no request is logged
+    /// and no fault applies. Returns whether the simulator accepted the line.
+    #[inline]
+    #[must_use]
+    pub fn configure(&self, line: &str) -> bool {
+        self.router
+            .as_ref()
+            .is_some_and(|shared| shared.configure(line))
+    }
+
     /// Returns canonical running configuration text.
     #[inline]
     #[must_use]

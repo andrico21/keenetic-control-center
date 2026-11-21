@@ -13,3 +13,4 @@ domains-interface-down = Белсенді емес
 domains-wifi = Wi-Fi
 domains-wifi-ssid = Желі атауы (SSID)
 domains-clients = Клиенттер
+domains-entware-drive-in-use = Бұл жинақтағышта Entware орнатылған: оны шығару немесе инициализациялау Entware мен ол іске қосқан қызметтерді тоқтатады. Жалғастыру үшін Entware осы жинақтағыштан жұмыс істейтінін растаңыз.

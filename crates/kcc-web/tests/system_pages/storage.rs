@@ -4,8 +4,14 @@
 //! or format routes.
 
 use axum::http::StatusCode;
+use kcc_i18n::keys;
+use kcc_testkit::FaultInjection;
 
-use crate::support::{outcome::TestResult, page::text, web::Fixture};
+use crate::support::{
+    outcome::TestResult,
+    page::{en, text},
+    web::Fixture,
+};
 
 /// The page under test.
 const PAGE: &str = "/ui/r/home/system/storage";
@@ -46,6 +52,83 @@ async fn the_removed_check_and_format_routes_are_not_found() -> TestResult {
             .post(&format!("{PAGE}/{path}?media=Media0"), &admin, "")
             .await?;
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
+    }
+    Ok(())
+}
+
+/// Todo 4: the drive Entware runs from (`opkg disk`) is not ejected: the typed name gets the
+/// localized refusal, the refusal is audited and the router never hears the eject.
+#[tokio::test]
+async fn the_entware_drive_is_not_ejected() -> TestResult {
+    let fixture = Fixture::new().await?;
+    assert!(fixture.handle().configure("opkg disk fixture-media:/"));
+    let admin = fixture.login("admin").await?;
+
+    let answer = text(
+        fixture
+            .post(
+                "/ui/r/home/system/storage/eject?media=Media0",
+                &admin,
+                "confirm=yes&confirm_name=home",
+            )
+            .await?,
+    )
+    .await?;
+
+    assert!(
+        answer.contains(&en(keys::DOMAINS_ENTWARE_DRIVE_IN_USE)),
+        "{answer}"
+    );
+    assert!(
+        fixture.handle().request_log().iter().all(|record| record
+            .commands()
+            .flatten()
+            .all(|line| !line.contains("eject"))),
+        "the router heard an eject"
+    );
+    assert_eq!(fixture.audit_flushed().await, 0);
+    assert!(fixture.audited("web.storage_eject", "entware_drive_in_use")?);
+    Ok(())
+}
+
+/// Todo 4: when the `opkg disk` or `show media` read fails, the eject fails closed: the
+/// page answers the unreachable refusal, it is audited and the router never hears the
+/// eject.
+#[tokio::test]
+async fn an_unread_entware_drive_is_not_ejected() -> TestResult {
+    for read in ["\"rc\":{\"opkg\"", "show/media"] {
+        let faults = FaultInjection::default().fail_read_matching(read, 100);
+        let fixture = Fixture::with_faults(faults).await?;
+        assert!(fixture.handle().configure("opkg disk fixture-media:/"));
+        let admin = fixture.login("admin").await?;
+
+        let answer = text(
+            fixture
+                .post(
+                    "/ui/r/home/system/storage/eject?media=Media0",
+                    &admin,
+                    "confirm=yes&confirm_name=home",
+                )
+                .await?,
+        )
+        .await?;
+
+        assert!(
+            answer.contains(&en(keys::WEB_KIT_UNREACHABLE)),
+            "{read}: {answer}"
+        );
+        assert!(
+            fixture.handle().request_log().iter().all(|record| record
+                .commands()
+                .flatten()
+                .all(|line| !line.contains("eject"))),
+            "{read}: the router heard an eject"
+        );
+        assert_eq!(fixture.audit_flushed().await, 0);
+        assert!(
+            fixture.audited("web.storage_eject", "unreachable")?,
+            "{read}"
+        );
     }
     Ok(())
 }

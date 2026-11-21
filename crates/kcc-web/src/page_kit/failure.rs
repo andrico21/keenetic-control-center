@@ -118,6 +118,10 @@ pub(crate) fn plan_failure(family: Family, locale: Locale, error: &DomainError) 
         ),
         DomainError::Rci(rci) => rci_failure(family, locale, rci),
         DomainError::PermissionDenied => Failure::forbidden(locale),
+        DomainError::EntwareDriveInUse => Failure::new(
+            tr(locale, keys::DOMAINS_ENTWARE_DRIVE_IN_USE, None),
+            "entware_drive_in_use",
+        ),
         DomainError::InvalidResponse
         | DomainError::ConfirmationMismatch
         | DomainError::StaticLeaseOutsidePool

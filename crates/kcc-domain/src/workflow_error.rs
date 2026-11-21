@@ -31,9 +31,9 @@ impl From<DomainError> for WorkflowError {
             DomainError::ConfirmationMismatch => Self::Refused(Refusal::ConfirmationMismatch),
             DomainError::ConfirmationRequired => Self::Refused(Refusal::ConfirmationRequired),
             DomainError::ProtectedAccount => Self::Refused(Refusal::ProtectedAccount),
-            DomainError::SafetyAbort | DomainError::RouteCountMismatch => {
-                Self::Refused(Refusal::Unsafe)
-            }
+            DomainError::SafetyAbort
+            | DomainError::RouteCountMismatch
+            | DomainError::EntwareDriveInUse => Self::Refused(Refusal::Unsafe),
         }
     }
 }

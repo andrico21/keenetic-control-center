@@ -1,7 +1,7 @@
 //! `kcc_logging_write`, `kcc_schedules_write`, and `kcc_storage_write`.
 
 use kcc_domain::{
-    ChangeOp, DomainError, RouterCtx, logging,
+    ChangeOp, DomainError, RouterCtx, entware, logging,
     schedules::{self, ActionTime, ScheduleAction},
     storage,
 };
@@ -10,7 +10,11 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::common::{Opened, apply_cli, check_op, needed, open, text};
-use crate::{KccMcp, McpFailure, domains::table::Area, support::route::parse};
+use crate::{
+    KccMcp, McpFailure,
+    domains::table::Area,
+    support::{errors::map_domain, route::parse},
+};
 
 /// Logging write operations.
 pub(super) const LOGGING_OPS: &[&str] = &["server", "reduction", "suppress", "clear"];
@@ -110,23 +114,29 @@ fn plan_schedule(
     })
 }
 
-/// Plans the storage eject, which is destructive and needs confirmation.
+/// Plans the storage eject, which is destructive and needs confirmation; the drive
+/// Entware runs from is refused.
 ///
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
-fn plan_storage(
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
+async fn plan_storage(
     opened: &Opened,
     input: &HousekeepingInput,
 ) -> Result<Result<ChangeOp, DomainError>, McpFailure> {
     let (identity, router, ctx) = opened;
     let name = text(input.name.as_deref())?;
+    let entware_media = entware::configured_media(ctx).await.map_err(map_domain)?;
     Ok(storage::plan_eject(
         ctx,
         router.as_str(),
         &identity.role,
         name,
         input.confirm,
+        entware_media.as_deref(),
+        false,
     ))
 }
 
@@ -170,7 +180,7 @@ pub(super) async fn housekeeping(
             .await
         }
         Chore::Storage => {
-            let planned = plan_storage(&opened, &input)?;
+            let planned = plan_storage(&opened, &input).await?;
             apply_cli(
                 server,
                 &opened,

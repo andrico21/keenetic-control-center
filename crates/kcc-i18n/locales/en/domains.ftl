@@ -13,3 +13,4 @@ domains-interface-down = Down
 domains-wifi = Wi-Fi
 domains-wifi-ssid = Network name (SSID)
 domains-clients = Clients
+domains-entware-drive-in-use = This drive holds Entware: ejecting or initializing it stops Entware and the services it runs. Acknowledge that Entware runs from this drive to continue.

@@ -51,6 +51,12 @@ The first release, `0.1.0`, is in preparation and contains:
   still load), `kcc apikey list` shows it (`--json`: `expires_at`, `expired`), and the
   CLI now refuses key names the Web refuses (1 to 64 of `a-z0-9._-`), exit code 4.
 
+- **Entware planners and the Entware drive guard** (library): plans for the `opkg`
+  settings (chroot, timezone, init script, DNS override, removal) and for `media
+  initialize ext4`, each read back from the router. Ejecting the drive Entware runs from
+  (`opkg disk`) is refused on the Web, in the CLI (exit code 10) and over MCP
+  (`conflict`) until acknowledged; nothing changes for routers without Entware.
+
 - **MCP error code `router_mode_unknown`**: a management change is refused, with nothing
   sent, when the router reports neither a system mode kcc knows nor a `fail-safe`
   timer in `show last-change`. Every surface now picks the recovery mechanism with the same

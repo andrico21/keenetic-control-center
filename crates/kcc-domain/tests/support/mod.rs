@@ -226,16 +226,52 @@ impl Fixture {
         Self::spawn_router(builder.reached_directly().build()?, clock).await
     }
 
+    /// Starts KN-1811 on `firmware` for a test under a paused tokio clock: on Unix it answers
+    /// on a Unix socket, since a paused clock can jump ahead of a loopback TCP reply that is
+    /// written but not yet readable.
+    pub(crate) async fn spawn_local(firmware: Firmware) -> TestResult<Self> {
+        let router = FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?)
+            .reached_directly()
+            .build()?;
+        let loopback = OutboundPolicy::default().with_loopback(true);
+        #[cfg(unix)]
+        let (address, handle, outbound) = {
+            let (address, socket, handle) = router.serve_local()?;
+            (address, handle, loopback.with_local_socket(address, socket))
+        };
+        #[cfg(not(unix))]
+        let ((address, handle), outbound) =
+            (router.serve(([127, 0, 0, 1], 0).into()).await?, loopback);
+        Self::connect(address, handle, None, outbound).await
+    }
+
     /// Serves one built fake router and connects the domain context.
     async fn spawn_router(router: FakeRouter, clock: Option<Arc<MockClock>>) -> TestResult<Self> {
         let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
+        Self::connect(
+            address,
+            handle,
+            clock,
+            OutboundPolicy::default().with_loopback(true),
+        )
+        .await
+    }
+
+    /// Connects the domain context to the fake router served at `address` through
+    /// `outbound`.
+    async fn connect(
+        address: SocketAddr,
+        handle: Handle,
+        clock: Option<Arc<MockClock>>,
+        outbound: OutboundPolicy,
+    ) -> TestResult<Self> {
         let directory = TempDir::new()?;
         let password_file =
             kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
         let state = StateStore::open(&directory.path().join("state"))?;
-        let mut outbound = OutboundConfig::default();
-        outbound.allow_loopback = true;
-        let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
+        let mut config = OutboundConfig::default();
+        config.allow_loopback = true;
+        let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &config)?);
         registry
             .create(
                 &admin_role(),
@@ -256,8 +292,7 @@ impl Fixture {
             RciClient::connect_with(
                 origin.clone(),
                 credentials,
-                RciClientOptions::default()
-                    .with_outbound(OutboundPolicy::default().with_loopback(true)),
+                RciClientOptions::default().with_outbound(outbound.clone()),
             )
             .await?,
         );
@@ -267,7 +302,7 @@ impl Fixture {
                 DEFAULT_LOGIN.to_owned(),
                 SecretString::from(DEFAULT_PASSWORD.to_owned()),
             ),
-            &OutboundPolicy::default().with_loopback(true),
+            &outbound,
         )
         .await?;
         let info = RouterInfo::detect(&manager, &origin).await?;

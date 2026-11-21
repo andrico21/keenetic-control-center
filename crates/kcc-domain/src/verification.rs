@@ -26,6 +26,10 @@ pub const ACTIONS_WITHOUT_STATE: &[(&str, &str)] = &[
         "Ejection can detach the device and its read surface.",
     ),
     (
+        "media initialize",
+        "Initialization wipes the medium in the background; storage::wait_initialized polls for its ext4 partition.",
+    ),
+    (
         "system log clear",
         "The log may immediately refill after clearing.",
     ),

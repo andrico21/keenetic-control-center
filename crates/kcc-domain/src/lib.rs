@@ -330,6 +330,10 @@ pub enum DomainError {
     /// A fresh running configuration did not contain the expected full rule identity.
     #[error("firewall rule verification failed")]
     FirewallVerificationFailed,
+    /// The medium is the drive Entware runs from (`opkg disk`), and ejecting or
+    /// initializing it was not acknowledged.
+    #[error("the medium is the drive Entware runs from")]
+    EntwareDriveInUse,
 }
 
 impl From<SecretCommandError> for DomainError {

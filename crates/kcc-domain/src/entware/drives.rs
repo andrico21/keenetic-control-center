@@ -58,6 +58,35 @@ pub(super) fn initializable(media: &[MediaVolume]) -> Vec<String> {
         .collect()
 }
 
+/// The id of the one medium `device` (the part of an `opkg disk` argument before `:`)
+/// names: by its uuid, compared without case, else by a label only that medium carries.
+pub(super) fn resolve(media: &[MediaVolume], device: &str) -> Option<String> {
+    let by_uuid = only(media.iter().filter(|volume| {
+        volume
+            .extra
+            .get("uuid")
+            .and_then(Value::as_str)
+            .is_some_and(|uuid| uuid.eq_ignore_ascii_case(device))
+    }));
+    let volume = by_uuid.or_else(|| {
+        only(
+            media
+                .iter()
+                .filter(|volume| volume.label.as_deref() == Some(device)),
+        )
+    })?;
+    volume.id.clone()
+}
+
+/// The single item of `matches`, or `None` for none or several.
+fn only<'media, I>(mut matches: I) -> Option<&'media MediaVolume>
+where
+    I: Iterator<Item = &'media MediaVolume>,
+{
+    let first = matches.next()?;
+    matches.next().is_none().then_some(first)
+}
+
 /// Whether `value` is one safe router CLI word.
 fn word(value: &str) -> bool {
     cli_token::validate(value).is_ok()

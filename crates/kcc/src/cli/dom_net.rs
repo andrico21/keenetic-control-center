@@ -1,7 +1,7 @@
 //! Router user and storage commands, and the new-secret prompt.
 
 use kcc_app::permissions::Permission;
-use kcc_domain::{router_users, storage};
+use kcc_domain::{entware, router_users, storage};
 use kcc_i18n::keys;
 use secrecy::SecretString;
 
@@ -83,8 +83,16 @@ pub(crate) async fn storage(ctx: &Ctx, command: StorageCommand) -> Outcome {
         StorageCommand::Eject { media } => {
             let session = Session::open(ctx, Permission::Destructive).await?;
             let target = session.target();
-            let operation =
-                storage::plan_eject(session.router(), target.id(), target.role(), &media, true)?;
+            let entware_media = entware::configured_media(session.router()).await?;
+            let operation = storage::plan_eject(
+                session.router(),
+                target.id(),
+                target.role(),
+                &media,
+                true,
+                entware_media.as_deref(),
+                false,
+            )?;
             session
                 .cli(&operation, storage::change_request(&operation)?)
                 .await

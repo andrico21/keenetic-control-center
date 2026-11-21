@@ -15,6 +15,8 @@ async fn eject_requires_the_documented_action_exclusion() -> TestResult {
             &administrator(),
             "Media0",
             true,
+            None,
+            false,
         )?;
         verification::require(&storage::change_request(&plan)?)?;
         fixture.shutdown().await?;

@@ -37,6 +37,9 @@ use crate::{
     tree::{self, Selector},
 };
 
+/// Simulated media initialization.
+#[path = "server/media_init.rs"]
+mod media_init;
 /// Parser interception before ordinary command dispatch.
 #[path = "server/parse_command.rs"]
 mod parse_command;
@@ -259,6 +262,8 @@ pub(crate) struct Shared {
     log_streams: AtomicU64,
     /// Opt-in `components check-update` answer.
     firmware_update: Mutex<Option<FirmwareUpdate>>,
+    /// Media an `initialize` line named.
+    media_init: Mutex<media_init::MediaInit>,
     /// Holds requests while a test stalls the router.
     gate: Arc<Gate>,
 }
@@ -368,6 +373,7 @@ impl Shared {
             logs: Mutex::new(BTreeMap::new()),
             log_streams: AtomicU64::new(0),
             firmware_update: Mutex::new(None),
+            media_init: Mutex::default(),
             gate: Arc::default(),
         }
     }
@@ -933,6 +939,9 @@ impl Shared {
         if normalized_path == "system" {
             self.overlay_uptime(&mut answer);
         }
+        if normalized_path == "media" {
+            lock(&self.media_init).read(&mut answer);
+        }
         tree::select_show(&answer, selector)
     }
 
@@ -946,6 +955,23 @@ impl Shared {
         if let Some(system) = answer.as_object_mut() {
             drop(system.insert("uptime".to_owned(), Value::String(uptime.to_string())));
         }
+    }
+
+    /// Whether `show media` lists the medium `name`.
+    fn media_listed(&self, name: &str) -> bool {
+        self.show
+            .get("media")
+            .and_then(Value::as_array)
+            .is_some_and(|media| {
+                media
+                    .iter()
+                    .any(|volume| volume.get("id").and_then(Value::as_str) == Some(name))
+            })
+    }
+
+    /// Applies the configuration line `line` without a request; whether it was accepted.
+    pub(crate) fn configure(&self, line: &str) -> bool {
+        kcc_rci::RciResponse::from_value(lock(&self.config).apply(line)).is_ok()
     }
 
     /// Checks one name against the profile's interface list.

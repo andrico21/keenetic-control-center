@@ -1008,6 +1008,10 @@ pub const DOMAINS_WIFI_SSID: MessageKey = MessageKey::new("domains-wifi-ssid");
 /// `domains-clients` in `domains.ftl`.
 pub const DOMAINS_CLIENTS: MessageKey = MessageKey::new("domains-clients");
 
+/// `domains-entware-drive-in-use` in `domains.ftl`.
+pub const DOMAINS_ENTWARE_DRIVE_IN_USE: MessageKey =
+    MessageKey::new("domains-entware-drive-in-use");
+
 /// `errors-forbidden` in `errors.ftl`.
 pub const ERRORS_FORBIDDEN: MessageKey = MessageKey::new("errors-forbidden");
 
@@ -7866,7 +7870,7 @@ pub const WEB_ADMIN_PERMISSION_MANAGE_MCP: MessageKey =
     MessageKey::new("web-admin-permission-manage-mcp");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2471] = [
+pub static ALL: [MessageKey; 2472] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8186,6 +8190,7 @@ pub static ALL: [MessageKey; 2471] = [
     DOMAINS_WIFI,
     DOMAINS_WIFI_SSID,
     DOMAINS_CLIENTS,
+    DOMAINS_ENTWARE_DRIVE_IN_USE,
     ERRORS_FORBIDDEN,
     ERRORS_AUTH_FAILED,
     ERRORS_ROUTER_AUTH,

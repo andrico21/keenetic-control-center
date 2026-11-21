@@ -13,3 +13,4 @@ domains-interface-down = Inaktiv
 domains-wifi = WLAN
 domains-wifi-ssid = Netzwerkname (SSID)
 domains-clients = Clients
+domains-entware-drive-in-use = Auf diesem Laufwerk liegt Entware: Auswerfen oder Initialisieren beendet Entware und die von ihm gestarteten Dienste. Bestätigen Sie, dass Entware von diesem Laufwerk läuft, um fortzufahren.

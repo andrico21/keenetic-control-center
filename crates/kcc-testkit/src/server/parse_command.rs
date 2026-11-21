@@ -21,5 +21,16 @@ pub(super) fn intercept(shared: &Shared, line: &str) -> Option<Value> {
     {
         return Some(tree::status("error", "interface not found."));
     }
+    if let [
+        "media",
+        name,
+        "initialize",
+        preset @ ("default" | "ext4" | "ntfs"),
+    ] = words.as_slice()
+        && shared.media_listed(name)
+    {
+        lock(&shared.media_init).start(name, preset);
+        return Some(tree::status("message", "initialization started."));
+    }
     shared.wipe_routes(line)
 }

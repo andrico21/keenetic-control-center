@@ -13,3 +13,4 @@ domains-interface-down = Неактивен
 domains-wifi = Wi-Fi
 domains-wifi-ssid = Имя сети (SSID)
 domains-clients = Клиенты
+domains-entware-drive-in-use = На этом накопителе установлен Entware: извлечение или инициализация остановят Entware и запущенные им службы. Чтобы продолжить, подтвердите, что Entware работает с этого накопителя.

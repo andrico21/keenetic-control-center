@@ -38,7 +38,15 @@ async fn unconfirmed_eject_is_refused_before_any_router_request() -> TestResult 
         let fixture = Fixture::spawn(firmware).await?;
         let before = fixture.handle().request_count();
         let role = administrator();
-        let result = storage::plan_eject(fixture.context(), "router", &role, "Media0", false);
+        let result = storage::plan_eject(
+            fixture.context(),
+            "router",
+            &role,
+            "Media0",
+            false,
+            None,
+            false,
+        );
         assert!(matches!(result, Err(DomainError::ConfirmationRequired)));
         assert_eq!(fixture.handle().request_count(), before);
         fixture.shutdown().await?;

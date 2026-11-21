@@ -1,20 +1,30 @@
 //! Entware (the `opkg` package system on a USB drive): whether the router can run it, its
-//! `opkg` settings and the drives it can use. Reads only; nothing here writes to a router.
+//! `opkg` settings, the drives it can use, and plans of `opkg` settings changes.
 
 mod drives;
 pub mod models;
+mod writes;
 
-use alloc::collections::BTreeSet;
+use alloc::{collections::BTreeSet, vec};
 
+use kcc_app::{
+    permissions::{Permission, Role},
+    registry::authorize,
+    workflow::CliChangeRequest,
+};
 use serde_json::{Value, json};
 
-use self::models::{
-    ArchResolution, ComponentPresence, EntwareSettings, EntwareStatus, Possibility,
+use self::{
+    models::{
+        ArchResolution, ComponentPresence, EntwarePlan, EntwareSettings, EntwareStatus,
+        EntwareWarning, Possibility, TimezoneSetting,
+    },
+    writes::OpkgChange,
 };
 use crate::{
-    DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
+    ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
     components::{self, ComponentState},
-    descriptor, dns, storage, system,
+    descriptor, dns, storage, system, verification,
 };
 
 /// Entware read inventory: the router reads the status combines.
@@ -111,6 +121,231 @@ pub async fn read_status(router: &RouterCtx) -> Result<EntwareStatus> {
             .and_then(Value::as_str)
             == Some("opkg"),
     })
+}
+
+/// The id of the medium Entware runs from: the drive `opkg disk` names by its uuid or by a
+/// label only that medium carries.
+///
+/// `None` when `opkg disk` is unset, names the internal storage (`storage:/`) or a drive
+/// `show media` does not list exactly once.
+///
+/// # Errors
+///
+/// Returns an error when a router request fails or its reply does not decode
+/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only; cancellation changes nothing on the router.
+#[inline]
+pub async fn configured_media(router: &RouterCtx) -> Result<Option<String>> {
+    let Some(disk) = read_settings(router).await?.disk else {
+        return Ok(None);
+    };
+    let device = disk
+        .split_once(':')
+        .map_or(disk.as_str(), |(device, _path)| device);
+    if device == "storage" {
+        return Ok(None);
+    }
+    Ok(drives::resolve(&storage::read_media(router).await?, device))
+}
+
+/// Plans `opkg chroot` (`enabled`) or its removal; enabling it warns that SSH management
+/// stops working ([`EntwareWarning::ChrootStopsSshManagement`]).
+///
+/// # Errors
+///
+/// Returns [`DomainError::PermissionDenied`] when the role lacks `Write` on the router and
+/// [`DomainError::Validation`] when the catalog refuses the request.
+#[inline]
+pub fn plan_chroot(
+    router: &RouterCtx,
+    router_name: &str,
+    role: &Role,
+    enabled: bool,
+) -> Result<EntwarePlan> {
+    permitted(role, Permission::Write, router_name)?;
+    let warnings = if enabled {
+        vec![EntwareWarning::ChrootStopsSshManagement]
+    } else {
+        Vec::new()
+    };
+    Ok(EntwarePlan {
+        operation: writes::plan(router, &OpkgChange::Chroot(enabled))?,
+        warnings,
+    })
+}
+
+/// Plans `opkg timezone auto` or `opkg timezone <name>`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::PermissionDenied`] when the role lacks `Write` on the router,
+/// [`DomainError::InvalidCliToken`] when a name spells `auto` in any case, contains `..`,
+/// does not start with `A-Z a-z 0-9 <`, or is not 1 to 64 of
+/// `A-Z a-z 0-9 _ + - / . : , < >`, and [`DomainError::Validation`] when the catalog
+/// refuses the request.
+#[inline]
+pub fn plan_timezone(
+    router: &RouterCtx,
+    router_name: &str,
+    role: &Role,
+    timezone: TimezoneSetting,
+) -> Result<EntwarePlan> {
+    permitted(role, Permission::Write, router_name)?;
+    if let TimezoneSetting::Named(name) = &timezone
+        && (name.len() > 64
+            || name.eq_ignore_ascii_case("auto")
+            || name.contains("..")
+            || !name
+                .chars()
+                .next()
+                .is_some_and(|first| first.is_ascii_alphanumeric() || first == '<')
+            || !name.chars().all(|character| {
+                character.is_ascii_alphanumeric() || "_+-/.:,<>".contains(character)
+            }))
+    {
+        return Err(DomainError::InvalidCliToken);
+    }
+    planned(router, &OpkgChange::Timezone(timezone))
+}
+
+/// Plans `opkg initrc <path>`, the init script the router runs as root from the drive.
+///
+/// # Errors
+///
+/// Returns [`DomainError::PermissionDenied`] when the role lacks `Destructive` on the
+/// router, [`DomainError::ConfirmationRequired`] without confirmation,
+/// [`DomainError::InvalidCliToken`] when the path is not `/opt/` and 1 to 200 of
+/// `A-Z a-z 0-9 . _ / -` or contains `..`, and [`DomainError::Validation`] when the catalog
+/// refuses the request.
+#[inline]
+pub fn plan_initrc(
+    router: &RouterCtx,
+    router_name: &str,
+    role: &Role,
+    path: &str,
+    confirmed: bool,
+) -> Result<EntwarePlan> {
+    permitted(role, Permission::Destructive, router_name)?;
+    confirm(confirmed)?;
+    let script = path
+        .strip_prefix("/opt/")
+        .ok_or(DomainError::InvalidCliToken)?;
+    if !(1..=200).contains(&script.len())
+        || script.contains("..")
+        || !script
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "._/-".contains(character))
+    {
+        return Err(DomainError::InvalidCliToken);
+    }
+    planned(router, &OpkgChange::Initrc(path))
+}
+
+/// Plans `opkg dns-override` (`enabled`) or its removal, a management-class change:
+/// enabling it frees port 53 of the router's DNS proxy
+/// ([`EntwareWarning::DnsOverrideStopsRouterDns`]).
+///
+/// # Errors
+///
+/// Returns [`DomainError::PermissionDenied`] when the role lacks `Write` on the router and
+/// [`DomainError::Validation`] when the catalog refuses the request.
+#[inline]
+pub fn plan_dns_override(
+    router: &RouterCtx,
+    router_name: &str,
+    role: &Role,
+    enabled: bool,
+) -> Result<EntwarePlan> {
+    permitted(role, Permission::Write, router_name)?;
+    let warnings = if enabled {
+        vec![EntwareWarning::DnsOverrideStopsRouterDns]
+    } else {
+        Vec::new()
+    };
+    Ok(EntwarePlan {
+        operation: writes::plan(router, &OpkgChange::DnsOverride(enabled))?,
+        warnings,
+    })
+}
+
+/// Plans `no opkg disk`: the router stops running Entware from its drive.
+///
+/// # Errors
+///
+/// Returns [`DomainError::PermissionDenied`] when the role lacks `Destructive` on the
+/// router, [`DomainError::ConfirmationRequired`] without confirmation, and
+/// [`DomainError::Validation`] when the catalog refuses the request.
+#[inline]
+pub fn plan_remove(
+    router: &RouterCtx,
+    router_name: &str,
+    role: &Role,
+    confirmed: bool,
+) -> Result<EntwarePlan> {
+    permitted(role, Permission::Destructive, router_name)?;
+    confirm(confirmed)?;
+    planned(router, &OpkgChange::RemoveDisk)
+}
+
+/// Converts an Entware plan into the protected workflow request: its line and its read-back.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidResponse`] when the plan is not one `opkg` command, and a
+/// verification failure ([`DomainError::Workflow`]) when it carries no read-back.
+#[inline]
+pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
+    let [command] = operation.commands.as_slice() else {
+        return Err(DomainError::InvalidResponse);
+    };
+    let path = &command.validated().path;
+    if !path.starts_with("opkg ") {
+        return Err(DomainError::InvalidResponse);
+    }
+    let request = CliChangeRequest::new(
+        operation.commands.clone(),
+        operation.verify.clone(),
+        operation.permission,
+        json!({"operation":path}),
+    );
+    verification::require(&request)?;
+    Ok(request)
+}
+
+/// `change` planned with no warning.
+///
+/// # Errors
+///
+/// The refusals of [`writes::plan`].
+fn planned(router: &RouterCtx, change: &OpkgChange<'_>) -> Result<EntwarePlan> {
+    Ok(EntwarePlan {
+        operation: writes::plan(router, change)?,
+        warnings: Vec::new(),
+    })
+}
+
+/// Requires `permission` on the router `router_name`.
+///
+/// # Errors
+///
+/// Returns [`DomainError::PermissionDenied`] when the role lacks the permission or the
+/// router scope.
+fn permitted(role: &Role, permission: Permission, router_name: &str) -> Result<()> {
+    authorize(role, permission, router_name).map_err(|_error| DomainError::PermissionDenied)
+}
+
+/// Requires explicit confirmation of a destructive change.
+///
+/// # Errors
+///
+/// Returns [`DomainError::ConfirmationRequired`] without it.
+const fn confirm(confirmed: bool) -> Result<()> {
+    if confirmed {
+        Ok(())
+    } else {
+        Err(DomainError::ConfirmationRequired)
+    }
 }
 
 /// Presence of component `name`: installed per `show version` or the list, else listed as

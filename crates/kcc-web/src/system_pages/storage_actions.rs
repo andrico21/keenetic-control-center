@@ -2,7 +2,8 @@
 //!
 //! It is destructive: it needs `Destructive`, the kit asks for the router name and sends
 //! the request again with the medium in its query string, and the change runs through the
-//! change workflow. An unknown medium is refused first.
+//! change workflow. An unknown medium is refused first, and so is the drive Entware runs
+//! from.
 
 use axum::{
     Form,
@@ -10,7 +11,7 @@ use axum::{
     response::Response,
 };
 use kcc_catalog::Risk;
-use kcc_domain::{ChangeOp, Result as DomainResult, RouterCtx, storage};
+use kcc_domain::{ChangeOp, Result as DomainResult, RouterCtx, entware, storage};
 
 use super::shared::{NoDialog, merged, unread, value};
 use crate::{
@@ -104,10 +105,25 @@ pub(crate) async fn eject(
             return Err(unread(action).await);
         }
     }
+    let entware_media = match entware::configured_media(&domain).await {
+        Ok(found) => found,
+        Err(error) => {
+            tracing::warn!(%error, "the Entware drive could not be read");
+            return Err(unread(action).await);
+        }
+    };
     let path = format!("/ui/r/{router}/system/storage/eject");
     let again = resubmit(&path, &[("media", &media)]);
     Ok(run(action, (pairs, again), |ctx| {
-        storage::plan_eject(ctx, &router, user.role(), &media, true)
+        storage::plan_eject(
+            ctx,
+            &router,
+            user.role(),
+            &media,
+            true,
+            entware_media.as_deref(),
+            false,
+        )
     })
     .await)
 }

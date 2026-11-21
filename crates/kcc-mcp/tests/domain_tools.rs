@@ -685,6 +685,82 @@ mod tests {
         lab.stop().await
     }
 
+    /// Todo 4: `kcc_storage_write` refuses to eject the drive Entware runs from
+    /// (`opkg disk`) with `conflict`, and the router never hears the eject.
+    #[tokio::test]
+    async fn the_entware_drive_is_not_ejected() -> TestResult {
+        let lab = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+        assert!(lab.router("lab-1")?.configure("opkg disk fixture-media:/"));
+
+        let reply = lab
+            .call(
+                "kcc_storage_write",
+                json!({"host": "lab-1", "op": "eject", "name": "Media0", "confirm": true}),
+                false,
+            )
+            .await?;
+
+        assert_eq!(reply.error(), Some("conflict"), "{reply:?}");
+        assert!(
+            lab.router("lab-1")?
+                .request_log()
+                .iter()
+                .all(|record| record
+                    .commands()
+                    .flatten()
+                    .all(|line| !line.contains("eject"))),
+            "the router heard an eject"
+        );
+        lab.stop().await
+    }
+
+    /// Todo 4: when the `opkg disk` or `show media` read fails, `kcc_storage_write` fails
+    /// closed: the eject of the Entware drive answers an error and the router never hears
+    /// it.
+    #[tokio::test]
+    async fn an_unread_entware_drive_is_not_ejected() -> TestResult {
+        for read in ["\"rc\":{\"opkg\"", "show/media"] {
+            let faults = FaultInjection::default().fail_read_matching(read, 100);
+            let lab = Lab::start(
+                vec![(
+                    "lab-1",
+                    FakeRouter::builder(Profile::default())
+                        .faults(faults)
+                        .build()?,
+                )],
+                admin(),
+            )
+            .await?;
+            assert!(lab.router("lab-1")?.configure("opkg disk fixture-media:/"));
+
+            let reply = lab
+                .call(
+                    "kcc_storage_write",
+                    json!({"host": "lab-1", "op": "eject", "name": "Media0", "confirm": true}),
+                    false,
+                )
+                .await?;
+
+            assert!(reply.error().is_some(), "{read}: {reply:?}");
+            assert!(
+                lab.router("lab-1")?
+                    .request_log()
+                    .iter()
+                    .all(|record| record
+                        .commands()
+                        .flatten()
+                        .all(|line| !line.contains("eject"))),
+                "{read}: the router heard an eject"
+            );
+            lab.stop().await?;
+        }
+        Ok(())
+    }
+
     /// Invalid router-shaped arguments never enter failure audit records.
     #[tokio::test]
     async fn invalid_router_arguments_are_omitted_from_failure_audits() -> TestResult {
