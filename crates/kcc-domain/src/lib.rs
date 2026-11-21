@@ -23,6 +23,7 @@ pub mod configuration;
 pub mod dhcp;
 pub mod diagnostics;
 pub mod dns;
+pub mod entware;
 pub mod firewall;
 pub mod interfaces;
 pub mod internet;
@@ -130,6 +131,8 @@ pub enum DomainId {
     Wifi,
     /// Mesh members and maintenance actions.
     Mesh,
+    /// Entware (`opkg`) readiness, settings and eligible drives.
+    Entware,
 }
 
 /// One operation exposed by a domain.
@@ -391,5 +394,6 @@ pub const fn registry() -> &'static [DomainDescriptor] {
         wan::DESCRIPTOR,
         wifi::DESCRIPTOR,
         mesh::DESCRIPTOR,
+        entware::DESCRIPTOR,
     ]
 }

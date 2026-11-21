@@ -283,6 +283,13 @@ The first release, `0.1.0`, is in preparation and contains:
   ed25519 host key that can be replaced, password and `authorized_keys` sign-in, an
   `opkg` package database, init scripts that follow Entware's `rc.func`, counters and
   fault switches; `kcc-fake-router --entware-ssh-port <port>` serves one.
+- **Entware status model** (library, read-only domain `entware`): `read_status` reports
+  whether Entware can be installed (the `usb` and `storage` components, the `show version`
+  architecture), the `opkg` and `ext` components, the `opkg` settings from `show rc`, the
+  ext2/3/4 drives with their `opkg disk` argument (`<label>:/`, else `<uuid>:/`), the
+  media that can be initialized as ext4, and whether the DNS filter engine is `opkg`. The
+  fake router (`kcc-testkit`) gains the `opkg` settings and `dns-proxy filter engine`,
+  available `opkg`/`ext` components and a media uuid and `initialize-supported` list.
 
 ### Changed
 

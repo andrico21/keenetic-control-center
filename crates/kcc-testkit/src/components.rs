@@ -5,6 +5,9 @@ use core::{mem, time::Duration};
 
 use serde_json::{Value, json};
 
+/// Components the router offers for installation when not installed.
+const AVAILABLE: [&str; 2] = ["ext", "opkg"];
+
 /// Duration for which component commit makes the router unreachable.
 pub(crate) const REBOOT_WINDOW: Duration = Duration::from_secs(5);
 
@@ -131,10 +134,15 @@ impl Components {
 
     /// Returns installed and available component rows.
     pub(crate) fn list(&self) -> Value {
+        let available = AVAILABLE
+            .into_iter()
+            .filter(|name| !self.installed.contains(*name))
+            .map(|name| json!({"name":name,"installed":false}));
         Value::Array(
             self.installed
                 .iter()
                 .map(|name| json!({"name":name,"installed":true}))
+                .chain(available)
                 .collect(),
         )
     }

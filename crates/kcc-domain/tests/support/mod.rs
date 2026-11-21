@@ -148,6 +148,11 @@ impl Fixture {
         Self::spawn_with(firmware, None, faults).await
     }
 
+    /// Starts `model` on its 5.1 seed firmware.
+    pub(crate) async fn spawn_model(model: Model) -> TestResult<Self> {
+        Self::spawn_builder(FakeRouter::builder(Profile::latest(model)), None).await
+    }
+
     /// Starts KN-1811 with focused replacements for embedded show fixtures.
     pub(crate) async fn spawn_with_show<I, S>(firmware: Firmware, fixtures: I) -> TestResult<Self>
     where

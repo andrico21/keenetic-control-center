@@ -171,7 +171,9 @@ pub(super) fn classify(command: &[String]) -> Option<Shape> {
 
 /// Classifies top-level command families.
 fn classify_top_level(command: &[String]) -> Option<Shape> {
-    additional_shape(command).or_else(|| ordinary_shape(command))
+    additional_shape(command)
+        .or_else(|| ordinary_shape(command))
+        .or_else(|| super::opkg_rules::shape(command))
 }
 
 /// Classifies stateful maintenance and server commands.

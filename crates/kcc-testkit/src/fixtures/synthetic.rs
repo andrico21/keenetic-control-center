@@ -35,7 +35,7 @@ pub(super) fn enrich(show: &mut Value, model: Model) {
         ),
         (
             "media",
-            json!([{"id":"Media0","label":"fixture-media","filesystem":"ext4","size":8_000_000_000_u64,"free":6_000_000_000_u64}]),
+            json!([{"id":"Media0","label":"fixture-media","uuid":"0f1e2d3c-4b5a-4978-8796-a5b4c3d2e1f0","filesystem":"ext4","size":8_000_000_000_u64,"free":6_000_000_000_u64,"initialize-supported":["default","ext4","ntfs"]}]),
         ),
         (
             "usb",

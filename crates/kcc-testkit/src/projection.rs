@@ -1,5 +1,6 @@
 //! Secret-safe JSON projections of mutable CLI configuration.
 
+mod entware;
 mod hosts;
 mod hotspot_policy;
 mod interface;
@@ -50,6 +51,7 @@ pub(super) fn configuration(ast: &Ast) -> Value {
         grouped_rows(&command_lines, &["ip", "policy"]),
     );
     insert_path(&mut root, &["dns-proxy"], dns_proxy(&command_lines));
+    entware::extend(&mut root, &command_lines);
     insert_path(&mut root, &["user"], users(&command_lines));
     insert_path(&mut root, &["service"], services(&command_lines));
     insert_path(&mut root, &["system"], system(&command_lines));

@@ -907,7 +907,12 @@ impl Shared {
         let normalized_path = path.trim_end_matches('/');
         let component_answer = match normalized_path {
             "internet/status" => Some(serde_json::json!({"internet":true})),
-            "components/list" => Some(lock(&self.components).list()),
+            "components/list" => Some(
+                self.show
+                    .get("components/list")
+                    .cloned()
+                    .unwrap_or_else(|| lock(&self.components).list()),
+            ),
             "components/pending" => Some(lock(&self.components).pending()),
             "version" => self
                 .show
