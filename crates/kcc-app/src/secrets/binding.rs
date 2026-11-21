@@ -6,8 +6,9 @@
 //! `preset`, `notify`) hold no `:`, so the bytes before the first `:` name the record type
 //! and two record types never share a binding. Within one type the owner is recovered too:
 //!
-//! - `router:<id>`, `router:<id>:token`, `router:<id>:read`: a checked router id holds
-//!   no `:`, so whatever follows the id names the kind.
+//! - `router:<id>`, `router:<id>:token`, `router:<id>:read`, `router:<id>:ssh-state`,
+//!   `router:<id>:ssh-key`, `router:<id>:ssh-ticket`: a checked router id holds no `:`, so
+//!   whatever follows the id names the kind.
 //! - `account:<username>`: the username is all the rest.
 //! - `backup:<router>:<name>`: the router is a checked backup component with no `:`, so
 //!   the next `:` ends it.
@@ -37,6 +38,21 @@ impl Binding {
             CredentialKind::Token => format!("router:{id}:token"),
             CredentialKind::ReadPassword => format!("router:{id}:read"),
         })
+    }
+
+    /// A router's SSH enrolment record: `router:<id>:ssh-state`.
+    pub(crate) fn router_ssh_state(router: RouterId<'_>) -> Self {
+        Self(format!("router:{}:ssh-state", router.as_str()))
+    }
+
+    /// A router's SSH private key: `router:<id>:ssh-key`.
+    pub(crate) fn router_ssh_key(router: RouterId<'_>) -> Self {
+        Self(format!("router:{}:ssh-key", router.as_str()))
+    }
+
+    /// A router's SSH probe ticket: `router:<id>:ssh-ticket`.
+    pub(crate) fn router_ssh_ticket(router: RouterId<'_>) -> Self {
+        Self(format!("router:{}:ssh-ticket", router.as_str()))
     }
 
     /// A UI account's password hash: `account:<username>`.
@@ -122,6 +138,9 @@ mod tests {
                 Binding::router(router, CredentialKind::ReadPassword),
                 "router:home:read",
             ),
+            (Binding::router_ssh_state(router), "router:home:ssh-state"),
+            (Binding::router_ssh_key(router), "router:home:ssh-key"),
+            (Binding::router_ssh_ticket(router), "router:home:ssh-ticket"),
             (Binding::account("home"), "account:home"),
             (Binding::backup("home", "1-a.txt"), "backup:home:1-a.txt"),
             (Binding::migration_source("home"), "migration:home:source"),

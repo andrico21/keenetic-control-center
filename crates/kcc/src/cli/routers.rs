@@ -1,6 +1,6 @@
 //! Router profile commands.
 
-use kcc_app::{permissions::Permission, registry::ProfileSource};
+use kcc_app::{entware_ssh::state::forget, permissions::Permission, registry::ProfileSource};
 use kcc_catalog::Risk;
 use kcc_i18n::keys;
 use serde_json::{Value, json};
@@ -46,6 +46,7 @@ async fn remove(ctx: &Ctx, services: &Services, id: &str) -> Outcome {
     ctx.confirmed(services, id, confirmation).await?;
     services.registry().delete(&role, id).await?;
     services.credentials().remove(id)?;
+    forget(ctx.state(), id).map_err(|error| Failure::text(Exit::Generic, &error))?;
     ctx.audit(
         services,
         "cli.router_remove",

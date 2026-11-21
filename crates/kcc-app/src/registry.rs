@@ -718,6 +718,14 @@ impl RouterRegistry {
         Ok(())
     }
 
+    /// The state directory holding the stored profiles; router removal wipes the router's
+    /// other state files there too.
+    #[inline]
+    #[must_use]
+    pub const fn state(&self) -> &StateStore {
+        &self.store
+    }
+
     /// Returns the one lazily constructed shared client for a profile.
     ///
     /// The client is built in the router's own slot, outside the lock of the slot map, so

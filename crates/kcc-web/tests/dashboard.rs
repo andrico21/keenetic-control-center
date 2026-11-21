@@ -37,6 +37,16 @@ mod router_edits;
     reason = "test code is not rendered API documentation"
 )]
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "dashboard/router_delete.rs"]
+mod router_delete;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 #[path = "dashboard/router_form.rs"]
 mod router_form;
 

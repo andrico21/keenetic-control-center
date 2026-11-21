@@ -325,6 +325,11 @@ The first release, `0.1.0`, is in preparation and contains:
   server's start-up. Library: `TransportReload` registers named handles (`register`, `unregister`,
   `set_tools`, no `slot`), succeeds with none registered, and `install_roles` returns
   nothing; `KccMcp::reconfigured` and `KccMcp::publish_gates`; `kcc::server_live::McpApply`.
+- **Sealed SSH state per router** (library and state, no user-visible change yet):
+  `kcc_app::entware_ssh` keeps a router's enrolment record, kcc's private key and a
+  single-use, five-minute probe ticket bound to router, port and actor as sealed files
+  `<state>/router-ssh/<id>.sealed`, `<id>.key.sealed` and `<id>.ticket.sealed`; removing a
+  router in the Web UI or with `kcc router remove` also wipes them.
 
 ### Changed
 

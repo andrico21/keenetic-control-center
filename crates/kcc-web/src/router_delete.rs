@@ -7,7 +7,7 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use fluent_bundle::FluentArgs;
-use kcc_app::{credentials::CredentialKind, registry::ProfileSource};
+use kcc_app::{credentials::CredentialKind, entware_ssh, registry::ProfileSource};
 use kcc_i18n::{bundle::tr, keys};
 
 use crate::{
@@ -71,6 +71,9 @@ pub(crate) async fn delete(
     }) && let Err(error) = fleet.credentials().remove(&id)
     {
         tracing::error!(router = %id, %error, "router credential could not be removed");
+    }
+    if let Err(error) = entware_ssh::state::forget(fleet.registry().state(), &id) {
+        tracing::error!(router = %id, %error, "router SSH state could not be removed");
     }
     audit(&state, &user, ProfileAction::Delete(&entry.profile)).await;
     open(Section::Dashboard.href())

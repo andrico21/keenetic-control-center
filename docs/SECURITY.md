@@ -70,8 +70,12 @@ never its value.
   `<id>.token.sealed` (login token, `router:<id>:token`) and `<id>.read.sealed`
   (read-only polling password, `router:<id>:read`), JSON records of schema 2. Every
   record type has its own prefix and router ids hold no `:`, so a value copied into a
-  record of another type, owner or kind fails to open. A migration that changes the
-  management password of a Web UI or CLI router seals the new password the same way.
+  record of another type, owner or kind fails to open. A router's SSH state lives in
+  `<state>/router-ssh/` as `<id>.sealed` (enrolment record, `router:<id>:ssh-state`),
+  `<id>.key.sealed` (kcc's private key, `router:<id>:ssh-key`) and `<id>.ticket.sealed`
+  (single-use probe ticket, `router:<id>:ssh-ticket`), and router removal deletes them.
+  A migration that changes the management password of a Web UI or CLI router seals the
+  new password the same way.
 - **Sealed state of earlier builds is not readable.** kcc has no deployments to carry
   over, so there is no upgrade path: a router credential record of schema 1 is refused as
   an unsupported record, and a web account password hash sealed by an earlier build
