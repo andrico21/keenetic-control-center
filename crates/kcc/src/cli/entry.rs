@@ -1,5 +1,6 @@
 //! Command dispatch: parses nothing, runs one command, returns the exit code.
 
+use core::pin::Pin;
 use std::env;
 
 use kcc_i18n::{keys, locale::Locale};
@@ -16,6 +17,13 @@ use super::{
     persist, preset, rci, routers, scheduled, tls,
 };
 use crate::{server, server_error};
+
+/// One command's future, on the heap.
+///
+/// The dispatchers return it instead of awaiting their arms: an unoptimized build gives an
+/// async fn's poll frame a slot for every arm's future at once, and that frame stays on
+/// the stack under the whole command, which must fit Windows' 1 MiB main stack.
+pub(super) type Boxed<'ctx> = Pin<Box<dyn Future<Output = Outcome> + Send + 'ctx>>;
 
 /// Runs the parsed command and returns its process exit code.
 ///
@@ -73,41 +81,67 @@ pub fn report_parse_error(error: &clap::Error, arguments: &[String]) -> u8 {
 
 /// Runs one command on the router profiles, the state directory or the server's files.
 ///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
+/// The returned future fails with the command's failure and its exit code.
 // NOT cancel-safe: see `run`.
-async fn local(command: LocalCommand, globals: Globals, out: Out) -> Outcome {
+fn local(command: LocalCommand, globals: Globals, out: Out) -> Boxed<'static> {
     match command {
-        LocalCommand::Tls(sub) => tls::self_signed(out, sub),
-        LocalCommand::Healthcheck => tls::healthcheck(&globals).await,
-        LocalCommand::Router(sub) => routers::router(&Ctx::open(globals, out)?, sub).await,
-        LocalCommand::Info => fleet::info(&Ctx::open(globals, out)?).await,
-        LocalCommand::Show { words } => fleet::show(&Ctx::open(globals, out)?, &words).await,
-        LocalCommand::Catalog(sub) => fleet::catalog(&Ctx::open(globals, out)?, sub).await,
-        LocalCommand::Rci(sub) => rci::run(&Ctx::open(globals, out)?, sub).await,
-        LocalCommand::Config(sub) => dom_jobs::config(&Ctx::open(globals, out)?, sub).await,
-        LocalCommand::Backup(sub) => persist::backup(&Ctx::open(globals, out)?, sub).await,
-        LocalCommand::Migrate(sub) => migrate::run(&Ctx::open(globals, out)?, sub).await,
-        LocalCommand::Preset(sub) => preset::commands::run(&Ctx::open(globals, out)?, sub).await,
-        LocalCommand::Copy(args) => preset::copy::run(&Ctx::open(globals, out)?, args).await,
-        LocalCommand::User(sub) => accounts::user(&Ctx::open(globals, out)?, sub).await,
-        LocalCommand::Apikey(sub) => api_keys::api_key(&Ctx::open(globals, out)?, sub).await,
-        LocalCommand::Admin(sub) => accounts::admin(&Ctx::open(globals, out)?, sub).await,
-        LocalCommand::Audit(sub) => api_keys::audit(&Ctx::open(globals, out)?, &sub),
-        LocalCommand::Notify(sub) => notify::run(&Ctx::open(globals, out)?, sub).await,
-        LocalCommand::Scheduled(sub) => scheduled::run(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Tls(sub) => Box::pin(async move { tls::self_signed(out, sub) }),
+        LocalCommand::Healthcheck => Box::pin(async move { tls::healthcheck(&globals).await }),
+        LocalCommand::Router(sub) => {
+            Box::pin(async move { routers::router(&Ctx::open(globals, out)?, sub).await })
+        }
+        LocalCommand::Info => Box::pin(async move { fleet::info(&Ctx::open(globals, out)?).await }),
+        LocalCommand::Show { words } => {
+            Box::pin(async move { fleet::show(&Ctx::open(globals, out)?, &words).await })
+        }
+        LocalCommand::Catalog(sub) => {
+            Box::pin(async move { fleet::catalog(&Ctx::open(globals, out)?, sub).await })
+        }
+        LocalCommand::Rci(sub) => {
+            Box::pin(async move { rci::run(&Ctx::open(globals, out)?, sub).await })
+        }
+        LocalCommand::Config(sub) => {
+            Box::pin(async move { dom_jobs::config(&Ctx::open(globals, out)?, sub).await })
+        }
+        LocalCommand::Backup(sub) => {
+            Box::pin(async move { persist::backup(&Ctx::open(globals, out)?, sub).await })
+        }
+        LocalCommand::Migrate(sub) => {
+            Box::pin(async move { migrate::run(&Ctx::open(globals, out)?, sub).await })
+        }
+        LocalCommand::Preset(sub) => {
+            Box::pin(async move { preset::commands::run(&Ctx::open(globals, out)?, sub).await })
+        }
+        LocalCommand::Copy(args) => {
+            Box::pin(async move { preset::copy::run(&Ctx::open(globals, out)?, args).await })
+        }
+        LocalCommand::User(sub) => {
+            Box::pin(async move { accounts::user(&Ctx::open(globals, out)?, sub).await })
+        }
+        LocalCommand::Apikey(sub) => {
+            Box::pin(async move { api_keys::api_key(&Ctx::open(globals, out)?, sub).await })
+        }
+        LocalCommand::Admin(sub) => {
+            Box::pin(async move { accounts::admin(&Ctx::open(globals, out)?, sub).await })
+        }
+        LocalCommand::Audit(sub) => {
+            Box::pin(async move { api_keys::audit(&Ctx::open(globals, out)?, &sub) })
+        }
+        LocalCommand::Notify(sub) => {
+            Box::pin(async move { notify::run(&Ctx::open(globals, out)?, sub).await })
+        }
+        LocalCommand::Scheduled(sub) => {
+            Box::pin(async move { scheduled::run(&Ctx::open(globals, out)?, sub).await })
+        }
     }
 }
 
 /// Runs one curated domain command.
 ///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
+/// The returned future fails with the command's failure and its exit code.
 // NOT cancel-safe: see `run`.
-async fn domain(command: DomainCommand, globals: Globals, out: Out) -> Outcome {
-    domains::run(&Ctx::open(globals, out)?, command).await
+fn domain(command: DomainCommand, globals: Globals, out: Out) -> Boxed<'static> {
+    Box::pin(async move { domains::run(&Ctx::open(globals, out)?, command).await })
 }
 
 /// The output language: `--lang`, else `KCC_LANG`, `LC_ALL` or `LANG`, else English.

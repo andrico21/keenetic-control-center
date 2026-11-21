@@ -12,6 +12,8 @@ use secrecy::SecretString;
 
 use super::{Env, TestResult, add_role_with_scope, commands_after, router};
 use crate::support::Run;
+#[cfg(target_os = "linux")]
+use crate::{spawning, support};
 
 /// The `dns-secure` line the source router holds.
 const UPSTREAM: &str = "dns-proxy tls upstream 1.1.1.1 853";
@@ -152,6 +154,39 @@ async fn operator_applies_a_preset_and_finishes_with_keep_and_with_save() -> Tes
         pair.stop().await?;
     }
     Ok(())
+}
+
+/// stack: a CLI command must run within Windows' 1 MiB main stack.
+///
+/// The operator's preset apply, the deepest command of the Windows suite, overflowed it
+/// once the command dispatchers' unoptimized poll frames grew; Linux emulates the limit
+/// with `ulimit -s`.
+// NOT cancel-safe: the fixture applies router settings.
+#[cfg(target_os = "linux")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn preset_apply_runs_within_a_one_mebibyte_main_stack() -> TestResult {
+    let pair = Pair::start().await?;
+    pair.env
+        .write_config(&format!("[cli]\nrole = \"operator\"\n{}", pair.routers))?;
+
+    let config = pair.env.path("kcc.toml");
+    let kcc = [
+        env!("CARGO_BIN_EXE_kcc"),
+        "--config",
+        config.to_str().ok_or("non-UTF-8")?,
+    ];
+    let apply = [
+        "--router", "lab-1", "--json", "preset", "apply", "office", "--yes",
+    ];
+    let finish = ["--finish", "keep-unsaved"];
+    let launcher = ["-c", "ulimit -s 1024 && exec \"$0\" \"$@\""];
+    let args = [&launcher[..], &kcc, &apply, &finish].concat();
+
+    let run = support::finish(spawning::spawn(&mut pair.env.launch("sh", &args))?)?;
+
+    assert_eq!(run.code, 0_i32, "{run:?}");
+    assert!(!pair.target.recovery_armed(), "timer left armed");
+    pair.stop().await
 }
 
 /// The operator's rollback finish and a viewer's apply are refused before either router

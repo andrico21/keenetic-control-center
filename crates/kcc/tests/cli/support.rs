@@ -96,8 +96,13 @@ impl Env {
 
     /// The hermetic command line of `kcc <args>`, for long-running children.
     pub(crate) fn command(&self, args: &[&str]) -> Command {
+        self.launch(env!("CARGO_BIN_EXE_kcc"), args)
+    }
+
+    /// The hermetic command line of `program <args>`.
+    pub(crate) fn launch(&self, program: &str, args: &[&str]) -> Command {
         let home = self.path("home");
-        let mut command = spawning::command(env!("CARGO_BIN_EXE_kcc"));
+        let mut command = spawning::command(program);
         let _: &mut Command = command
             .args(args)
             .env_clear()
@@ -120,7 +125,7 @@ impl Env {
 }
 
 /// Waits for `child` with a deadline and collects its output.
-fn finish(mut child: Child) -> Result<Run, Box<dyn Error>> {
+pub(crate) fn finish(mut child: Child) -> Result<Run, Box<dyn Error>> {
     let mut stdout = child.stdout.take().ok_or("stdout unavailable")?;
     let mut stderr = child.stderr.take().ok_or("stderr unavailable")?;
     let out_reader = thread::spawn(move || {

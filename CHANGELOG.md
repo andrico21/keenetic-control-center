@@ -893,6 +893,9 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **`kcc` commands fit Windows' 1 MiB main-thread stack again.** After the MCP settings
+  change, `kcc preset apply` in a debug build overflowed it on Windows; the command
+  dispatchers now box each command's future. Linux and macOS were not affected.
 - **Migrations and presets no longer copy Entware settings.** The `opkg disk`, `opkg chroot`,
   `opkg dns-override`, `opkg initrc`, `opkg timezone` and `opkg object-group` lines are
   skipped as source hardware instead of being copied to the target.

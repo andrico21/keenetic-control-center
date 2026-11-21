@@ -18,45 +18,41 @@ use super::{
     context::{Ctx, Services, Target},
     dom_admin, dom_clients, dom_core, dom_dns, dom_jobs, dom_lan, dom_link, dom_mgmt, dom_net,
     dom_policies, dom_routes, dom_vpn, dom_vpn_server, dom_wifi, dom_wire,
+    entry::Boxed,
     exit::Outcome,
 };
 
 /// Runs a domain command.
 ///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
+/// The returned future fails with the command's failure and its exit code; see [`Boxed`]
+/// for why it is boxed.
 // NOT cancel-safe: changes may apply before cancellation.
-#[expect(
-    clippy::cognitive_complexity,
-    reason = "a flat dispatch table: one arm per domain, each awaiting the domain's runner"
-)]
-pub(crate) async fn run(ctx: &Ctx, command: DomainCommand) -> Outcome {
+pub(crate) fn run(ctx: &Ctx, command: DomainCommand) -> Boxed<'_> {
     match command {
-        DomainCommand::System(sub) => dom_core::system(ctx, sub).await,
-        DomainCommand::Internet(sub) => dom_core::internet(ctx, sub).await,
-        DomainCommand::Diagnostics(sub) => dom_jobs::diagnostics(ctx, sub).await,
-        DomainCommand::Clients(sub) => dom_clients::clients(ctx, sub).await,
-        DomainCommand::Dhcp(sub) => dom_lan::dhcp(ctx, sub).await,
-        DomainCommand::Segments(sub) => dom_lan::segments(ctx, sub).await,
-        DomainCommand::RouterUsers(sub) => dom_net::router_users(ctx, sub).await,
-        DomainCommand::Routes(sub) => dom_routes::routes(ctx, sub).await,
-        DomainCommand::Policies(sub) => dom_policies::policies(ctx, sub).await,
-        DomainCommand::Nat(sub) => dom_routes::nat(ctx, sub).await,
-        DomainCommand::Firewall(sub) => dom_admin::firewall(ctx, sub).await,
-        DomainCommand::Services(sub) => dom_mgmt::services(ctx, sub).await,
-        DomainCommand::Components(sub) => dom_jobs::components(ctx, sub).await,
-        DomainCommand::Storage(sub) => dom_net::storage(ctx, sub).await,
-        DomainCommand::Schedules(sub) => dom_admin::schedules(ctx, sub).await,
-        DomainCommand::Keendns(sub) => dom_mgmt::keendns(ctx, sub).await,
-        DomainCommand::Log(sub) => dom_wire::log(ctx, sub).await,
-        DomainCommand::Dns(sub) => dom_dns::dns(ctx, sub).await,
-        DomainCommand::Vpn(sub) => dom_vpn::vpn(ctx, sub).await,
-        DomainCommand::VpnServer(sub) => dom_vpn_server::vpn_server(ctx, sub).await,
-        DomainCommand::Interfaces(sub) => dom_link::interfaces(ctx, sub).await,
-        DomainCommand::Wan(sub) => dom_link::wan(ctx, sub).await,
-        DomainCommand::Wifi(sub) => dom_wifi::wifi(ctx, sub).await,
-        DomainCommand::Mesh(sub) => dom_link::mesh(ctx, sub).await,
+        DomainCommand::System(sub) => Box::pin(dom_core::system(ctx, sub)),
+        DomainCommand::Internet(sub) => Box::pin(dom_core::internet(ctx, sub)),
+        DomainCommand::Diagnostics(sub) => Box::pin(dom_jobs::diagnostics(ctx, sub)),
+        DomainCommand::Clients(sub) => Box::pin(dom_clients::clients(ctx, sub)),
+        DomainCommand::Dhcp(sub) => Box::pin(dom_lan::dhcp(ctx, sub)),
+        DomainCommand::Segments(sub) => Box::pin(dom_lan::segments(ctx, sub)),
+        DomainCommand::RouterUsers(sub) => Box::pin(dom_net::router_users(ctx, sub)),
+        DomainCommand::Routes(sub) => Box::pin(dom_routes::routes(ctx, sub)),
+        DomainCommand::Policies(sub) => Box::pin(dom_policies::policies(ctx, sub)),
+        DomainCommand::Nat(sub) => Box::pin(dom_routes::nat(ctx, sub)),
+        DomainCommand::Firewall(sub) => Box::pin(dom_admin::firewall(ctx, sub)),
+        DomainCommand::Services(sub) => Box::pin(dom_mgmt::services(ctx, sub)),
+        DomainCommand::Components(sub) => Box::pin(dom_jobs::components(ctx, sub)),
+        DomainCommand::Storage(sub) => Box::pin(dom_net::storage(ctx, sub)),
+        DomainCommand::Schedules(sub) => Box::pin(dom_admin::schedules(ctx, sub)),
+        DomainCommand::Keendns(sub) => Box::pin(dom_mgmt::keendns(ctx, sub)),
+        DomainCommand::Log(sub) => Box::pin(dom_wire::log(ctx, sub)),
+        DomainCommand::Dns(sub) => Box::pin(dom_dns::dns(ctx, sub)),
+        DomainCommand::Vpn(sub) => Box::pin(dom_vpn::vpn(ctx, sub)),
+        DomainCommand::VpnServer(sub) => Box::pin(dom_vpn_server::vpn_server(ctx, sub)),
+        DomainCommand::Interfaces(sub) => Box::pin(dom_link::interfaces(ctx, sub)),
+        DomainCommand::Wan(sub) => Box::pin(dom_link::wan(ctx, sub)),
+        DomainCommand::Wifi(sub) => Box::pin(dom_wifi::wifi(ctx, sub)),
+        DomainCommand::Mesh(sub) => Box::pin(dom_link::mesh(ctx, sub)),
     }
 }
 
