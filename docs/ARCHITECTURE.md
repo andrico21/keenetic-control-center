@@ -45,7 +45,9 @@ kcc <command> ──┴──────── CLI ──────┤
   (`crates/kcc/src/state_watch.rs`) checks `api_keys.json` and `users.json` every 2 s, so a
   key revoked or an account changed by the CLI reaches the running server without a
   `SIGHUP` ([SECURITY.md](SECURITY.md)). It also tells the notifier (`notify.json`, the
-  sealed bot token) and the scheduler (`schedules.json`) to re-read their files.
+  sealed bot token) and the scheduler (`schedules.json`) to re-read their files. The watcher and
+  `SIGHUP` start once per `kcc serve`; every running MCP server registers its reload
+  handle, and key and role reloads fan out to all of them.
 - `kcc mcp stdio` and CLI runs share the same state directory without that lock;
   per-file locks, per-router leases and the audit append lock keep them consistent.
 - One shared **poller** issues all periodic router reads. Web live views and the

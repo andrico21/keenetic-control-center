@@ -103,6 +103,30 @@ async fn a_key_revoked_with_the_cli_is_refused() -> TestResult {
     Ok(())
 }
 
+/// Todo 25: `kcc serve` starts one state watcher, outside the MCP server's start-up;
+/// the key change it applies reaches the server registered after it started.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_state_watch_starts_once() -> TestResult {
+    let fixture = Fixture::new()?;
+    let mut server = fixture.serve()?;
+
+    fixture.cli(&["apikey", "revoke", KEY_NAME])?;
+    let reloaded = server.wait_event(PROPAGATION, |event| about(event, RELOAD, KEYS))?;
+
+    assert!(reloaded, "no key reload was logged");
+    assert_eq!(
+        fixture.mcp_status().await?,
+        StatusCode::UNAUTHORIZED,
+        "the revoked key still authenticates"
+    );
+    let starts = server.count(|event| {
+        event.get("target").and_then(Value::as_str) == Some(WATCH)
+            && event.pointer("/fields/interval_ms").is_some()
+    });
+    assert_eq!(starts, 1, "state watchers started");
+    Ok(())
+}
+
 /// F-01, SEC1-05, W1-01: an account disabled with the CLI loses its live Web session
 /// within 5 s; other accounts keep theirs.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

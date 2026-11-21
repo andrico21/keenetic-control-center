@@ -110,6 +110,8 @@ pub struct Lab {
     pub(crate) roles: RoleSource,
     /// The server's job runner, for jobs a test starts itself.
     pub(crate) jobs: Arc<JobRunner>,
+    /// The handler the session was opened on, for tests that reconfigure it.
+    pub server: KccMcp,
 }
 
 /// An administrator with every permission on every router.
@@ -246,6 +248,7 @@ impl Lab {
         .with_role_source(roles.clone())
         .with_audit(audit)
         .with_presets(presets);
+        let reconfigurable = server.clone();
         let (server_io, client_io) = duplex(1 << 20);
         drop(tokio::spawn(async move {
             if let Ok(running) = server.serve(server_io).await {
@@ -262,6 +265,7 @@ impl Lab {
             progress,
             roles,
             jobs,
+            server: reconfigurable,
         })
     }
 
@@ -345,6 +349,7 @@ impl Lab {
     /// Ends the session and stops every router.
     pub(crate) async fn stop(self) -> TestResult {
         drop(self.client.cancel().await?);
+        drop(self.server);
         drop(self.jobs);
         drop(self.registry);
         for (_id, handle) in self.routers {

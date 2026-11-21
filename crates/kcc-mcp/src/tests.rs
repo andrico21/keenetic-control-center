@@ -12,6 +12,7 @@
 
 pub(crate) mod fixture;
 mod gates;
+mod live_apply;
 mod metadata;
 mod persists;
 mod privacy;

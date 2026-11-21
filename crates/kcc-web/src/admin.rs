@@ -9,13 +9,13 @@
 
 extern crate alloc;
 
-use alloc::sync::Arc;
+use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, time::Duration};
-use std::sync::{Mutex, OnceLock, PoisonError};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use kcc_app::{
     api_keys::api_key_entries,
-    mcp_settings::{Effective, McpBase},
+    mcp_settings::{Effective, ListenerKind, McpBase},
     permissions::{Role, ToolSpec, load_roles, rbac_config},
     persist::StateStore,
     role_source::RoleSource,
@@ -60,45 +60,55 @@ pub enum ReloadError {
     Failed(String),
 }
 
-/// [`AuthReload`] over rmcp-server-kit's [`ReloadHandle`], which the transport hands to
-/// `McpServerConfig::with_reload_callback` when it starts: the callback stores the handle
-/// in [`TransportReload::slot`].
+/// [`AuthReload`] over rmcp-server-kit's [`ReloadHandle`]s: every running kit server
+/// hands its handle to `McpServerConfig::with_reload_callback` when it starts, and the
+/// callback [`register`](TransportReload::register)s it under its listener.
+///
+/// Key and role reloads reach every registered server; with none registered they change
+/// only the shared role source and succeed.
 pub struct TransportReload {
-    /// The transport's handle, set once by the reload callback.
-    slot: Arc<OnceLock<ReloadHandle>>,
+    /// The registered handles and the tool list, behind one lock that serializes every
+    /// reload, so a reload that read the state earlier cannot install it over a later
+    /// one, and a server registering meanwhile gets the latest state.
+    live: Mutex<Live>,
     /// State directory holding `api_keys.json` and `roles.json`.
     state: StateStore,
-    /// Every registered MCP tool, for the per-role tool allowlists.
-    tools: Vec<ToolSpec>,
     /// The role set the MCP handlers and the Web UI authorize against.
     roles: Option<RoleSource>,
-    /// Serializes key reloads, so a reload that read the file earlier cannot install its
-    /// keys over a later one.
-    key_reloads: Mutex<()>,
+}
+
+/// The running kit servers and the tools their RBAC allows per role.
+struct Live {
+    /// Each running server's handle, by listener.
+    handles: BTreeMap<ListenerKind, ReloadHandle>,
+    /// Every registered MCP tool, for the per-role tool allowlists.
+    tools: Vec<ToolSpec>,
 }
 
 impl fmt::Debug for TransportReload {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let registered: Vec<ListenerKind> = self.live().handles.keys().copied().collect();
         f.debug_struct("TransportReload")
-            .field("ready", &self.slot.get().is_some())
+            .field("registered", &registered)
             .field("state", &self.state)
             .finish_non_exhaustive()
     }
 }
 
 impl TransportReload {
-    /// A reload bridge reading `state` and allowing `tools` per role; not ready until the
-    /// transport fills [`slot`](Self::slot).
+    /// A reload bridge reading `state` and allowing `tools` per role, with no server
+    /// registered yet.
     #[inline]
     #[must_use]
-    pub fn new(state: StateStore, tools: Vec<ToolSpec>) -> Self {
+    pub const fn new(state: StateStore, tools: Vec<ToolSpec>) -> Self {
         Self {
-            slot: Arc::new(OnceLock::new()),
+            live: Mutex::new(Live {
+                handles: BTreeMap::new(),
+                tools,
+            }),
             state,
-            tools,
             roles: None,
-            key_reloads: Mutex::new(()),
         }
     }
 
@@ -118,64 +128,85 @@ impl TransportReload {
         &self.state
     }
 
-    /// Installs `keys` in the running transport.
+    /// Registers the running server of `kind`, replacing the one registered before
+    /// under that listener, and installs the current API keys and RBAC policy in it.
     ///
     /// # Errors
     ///
-    /// [`ReloadError::NotReady`] before the transport started; [`ReloadError::Failed`]
-    /// when the kit refuses the keys. The previous keys stay active.
+    /// [`ReloadError::Failed`] when the keys or roles cannot be read or the kit refuses
+    /// the keys; the server is registered all the same and keeps the keys it started
+    /// with until the next reload.
     #[inline]
-    pub fn install_keys(&self, keys: Vec<ApiKeyEntry>) -> Result<(), ReloadError> {
-        self.handle()?.try_reload_auth_keys(keys).map_err(failed)
+    pub fn register(&self, kind: ListenerKind, handle: ReloadHandle) -> Result<(), ReloadError> {
+        let mut live = self.live();
+        let installed = api_key_entries(&self.state)
+            .map_err(failed)
+            .and_then(|keys| handle.try_reload_auth_keys(keys).map_err(failed))
+            .and_then(|()| {
+                let roles = load_roles(&self.state).map_err(failed)?;
+                handle.reload_rbac(RbacPolicy::new(&rbac_config(&roles, &live.tools)));
+                Ok(())
+            });
+        drop(live.handles.insert(kind, handle));
+        installed
     }
 
-    /// Installs `roles`: the transport's RBAC policy, then the shared role source.
-    ///
-    /// # Errors
-    ///
-    /// [`ReloadError::NotReady`] before the transport started; nothing changes then.
+    /// Stops delivering reloads to the server of `kind`.
     #[inline]
-    pub fn install_roles(&self, roles: Vec<Role>) -> Result<(), ReloadError> {
-        let handle = self.handle()?;
-        handle.reload_rbac(RbacPolicy::new(&rbac_config(&roles, &self.tools)));
+    pub fn unregister(&self, kind: ListenerKind) {
+        drop(self.live().handles.remove(&kind));
+    }
+
+    /// Replaces the tool list the per-role allowlists are built from; the next role
+    /// install uses it.
+    #[inline]
+    pub fn set_tools(&self, tools: Vec<ToolSpec>) {
+        self.live().tools = tools;
+    }
+
+    /// Installs `roles`: every running server's RBAC policy, then the shared role source.
+    #[inline]
+    pub fn install_roles(&self, roles: Vec<Role>) {
+        let live = self.live();
+        for handle in live.handles.values() {
+            handle.reload_rbac(RbacPolicy::new(&rbac_config(&roles, &live.tools)));
+        }
         if let Some(source) = &self.roles {
             source.replace(roles);
         }
-        Ok(())
+        drop(live);
     }
 
-    /// The cell the transport's reload callback fills with its handle.
-    #[inline]
-    #[must_use]
-    pub fn slot(&self) -> Arc<OnceLock<ReloadHandle>> {
-        Arc::clone(&self.slot)
+    /// The registered servers and the tool list, locked.
+    fn live(&self) -> MutexGuard<'_, Live> {
+        self.live.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// The transport's handle once it has started.
+    /// Installs `keys` in every server of `live`.
     ///
     /// # Errors
     ///
-    /// [`ReloadError::NotReady`] before the reload callback ran.
-    fn handle(&self) -> Result<&ReloadHandle, ReloadError> {
-        self.slot.get().ok_or(ReloadError::NotReady)
+    /// The first [`ReloadError::Failed`], once every server was tried; the previous keys
+    /// stay active in every server that refused them.
+    fn install_keys_in(live: &Live, keys: &[ApiKeyEntry]) -> Result<(), ReloadError> {
+        live.handles
+            .values()
+            .map(|handle| handle.try_reload_auth_keys(keys.to_vec()).map_err(failed))
+            .fold(Ok(()), Result::and)
     }
 }
 
 impl AuthReload for TransportReload {
     #[inline]
     fn reload_keys(&self) -> Result<(), ReloadError> {
-        let _ready: &ReloadHandle = self.handle()?;
-        let _serialized = self
-            .key_reloads
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
-        self.install_keys(api_key_entries(&self.state).map_err(failed)?)
+        let live = self.live();
+        Self::install_keys_in(&live, &api_key_entries(&self.state).map_err(failed)?)
     }
 
     #[inline]
     fn reload_rbac(&self) -> Result<(), ReloadError> {
-        let _ready: &ReloadHandle = self.handle()?;
-        self.install_roles(load_roles(&self.state).map_err(failed)?)
+        self.install_roles(load_roles(&self.state).map_err(failed)?);
+        Ok(())
     }
 }
 

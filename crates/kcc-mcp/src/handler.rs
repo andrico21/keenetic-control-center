@@ -1,5 +1,7 @@
 //! The RMCP server handler: tool dispatch, router snapshot and catalog resources, prompts.
 
+use alloc::sync::Arc;
+
 use kcc_app::{
     permissions::Permission,
     registry::{RegistryError, authorize},
@@ -29,7 +31,7 @@ use crate::{
         audit,
         call::next_request_id,
         errors::{failure_error, internal_error},
-        names,
+        gates, names,
         shape::{FailureContext, shape},
         truncate::Shaping,
         validate::{MAX_PATH_CHARS, valid_host, valid_text},
@@ -62,9 +64,16 @@ impl ServerHandler for KccMcp {
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
         self.record_key_use().await;
-        self.tool_router
-            .call(ToolCallContext::new(self, request, context))
-            .await
+        let gates = Arc::new(self.gates_now());
+        if !self.admits(&gates, &request.name) {
+            return Err(ErrorData::invalid_params("tool not found", None));
+        }
+        gates::scoped(
+            gates,
+            self.tool_router
+                .call(ToolCallContext::new(self, request, context)),
+        )
+        .await
     }
 
     #[inline]

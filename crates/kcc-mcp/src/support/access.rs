@@ -1,5 +1,6 @@
 //! Request identity, router authorization, and protected-workflow entry for every tool.
 
+use alloc::sync::Arc;
 use core::slice::from_ref;
 
 use kcc_app::{
@@ -16,7 +17,11 @@ use rmcp_server_kit::rbac::{current_identity, current_role};
 use serde_json::Value;
 use tokio::task;
 
-use super::{call::current_request_id, errors::map_workflow};
+use super::{
+    call::current_request_id,
+    errors::map_workflow,
+    gates::{McpGates, of_call},
+};
 use crate::{KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers};
 
 #[expect(
@@ -24,9 +29,12 @@ use crate::{KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers};
     reason = "the RMCP `#[tool_router]` macro owns the handler impl block in generic/router.rs, so the remaining inherent methods live here"
 )]
 impl KccMcp {
-    /// Lists tools visible to the caller; stdio sessions are filtered by the fallback role.
+    /// Lists tools visible to the caller: those the live gates admit; stdio sessions are
+    /// also filtered by the fallback role.
     pub(crate) fn visible_tools(&self, http_identity: bool) -> Vec<Tool> {
+        let gates = self.gates_now();
         let mut tools = self.tool_router.list_all();
+        tools.retain(|tool| self.admits(&gates, &tool.name));
         if !http_identity {
             tools.retain(|tool| {
                 self.tool_specs
@@ -36,6 +44,33 @@ impl KccMcp {
             });
         }
         tools
+    }
+
+    /// Makes this handler's `[mcp]` gates the live ones of every handler sharing its
+    /// cell: open sessions are bound by them, where stricter than their own, at their
+    /// next call.
+    #[inline]
+    pub fn publish_gates(&self) {
+        self.gates.store(Arc::new(McpGates::new(&self.config)));
+    }
+
+    /// The gates a call starting now runs under: the stricter of the live gates and
+    /// this handler's own settings.
+    pub(crate) fn gates_now(&self) -> McpGates {
+        self.gates.load().narrowed(&self.config)
+    }
+
+    /// The gates of the tool call this task runs, or those of a call starting now.
+    pub(crate) fn call_gates(&self) -> Arc<McpGates> {
+        of_call().unwrap_or_else(|| Arc::new(self.gates_now()))
+    }
+
+    /// Whether `gates` admit the tool `name`; a tool kcc does not define is refused.
+    pub(crate) fn admits(&self, gates: &McpGates, name: &str) -> bool {
+        self.definitions
+            .iter()
+            .find(|definition| definition.name == name)
+            .is_some_and(|definition| gates.admits(definition))
     }
 
     /// Resolves the caller to a configured role, or the stdio fallback role.
@@ -175,7 +210,7 @@ impl KccMcp {
         if risk != Risk::Destructive {
             return Ok(());
         }
-        if !self.config.allow_destructive {
+        if !self.call_gates().allow_destructive() {
             return Err(McpFailure::DestructiveDisabled);
         }
         if !confirm {

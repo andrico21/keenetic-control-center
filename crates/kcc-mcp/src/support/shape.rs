@@ -97,7 +97,7 @@ pub(crate) fn shape(
         tracing::error!(error = ?error, "MCP result serialization failed");
         McpFailure::Internal
     })?;
-    let cap = usize::try_from(server.config.max_result_bytes)
+    let cap = usize::try_from(server.call_gates().max_result_bytes())
         .unwrap_or(usize::MAX)
         .min(MAX_RESULT_BYTES_HARD);
     if encoded.len() <= cap {

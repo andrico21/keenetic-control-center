@@ -12,6 +12,7 @@ pub mod cli;
 pub mod privileges;
 pub mod server;
 pub mod server_error;
+pub mod server_live;
 mod server_metrics;
 mod server_migrations;
 mod server_notify;

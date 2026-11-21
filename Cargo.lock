@@ -1786,6 +1786,7 @@ dependencies = [
 name = "kcc"
 version = "0.1.0"
 dependencies = [
+ "arc-swap",
  "caps",
  "check_elevation",
  "clap",
@@ -1925,6 +1926,7 @@ dependencies = [
 name = "kcc-mcp"
 version = "0.1.0"
 dependencies = [
+ "arc-swap",
  "kcc-app",
  "kcc-catalog",
  "kcc-config",

@@ -23,6 +23,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/andrico21/keenetic-control-center"
 
 [workspace.dependencies]
+arc-swap = "1.9.5"
 argon2 = { version = "0.6.0", default-features = false }
 askama = { version = "0.16.1", default-features = false }
 axum = { version = "0.8.9", default-features = false }

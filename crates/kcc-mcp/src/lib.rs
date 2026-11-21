@@ -34,8 +34,10 @@ use kcc_app::{
 use rmcp::handler::server::tool::ToolRouter;
 
 use crate::{
-    migration_tools::records::Migrations, preset_tools::state::Presets,
-    support::validate::valid_host,
+    migration_tools::records::Migrations,
+    preset_tools::state::Presets,
+    registry::definitions::ToolDescription,
+    support::{gates::SharedGates, validate::valid_host},
 };
 
 /// A validated router profile id used by shared multi-router authorization.
@@ -212,8 +214,13 @@ impl McpFailure {
 #[derive(Clone)]
 #[non_exhaustive]
 pub struct KccMcp {
-    /// The `[mcp]` settings: toolsets, safety mode, and result caps.
+    /// The `[mcp]` settings this handler was built with: toolsets, safety mode, and
+    /// result caps. A call is gated by the stricter of these and the shared `gates`.
     config: McpConfig,
+    /// The live gates every handler of this server shares, read when a call starts.
+    gates: SharedGates,
+    /// Every tool kcc defines, whether or not its toolset is on.
+    definitions: Arc<[ToolDescription]>,
     /// Redaction settings applied to every result.
     privacy: PrivacyConfig,
     /// The configured routers and their pooled clients.

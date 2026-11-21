@@ -130,6 +130,14 @@ impl Server {
         })
     }
 
+    /// How many events read so far match `wanted`.
+    pub(crate) fn count<F>(&self, wanted: F) -> usize
+    where
+        F: Fn(&Value) -> bool,
+    {
+        self.events.iter().filter(|event| wanted(event)).count()
+    }
+
     /// Whether any event read so far matches `wanted`.
     pub(crate) fn saw<F>(&self, wanted: F) -> bool
     where

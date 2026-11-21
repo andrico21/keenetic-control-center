@@ -179,7 +179,8 @@ impl StateWatch {
         self
     }
 
-    /// The MCP transport's reload bridge.
+    /// The MCP transport's reload bridge, for the SIGHUP reload.
+    #[cfg(unix)]
     pub(crate) const fn transport(&self) -> &Arc<TransportReload> {
         &self.transport
     }

@@ -40,7 +40,7 @@ mod tests {
         api_keys::api_key_entries,
         audit::{Actor, ActorKind, AuditEvent, AuditLog},
         mcp_settings::{
-            EnvOverrides, McpBase,
+            EnvOverrides, ListenerKind, McpBase,
             document::{McpOverrides, McpSettingsDocument},
         },
         permissions::{Permission, Role, RolesDocument, load_roles},
@@ -79,6 +79,260 @@ mod tests {
     };
 
     const ADMIN: &str = "alice";
+
+    /// Key and role changes made on the pages reach every MCP server registered with the
+    /// reload fan-out, and only those.
+    mod fan_out {
+        use core::{error::Error, net::SocketAddr};
+
+        use axum::http::StatusCode;
+        use kcc_app::{
+            mcp_settings::ListenerKind,
+            permissions::{Permission, ToolSpec, load_roles, rbac_config},
+            role_source::RoleSource,
+        };
+        use kcc_web::admin::{AuthReload as _, TransportReload};
+        use rmcp_server_kit::{
+            auth::{ApiKeyEntry, AuthConfig},
+            error::RmcpServerKitError,
+            rbac::RbacPolicy,
+            transport::{McpServerConfig, serve_with_listener},
+        };
+        use tokio::{
+            io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader},
+            net::{TcpListener, TcpStream},
+            sync::oneshot,
+            task::JoinHandle,
+        };
+
+        use super::{Arc, Browser, Fixture, Options, Probe, input_value, mcp_status, text};
+        use crate::support::outcome::TestResult;
+
+        type Boxed<T> = Result<T, Box<dyn Error + Send + Sync>>;
+
+        /// The one tool the servers' RBAC knows: `probe_write`, which needs `Write`.
+        fn tools() -> Vec<ToolSpec> {
+            vec![ToolSpec::new(
+                "probe_write".to_owned(),
+                Permission::Write,
+                None,
+            )]
+        }
+
+        /// A running kit server, registered with `bridge` under `kind`, that starts with `keys`
+        /// and the RBAC policy of the stored roles.
+        async fn server(
+            bridge: &Arc<TransportReload>,
+            kind: ListenerKind,
+            keys: Vec<ApiKeyEntry>,
+        ) -> Boxed<(SocketAddr, JoinHandle<Result<(), RmcpServerKitError>>)> {
+            let rbac = RbacPolicy::new(&rbac_config(&load_roles(bridge.state())?, &tools()));
+            let registering = Arc::clone(bridge);
+            let (registered, handle_ready) = oneshot::channel();
+            let config = McpServerConfig::new("127.0.0.1:0", "kcc-admin-fan-out", "0.0.0")
+                .with_auth(AuthConfig::with_keys(keys))
+                .with_rbac(Arc::new(rbac))
+                .with_reload_callback(move |handle| {
+                    drop(registered.send(registering.register(kind, handle)));
+                })
+                .validate()?;
+            let listener = TcpListener::bind("127.0.0.1:0").await?;
+            let (ready, address_ready) = oneshot::channel();
+            let task = tokio::spawn(serve_with_listener(
+                listener,
+                config,
+                || Probe,
+                Some(ready),
+                None,
+            ));
+            let address = address_ready.await?;
+            handle_ready.await??;
+            Ok((address, task))
+        }
+
+        /// The HTTP status of a sessionless `tools/call` of `probe_write` carrying `key`: 403
+        /// when RBAC refuses it.
+        async fn call_status(address: SocketAddr, key: &str) -> Boxed<u16> {
+            let body = r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"probe_write","arguments":{}}}"#;
+            let request = format!(
+                "POST /mcp HTTP/1.1\r\nHost: {address}\r\nAuthorization: Bearer {key}\r\n\
+                 Content-Type: application/json\r\nAccept: application/json, text/event-stream\r\n\
+                 Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let mut stream = TcpStream::connect(address).await?;
+            stream.write_all(request.as_bytes()).await?;
+            let mut status_line = String::new();
+            let _: usize = BufReader::new(stream).read_line(&mut status_line).await?;
+            Ok(status_line
+                .split_whitespace()
+                .nth(1)
+                .ok_or("no status code")?
+                .parse()?)
+        }
+
+        /// A fixture reloading through a [`TransportReload`] that knows [`tools`].
+        fn fixture() -> Boxed<(Fixture, Arc<TransportReload>)> {
+            let options = Options {
+                transport: true,
+                ..Options::default()
+            };
+            let (fixture, built) = Fixture::build("en", Vec::new(), &options)?;
+            let bridge = built.ok_or("transport bridge")?;
+            bridge.set_tools(tools());
+            Ok((fixture, bridge))
+        }
+
+        /// Creates the key `name` with `role` on the keys page; its plaintext.
+        async fn create_key(
+            fixture: &Fixture,
+            admin: &Browser,
+            name: &str,
+            role: &str,
+        ) -> Boxed<String> {
+            let created = fixture
+                .post(
+                    admin,
+                    "/ui/admin/api-keys",
+                    &[("name", name), ("role", role)],
+                )
+                .await?;
+            assert_eq!(created.status(), StatusCode::OK, "created {name}");
+            let html = text(created).await?;
+            input_value(&html, "api-key-value").ok_or_else(|| "key shown once".into())
+        }
+
+        /// Revokes the key `name` on the keys page.
+        async fn revoke_key(fixture: &Fixture, admin: &Browser, name: &str) -> TestResult {
+            let revoked = fixture
+                .post(
+                    admin,
+                    "/ui/admin/api-keys/revoke",
+                    &[("object", name), ("confirm", "yes"), ("confirm_name", name)],
+                )
+                .await?;
+            assert_eq!(revoked.status(), StatusCode::OK, "revoked {name}");
+            Ok(())
+        }
+
+        /// Todo 25: one key change and one role change made on the pages reach both
+        /// registered servers.
+        #[tokio::test]
+        async fn key_and_role_changes_reach_every_registered_server() -> TestResult {
+            let (fixture, bridge) = fixture()?;
+            let (main, main_task) = server(&bridge, ListenerKind::Main, Vec::new()).await?;
+            let (dedicated, dedicated_task) =
+                server(&bridge, ListenerKind::Dedicated, Vec::new()).await?;
+            let admin = fixture.admin().await?;
+            let role = fixture
+                .post(
+                    &admin,
+                    "/ui/admin/roles",
+                    &[
+                        ("name", "lab-ops"),
+                        ("scope", "*"),
+                        ("read", "on"),
+                        ("write", "on"),
+                    ],
+                )
+                .await?;
+            assert_eq!(role.status(), StatusCode::OK, "role created");
+
+            let key = create_key(&fixture, &admin, "probe", "lab-ops").await?;
+
+            for address in [main, dedicated] {
+                assert_eq!(mcp_status(address, &key).await?, 200, "{address}: the key");
+                assert_ne!(
+                    call_status(address, &key).await?,
+                    403,
+                    "{address}: RBAC admits"
+                );
+            }
+            let edited = fixture
+                .post(
+                    &admin,
+                    "/ui/admin/roles/edit",
+                    &[("name", "lab-ops"), ("scope", "*"), ("read", "on")],
+                )
+                .await?;
+            assert_eq!(edited.status(), StatusCode::OK, "role edited");
+            for address in [main, dedicated] {
+                assert_eq!(
+                    call_status(address, &key).await?,
+                    403,
+                    "{address}: RBAC refuses"
+                );
+            }
+            main_task.abort();
+            dedicated_task.abort();
+            Ok(())
+        }
+
+        /// Todo 25: an unregistered server gets no more reloads; registering a listener again
+        /// replaces its server, which gets the current keys at once and the old one no more.
+        #[tokio::test]
+        async fn unregister_stops_delivery_and_registering_again_replaces() -> TestResult {
+            let (fixture, bridge) = fixture()?;
+            let (first, first_task) = server(&bridge, ListenerKind::Main, Vec::new()).await?;
+            let (dedicated, dedicated_task) =
+                server(&bridge, ListenerKind::Dedicated, Vec::new()).await?;
+            let admin = fixture.admin().await?;
+            let key = create_key(&fixture, &admin, "probe", "viewer").await?;
+            assert_eq!(mcp_status(dedicated, &key).await?, 200, "delivered");
+
+            bridge.unregister(ListenerKind::Dedicated);
+            revoke_key(&fixture, &admin, "probe").await?;
+
+            assert_eq!(mcp_status(first, &key).await?, 401, "registered: revoked");
+            assert_eq!(
+                mcp_status(dedicated, &key).await?,
+                200,
+                "unregistered: stale"
+            );
+
+            let later = create_key(&fixture, &admin, "later", "viewer").await?;
+            let (second, second_task) = server(&bridge, ListenerKind::Main, Vec::new()).await?;
+            assert_eq!(
+                mcp_status(second, &later).await?,
+                200,
+                "keys installed at registration"
+            );
+            assert_eq!(
+                mcp_status(first, &later).await?,
+                200,
+                "the replaced server had it"
+            );
+
+            revoke_key(&fixture, &admin, "later").await?;
+
+            assert_eq!(mcp_status(second, &later).await?, 401, "the new server");
+            assert_eq!(
+                mcp_status(first, &later).await?,
+                200,
+                "the replaced server gets nothing"
+            );
+            first_task.abort();
+            dedicated_task.abort();
+            second_task.abort();
+            Ok(())
+        }
+
+        /// Todo 25: with no server registered, key and role reloads succeed, and the roles still
+        /// reach the shared role source.
+        #[tokio::test]
+        async fn reloads_without_a_registered_server_succeed() -> TestResult {
+            let (fixture, _bridge) = Fixture::build("en", Vec::new(), &Options::default())?;
+            let roles = RoleSource::new(Vec::new());
+            let bridge =
+                TransportReload::new(fixture.state, tools()).with_role_source(roles.clone());
+
+            bridge.reload_keys()?;
+            bridge.reload_rbac()?;
+
+            assert!(roles.find("admin").is_some(), "the roles were installed");
+            Ok(())
+        }
+    }
 
     /// Counts the reloads the pages ask for.
     #[derive(Debug, Default)]
@@ -899,14 +1153,13 @@ mod tests {
             transport: true,
             ..Options::default()
         };
-        let (fixture, bridge) = Fixture::build("en", Vec::new(), &options)?;
-        let slot = bridge.ok_or("transport bridge")?.slot();
-        let (installed, handle_ready) = oneshot::channel::<()>();
+        let (fixture, built) = Fixture::build("en", Vec::new(), &options)?;
+        let bridge = built.ok_or("transport bridge")?;
+        let (installed, handle_ready) = oneshot::channel();
         let config = McpServerConfig::new("127.0.0.1:0", "kcc-admin-pages", "0.0.0")
             .with_auth(AuthConfig::with_keys(api_key_entries(&fixture.state)?))
             .with_reload_callback(move |handle| {
-                let delivered = slot.set(handle).is_ok() && installed.send(()).is_ok();
-                assert!(delivered, "one reload handle for one waiting test");
+                drop(installed.send(bridge.register(ListenerKind::Main, handle)));
             })
             .validate()?;
         let listener = TcpListener::bind("127.0.0.1:0").await?;
@@ -919,7 +1172,7 @@ mod tests {
             None,
         ));
         let address = address_ready.await?;
-        handle_ready.await?;
+        handle_ready.await??;
         assert_eq!(
             mcp_status(address, "no-such-key").await?,
             401,

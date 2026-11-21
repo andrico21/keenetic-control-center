@@ -316,6 +316,15 @@ The first release, `0.1.0`, is in preparation and contains:
   install, remove, upgrade; init script list and `start|stop|restart|check`; adding and
   removing kcc's own `authorized_keys` line) whose arguments pass token grammars.
   The fake Entware SSH server now runs the two `authorized_keys` scripts.
+- **Live MCP settings and reload fan-out**: toolset, `read_only`, `allow_destructive`
+  and `max_result_bytes` changes applied to a running `kcc serve` bind open MCP sessions
+  at their next call when they tighten (a tool turned off leaves the next `tools/list`
+  and is refused as unknown) and new sessions when they loosen; migration plans survive.
+  API key and role reloads (Web pages, state watcher, `SIGHUP`) reach every running MCP
+  server; the state watcher and `SIGHUP` start once per `kcc serve`, outside the MCP
+  server's start-up. Library: `TransportReload` registers named handles (`register`, `unregister`,
+  `set_tools`, no `slot`), succeeds with none registered, and `install_roles` returns
+  nothing; `KccMcp::reconfigured` and `KccMcp::publish_gates`; `kcc::server_live::McpApply`.
 
 ### Changed
 

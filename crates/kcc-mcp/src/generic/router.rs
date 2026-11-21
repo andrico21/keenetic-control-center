@@ -2,6 +2,7 @@
 
 use alloc::sync::Arc;
 
+use arc_swap::ArcSwap;
 use kcc_app::{
     api_key_use::KeyUseRecorder,
     audit::AuditLog,
@@ -14,7 +15,11 @@ use kcc_app::{
     workflow::ChangeWorkflow,
 };
 use kcc_migrate::presets::store::PresetStore;
-use rmcp::{handler::server::wrapper::Parameters, model::CallToolResult, tool, tool_router};
+use rmcp::{
+    handler::server::{tool::ToolRouter, wrapper::Parameters},
+    model::CallToolResult,
+    tool, tool_router,
+};
 use rmcp_server_kit::rbac::RbacConfig;
 
 use super::{
@@ -24,9 +29,10 @@ use super::{
 use crate::{
     KccMcp, config_tools, domains, migration_tools, preset_tools,
     preset_tools::state::Presets,
-    registry::definitions::{enabled, generic, tools},
+    registry::definitions::{ToolDescription, enabled, generic, tools},
     support::{
         call::{finish, finish_with_context},
+        gates::McpGates,
         shape::FailureContext,
     },
 };
@@ -50,7 +56,51 @@ impl KccMcp {
         roles: Vec<Role>,
         fallback_role: Role,
     ) -> Self {
-        let definitions = tools();
+        let definitions: Arc<[ToolDescription]> = tools().into();
+        let (tool_router, tool_specs) = Self::routes(&definitions, &config);
+        let gates = Arc::new(ArcSwap::from_pointee(McpGates::new(&config)));
+        Self {
+            config,
+            gates,
+            definitions,
+            privacy,
+            registry,
+            workflow,
+            jobs,
+            poller,
+            roles: RoleSource::new(roles),
+            fallback_role,
+            key_use: None,
+            tool_router,
+            tool_specs,
+            audit: None,
+            migrations: Arc::default(),
+            presets: Arc::default(),
+        }
+    }
+
+    /// This handler on the `[mcp]` settings `settings`: only the tool registry is built
+    /// again (toolsets and safety mode); every shared service, the migration plans, the
+    /// preset state and the live gates are the same ones.
+    ///
+    /// Open sessions keep the handler they started with; [`KccMcp::publish_gates`] on the
+    /// result makes a tightening bind them at their next call.
+    #[inline]
+    #[must_use]
+    pub fn reconfigured(&self, settings: McpConfig) -> Self {
+        let (tool_router, tool_specs) = Self::routes(&self.definitions, &settings);
+        let mut next = self.clone();
+        next.config = settings;
+        next.tool_router = tool_router;
+        next.tool_specs = tool_specs;
+        next
+    }
+
+    /// The tool router and the RBAC tool registry of the tools `config` enables.
+    fn routes(
+        definitions: &[ToolDescription],
+        config: &McpConfig,
+    ) -> (ToolRouter<Self>, Arc<[ToolSpec]>) {
         let mut tool_router = Self::tool_router();
         for route in domains::routes::routes()
             .into_iter()
@@ -66,14 +116,14 @@ impl KccMcp {
                 route.attr.annotations = Some(definition.tool_annotations());
             }
         }
-        for definition in &definitions {
-            if !enabled(definition, &config) {
+        for definition in definitions {
+            if !enabled(definition, config) {
                 tool_router.remove_route(definition.name);
             }
         }
-        let tool_specs: Vec<ToolSpec> = definitions
+        let tool_specs = definitions
             .iter()
-            .filter(|definition| enabled(definition, &config))
+            .filter(|definition| enabled(definition, config))
             .map(|definition| {
                 ToolSpec::new(
                     definition.name.to_owned(),
@@ -82,22 +132,7 @@ impl KccMcp {
                 )
             })
             .collect();
-        Self {
-            config,
-            privacy,
-            registry,
-            workflow,
-            jobs,
-            poller,
-            roles: RoleSource::new(roles),
-            fallback_role,
-            key_use: None,
-            tool_router,
-            tool_specs: tool_specs.into(),
-            audit: None,
-            migrations: Arc::default(),
-            presets: Arc::default(),
-        }
+        (tool_router, tool_specs)
     }
 
     /// Attaches the audit writer that migration applies record their acknowledgements in.

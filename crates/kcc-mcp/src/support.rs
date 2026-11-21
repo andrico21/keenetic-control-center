@@ -5,6 +5,7 @@ pub(crate) mod audit;
 pub(crate) mod blocking;
 pub(crate) mod call;
 pub(crate) mod errors;
+pub(crate) mod gates;
 pub(crate) mod names;
 pub(crate) mod raw_change;
 pub(crate) mod route;
