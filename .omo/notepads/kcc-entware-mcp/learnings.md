@@ -87,3 +87,10 @@ New for this plan:
 - `rmcp_server_kit_http_requests_total` only appears in `/metrics` after a request was recorded (an unlabeled CounterVec exports nothing).
 - Mutation probes must keep the crate compiling under `unused = deny`: a mutant that leaves a fn/import unused is a compile error, not a red (`filter(|e| x && !x)` instead of replacing a call with `pending()`).
 - Plain-text kit logs carry ANSI colour codes in a child's stderr; assert on `log_format = "json"` fields (`/fields/reason`) instead.
+
+## [2026-11-21] Todo 9 (e9) learnings
+- `AuditLog::append` refuses (AuditError::SecretParameter) any params key containing `password`, `passwd`, `api_key`, `token` or `secret`, at any depth: a boolean like `default_password_in_use` must be renamed in the audit params (todo 9 uses `default_credentials_in_use`). A flow that only logs an append failure (WARN) then passes silently; assert the audit entry's presence in a test.
+- `entware_ssh::state::forget` deletes the whole record, port included: after revoke/disable the next probe dials 222 again. Tests that re-enrol after a revoke must `set_port` the fake's port first.
+- A mutant that leaves a binding unused (`let _lease = ();` when the only other use of `services` was the lease) or drops a Copy value (`drop(HostKeyPin)`) is a COMPILE red under `unused = deny`/`dropping_copy_types`: re-run it with a replacement that keeps every binding used (`let _lease = services.workflow.state();`, `let _ticket_pin = ..`).
+- The mutation loop for one integration target ran ~20 s per mutant with a warm private target (44 mutants in ~15 min).
+- clippy here: `rest_pattern_accessible_field` refuses `Variant { .. }` on a struct variant with public fields (spell `{ actor: _ }`); `shadow_reuse` refuses `opt.is_some_and(|x| ..)` when `x` names the outer binding; `option_if_let_else` refuses a `match` on an `Option` building two events (use `map_or_else`).
