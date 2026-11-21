@@ -351,6 +351,13 @@ show secrets as `********` unless you hold RevealSecrets on that router. On the 
   them with their checkboxes.
 - **API keys**: create keys for MCP clients (shown once) and revoke them. The "Last
   used" column shows the last MCP tool call with the key, recorded at most once a minute.
+  A key name is 1 to 64 lowercase letters, digits, dots, hyphens or underscores. "Expires
+  in" (never, 7 days, 30 days, 90 days or 1 year) gives a key an expiry; from then on MCP
+  requests with it get HTTP 401, and the "Expires" column flags it as expired until you
+  revoke it. `kcc apikey create <name> --role <role> --expires-in <duration>` does the
+  same from the command line with any duration from one second to ten years (`12h`,
+  `30d`, `1y`); without `--expires-in` a key never expires. `kcc apikey list` shows the
+  expiry as Unix seconds and marks expired keys (`--json`: `expires_at`, `expired`).
 - **Notifications**: Telegram notifications (ManageNotifications), described below. The
   tab shows only to roles that hold the permission.
 - **Scheduled actions**: weekly scheduled actions (ManageSchedules), described below. The

@@ -182,6 +182,7 @@ impl Fixture {
             KEY_NAME.to_owned(),
             "viewer".to_owned(),
             1,
+            None,
         )?;
         master_key::write(&directory.path().join("master.key"), [17_u8; 32])?;
         let template = format!(

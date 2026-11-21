@@ -58,6 +58,7 @@ mod tests {
             "agent".to_owned(),
             "viewer".to_owned(),
             1,
+            None,
         )?);
         drop(create_api_key(
             &store,
@@ -65,6 +66,7 @@ mod tests {
             "other".to_owned(),
             "viewer".to_owned(),
             1,
+            None,
         )?);
         let clock = Arc::new(HandClock(AtomicU64::new(1_000)));
         let recorder = KeyUseRecorder::new(store.clone(), Arc::<HandClock>::clone(&clock));

@@ -225,3 +225,5 @@ cli-scheduled-busy = { $router } роутері басқа өзгеріспен 
 cli-scheduled-paused-instead = «{ $name }» жоспарланған әрекеті орындалмай, тоқтатылды: { $reason }.
 cli-scheduled-dropped = { $id } жоспарланған әрекеті орындалмады: осы уақытта ол өзгертілді немесе жойылды.
 cli-scheduled-run-router = { $router } роутері қолжетімсіз немесе өзгерісті қабылдамады; «{ $name }» жоспарланған әрекеті аяқталмады.
+cli-col-expires = Мерзімі бітеді
+cli-key-expired = мерзімі өткен

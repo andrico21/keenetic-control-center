@@ -13,6 +13,17 @@
     <p class="field__error" id="key-role-error">{{ role_error }}</p>
     {%- endif %}
   </div>
+  <div class="field">
+    <label class="field__label" for="key-expires">{{ t(keys::WEB_ADMIN_KEY_EXPIRES_IN) }}</label>
+    <select class="field__input" id="key-expires" name="expires_in"{% if !expiry_error.is_empty() %} aria-invalid="true" aria-describedby="key-expires-error"{% endif %}>
+      {%- for option in expiries %}
+      <option value="{{ option.value() }}"{% if option.selected() %} selected{% endif %}>{{ option.label() }}</option>
+      {%- endfor %}
+    </select>
+    {%- if !expiry_error.is_empty() %}
+    <p class="field__error" id="key-expires-error">{{ expiry_error }}</p>
+    {%- endif %}
+  </div>
   <div class="dialog__actions">
     <button class="button button--primary" type="submit">{{ t(keys::WEB_ADMIN_KEY_CREATE) }}</button>
   </div>

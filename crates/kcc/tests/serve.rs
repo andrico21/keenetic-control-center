@@ -204,6 +204,7 @@ impl Fixture {
             "viewer-key".to_owned(),
             "viewer".to_owned(),
             1,
+            None,
         )?;
         let viewer_key = expose_created_key(&viewer).to_owned();
         let operator = create_api_key(
@@ -212,6 +213,7 @@ impl Fixture {
             "operator-key".to_owned(),
             "operator".to_owned(),
             2,
+            None,
         )?;
         let operator_key = expose_created_key(&operator).to_owned();
         let key_path = directory.path().join("master.key");

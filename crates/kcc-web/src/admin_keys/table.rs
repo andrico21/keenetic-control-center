@@ -1,5 +1,5 @@
-//! The API keys table: name, role, creation and last use, and Revoke where the signed-in
-//! user may.
+//! The API keys table: name, role, creation, last use and expiry, and Revoke where the
+//! signed-in user may.
 
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
@@ -26,6 +26,7 @@ pub(super) fn keys(rows: &[KeyRow], locale: Locale) -> TableView {
         keys::WEB_ADMIN_KEY_ROLE,
         keys::WEB_ADMIN_KEY_CREATED_AT,
         keys::WEB_ADMIN_KEY_LAST_USED,
+        keys::WEB_ADMIN_KEY_EXPIRES,
     ] {
         view = view.head(Head::plain(tr(locale, key, None)));
     }
@@ -37,6 +38,16 @@ pub(super) fn keys(rows: &[KeyRow], locale: Locale) -> TableView {
             || Piece::span("muted", tr(locale, keys::WEB_ADMIN_KEY_NEVER, None)),
             time,
         );
+        let mut expires = vec![row.expires.as_ref().map_or_else(
+            || Piece::span("muted", tr(locale, keys::WEB_ADMIN_KEY_NEVER, None)),
+            time,
+        )];
+        if row.expired {
+            expires.push(Piece::span(
+                "flag",
+                tr(locale, keys::WEB_ADMIN_KEY_EXPIRED, None),
+            ));
+        }
         let actions = if row.revocable {
             let revoke = Act::open(locale, keys::WEB_ADMIN_KEY_REVOKE, row.revoke_url.clone());
             Cell::acts(
@@ -52,6 +63,7 @@ pub(super) fn keys(rows: &[KeyRow], locale: Locale) -> TableView {
             Cell::text(row.role.clone()),
             Cell::of(row.created.as_ref().map(time).into_iter().collect()),
             Cell::of(vec![last_used]),
+            Cell::of(expires),
             actions,
         ]);
     }

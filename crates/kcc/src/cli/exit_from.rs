@@ -117,6 +117,7 @@ impl From<ApiKeyError> for Failure {
         let exit = match error {
             ApiKeyError::Grant(grant) => return grant.into(),
             ApiKeyError::DuplicateName => Exit::Conflict,
+            ApiKeyError::InvalidName | ApiKeyError::InvalidExpiry => Exit::Validation,
             ApiKeyError::State(_) | ApiKeyError::Generation | _ => Exit::Generic,
         };
         Self::text(exit, &error)

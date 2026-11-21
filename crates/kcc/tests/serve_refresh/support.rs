@@ -160,6 +160,7 @@ impl Fixture {
             "ops-key".to_owned(),
             "ops".to_owned(),
             1,
+            None,
         )?;
         master_key::write(&directory.path().join("master.key"), [17_u8; 32])?;
         let template = format!(

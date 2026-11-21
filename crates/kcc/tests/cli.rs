@@ -12,6 +12,8 @@
 
 #[path = "cli/admin.rs"]
 mod admin;
+#[path = "cli/api_key_expiry.rs"]
+mod api_key_expiry;
 #[path = "cli/apply_permissions.rs"]
 mod apply_permissions;
 #[path = "cli/audit_pending.rs"]

@@ -215,6 +215,7 @@ fn write_state(home: &Path) -> TestResult<(PathBuf, String)> {
         "mcp-key".to_owned(),
         "admin".to_owned(),
         1,
+        None,
     )?;
     master_key::write(&home.join("master.key"), [17_u8; 32])?;
     Ok((password_file, expose_created_key(&created).to_owned()))

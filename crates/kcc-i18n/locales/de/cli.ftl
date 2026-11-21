@@ -225,3 +225,5 @@ cli-scheduled-busy = Router { $router } ist mit einer anderen Änderung beschäf
 cli-scheduled-paused-instead = Geplante Aktion „{ $name }“ lief nicht und wurde angehalten: { $reason }.
 cli-scheduled-dropped = Geplante Aktion { $id } lief nicht; sie wurde inzwischen geändert oder gelöscht.
 cli-scheduled-run-router = Router { $router } war nicht erreichbar oder hat die Änderung nicht übernommen; die geplante Aktion „{ $name }“ wurde nicht abgeschlossen.
+cli-col-expires = Läuft ab
+cli-key-expired = abgelaufen

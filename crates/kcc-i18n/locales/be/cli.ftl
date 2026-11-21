@@ -225,3 +225,5 @@ cli-scheduled-busy = Роўтар { $router } заняты іншым змяне
 cli-scheduled-paused-instead = Запланаванае дзеянне «{ $name }» не выканана і прыпынена: { $reason }.
 cli-scheduled-dropped = Запланаванае дзеянне { $id } не выканана: тым часам яго змянілі або выдалілі.
 cli-scheduled-run-router = Роўтар { $router } недаступны або не прыняў змяненне; запланаванае дзеянне «{ $name }» не завершана.
+cli-col-expires = Мінае
+cli-key-expired = скончыўся

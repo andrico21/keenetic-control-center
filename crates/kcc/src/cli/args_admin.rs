@@ -50,6 +50,10 @@ pub enum ApiKeyCommand {
         /// Role name.
         #[arg(long, default_value = "viewer")]
         role: String,
+        /// Lifetime such as `1h`, `30d` or `1y`, at most ten years; the key never
+        /// expires without it.
+        #[arg(long, value_name = "DURATION", allow_hyphen_values = true)]
+        expires_in: Option<String>,
     },
     /// List keys without their secrets.
     List,

@@ -692,6 +692,12 @@ pub const CLI_SCHEDULED_DROPPED: MessageKey = MessageKey::new("cli-scheduled-dro
 /// `cli-scheduled-run-router` in `cli.ftl`.
 pub const CLI_SCHEDULED_RUN_ROUTER: MessageKey = MessageKey::new("cli-scheduled-run-router");
 
+/// `cli-col-expires` in `cli.ftl`.
+pub const CLI_COL_EXPIRES: MessageKey = MessageKey::new("cli-col-expires");
+
+/// `cli-key-expired` in `cli.ftl`.
+pub const CLI_KEY_EXPIRED: MessageKey = MessageKey::new("cli-key-expired");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -7828,8 +7834,35 @@ pub const WEB_SCHEDULED_NEXT: MessageKey = MessageKey::new("web-scheduled-next")
 /// `web-scheduled-unsaved` in `web.ftl`.
 pub const WEB_SCHEDULED_UNSAVED: MessageKey = MessageKey::new("web-scheduled-unsaved");
 
+/// `web-admin-key-expires` in `web.ftl`.
+pub const WEB_ADMIN_KEY_EXPIRES: MessageKey = MessageKey::new("web-admin-key-expires");
+
+/// `web-admin-key-expired` in `web.ftl`.
+pub const WEB_ADMIN_KEY_EXPIRED: MessageKey = MessageKey::new("web-admin-key-expired");
+
+/// `web-admin-key-expires-in` in `web.ftl`.
+pub const WEB_ADMIN_KEY_EXPIRES_IN: MessageKey = MessageKey::new("web-admin-key-expires-in");
+
+/// `web-admin-key-expires-never` in `web.ftl`.
+pub const WEB_ADMIN_KEY_EXPIRES_NEVER: MessageKey = MessageKey::new("web-admin-key-expires-never");
+
+/// `web-admin-key-expires-7d` in `web.ftl`.
+pub const WEB_ADMIN_KEY_EXPIRES_7D: MessageKey = MessageKey::new("web-admin-key-expires-7d");
+
+/// `web-admin-key-expires-30d` in `web.ftl`.
+pub const WEB_ADMIN_KEY_EXPIRES_30D: MessageKey = MessageKey::new("web-admin-key-expires-30d");
+
+/// `web-admin-key-expires-90d` in `web.ftl`.
+pub const WEB_ADMIN_KEY_EXPIRES_90D: MessageKey = MessageKey::new("web-admin-key-expires-90d");
+
+/// `web-admin-key-expires-1y` in `web.ftl`.
+pub const WEB_ADMIN_KEY_EXPIRES_1Y: MessageKey = MessageKey::new("web-admin-key-expires-1y");
+
+/// `web-admin-error-key-expiry` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_KEY_EXPIRY: MessageKey = MessageKey::new("web-admin-error-key-expiry");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2459] = [
+pub static ALL: [MessageKey; 2470] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8052,6 +8085,8 @@ pub static ALL: [MessageKey; 2459] = [
     CLI_SCHEDULED_PAUSED_INSTEAD,
     CLI_SCHEDULED_DROPPED,
     CLI_SCHEDULED_RUN_ROUTER,
+    CLI_COL_EXPIRES,
+    CLI_KEY_EXPIRED,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,
@@ -10289,4 +10324,13 @@ pub static ALL: [MessageKey; 2459] = [
     WEB_SCHEDULED_REFUSED_UNAVAILABLE,
     WEB_SCHEDULED_NEXT,
     WEB_SCHEDULED_UNSAVED,
+    WEB_ADMIN_KEY_EXPIRES,
+    WEB_ADMIN_KEY_EXPIRED,
+    WEB_ADMIN_KEY_EXPIRES_IN,
+    WEB_ADMIN_KEY_EXPIRES_NEVER,
+    WEB_ADMIN_KEY_EXPIRES_7D,
+    WEB_ADMIN_KEY_EXPIRES_30D,
+    WEB_ADMIN_KEY_EXPIRES_90D,
+    WEB_ADMIN_KEY_EXPIRES_1Y,
+    WEB_ADMIN_ERROR_KEY_EXPIRY,
 ];

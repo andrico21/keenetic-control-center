@@ -895,6 +895,112 @@ mod tests {
         Ok(())
     }
 
+    /// The stored `expires_at` of the key `name`, read from the JSON text.
+    fn stored_expiry(
+        fixture: &Fixture,
+        name: &str,
+    ) -> Result<Option<u64>, Box<dyn Error + Send + Sync>> {
+        let raw = fs::read_to_string(fixture.state.dir().join("api_keys.json"))?;
+        let document: serde_json::Value = serde_json::from_str(&raw)?;
+        let key = document
+            .get("keys")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|keys| {
+                keys.iter()
+                    .find(|key| key.get("name").and_then(serde_json::Value::as_str) == Some(name))
+            })
+            .ok_or("key not stored")?;
+        Ok(key.get("expires_at").and_then(serde_json::Value::as_u64))
+    }
+
+    /// Todo 24: the create form stores an expiring key and installs it at once; the page
+    /// lists the expiry and flags the key once it is past.
+    #[tokio::test]
+    async fn a_key_created_with_an_expiry_is_installed_and_flagged_once_expired() -> TestResult {
+        let fixture = Fixture::new("en", Vec::new())?;
+        let admin = fixture.admin().await?;
+
+        let created = fixture
+            .post(
+                &admin,
+                "/ui/admin/api-keys",
+                &[("name", "probe"), ("role", "viewer"), ("expires_in", "7d")],
+            )
+            .await?;
+
+        assert_eq!(created.status(), StatusCode::OK, "created");
+        assert_eq!(
+            stored_expiry(&fixture, "probe")?,
+            Some(7 * 86_400),
+            "7 days after now"
+        );
+        assert_eq!(
+            fixture.reload.keys.load(Ordering::SeqCst),
+            1,
+            "installed at once"
+        );
+        let listing = text(fixture.get("/ui/admin/api-keys", &admin.cookie).await?).await?;
+        assert!(
+            listing.contains("datetime=\"1970-01-08T00:00:00Z\""),
+            "the expiry is listed"
+        );
+        assert!(!listing.contains("class=\"flag\""), "not expired yet");
+
+        let path = fixture.state.dir().join("api_keys.json");
+        let raw = fs::read_to_string(&path)?;
+        let expired = raw.replace("\"expires_at\": 604800", "\"expires_at\": 0");
+        assert_ne!(expired, raw, "the stored expiry is rewritten");
+        fs::write(&path, expired)?;
+        let flagged = text(fixture.get("/ui/admin/api-keys", &admin.cookie).await?).await?;
+        assert!(
+            flagged.contains("class=\"flag\""),
+            "the expired key is flagged"
+        );
+        Ok(())
+    }
+
+    /// Todo 24: a key name outside the rule (a `:` namespace included) and an expiry
+    /// outside the offered choices are refused; nothing is stored or installed.
+    #[tokio::test]
+    async fn a_key_name_or_expiry_outside_the_rules_is_refused() -> TestResult {
+        let fixture = Fixture::new("en", Vec::new())?;
+        let admin = fixture.admin().await?;
+
+        for (name, expires_in, field) in [
+            ("oauth:alice", "", "key-name-error"),
+            ("probe", "0s", "key-expires-error"),
+            ("probe", "-1h", "key-expires-error"),
+            ("probe", "2y", "key-expires-error"),
+        ] {
+            let refused = fixture
+                .post(
+                    &admin,
+                    "/ui/admin/api-keys",
+                    &[
+                        ("name", name),
+                        ("role", "viewer"),
+                        ("expires_in", expires_in),
+                    ],
+                )
+                .await?;
+            assert_eq!(
+                refused.status(),
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{name} {expires_in}"
+            );
+            assert!(
+                text(refused).await?.contains(&format!("id=\"{field}\"")),
+                "{name} {expires_in}: the {field} field error"
+            );
+        }
+        assert!(
+            !fixture.state.dir().join("api_keys.json").exists(),
+            "nothing stored"
+        );
+        assert_eq!(fixture.reload.keys.load(Ordering::SeqCst), 0, "no reload");
+        Ok(())
+    }
+
     /// W1-16: a key whose table refresh fails after it was stored is still shown, once,
     /// in an uncached response, and never audited.
     #[tokio::test]

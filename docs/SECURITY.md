@@ -79,7 +79,8 @@ never its value.
   error (the Web UI answers a server error, not "invalid username or password") and its
   sessions end. Backups, presets and migration runs keep their associated data.
 - **Hashed**: web account passwords (Argon2id) and API keys (Argon2id, the key is shown
-  once and never stored).
+  once and never stored). An API key may carry an expiry, checked on every MCP request;
+  an expired key is refused with HTTP 401.
 - **Operator-managed files**: `password_file`, `read_password_file` and `token_file`
   paths of `kcc.toml` routers remain files controlled by the operator and are read
   unchanged; kcc does not copy them into state. A migration that changes such a

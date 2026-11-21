@@ -2,7 +2,7 @@
 
 use kcc_app::{
     accounts::{Clock as _, SystemClock},
-    api_keys::{ApiKeyError, ApiKeysDocument, create_api_key, expose_created_key},
+    api_keys::{ApiKeyError, ApiKeysDocument, create_api_key, expires_after, expose_created_key},
     audit::{AuditError, verify_chain},
     permissions::{Permission, assignment::GrantError},
 };
@@ -27,14 +27,23 @@ pub(crate) async fn api_key(ctx: &Ctx, command: ApiKeyCommand) -> Outcome {
     let services = ctx.services().await?;
     let out = ctx.out();
     match command {
-        ApiKeyCommand::Create { name, role } => {
+        ApiKeyCommand::Create {
+            name,
+            role,
+            expires_in,
+        } => {
             let actor = ctx.principal().authority()?;
+            let now = SystemClock::default().unix_seconds();
+            let expires_at = expires_in
+                .map(|lifetime| expires_after(now, &lifetime))
+                .transpose()?;
             let created = match create_api_key(
                 ctx.state(),
                 &actor,
                 name.clone(),
                 role.clone(),
-                SystemClock::default().unix_seconds(),
+                now,
+                expires_at,
             ) {
                 Err(ApiKeyError::Grant(GrantError::Forbidden)) => {
                     let params = json!({ "name": name, "role": role });
@@ -42,43 +51,19 @@ pub(crate) async fn api_key(ctx: &Ctx, command: ApiKeyCommand) -> Outcome {
                 }
                 result => result?,
             };
-            ctx.audit(
-                &services,
-                "cli.apikey_create",
-                None,
-                json!({ "name": name, "role": role }),
-                "success",
-            )
-            .await;
+            let params = expires_at.map_or_else(
+                || json!({ "name": name, "role": role }),
+                |at| json!({ "name": name, "role": role, "expires_at": at }),
+            );
+            ctx.audit(&services, "cli.apikey_create", None, params, "success")
+                .await;
             let key = expose_created_key(&created);
-            let document = json!({ "name": name, "role": role, "key": key });
+            let document =
+                json!({ "name": name, "role": role, "key": key, "expires_at": expires_at });
             let human = format!("{}\n{key}", out.tr(keys::CLI_KEY_ONCE, &[("name", &name)]));
             out.emit(&document, &human)
         }
-        ApiKeyCommand::List => {
-            let keys_document = ctx.state().read::<ApiKeysDocument>()?.unwrap_or_default();
-            let rows = keys_document
-                .keys
-                .iter()
-                .map(|key| {
-                    vec![
-                        key.name.clone(),
-                        key.role.clone(),
-                        key.created_at.to_string(),
-                    ]
-                })
-                .collect::<Vec<_>>();
-            let document = json!({ "keys": keys_document.keys.iter().map(|key| json!({ "name": key.name, "role": key.role, "created_at": key.created_at, "last_used_at": key.last_used_at })).collect::<Vec<_>>() });
-            out.table(
-                &document,
-                &[
-                    keys::CLI_COL_NAME,
-                    keys::CLI_COL_ROLE,
-                    keys::CLI_COL_CREATED,
-                ],
-                &rows,
-            )
-        }
+        ApiKeyCommand::List => list(ctx),
         ApiKeyCommand::Revoke { name } => {
             let removed = ctx.state().update(|document: &mut ApiKeysDocument| {
                 let before = document.keys.len();
@@ -106,6 +91,48 @@ pub(crate) async fn api_key(ctx: &Ctx, command: ApiKeyCommand) -> Outcome {
             )
         }
     }
+}
+
+/// Lists the keys with their expiry; an expired key is marked.
+///
+/// # Errors
+///
+/// A state read failure.
+fn list(ctx: &Ctx) -> Outcome {
+    let out = ctx.out();
+    let keys_document = ctx.state().read::<ApiKeysDocument>()?.unwrap_or_default();
+    let now = SystemClock::default().unix_seconds();
+    let expired_word = out.tr(keys::CLI_KEY_EXPIRED, &[]);
+    let rows = keys_document
+        .keys
+        .iter()
+        .map(|key| {
+            let expires = key.expires_at.map_or_default(|at| {
+                if key.is_expired(now) {
+                    format!("{at} ({expired_word})")
+                } else {
+                    at.to_string()
+                }
+            });
+            vec![
+                key.name.clone(),
+                key.role.clone(),
+                key.created_at.to_string(),
+                expires,
+            ]
+        })
+        .collect::<Vec<_>>();
+    let document = json!({ "keys": keys_document.keys.iter().map(|key| json!({ "name": key.name, "role": key.role, "created_at": key.created_at, "last_used_at": key.last_used_at, "expires_at": key.expires_at, "expired": key.is_expired(now) })).collect::<Vec<_>>() });
+    out.table(
+        &document,
+        &[
+            keys::CLI_COL_NAME,
+            keys::CLI_COL_ROLE,
+            keys::CLI_COL_CREATED,
+            keys::CLI_COL_EXPIRES,
+        ],
+        &rows,
+    )
 }
 
 /// Runs an `audit` command.

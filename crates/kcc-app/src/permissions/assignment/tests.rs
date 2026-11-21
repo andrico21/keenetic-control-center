@@ -96,7 +96,14 @@ fn an_assignment_cannot_slip_into_a_role_deletion() -> TestResult {
             }
         }));
         let admin = Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]);
-        let created = create_api_key(&assigning, &admin, "ci".to_owned(), "lab-ops".to_owned(), 1);
+        let created = create_api_key(
+            &assigning,
+            &admin,
+            "ci".to_owned(),
+            "lab-ops".to_owned(),
+            1,
+            None,
+        );
         drop(report.send(Assigner::Done(created.map(drop))));
     }));
     let first = reports.recv_timeout(WAIT)?;

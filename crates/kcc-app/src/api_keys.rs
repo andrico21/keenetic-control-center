@@ -1,6 +1,10 @@
 //! MCP API-key creation and hash-only persistence.
 
-use core::fmt;
+use core::{
+    fmt::{self, Write as _},
+    time::Duration,
+};
+use std::time::UNIX_EPOCH;
 
 use rmcp_server_kit::auth::{ApiKeyEntry, generate_api_key};
 use secrecy::{ExposeSecret as _, SecretString};
@@ -30,6 +34,19 @@ pub struct StoredApiKey {
     pub created_at: u64,
     /// Most recent successful use as Unix seconds.
     pub last_used_at: Option<u64>,
+    /// Expiry as Unix seconds; the MCP transport refuses the key after it. None for a
+    /// key that never expires (every key stored before expiries existed).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<u64>,
+}
+
+impl StoredApiKey {
+    /// Whether the key has expired at the Unix second `now`.
+    #[inline]
+    #[must_use]
+    pub fn is_expired(&self, now: u64) -> bool {
+        self.expires_at.is_some_and(|expires_at| expires_at <= now)
+    }
 }
 
 impl fmt::Debug for StoredApiKey {
@@ -41,6 +58,7 @@ impl fmt::Debug for StoredApiKey {
             role,
             created_at,
             last_used_at,
+            expires_at,
         } = self;
         f.debug_struct("StoredApiKey")
             .field("name", name)
@@ -48,6 +66,7 @@ impl fmt::Debug for StoredApiKey {
             .field("role", role)
             .field("created_at", created_at)
             .field("last_used_at", last_used_at)
+            .field("expires_at", expires_at)
             .finish()
     }
 }
@@ -98,18 +117,64 @@ pub enum ApiKeyError {
     /// The role cannot be granted by the acting role.
     #[error(transparent)]
     Grant(#[from] GrantError),
+    /// The name is not 1 to [`MAX_KEY_NAME_CHARS`] of `a-z`, `0-9`, `.`, `_` or `-`.
+    #[error("API key name must be 1 to 64 lowercase letters, digits, dots, hyphens or underscores")]
+    InvalidName,
+    /// The expiry is not after the creation time, or more than
+    /// [`MAX_KEY_LIFETIME_SECS`] after it.
+    #[error("API key expiry must be after its creation and at most ten years ahead")]
+    InvalidExpiry,
+}
+
+/// Longest API key name.
+pub const MAX_KEY_NAME_CHARS: usize = 64;
+
+/// Longest lifetime of a new key: ten years of 365.25 days, in seconds.
+pub const MAX_KEY_LIFETIME_SECS: u64 = 315_576_000;
+
+/// Whether `name` is an API key name: 1 to [`MAX_KEY_NAME_CHARS`] of `a-z0-9._-`.
+///
+/// The name is the MCP principal, so the rule also keeps keys out of other identity
+/// namespaces such as `oauth:`.
+#[inline]
+#[must_use]
+pub fn is_valid_key_name(name: &str) -> bool {
+    (1..=MAX_KEY_NAME_CHARS).contains(&name.len())
+        && name.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"._-".contains(&byte)
+        })
+}
+
+/// The expiry `lifetime` (a humantime duration such as `1h` or `90d`) after the Unix
+/// second `created_at`.
+///
+/// # Errors
+///
+/// [`ApiKeyError::InvalidExpiry`] for text that is not a duration, a lifetime under a
+/// second, or an overflow; [`create_api_key`] also refuses a too long lifetime.
+#[inline]
+pub fn expires_after(created_at: u64, lifetime: &str) -> Result<u64, ApiKeyError> {
+    humantime::parse_duration(lifetime)
+        .ok()
+        .map(|duration| duration.as_secs())
+        .filter(|&seconds| seconds > 0)
+        .and_then(|seconds| created_at.checked_add(seconds))
+        .ok_or(ApiKeyError::InvalidExpiry)
 }
 
 /// Creates a new API key holding `role`, granted by `actor`.
 ///
-/// Only the hash and metadata are persisted. `role` must exist and `actor` must dominate
-/// it ([`Role::dominates`]); the roles lock is held until the key is stored.
+/// Only the hash and metadata are persisted. `name` must pass [`is_valid_key_name`],
+/// `expires_at`, when set, must be after `created_at` by at most
+/// [`MAX_KEY_LIFETIME_SECS`], `role` must exist and `actor` must dominate it
+/// ([`Role::dominates`]); the roles lock is held until the key is stored.
 ///
 /// # Errors
 ///
-/// Returns [`ApiKeyError::Grant`] for an unknown or undominated role, a generic
-/// generation error, a duplicate-name error, or a state storage error. No error
-/// contains plaintext key material.
+/// Returns [`ApiKeyError::InvalidName`], [`ApiKeyError::InvalidExpiry`],
+/// [`ApiKeyError::Grant`] for an unknown or undominated role, a generic generation
+/// error, a duplicate-name error, or a state storage error. No error contains plaintext
+/// key material.
 #[inline]
 pub fn create_api_key(
     store: &StateStore,
@@ -117,7 +182,17 @@ pub fn create_api_key(
     name: String,
     role: String,
     created_at: u64,
+    expires_at: Option<u64>,
 ) -> Result<CreatedApiKey, ApiKeyError> {
+    if !is_valid_key_name(&name) {
+        return Err(ApiKeyError::InvalidName);
+    }
+    if expires_at.is_some_and(|at| {
+        at.checked_sub(created_at)
+            .is_none_or(|lifetime| lifetime == 0 || lifetime > MAX_KEY_LIFETIME_SECS)
+    }) {
+        return Err(ApiKeyError::InvalidExpiry);
+    }
     let _grant = RoleGrant::by(store, actor, &role)?;
     let (plaintext, hash) = generate_api_key().map_err(|_error| ApiKeyError::Generation)?;
     let record = StoredApiKey {
@@ -126,6 +201,7 @@ pub fn create_api_key(
         role,
         created_at,
         last_used_at: None,
+        expires_at,
     };
     store.update(|document: &mut ApiKeysDocument| {
         if document.keys.iter().any(|key| key.name == record.name) {
@@ -140,7 +216,11 @@ pub fn create_api_key(
     })
 }
 
-/// Loads the persisted records in rmcp-server-kit's authentication shape.
+/// Loads the persisted records in rmcp-server-kit's authentication shape, each expiry
+/// as an RFC 3339 timestamp the transport checks on every request.
+///
+/// A key whose stored expiry cannot be written as RFC 3339 (past the year 9999, only
+/// possible in a hand-edited file) is left out, so it never authenticates.
 ///
 /// # Errors
 ///
@@ -151,8 +231,29 @@ pub fn api_key_entries(store: &StateStore) -> Result<Vec<ApiKeyEntry>, StateErro
     Ok(document
         .keys
         .into_iter()
-        .map(|key| ApiKeyEntry::new(key.name, key.hash, key.role))
+        .filter_map(|key| {
+            let entry = ApiKeyEntry::new(key.name, key.hash, key.role);
+            let Some(expires_at) = key.expires_at else {
+                return Some(entry);
+            };
+            let expiry = rfc3339(expires_at).and_then(|text| entry.try_with_expiry(text).ok());
+            if expiry.is_none() {
+                tracing::warn!(
+                    expires_at,
+                    "API key expiry out of range; the key is refused"
+                );
+            }
+            expiry
+        })
         .collect())
+}
+
+/// The Unix second `unix` as RFC 3339 text, if humantime can write it.
+fn rfc3339(unix: u64) -> Option<String> {
+    let time = UNIX_EPOCH.checked_add(Duration::from_secs(unix))?;
+    let mut text = String::new();
+    write!(text, "{}", humantime::format_rfc3339_seconds(time)).ok()?;
+    Some(text)
 }
 
 /// Updates the last-used timestamp under the existing state-file lock.

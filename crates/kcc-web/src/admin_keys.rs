@@ -6,6 +6,7 @@
 //! stored keys in the running MCP transport at once. Nobody creates a key with a role
 //! above their own or revokes a key whose role is above their own.
 
+mod expiry;
 mod table;
 
 use core::error::Error;
@@ -51,9 +52,6 @@ use crate::{
     },
 };
 
-/// Longest API key name.
-const MAX_NAME_CHARS: usize = 64;
-
 /// The create form.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -62,6 +60,9 @@ pub(crate) struct NewKeyForm {
     name: String,
     /// Granted role.
     role: String,
+    /// The chosen lifetime, empty for a key that never expires.
+    #[serde(default)]
+    expires_in: String,
 }
 
 /// One key row.
@@ -74,6 +75,10 @@ struct KeyRow {
     created: Option<Timestamp>,
     /// Last successful use, if recorded.
     last_used: Option<Timestamp>,
+    /// Expiry, if the key has one.
+    expires: Option<Timestamp>,
+    /// Whether the expiry has passed.
+    expired: bool,
     /// Whether the signed-in user may revoke it.
     revocable: bool,
     /// The revoke dialog.
@@ -123,10 +128,14 @@ struct NewKeyDialog {
     key_name: String,
     /// Roles the signed-in user may grant.
     roles: Vec<RoleOption>,
+    /// The expiry choices.
+    expiries: Vec<expiry::ExpiryOption>,
     /// Name error.
     name_error: String,
     /// Role error.
     role_error: String,
+    /// Expiry error.
+    expiry_error: String,
 }
 
 localized!(NewKeyDialog);
@@ -182,7 +191,12 @@ pub(crate) async fn page(
 /// `GET /ui/admin/api-keys/new`: the create dialog.
 // cancel-safe: it has no await point.
 pub(crate) async fn new_dialog(State(state): State<WebState>, user: CurrentUser) -> Response {
-    errors::render(&new_key_dialog(&state, &user, String::new(), "viewer"))
+    errors::render(&new_key_dialog(
+        &state,
+        &user,
+        String::new(),
+        ("viewer", ""),
+    ))
 }
 
 /// `POST /ui/admin/api-keys`: creates a key and shows its plaintext once.
@@ -199,36 +213,48 @@ pub(crate) async fn create(
     };
     let _changes = admin.lock().await;
     let locale = user.locale();
-    let mut dialog = new_key_dialog(&state, &user, form.name.clone(), &form.role);
-    if !valid_name(&form.name) {
-        dialog.name_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_NAME, None);
-        return respond::unprocessable(&dialog);
-    }
-    let store = admin.state().clone();
+    let selected = (form.role.as_str(), form.expires_in.as_str());
+    let mut dialog = new_key_dialog(&state, &user, form.name.clone(), selected);
     let now = state.unix_seconds();
+    let Ok(expires_at) = expiry::chosen(now, &form.expires_in) else {
+        dialog.expiry_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_EXPIRY, None);
+        return respond::unprocessable(&dialog);
+    };
+    let store = admin.state().clone();
     let name = form.name.clone();
     let role_name = form.role.clone();
     let actor = user.role().clone();
-    let created =
-        match spawn_blocking(move || create_api_key(&store, &actor, name, role_name, now)).await {
-            Ok(Ok(created)) => created,
-            Ok(Err(ApiKeyError::Grant(GrantError::UnknownRole { name: _ }))) => {
-                dialog.role_error = tr(locale, keys::WEB_ADMIN_ERROR_ROLE, None);
-                return respond::unprocessable(&dialog);
-            }
-            Ok(Err(ApiKeyError::Grant(GrantError::Forbidden))) => {
-                let change = Change::refused("admin.api_key_create", &form.name, "forbidden");
-                return forbidden(&state, &user, change).await;
-            }
-            Ok(Err(ApiKeyError::DuplicateName)) => {
-                dialog.name_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_EXISTS, None);
-                return respond::unprocessable(&dialog);
-            }
-            Ok(Err(error)) => return errors::internal(&error, fragment_shell(locale)),
-            Err(error) => return errors::internal(&error, fragment_shell(locale)),
-        };
+    let create = move || create_api_key(&store, &actor, name, role_name, now, expires_at);
+    let created = match spawn_blocking(create).await {
+        Ok(Ok(created)) => created,
+        Ok(Err(ApiKeyError::Grant(GrantError::UnknownRole { name: _ }))) => {
+            dialog.role_error = tr(locale, keys::WEB_ADMIN_ERROR_ROLE, None);
+            return respond::unprocessable(&dialog);
+        }
+        Ok(Err(ApiKeyError::Grant(GrantError::Forbidden))) => {
+            let change = Change::refused("admin.api_key_create", &form.name, "forbidden");
+            return forbidden(&state, &user, change).await;
+        }
+        Ok(Err(ApiKeyError::DuplicateName)) => {
+            dialog.name_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_EXISTS, None);
+            return respond::unprocessable(&dialog);
+        }
+        Ok(Err(ApiKeyError::InvalidName)) => {
+            dialog.name_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_NAME, None);
+            return respond::unprocessable(&dialog);
+        }
+        Ok(Err(ApiKeyError::InvalidExpiry)) => {
+            dialog.expiry_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_EXPIRY, None);
+            return respond::unprocessable(&dialog);
+        }
+        Ok(Err(error)) => return errors::internal(&error, fragment_shell(locale)),
+        Err(error) => return errors::internal(&error, fragment_shell(locale)),
+    };
     let warning = admin.reload_keys().await;
-    let params = json!({ "role": form.role });
+    let params = expires_at.map_or_else(
+        || json!({ "role": form.role }),
+        |at| json!({ "role": form.role, "expires_at": at }),
+    );
     record(
         &state,
         &user,
@@ -381,12 +407,15 @@ async fn region(
     let mut stored_keys = stored(state).await?.keys;
     stored_keys.sort_by(|left, right| left.name.cmp(&right.name));
     let locale = user.locale();
+    let now = state.unix_seconds();
     let all = stored_keys
         .into_iter()
         .map(|key| KeyRow {
             role: role_label(locale, &key.role),
             created: Timestamp::at(key.created_at, locale),
             last_used: key.last_used_at.and_then(|at| Timestamp::at(at, locale)),
+            expires: key.expires_at.and_then(|at| Timestamp::at(at, locale)),
+            expired: key.is_expired(now),
             revocable: manages(state, user.role(), &key.role),
             revoke_url: named("/ui/admin/api-keys/revoke", &key.name),
             name: key.name,
@@ -402,27 +431,21 @@ async fn region(
     })
 }
 
-/// Whether `name` is a key name: 1 to 64 lowercase letters, digits, `.`, `-` or `_`.
-fn valid_name(name: &str) -> bool {
-    (1..=MAX_NAME_CHARS).contains(&name.len())
-        && name.bytes().all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"._-".contains(&byte)
-        })
-}
-
-/// The create dialog with `name` and `selected` filled in.
+/// The create dialog with `name` and the `(role, expiry)` choices filled in.
 fn new_key_dialog(
     state: &WebState,
     user: &CurrentUser,
     key_name: String,
-    selected: &str,
+    (role, expires_in): (&str, &str),
 ) -> NewKeyDialog {
     NewKeyDialog {
         shell: fragment_shell(user.locale()),
         key_name,
-        roles: role_options(state, user, selected),
+        roles: role_options(state, user, role),
+        expiries: expiry::options(user.locale(), expires_in),
         name_error: String::new(),
         role_error: String::new(),
+        expiry_error: String::new(),
     }
 }
 

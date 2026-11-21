@@ -92,8 +92,8 @@ enum Version {
     Unreadable(io::ErrorKind),
 }
 
-/// The keys as the transport authenticates them: name, hash and role.
-type KeySet = BTreeSet<(String, String, String)>;
+/// The keys as the transport authenticates them: name, hash, role and expiry.
+type KeySet = BTreeSet<(String, String, String, Option<u64>)>;
 
 /// Every account's standing by username.
 type Standings = BTreeMap<String, AccountStanding>;
@@ -367,7 +367,7 @@ fn key_set(document: ApiKeysDocument) -> KeySet {
     document
         .keys
         .into_iter()
-        .map(|key| (key.name, key.hash, key.role))
+        .map(|key| (key.name, key.hash, key.role, key.expires_at))
         .collect()
 }
 

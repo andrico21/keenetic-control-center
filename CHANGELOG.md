@@ -45,6 +45,12 @@ The first release, `0.1.0`, is in preparation and contains:
 - **Documentation**: user guide, configuration reference, migration, security,
   privacy and architecture documents, with executable checks.
 
+- **API key expiry**: a key may expire, chosen on the Web keys page (7, 30 or 90 days or
+  1 year) or with `kcc apikey create --expires-in <duration>`; after it MCP requests
+  with the key get HTTP 401. `api_keys.json` records it as `expires_at` (files without it
+  still load), `kcc apikey list` shows it (`--json`: `expires_at`, `expired`), and the
+  CLI now refuses key names the Web refuses (1 to 64 of `a-z0-9._-`), exit code 4.
+
 - **MCP error code `router_mode_unknown`**: a management change is refused, with nothing
   sent, when the router reports neither a system mode kcc knows nor a `fail-safe`
   timer in `show last-change`. Every surface now picks the recovery mechanism with the same

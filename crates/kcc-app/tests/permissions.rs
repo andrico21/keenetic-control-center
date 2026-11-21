@@ -216,6 +216,7 @@ mod tests {
             "automation".to_owned(),
             "operator".to_owned(),
             7,
+            None,
         )?;
         let plaintext = expose_created_key(&created);
         let raw = fs::read_to_string(state.dir().join("api_keys.json"))?;
