@@ -3,8 +3,9 @@
 use std::{io, path::PathBuf};
 
 use kcc_app::{
-    composition::CoreError, jobs::JobError, permissions::PermissionError, persist::StateError,
-    registry::RegistryError, secrets::files::SecretFileError, settings::ConfigError,
+    composition::CoreError, jobs::JobError, mcp_settings::SettingsError,
+    permissions::PermissionError, persist::StateError, registry::RegistryError,
+    secrets::files::SecretFileError, settings::ConfigError,
 };
 use kcc_telemetry::{logs::runtime::StartError, metrics::failure::MetricsError};
 use kcc_web::admin::ReloadError;
@@ -55,6 +56,9 @@ pub enum ServerError {
     /// The router profiles could not be listed, connected or reloaded.
     #[error("{0}")]
     Registry(#[from] RegistryError),
+    /// The MCP settings (`mcp_settings.json` over kcc.toml) could not be resolved.
+    #[error("{0}")]
+    McpSettings(#[from] SettingsError),
     /// The roles could not be loaded.
     #[error("{0}")]
     Roles(#[from] PermissionError),

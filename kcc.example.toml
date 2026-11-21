@@ -64,6 +64,58 @@ allow_destructive = false
 max_result_bytes = 32768
 # Tool groups registered by the MCP server.
 toolsets = ["core"]
+# Keys below [mcp] the Web may not change, e.g. ["allow_destructive", "auth.main.oauth"].
+# Read at start. The other [mcp] keys can be changed on the Web (Administration > MCP).
+locked = []
+# Which listener serves MCP: "main" (/mcp beside the Web UI), "dedicated" or "both".
+endpoint = "main"
+
+[mcp.dedicated]
+# Run a listener that serves only MCP.
+enabled = false
+# Address and port it binds.
+bind = "127.0.0.1"
+port = 8444
+# Externally reachable base URL; required for a non-loopback bind (default: unset).
+# public_url = "https://mcp.example.net"
+# Certificate: "main" ([server] certificate), "self_signed", or "none" (loopback only).
+tls = "main"
+
+[mcp.auth.main]
+# OAuth sign-in besides API keys: "none", "kcc" (kcc accounts) or "external" (OIDC).
+oauth = "none"
+# Client certificates: "off" or "optional" ("required" only on the dedicated listener).
+mtls = "off"
+
+[mcp.auth.dedicated]
+oauth = "none"
+# "off", "optional" or "required".
+mtls = "off"
+
+[mcp.auth.kcc]
+# Token lifetimes when kcc is the authorization server.
+access_ttl = "15m"
+refresh_ttl = "7d"
+
+[mcp.auth.oidc]
+# External identity provider (defaults: unset). URLs must be https with a host name.
+# issuer = "https://id.example.net/realms/kcc"
+# audience = "kcc"
+# jwks_uri = "https://id.example.net/realms/kcc/protocol/openid-connect/certs"
+# role_claim = "realm_access.roles"
+# Claim value to kcc role: [[mcp.auth.oidc.role_mappings]] with claim_value and role.
+role_mappings = []
+# Scope to kcc role: [[mcp.auth.oidc.scopes]] with scope and role.
+scopes = []
+# Accepted signing algorithms; empty means the default set.
+allowed_algorithms = []
+# Private host names and networks the provider may resolve to (kcc.toml only).
+ssrf_allow_hosts = []
+ssrf_allow_cidrs = []
+
+[mcp.auth.mtls]
+# Role of a client signed in by certificate (default: unset).
+# default_role = "viewer"
 
 [outbound]
 # Networks router addresses must fall into. The default is empty, which admits

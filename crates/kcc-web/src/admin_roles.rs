@@ -24,12 +24,13 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_app::{
+    mcp_settings::{McpBase, SettingsError},
     permissions::{
-        Permission, Role, RolesDocument,
+        KCC_ACCOUNT_ROLE, Permission, Role, RolesDocument,
         assignment::{holder_counts, remove_unheld},
         load_roles,
     },
-    persist::{StateError, StateStore},
+    persist::StateStore,
 };
 use kcc_domain::labels;
 use kcc_i18n::{
@@ -413,7 +414,9 @@ async fn validate(
     let name = existing.unwrap_or_else(|| form.name()).to_owned();
     let name_error = match existing {
         None if !valid_name(&name) => Some(keys::WEB_ADMIN_ERROR_ROLE_NAME),
-        None if is_built_in(&name) => Some(keys::WEB_ADMIN_ERROR_ROLE_BUILT_IN),
+        None if is_built_in(&name) || name == KCC_ACCOUNT_ROLE => {
+            Some(keys::WEB_ADMIN_ERROR_ROLE_BUILT_IN)
+        }
         None if state.role(&name).is_some() => Some(keys::WEB_ADMIN_ERROR_ROLE_EXISTS),
         Some(_) | None => None,
     };
@@ -485,7 +488,7 @@ enum Persisted {
     Exists,
     /// No role has the name.
     Missing,
-    /// An account or API key still holds the role.
+    /// An account, an API key or the MCP settings still hold the role.
     InUse,
 }
 
@@ -502,13 +505,16 @@ async fn persist(
     user: &CurrentUser,
     edit: Edit,
 ) -> Result<Persisted, Box<Response>> {
-    let Some(store) = state.admin().map(|admin| admin.state().clone()) else {
+    let Some((store, mcp)) = state
+        .admin()
+        .map(|admin| (admin.state().clone(), admin.mcp().clone()))
+    else {
         return Err(Box::new(unavailable(None)));
     };
     let outcome = spawn_blocking(
         move || -> Result<(Persisted, Vec<Role>), Box<dyn Error + Send + Sync>> {
-            let persisted =
-                store.update(|document: &mut RolesDocument| apply(&store, document, edit))??;
+            let persisted = store
+                .update(|document: &mut RolesDocument| apply((&store, &mcp), document, edit))??;
             Ok((persisted, load_roles(&store)?))
         },
     )
@@ -530,16 +536,16 @@ async fn persist(
 }
 
 /// Applies `edit` to the locked `document`; deleting first counts the role's holders
-/// under the users and API-key locks.
+/// (accounts and API keys under their locks, and the MCP settings `mcp` names).
 ///
 /// # Errors
 ///
-/// A state error while reading the accounts or API keys.
+/// A state error while reading the accounts, API keys or MCP settings.
 fn apply(
-    store: &StateStore,
+    (store, mcp): (&StateStore, &McpBase),
     document: &mut RolesDocument,
     edit: Edit,
-) -> Result<Persisted, StateError> {
+) -> Result<Persisted, SettingsError> {
     let position = |name: &str| document.roles.iter().position(|role| role.name == name);
     match edit {
         Edit::Create(role) => {
@@ -560,7 +566,8 @@ fn apply(
             if position(&name).is_none() {
                 return Ok(Persisted::Missing);
             }
-            if !remove_unheld(store, document, &name)? {
+            let held = mcp.held_roles(store)?;
+            if !remove_unheld(store, document, &name, &held)? {
                 return Ok(Persisted::InUse);
             }
         }
@@ -581,11 +588,15 @@ async fn region(
     toasts: Vec<Toast>,
     oob: bool,
 ) -> Result<RolesRegion, Box<dyn Error + Send + Sync>> {
-    let store = state
+    let (store, mcp) = state
         .admin()
-        .map(|admin| admin.state().clone())
+        .map(|admin| (admin.state().clone(), admin.mcp().clone()))
         .ok_or("administration services are not attached")?;
-    let counts = spawn_blocking(move || holder_counts(&store)).await??;
+    let counts = spawn_blocking(move || -> Result<_, Box<dyn Error + Send + Sync>> {
+        let held = mcp.held_roles(&store)?;
+        Ok(holder_counts(&store, &held)?)
+    })
+    .await??;
     let locale = user.locale();
     let all: Vec<RoleRow> = ordered(&state.roles())
         .iter()

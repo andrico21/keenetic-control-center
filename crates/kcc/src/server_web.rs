@@ -8,7 +8,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-use kcc_app::settings::Config;
+use kcc_app::{mcp_settings::McpBase, settings::Config};
 use kcc_i18n::locale::Locale;
 use kcc_telemetry::logs::runtime::Service as LogService;
 use kcc_web::{
@@ -30,7 +30,7 @@ use crate::{server_error::ServerError, server_services::Services};
 /// actions page and the dashboards reach the running scheduler through `schedules`.
 pub(crate) fn web_state(
     services: &Services,
-    config: &Config,
+    (config, mcp): (&Config, McpBase),
     auth_reload: Arc<TransportReload>,
     (notify, schedules): (Arc<dyn NotifyControl>, Arc<dyn ScheduleControl>),
 ) -> Result<WebState, ServerError> {
@@ -70,7 +70,12 @@ pub(crate) fn web_state(
     .with_admin(AdminServices {
         state: services.state.clone(),
         reload: Some(auth_reload),
-        server: ServerFacts::from_config(env!("CARGO_PKG_VERSION").to_owned(), config),
+        server: ServerFacts::from_config(
+            env!("CARGO_PKG_VERSION").to_owned(),
+            config,
+            &mcp.effective(&services.state)?,
+        ),
+        mcp,
     })
     .with_notify(notify)
     .with_schedules(schedules))

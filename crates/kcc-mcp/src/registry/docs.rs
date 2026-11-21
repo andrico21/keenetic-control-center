@@ -2,31 +2,7 @@
 
 use core::fmt::Write as _;
 
-use super::definitions::{ToolDescription, tools};
-
-/// Toolsets in documentation order.
-const TOOLSETS: &[(&str, &str)] = &[
-    (
-        "core",
-        "Registered by default: fleet, catalog, jobs, configuration state and the main reads.",
-    ),
-    (
-        "network-write",
-        "Network reads and writes: interfaces, WAN, Wi-Fi, mesh, clients, DHCP, segments, routing, policies, NAT, firewall.",
-    ),
-    ("vpn", "VPN clients and servers."),
-    ("dns", "DNS proxy and KeenDNS."),
-    (
-        "system-admin",
-        "System changes, diagnostics, router users, services, components, storage, schedules, logging and backups.",
-    ),
-    ("migration", "Configuration migration between routers."),
-    (
-        "presets",
-        "Settings presets: capture settings groups from a router or backup and apply them to another router.",
-    ),
-    ("raw", "Catalog-validated raw RCI and CLI access."),
-];
+use super::definitions::{TOOLSETS, ToolDescription, tools};
 
 /// Renders the complete tool reference as Markdown.
 #[inline]
@@ -81,7 +57,8 @@ pub fn markdown() -> String {
            and the timer is off. Failed-change audit parameters\n\
           include `fail_safe_armed: true` when recovery remains armed.\n",
     );
-    for &(toolset, summary) in TOOLSETS {
+    for &(info, summary) in TOOLSETS {
+        let toolset = info.name;
         let members = all
             .iter()
             .filter(|tool| tool.toolset == toolset)

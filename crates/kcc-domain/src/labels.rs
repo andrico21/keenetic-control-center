@@ -18,6 +18,7 @@ const NAMES: [MessageKey; Permission::ALL.len()] = [
     keys::WEB_ADMIN_PERMISSION_VIEW_AUDIT,
     keys::WEB_ADMIN_PERMISSION_MANAGE_NOTIFICATIONS,
     keys::WEB_ADMIN_PERMISSION_MANAGE_SCHEDULES,
+    keys::WEB_ADMIN_PERMISSION_MANAGE_MCP,
 ];
 
 /// The message keys naming the permissions `held` selects, in [`Permission::ALL`] order.

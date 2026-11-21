@@ -33,6 +33,15 @@ key and account changes by itself within about 2 seconds, without `SIGHUP`; the
 notification settings (`notify.json`, the sealed bot token) and `schedules.json` follow
 the same way. Other changes need a restart.
 
+**MCP settings.** The keys of `[mcp]` (except `locked` and the `ssrf_allow_*` keys of
+`[mcp.auth.oidc]`) can also be changed on the Web (Administration > MCP, permission
+ManageMcp); those values are kept in `mcp_settings.json` in the state directory and win
+over this file. A `KCC_MCP_*` variable wins over both, and a key listed in
+`[mcp] locked` keeps this file's value and is read-only on the Web. `kcc serve` and
+`kcc mcp stdio` read the locks and the `[mcp]` values of this file at start (`SIGHUP`
+does not re-read them); Web changes apply while kcc runs, live or by restarting the
+affected listener in-process.
+
 ## Top level
 
 | Key | Type | Default | Meaning |
@@ -82,6 +91,91 @@ proxies; kcc refuses to start otherwise.
 | `allow_destructive` | bool | `false` | allow destructive tools and raw changes to management settings (each call still needs `confirm: true`) |
 | `max_result_bytes` | integer | `32768` | cap on the JSON text of one tool result; larger results are truncated: error codes and status members are kept and the largest array is cut |
 | `toolsets` | list of strings | `["core"]` | tool groups to register: `core`, `network-write`, `vpn`, `dns`, `system-admin`, `migration`, `presets`, `raw` ([MCP_TOOLS.md](MCP_TOOLS.md)) |
+| `locked` | list of strings | `[]` | key paths below `[mcp]` (for example `"allow_destructive"`, `"auth.main.oauth"`) the Web may not change; each must name a Web-managed key |
+| `endpoint` | string | `"main"` | which listener serves MCP: `main` (`/mcp` beside the Web UI), `dedicated` or `both` |
+| `dedicated` | table | see below | the optional MCP-only listener |
+| `auth` | table | see below | sign-in methods per listener |
+
+No setting turns MCP authentication off: API keys always work on every listener, and
+`kcc mcp stdio` stays the only unauthenticated (local) path.
+
+### `[mcp.dedicated]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `enabled` | bool | `false` | run the dedicated MCP listener |
+| `bind` | IP address | `"127.0.0.1"` | address it binds |
+| `port` | integer | `8444` | port it binds (at least 1024) |
+| `public_url` | URL | unset | externally reachable base URL; required for a non-loopback `bind` |
+| `tls` | string | `"main"` | certificate: `main` (the `[server]` certificate), `self_signed`, or `none` (plain HTTP, loopback `bind` only) |
+
+### `[mcp.auth]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `main` | table | see below | sign-in methods of the main listener |
+| `dedicated` | table | see below | sign-in methods of the dedicated listener |
+| `kcc` | table | see below | kcc as OAuth authorization server |
+| `oidc` | table | see below | external OIDC identity provider |
+| `mtls` | table | see below | client certificate sign-in |
+
+### `[mcp.auth.main]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `oauth` | string | `"none"` | OAuth sign-in besides API keys: `none`, `kcc` (kcc accounts) or `external` (`[mcp.auth.oidc]`) |
+| `mtls` | string | `"off"` | client certificates: `off` or `optional`; `required` is refused here because this listener also serves the Web UI |
+
+### `[mcp.auth.dedicated]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `oauth` | string | `"none"` | as in `[mcp.auth.main]` |
+| `mtls` | string | `"off"` | `off`, `optional` or `required` |
+
+### `[mcp.auth.kcc]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `access_ttl` | duration | `15m` | lifetime of an access token |
+| `refresh_ttl` | duration | `7d` | lifetime of a refresh token (at least `access_ttl`) |
+
+### `[mcp.auth.oidc]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `issuer` | URL | unset | token issuer (`iss`); https, and the host must be a name, not an IP address |
+| `audience` | string | unset | expected audience (`aud`) |
+| `jwks_uri` | URL | unset | the provider's JWKS URL; https, host a name |
+| `role_claim` | string | unset | claim holding role values (for example `realm_access.roles`); scopes are mapped when unset |
+| `role_mappings` | array of tables | `[]` | claim value to kcc role, see below |
+| `scopes` | array of tables | `[]` | scope to kcc role, see below |
+| `allowed_algorithms` | list of strings | `[]` | accepted signing algorithms; empty means the kit's default set |
+| `ssrf_allow_hosts` | list of strings | `[]` | private host names the provider may resolve to; this file only, never the Web |
+| `ssrf_allow_cidrs` | list of CIDRs | `[]` | private networks the provider may resolve to; this file only, never the Web |
+
+A mapped role (and `stdio_role`, `[mcp.auth.mtls] default_role`) must not be the reserved
+name `kcc-account`, and a role named by these settings cannot be deleted.
+
+### `[[mcp.auth.oidc.role_mappings]]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `claim_value` | string | required | value of `role_claim` |
+| `role` | string | required | kcc role granted for it |
+
+### `[[mcp.auth.oidc.scopes]]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `scope` | string | required | OAuth scope |
+| `role` | string | required | kcc role granted for it |
+
+### `[mcp.auth.mtls]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `default_role` | string | unset | role of a client signed in by certificate (the CA is uploaded on the Web) |
 
 ## `[outbound]`
 

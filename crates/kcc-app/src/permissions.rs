@@ -3,6 +3,7 @@
 extern crate alloc;
 
 use alloc::collections::{BTreeMap, BTreeSet};
+use core::iter;
 
 use rmcp_server_kit::rbac::{RbacConfig, RoleConfig};
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,12 @@ use serde_json::Value;
 use crate::persist::{Migration, StateDoc, StateError, StateStore};
 
 pub mod assignment;
+
+/// The reserved role of MCP clients signed in with a kcc account.
+///
+/// The RBAC layer lets it reach every tool on every router, and each call is checked
+/// against the account's own role. No custom role and no setting may use this name.
+pub const KCC_ACCOUNT_ROLE: &str = "kcc-account";
 
 /// A capability that can be granted to a role.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -41,11 +48,13 @@ pub enum Permission {
     ManageNotifications,
     /// Create, update and remove scheduled actions.
     ManageSchedules,
+    /// Change the MCP settings and manage MCP connections.
+    ManageMcp,
 }
 
 impl Permission {
     /// Every permission, used by the built-in administrator role.
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Read,
         Self::Write,
         Self::Save,
@@ -58,6 +67,7 @@ impl Permission {
         Self::ViewAudit,
         Self::ManageNotifications,
         Self::ManageSchedules,
+        Self::ManageMcp,
     ];
 }
 
@@ -186,6 +196,12 @@ pub enum PermissionError {
         /// Rejected role name.
         name: String,
     },
+    /// A custom role used the reserved name [`KCC_ACCOUNT_ROLE`].
+    #[error("role name {name:?} is reserved")]
+    Reserved {
+        /// Rejected role name.
+        name: String,
+    },
     /// A role name occurred more than once.
     #[error("duplicate role {name:?}")]
     DuplicateRole {
@@ -243,6 +259,9 @@ pub fn load_roles(store: &StateStore) -> Result<Vec<Role>, PermissionError> {
         if built_in_names.contains(&role.name.as_str()) {
             return Err(PermissionError::BuiltInOverride { name: role.name });
         }
+        if role.name == KCC_ACCOUNT_ROLE {
+            return Err(PermissionError::Reserved { name: role.name });
+        }
         if role.router_scope.is_empty() {
             return Err(PermissionError::EmptyRouterScope { name: role.name });
         }
@@ -257,7 +276,8 @@ pub fn load_roles(store: &StateStore) -> Result<Vec<Role>, PermissionError> {
 /// Converts application roles and tools into rmcp-server-kit's RBAC config.
 ///
 /// Each role receives exactly the tools whose permission it grants; router
-/// scopes become kit host globs unchanged.
+/// scopes become kit host globs unchanged. The reserved [`KCC_ACCOUNT_ROLE`] is always
+/// added with every tool and router scope `*`.
 #[inline]
 #[must_use]
 pub fn rbac_config(roles: &[Role], tools: &[ToolSpec]) -> RbacConfig {
@@ -271,6 +291,11 @@ pub fn rbac_config(roles: &[Role], tools: &[ToolSpec]) -> RbacConfig {
                 .collect();
             RoleConfig::new(role.name.clone(), allow, role.router_scope.clone())
         })
+        .chain(iter::once(RoleConfig::new(
+            KCC_ACCOUNT_ROLE.to_owned(),
+            tools.iter().map(|tool| tool.name.clone()).collect(),
+            vec!["*".to_owned()],
+        )))
         .collect();
     RbacConfig::with_roles(role_configs)
 }

@@ -1,6 +1,10 @@
 //! Permission, account and API-key security-boundary tests.
 
 #[cfg(test)]
+#[path = "permissions/mcp_roles.rs"]
+mod mcp_roles;
+
+#[cfg(test)]
 #[expect(
     clippy::missing_panics_doc,
     clippy::panic_in_result_fn,
@@ -121,7 +125,7 @@ mod tests {
     /// hold one and `roles.json` keeps schema 1.
     #[test]
     fn manage_permissions_belong_to_admin_and_custom_roles_only() -> TestResult {
-        assert_eq!(Permission::ALL.len(), 12, "permission count");
+        assert_eq!(Permission::ALL.len(), 13, "permission count");
         for role in built_in_roles() {
             let holds = |permission| role.permissions.contains(&permission);
             let admin = role.name == "admin";

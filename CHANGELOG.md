@@ -290,6 +290,19 @@ The first release, `0.1.0`, is in preparation and contains:
   media that can be initialized as ext4, and whether the DNS filter engine is `opkg`. The
   fake router (`kcc-testkit`) gains the `opkg` settings and `dns-proxy filter engine`,
   available `opkg`/`ext` components and a media uuid and `initialize-supported` list.
+- **Permission `manage_mcp`** (`ManageMcp`, thirteenth permission): guards the MCP
+  settings and connections pages (`/ui/admin/mcp*`); only the built-in `admin` holds it.
+  The role name `kcc-account` is reserved (a custom role with it is refused) and is always
+  in the MCP RBAC configuration with every tool and router scope `*`. `roles.json` keeps
+  schema 1, so an older binary refuses a custom role that names the new permission.
+- **MCP settings state file and new `[mcp]` keys**: `[mcp]` gains `locked`, `endpoint`,
+  `[mcp.dedicated]` and `[mcp.auth.main|dedicated|kcc|oidc|mtls]` (see `docs/CONFIG.md`);
+  existing keys keep their meaning and defaults. Web-managed values live in
+  `mcp_settings.json` (schema 1) and are resolved per key as environment, locked kcc.toml
+  key, state file, kcc.toml, default; `kcc serve` and `kcc mcp stdio` read MCP settings
+  only through that resolver. A role the MCP settings name cannot be deleted. Each MCP
+  toolset carries a `safety_reducing` flag (`raw`). Library: `remove_unheld` and
+  `holder_counts` take the set of roles the MCP settings hold.
 
 ### Changed
 

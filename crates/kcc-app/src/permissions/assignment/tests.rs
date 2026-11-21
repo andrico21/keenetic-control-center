@@ -8,7 +8,7 @@
 
 extern crate alloc;
 
-use alloc::rc::Rc;
+use alloc::{collections::BTreeSet, rc::Rc};
 use core::{error::Error, time::Duration};
 use std::{
     sync::mpsc::{self, Receiver},
@@ -82,7 +82,9 @@ fn an_assignment_cannot_slip_into_a_role_deletion() -> TestResult {
                 deletion_go.recv_timeout(WAIT).unwrap_or_default();
             }
         }));
-        deleting.update(|roles: &mut RolesDocument| remove_unheld(&deleting, roles, "lab-ops"))?
+        deleting.update(|roles: &mut RolesDocument| {
+            remove_unheld(&deleting, roles, "lab-ops", &BTreeSet::new())
+        })?
     });
     deletion_counted.recv_timeout(WAIT)?;
 
@@ -117,7 +119,10 @@ fn an_assignment_cannot_slip_into_a_role_deletion() -> TestResult {
             Assigner::Locking => return Err("the assignment reported locking twice".into()),
         },
     };
-    let held = holder_counts(&store)?.get("lab-ops").copied().unwrap_or(0);
+    let held = holder_counts(&store, &BTreeSet::new())?
+        .get("lab-ops")
+        .copied()
+        .unwrap_or(0);
     let exists = load_roles(&store)?
         .iter()
         .any(|role| role.name == "lab-ops");

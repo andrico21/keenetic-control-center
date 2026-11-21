@@ -6,7 +6,7 @@ use kcc_app::settings::{McpConfig, PrivacyConfig};
 use serde_json::to_value;
 
 use super::fixture::Fixture;
-use crate::registry::definitions::{generic, tools};
+use crate::registry::definitions::{generic, tools, toolset};
 
 /// E-14: every generic tool is listed with the description and annotations of its
 /// `generic()` definition, so editing one place cannot make a listed tool drift.
@@ -41,5 +41,23 @@ async fn generic_tools_are_listed_as_defined() -> Result<(), Box<dyn Error>> {
         );
     }
     fixture.shutdown().await?;
+    Ok(())
+}
+
+/// Todo 23: every tool belongs to a toolset the lookup knows, and only `raw` among the
+/// existing toolsets reduces safety when turned on.
+#[test]
+fn every_tool_names_a_known_toolset_and_raw_reduces_safety() -> Result<(), Box<dyn Error>> {
+    for definition in tools() {
+        let info = toolset(definition.toolset)
+            .ok_or_else(|| format!("{} names an unknown toolset", definition.name))?;
+        assert_eq!(
+            info.safety_reducing,
+            info.name == "raw",
+            "safety metadata of {}",
+            info.name
+        );
+    }
+    assert_eq!(toolset("shell"), None, "unknown toolset");
     Ok(())
 }

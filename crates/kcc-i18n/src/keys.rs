@@ -7861,8 +7861,12 @@ pub const WEB_ADMIN_KEY_EXPIRES_1Y: MessageKey = MessageKey::new("web-admin-key-
 /// `web-admin-error-key-expiry` in `web.ftl`.
 pub const WEB_ADMIN_ERROR_KEY_EXPIRY: MessageKey = MessageKey::new("web-admin-error-key-expiry");
 
+/// `web-admin-permission-manage-mcp` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_MANAGE_MCP: MessageKey =
+    MessageKey::new("web-admin-permission-manage-mcp");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2470] = [
+pub static ALL: [MessageKey; 2471] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -10333,4 +10337,5 @@ pub static ALL: [MessageKey; 2470] = [
     WEB_ADMIN_KEY_EXPIRES_90D,
     WEB_ADMIN_KEY_EXPIRES_1Y,
     WEB_ADMIN_ERROR_KEY_EXPIRY,
+    WEB_ADMIN_PERMISSION_MANAGE_MCP,
 ];

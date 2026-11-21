@@ -6,6 +6,73 @@ use serde_json::{Value, json};
 
 use crate::{config_tools, domains, migration_tools, preset_tools};
 
+/// One toolset (`[mcp] toolsets`) and whether turning it on reduces safety.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct ToolsetInfo {
+    /// Toolset name.
+    pub name: &'static str,
+    /// Turning the toolset on is a safety-reducing MCP settings change.
+    pub safety_reducing: bool,
+}
+
+/// Builds a toolset with its documentation summary.
+const fn entry(
+    name: &'static str,
+    safety_reducing: bool,
+    summary: &'static str,
+) -> (ToolsetInfo, &'static str) {
+    (
+        ToolsetInfo {
+            name,
+            safety_reducing,
+        },
+        summary,
+    )
+}
+
+/// Every toolset with its one-line summary for `docs/MCP_TOOLS.md`, in documentation order.
+pub(crate) const TOOLSETS: &[(ToolsetInfo, &str)] = &[
+    entry(
+        "core",
+        false,
+        "Registered by default: fleet, catalog, jobs, configuration state and the main reads.",
+    ),
+    entry(
+        "network-write",
+        false,
+        "Network reads and writes: interfaces, WAN, Wi-Fi, mesh, clients, DHCP, segments, routing, policies, NAT, firewall.",
+    ),
+    entry("vpn", false, "VPN clients and servers."),
+    entry("dns", false, "DNS proxy and KeenDNS."),
+    entry(
+        "system-admin",
+        false,
+        "System changes, diagnostics, router users, services, components, storage, schedules, logging and backups.",
+    ),
+    entry(
+        "migration",
+        false,
+        "Configuration migration between routers.",
+    ),
+    entry(
+        "presets",
+        false,
+        "Settings presets: capture settings groups from a router or backup and apply them to another router.",
+    ),
+    entry("raw", true, "Catalog-validated raw RCI and CLI access."),
+];
+
+/// The toolset named `name`, if any.
+#[inline]
+#[must_use]
+pub fn toolset(name: &str) -> Option<ToolsetInfo> {
+    TOOLSETS
+        .iter()
+        .map(|&(info, _summary)| info)
+        .find(|info| info.name == name)
+}
+
 /// One registered tool as clients and the coarse RBAC gate see it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]

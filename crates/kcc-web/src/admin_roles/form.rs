@@ -22,6 +22,7 @@ const PERMISSIONS: [(Permission, &str); Permission::ALL.len()] = [
     (Permission::ViewAudit, "view_audit"),
     (Permission::ManageNotifications, "manage_notifications"),
     (Permission::ManageSchedules, "manage_schedules"),
+    (Permission::ManageMcp, "manage_mcp"),
 ];
 
 /// Each permission with its form field and label, in display order.
@@ -128,6 +129,6 @@ mod tests {
             Permission::ALL,
             "the permission column"
         );
-        assert_eq!(super::checkboxes().count(), 12, "twelve checkboxes");
+        assert_eq!(super::checkboxes().count(), 13, "thirteen checkboxes");
     }
 }

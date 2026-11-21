@@ -20,6 +20,7 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_app::{
+    mcp_settings::McpBase,
     permissions::{Permission, Role},
     persist::StateStore,
 };
@@ -81,6 +82,11 @@ impl Admin {
     /// The server page's facts.
     pub(crate) const fn server(&self) -> &ServerFacts {
         &self.services.server
+    }
+
+    /// kcc.toml's `[mcp]` and the environment as read at start.
+    pub(crate) const fn mcp(&self) -> &McpBase {
+        &self.services.mcp
     }
 
     /// Unix time the process started.

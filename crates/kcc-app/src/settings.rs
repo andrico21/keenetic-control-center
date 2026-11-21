@@ -36,6 +36,7 @@ use url::Url;
 use crate::registry::rules::{self, ProfileFault};
 
 mod env_overrides;
+pub mod mcp_schema;
 pub mod notifications;
 pub mod schedules;
 
@@ -100,6 +101,10 @@ impl From<RmcpServerKitError> for ConfigError {
 
 /// Root of `kcc.toml`.
 #[derive(Debug, Default, Deserialize)]
+#[expect(
+    clippy::partial_pub_fields,
+    reason = "the record of the [mcp] keys the text set is derived while parsing, never set by callers"
+)]
 #[serde(deny_unknown_fields, default)]
 #[non_exhaustive]
 pub struct Config {
@@ -133,6 +138,9 @@ pub struct Config {
     pub schedules: schedules::SchedulesConfig,
     /// `[[routers]]`: config-defined router profiles (read-only in the UI).
     pub routers: Vec<RouterProfile>,
+    /// Dotted paths of the `[mcp]` keys the parsed text sets, below `mcp.`.
+    #[serde(skip)]
+    mcp_keys: BTreeSet<String>,
 }
 
 /// `[web]` section.
@@ -197,6 +205,14 @@ pub struct McpConfig {
     pub max_result_bytes: u32,
     /// Tool groups registered by the MCP server.
     pub toolsets: Vec<String>,
+    /// Key paths the Web may not change (read at start).
+    pub locked: Vec<String>,
+    /// Which listener serves MCP.
+    pub endpoint: mcp_schema::Endpoint,
+    /// `[mcp.dedicated]`: the optional MCP-only listener.
+    pub dedicated: mcp_schema::DedicatedListenerConfig,
+    /// `[mcp.auth]`: sign-in methods per listener.
+    pub auth: mcp_schema::McpAuthConfig,
 }
 
 impl Default for McpConfig {
@@ -210,6 +226,10 @@ impl Default for McpConfig {
             allow_destructive: false,
             max_result_bytes: 32 * 1024,
             toolsets: vec!["core".to_owned()],
+            locked: Vec::new(),
+            endpoint: mcp_schema::Endpoint::Main,
+            dedicated: mcp_schema::DedicatedListenerConfig::default(),
+            auth: mcp_schema::McpAuthConfig::default(),
         }
     }
 }
@@ -767,6 +787,13 @@ impl OverrideReport {
 }
 
 impl Config {
+    /// Whether the parsed text sets the `[mcp]` key at dotted `path` (below `mcp.`).
+    #[inline]
+    #[must_use]
+    pub fn sets_mcp_key(&self, path: &str) -> bool {
+        self.mcp_keys.contains(path)
+    }
+
     /// Whether the listener itself terminates TLS: a certificate and a key are both set.
     #[inline]
     #[must_use]
@@ -797,6 +824,9 @@ impl Config {
     #[inline]
     pub fn from_toml_str(text: &str) -> Result<Self, ConfigError> {
         let mut config = toml::from_str::<Self>(text)?;
+        if let Some(toml::Value::Table(mcp)) = toml::from_str::<toml::Table>(text)?.get("mcp") {
+            collect_keys(mcp, "", &mut config.mcp_keys);
+        }
         normalize_suffixes(&mut config.outbound.allowed_suffixes)?;
         if !ARGON2_ITERATIONS.contains(&config.outbound.argon2_max_iterations) {
             return Err(invalid(
@@ -913,9 +943,7 @@ impl Config {
             return Err(invalid("web.default_locale", "must not be empty"));
         }
         drop(self.web_allowed_origins()?);
-        if self.mcp.max_result_bytes == 0 {
-            return Err(invalid("mcp.max_result_bytes", "must be at least 1"));
-        }
+        mcp_schema::checks::validate(&self.mcp)?;
         let mut names = BTreeSet::new();
         for router in &self.routers {
             router.validate()?;
@@ -1099,6 +1127,24 @@ pub(crate) fn is_valid_router_id(id: &str) -> bool {
         && id
             .bytes()
             .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+}
+
+/// Adds the dotted path of every leaf of `table` below `prefix` to `keys`.
+fn collect_keys(table: &toml::Table, prefix: &str, keys: &mut BTreeSet<String>) {
+    for (name, value) in table {
+        let path = format!("{prefix}{name}");
+        match value {
+            toml::Value::Table(inner) => collect_keys(inner, &format!("{path}."), keys),
+            toml::Value::String(_)
+            | toml::Value::Integer(_)
+            | toml::Value::Float(_)
+            | toml::Value::Boolean(_)
+            | toml::Value::Datetime(_)
+            | toml::Value::Array(_) => {
+                let _: bool = keys.insert(path);
+            }
+        }
+    }
 }
 
 /// Builds a [`ConfigError::Invalid`].

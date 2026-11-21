@@ -206,11 +206,17 @@ never its value.
 ## Permissions (RBAC)
 
 Permissions are Read, Write, Save, Destructive, Migrate, RawRci, RevealSecrets,
-ManageRouters, ManageUsers, ViewAudit, ManageNotifications and ManageSchedules. Built-in
-roles: `viewer` (Read), `operator` (Read, Write, Save, Migrate) and `admin` (everything);
-custom roles add router-name globs. ManageNotifications and ManageSchedules, which open
-the notification and scheduled-action pages (`/ui/admin/notifications`,
-`/ui/admin/scheduled`), belong to `admin` only by default. A scheduled action also needs
+ManageRouters, ManageUsers, ViewAudit, ManageNotifications, ManageSchedules and
+ManageMcp. Built-in roles: `viewer` (Read), `operator` (Read, Write, Save, Migrate) and
+`admin` (everything); custom roles add router-name globs. ManageNotifications,
+ManageSchedules and ManageMcp, which open the notification, scheduled-action and MCP
+settings pages (`/ui/admin/notifications`, `/ui/admin/scheduled`, `/ui/admin/mcp`),
+belong to `admin` only by default. The role name `kcc-account` is reserved: no custom
+role may use it, and the RBAC layer always holds it with every tool on every router for
+MCP clients signed in with a kcc account, whose own role is checked on every call. A role
+the MCP settings name (`stdio_role`, `[mcp.auth.mtls] default_role`, an OIDC mapping
+target) must be one the configuring admin's role covers, and cannot be deleted while
+named. A scheduled action also needs
 the permissions of the action itself on its router, when it is created and again when it
 runs: a policy switch needs Write; a backup needs Write; a reboot needs Destructive; a
 preset needs Read, Migrate, Write and Save on the target router, plus Read and Migrate

@@ -2169,3 +2169,4 @@ web-admin-key-expires-30d = 30 Tage
 web-admin-key-expires-90d = 90 Tage
 web-admin-key-expires-1y = 1 Jahr
 web-admin-error-key-expiry = Wählen Sie eine der angebotenen Gültigkeitsdauern.
+web-admin-permission-manage-mcp = MCP-Einstellungen und -Verbindungen verwalten

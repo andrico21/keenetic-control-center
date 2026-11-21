@@ -264,6 +264,7 @@ fn requirement(path: &str) -> Requirement {
         value if value.starts_with("/ui/admin/audit") => Permission::ViewAudit,
         value if value.starts_with("/ui/admin/notifications") => Permission::ManageNotifications,
         value if value.starts_with("/ui/admin/scheduled") => Permission::ManageSchedules,
+        value if value.starts_with("/ui/admin/mcp") => Permission::ManageMcp,
         value if value.starts_with("/ui/admin") => Permission::ManageUsers,
         value if value.starts_with("/ui/audit") => Permission::ViewAudit,
         value if value.starts_with("/ui/migrate") => Permission::Migrate,
@@ -319,6 +320,8 @@ mod tests {
             ),
             ("/ui/admin/scheduled", Permission::ManageSchedules),
             ("/ui/admin/scheduled/new", Permission::ManageSchedules),
+            ("/ui/admin/mcp", Permission::ManageMcp),
+            ("/ui/admin/mcp/connections", Permission::ManageMcp),
         ] {
             assert_eq!(requirement(path).permission, permission, "{path}");
         }

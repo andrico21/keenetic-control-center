@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use kcc_app::{
     api_keys::api_key_entries,
     audit::AuditLog,
+    mcp_settings::{EnvOverrides, McpBase},
     persist::StateStore,
     settings::{Config, default_config_dir},
 };
@@ -44,7 +45,7 @@ use crate::{
 // NOT cancel-safe: once the listener starts, shutdown must be driven cooperatively by the kit.
 pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerError> {
     let hangups = hangups();
-    let (path, config, _tracing_guard) = load_config(config_path)?;
+    let (path, config, mcp_base, _tracing_guard) = load_config(config_path)?;
     crate::server_tls_key::check(&config)?;
     let state_dir = config.state.resolved_dir()?;
     let state = StateStore::open(&state_dir)?;
@@ -54,6 +55,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             dir: state_dir.clone(),
             source,
         })?;
+    let mcp = mcp_base.effective(&state)?.into_settings();
     let mut services = Services::open(&config, state, ServicesMode::Serve).await?;
     let notify = NotifyHandle::start(
         Deps::from_services(&services),
@@ -61,7 +63,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     )
     .await?;
     let (scheduler, schedule_control) = start_for_server(&services, &notify, &config);
-    let handler = services.handler(&config, config.mcp.http_enabled)?;
+    let handler = services.handler(&config, &mcp, mcp.http_enabled)?;
     let rbac = Arc::new(RbacPolicy::new(&handler.rbac_config()));
     let auth = AuthConfig::with_keys(api_key_entries(&services.state)?)
         .with_rate_limit(RateLimitConfig::new(30).with_pre_auth_burst(10));
@@ -85,7 +87,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     let web_state = if config.web.enabled {
         Some(web_state(
             &services,
-            &config,
+            (&config, mcp_base),
             Arc::clone(&auth_reload),
             (Arc::new(notify.clone()), schedule_control),
         )?)
@@ -109,16 +111,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     );
     let (configured_server, _exporter) = with_metrics(&services, server_with_origins, &config)?;
     let validated = configured_server.validate()?;
-    let listener = tokio::net::TcpListener::bind((
-        config.server.listen_addr.trim_matches(['[', ']']),
-        config.server.listen_port,
-    ))
-    .await
-    .map_err(|source| ServerError::Bind {
-        address: config.server.listen_addr.clone(),
-        port: config.server.listen_port,
-        source,
-    })?;
+    let listener = bind_main(&config).await?;
     let shutdown = CancellationToken::new();
     let serving = serve_with_listener(
         listener,
@@ -141,6 +134,21 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     wind_down(&mut services, &notify).await;
     serve_result?;
     Ok(Outcome::Ok)
+}
+
+/// Binds the main listener, `[server] listen_addr` and `listen_port`.
+// cancel-safe: dropping it drops the socket before it is used.
+async fn bind_main(config: &Config) -> Result<tokio::net::TcpListener, ServerError> {
+    tokio::net::TcpListener::bind((
+        config.server.listen_addr.trim_matches(['[', ']']),
+        config.server.listen_port,
+    ))
+    .await
+    .map_err(|source| ServerError::Bind {
+        address: config.server.listen_addr.clone(),
+        port: config.server.listen_port,
+        source,
+    })
 }
 
 /// Stops `kcc serve`'s services once the listener and the scheduler have stopped.
@@ -177,14 +185,15 @@ async fn wind_down(services: &mut Services, notify: &NotifyHandle) {
 // guard ends the session while its detached tool calls run on, and the bracket wait only observes
 // the count.
 pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<Outcome, ServerError> {
-    let (_path, config, _tracing_guard) = load_config(config_path)?;
-    if !config.mcp.stdio_enabled {
+    let (_path, config, mcp_base, _tracing_guard) = load_config(config_path)?;
+    let state = StateStore::open(&config.state.resolved_dir()?)?;
+    let mcp = mcp_base.effective(&state)?.into_settings();
+    if !mcp.stdio_enabled {
         tracing::error!("stdio transport is disabled by mcp.stdio_enabled");
         return Ok(Outcome::Forbidden);
     }
-    let state = StateStore::open(&config.state.resolved_dir()?)?;
     let services = Services::open(&config, state, ServicesMode::Stdio).await?;
-    let handler = services.handler(&config, true)?;
+    let handler = services.handler(&config, &mcp, true)?;
     let served = crate::server_shutdown::serve_until_signal(Box::pin(serve_stdio(handler))).await;
     crate::server_shutdown::wait_for_brackets(services.workflow.brackets()).await;
     if let Err(failure) = served {
@@ -203,13 +212,15 @@ pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     Ok(Outcome::Ok)
 }
 
-/// Loads, overrides, traces, and validates one configuration generation.
+/// Loads, overrides, traces, and validates one configuration generation, and captures its
+/// `[mcp]` with the keys the environment set, for [`McpBase::effective`].
 fn load_config(
     config_path: Option<PathBuf>,
 ) -> Result<
     (
         PathBuf,
         Config,
+        McpBase,
         rmcp_server_kit::observability::TracingGuard,
     ),
     ServerError,
@@ -221,11 +232,12 @@ fn load_config(
     let overrides = config.apply_env_overrides()?;
     let tracing_guard = init_tracing_from_config_strict(&config.observability)?;
     crate::privileges::log_startup_posture();
-    for entry in overrides {
+    for entry in &overrides {
         tracing::info!(env_var = %entry.env_var, target = %entry.target_field, "environment override applied");
     }
     config.validate()?;
-    Ok((path, config, tracing_guard))
+    let mcp = McpBase::new(&config, &EnvOverrides::from_reports(&overrides));
+    Ok((path, config, mcp, tracing_guard))
 }
 
 /// Builds the state-directory and audit-writer readiness probe.

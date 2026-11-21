@@ -24,7 +24,7 @@ use kcc_app::{
     registry::RouterRegistry,
     role_source::RoleSource,
     secrets::MasterKey,
-    settings::Config,
+    settings::{Config, McpConfig},
     workflow::ChangeWorkflow,
 };
 use kcc_mcp::KccMcp;
@@ -186,16 +186,22 @@ impl Services {
         })
     }
 
-    /// Builds an MCP handler and resolves its local fallback role.
-    pub(crate) fn handler(&self, config: &Config, enabled: bool) -> Result<KccMcp, ServerError> {
-        let mut mcp = config.mcp.clone();
+    /// Builds an MCP handler on the effective MCP settings `settings` and resolves its
+    /// local fallback role.
+    pub(crate) fn handler(
+        &self,
+        config: &Config,
+        settings: &McpConfig,
+        enabled: bool,
+    ) -> Result<KccMcp, ServerError> {
+        let mut mcp = settings.clone();
         if !enabled {
             mcp.toolsets.clear();
         }
         let role = self
             .roles
-            .find(&config.mcp.stdio_role)
-            .ok_or_else(|| ServerError::UnknownStdioRole(config.mcp.stdio_role.clone()))?;
+            .find(&settings.stdio_role)
+            .ok_or_else(|| ServerError::UnknownStdioRole(settings.stdio_role.clone()))?;
         Ok(KccMcp::new(
             mcp,
             config.privacy,

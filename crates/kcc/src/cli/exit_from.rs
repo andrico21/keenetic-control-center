@@ -182,6 +182,7 @@ impl From<ServerError> for Failure {
             | ServerError::Core(_)
             | ServerError::Registry(_)
             | ServerError::Roles(_)
+            | ServerError::McpSettings(_)
             | ServerError::Jobs(_)
             | ServerError::Reload(_)
             | ServerError::Logs(_)

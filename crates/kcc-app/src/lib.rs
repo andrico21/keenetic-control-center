@@ -19,6 +19,7 @@ pub mod brackets;
 pub mod composition;
 pub mod credentials;
 pub mod jobs;
+pub mod mcp_settings;
 pub mod notify_store;
 pub mod permissions;
 pub mod persist;

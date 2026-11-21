@@ -2169,3 +2169,4 @@ web-admin-key-expires-30d = 30 күн
 web-admin-key-expires-90d = 90 күн
 web-admin-key-expires-1y = 1 жыл
 web-admin-error-key-expiry = Ұсынылған әрекет мерзімдерінің бірін таңдаңыз.
+web-admin-permission-manage-mcp = MCP баптаулары мен қосылымдарын басқару

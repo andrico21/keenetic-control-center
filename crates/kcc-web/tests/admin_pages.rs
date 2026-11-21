@@ -39,6 +39,10 @@ mod tests {
         accounts::{AccountStore, NewAccount},
         api_keys::api_key_entries,
         audit::{Actor, ActorKind, AuditEvent, AuditLog},
+        mcp_settings::{
+            EnvOverrides, McpBase,
+            document::{McpOverrides, McpSettingsDocument},
+        },
         permissions::{Permission, Role, RolesDocument, load_roles},
         persist::StateStore,
         settings::Config,
@@ -139,6 +143,8 @@ mod tests {
         breaking: bool,
         /// The configuration the server page reports.
         config: Config,
+        /// The Web-managed MCP settings saved before the server starts.
+        mcp_state: Option<McpOverrides>,
     }
 
     impl Fixture {
@@ -165,6 +171,13 @@ mod tests {
                 core.state
                     .update(|document: &mut RolesDocument| document.roles.extend(roles))?;
             }
+            if let Some(overrides) = &options.mcp_state {
+                let mut document = McpSettingsDocument::default();
+                document.revision = 1;
+                document.overrides = overrides.clone();
+                core.state.write(&document)?;
+            }
+            let mcp = McpBase::new(&options.config, &EnvOverrides::default());
             let reload = Arc::new(CountingReload::default());
             let transport_reload = options
                 .transport
@@ -185,7 +198,12 @@ mod tests {
                 .with_admin(AdminServices {
                     state: core.state.clone(),
                     reload: Some(bridge),
-                    server: ServerFacts::from_config("9.9.9".to_owned(), &options.config),
+                    server: ServerFacts::from_config(
+                        "9.9.9".to_owned(),
+                        &options.config,
+                        &mcp.effective(&core.state)?,
+                    ),
+                    mcp,
                 });
             let fixture = Self {
                 _directory: core.directory,
@@ -764,6 +782,75 @@ mod tests {
             header_text(&ended, header::LOCATION.as_str()).as_deref(),
             Some("/ui/login"),
             "sessions holding the edited role end"
+        );
+        Ok(())
+    }
+
+    /// Todo 23: the Roles page refuses to delete a role kcc.toml or the Web MCP settings
+    /// name as an MCP role target, and deletes it once nothing names it.
+    #[tokio::test]
+    async fn a_role_the_mcp_settings_name_is_not_deleted_on_the_roles_page() -> TestResult {
+        let lab = role("lab-ops", &[Permission::Read], &["lab-*"]);
+        let mut from_web = McpOverrides::default();
+        from_web.stdio_role = Some("lab-ops".to_owned());
+        for options in [
+            Options {
+                config: Config::from_toml_str(
+                    "[[mcp.auth.oidc.role_mappings]]\nclaim_value = \"ops\"\nrole = \"lab-ops\"\n",
+                )?,
+                ..Options::default()
+            },
+            Options {
+                mcp_state: Some(from_web),
+                ..Options::default()
+            },
+        ] {
+            let (fixture, _) = Fixture::build("en", vec![lab.clone()], &options)?;
+            let admin = fixture.admin().await?;
+
+            let refused = fixture
+                .post(
+                    &admin,
+                    "/ui/admin/roles/delete",
+                    &[
+                        ("object", "lab-ops"),
+                        ("confirm", "yes"),
+                        ("confirm_name", "lab-ops"),
+                    ],
+                )
+                .await?;
+
+            assert_eq!(refused.status(), StatusCode::UNPROCESSABLE_ENTITY, "held");
+            assert!(
+                load_roles(&fixture.state)?
+                    .iter()
+                    .any(|stored| stored.name == "lab-ops"),
+                "the held role was deleted"
+            );
+        }
+        let (fixture, _) = Fixture::build("en", vec![lab], &Options::default())?;
+        let admin = fixture.admin().await?;
+        let deleted = fixture
+            .post(
+                &admin,
+                "/ui/admin/roles/delete",
+                &[
+                    ("object", "lab-ops"),
+                    ("confirm", "yes"),
+                    ("confirm_name", "lab-ops"),
+                ],
+            )
+            .await?;
+        assert_eq!(
+            deleted.status(),
+            StatusCode::OK,
+            "an unnamed role is deleted"
+        );
+        assert!(
+            !load_roles(&fixture.state)?
+                .iter()
+                .any(|stored| stored.name == "lab-ops"),
+            "the unnamed role is still there"
         );
         Ok(())
     }
@@ -1395,6 +1482,7 @@ mod tests {
             transport: false,
             breaking: false,
             config: Config::load(&config_file)?,
+            mcp_state: None,
         };
         let (fixture, _) = Fixture::build("en", Vec::new(), &options)?;
         let admin = fixture.admin().await?;
@@ -1427,6 +1515,35 @@ mod tests {
         }
         for secret in ["router-password-file", "/run/secrets", "admin</dd>"] {
             assert!(!html.contains(secret), "leaked {secret}");
+        }
+        Ok(())
+    }
+
+    /// Todo 23: the server page shows the effective MCP settings, so a value saved on the
+    /// Web wins over kcc.toml there too.
+    #[tokio::test]
+    async fn the_server_page_shows_the_effective_mcp_settings() -> TestResult {
+        let mut overrides = McpOverrides::default();
+        overrides.http_enabled = Some(false);
+        overrides.read_only = Some(true);
+        let options = Options {
+            config: Config::from_toml_str("[mcp]\nread_only = false\n")?,
+            mcp_state: Some(overrides),
+            ..Options::default()
+        };
+        let (fixture, _) = Fixture::build("en", Vec::new(), &options)?;
+        let admin = fixture.admin().await?;
+
+        let page = fixture.get("/ui/admin/server", &admin.cookie).await?;
+
+        assert_eq!(page.status(), StatusCode::OK, "server page");
+        let html = text(page).await?;
+        for (label, value) in [
+            (keys::WEB_ADMIN_SERVER_MCP_HTTP, keys::COMMON_DISABLED),
+            (keys::WEB_ADMIN_SERVER_MCP_READ_ONLY, keys::COMMON_ENABLED),
+        ] {
+            let row = format!("{}</dt><dd>{}</dd>", en(label), en(value));
+            assert!(html.contains(&row), "missing {row}");
         }
         Ok(())
     }

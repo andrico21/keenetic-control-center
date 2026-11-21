@@ -15,6 +15,7 @@ use std::sync::{Mutex, OnceLock, PoisonError};
 
 use kcc_app::{
     api_keys::api_key_entries,
+    mcp_settings::{Effective, McpBase},
     permissions::{Role, ToolSpec, load_roles, rbac_config},
     persist::StateStore,
     role_source::RoleSource,
@@ -196,6 +197,9 @@ pub struct AdminServices {
     pub reload: Option<Arc<dyn AuthReload>>,
     /// What the server page reports about this process.
     pub server: ServerFacts,
+    /// kcc.toml's `[mcp]` and the environment as read at start: the roles the MCP
+    /// settings name cannot be deleted.
+    pub mcp: McpBase,
 }
 
 /// The server page's facts: the version and a configuration summary that leaves out
@@ -266,13 +270,14 @@ impl Fact {
 }
 
 impl ServerFacts {
-    /// The facts of a process running `version` with `config`.
+    /// The facts of a process running `version` with `config` and the effective MCP
+    /// settings `effective`.
     #[inline]
     #[must_use]
-    pub fn from_config(version: String, config: &Config) -> Self {
+    pub fn from_config(version: String, config: &Config, effective: &Effective) -> Self {
         let server = &config.server;
         let web = &config.web;
-        let mcp = &config.mcp;
+        let mcp = effective.settings();
         let networks = config
             .outbound
             .allowed_networks

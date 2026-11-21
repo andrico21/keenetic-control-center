@@ -7,7 +7,7 @@
 
 extern crate alloc;
 
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 
 use super::{PermissionError, Role, RolesDocument, load_roles};
 use crate::{
@@ -92,12 +92,15 @@ impl RoleGrant {
     }
 }
 
-/// Removes the role `name` from `roles` unless an account or API key holds it, and
-/// answers whether it was removed.
+/// Removes the role `name` from `roles` unless an account, an API key or the MCP
+/// settings (`mcp_held`, see `McpBase::held_roles`) hold it, and answers whether it was
+/// removed.
 ///
 /// `roles` is the document [`StateStore::update`] holds under the `roles.json` lock; the
 /// holders are counted under the `users.json` and `api_keys.json` locks, taken in that
-/// order, so no assignment can add a holder between the count and the removal.
+/// order, so no assignment can add a holder between the count and the removal. A saved MCP
+/// settings change takes the `roles.json` lock too, so `mcp_held` read under that lock
+/// stays true until the removal.
 ///
 /// # Errors
 ///
@@ -107,10 +110,11 @@ pub fn remove_unheld(
     store: &StateStore,
     roles: &mut RolesDocument,
     name: &str,
+    mcp_held: &BTreeSet<String>,
 ) -> Result<bool, StateError> {
     let _users = store.lock(UsersDocument::FILE_NAME)?;
     let _keys = store.lock(ApiKeysDocument::FILE_NAME)?;
-    let held = holder_counts(store)?
+    let held = holder_counts(store, mcp_held)?
         .get(name)
         .is_some_and(|count| *count > 0);
     #[cfg(test)]
@@ -122,13 +126,17 @@ pub fn remove_unheld(
     Ok(true)
 }
 
-/// How many accounts and API keys hold each role.
+/// How many accounts, API keys and MCP settings hold each role; each role of `mcp_held`
+/// counts once.
 ///
 /// # Errors
 ///
 /// A state error while reading `users.json` or `api_keys.json`.
 #[inline]
-pub fn holder_counts(store: &StateStore) -> Result<BTreeMap<String, usize>, StateError> {
+pub fn holder_counts(
+    store: &StateStore,
+    mcp_held: &BTreeSet<String>,
+) -> Result<BTreeMap<String, usize>, StateError> {
     let accounts = store.read::<UsersDocument>()?.unwrap_or_default().users;
     let keys = store.read::<ApiKeysDocument>()?.unwrap_or_default().keys;
     let mut counts = BTreeMap::new();
@@ -136,6 +144,7 @@ pub fn holder_counts(store: &StateStore) -> Result<BTreeMap<String, usize>, Stat
         .into_iter()
         .map(|account| account.role)
         .chain(keys.into_iter().map(|key| key.role))
+        .chain(mcp_held.iter().cloned())
     {
         let count: &mut usize = counts.entry(role).or_default();
         *count = count.saturating_add(1);

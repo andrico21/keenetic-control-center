@@ -13,6 +13,7 @@ use axum::{
 };
 use kcc_app::{
     audit::AuditEntry,
+    mcp_settings::{EnvOverrides, McpBase},
     permissions::{Permission, Role},
     persist::StateStore,
     schedules::{
@@ -100,7 +101,12 @@ impl Scheduled {
         let mut state = web.state().clone().with_admin(AdminServices {
             state: store.clone(),
             reload: None,
-            server: ServerFacts::from_config("9.9.9".to_owned(), &Config::default()),
+            server: ServerFacts::from_config(
+                "9.9.9".to_owned(),
+                &Config::default(),
+                &McpBase::default().effective(&store)?,
+            ),
+            mcp: McpBase::new(&Config::default(), &EnvOverrides::default()),
         });
         if let Some(stub) = control {
             let attached: Arc<dyn ScheduleControl> = stub;

@@ -13,7 +13,7 @@
 mod tests {
     use core::error::Error;
 
-    use kcc_app::settings::Config;
+    use kcc_app::{mcp_settings::keys::KeyPath, settings::Config};
 
     /// The sample config shipped in release archives.
     const EXAMPLE: &str = include_str!(concat!(
@@ -56,6 +56,21 @@ mod tests {
         assert_eq!(example.notify, defaults.notify, "[notify]");
         assert_eq!(example.schedules, defaults.schedules, "[schedules]");
         assert!(example.routers.is_empty(), "the sample defines no router");
+        Ok(())
+    }
+
+    /// Todo 23: the sample sets every Web-managed `[mcp]` key that has a default value,
+    /// and `locked`.
+    #[test]
+    fn example_config_lists_every_mcp_key() -> Result<(), Box<dyn Error>> {
+        let example = Config::from_toml_str(EXAMPLE)?;
+        assert!(example.sets_mcp_key("locked"), "locked");
+        for key in KeyPath::ALL {
+            assert!(
+                key.is_optional() || example.sets_mcp_key(key.as_str()),
+                "{key}"
+            );
+        }
         Ok(())
     }
 }

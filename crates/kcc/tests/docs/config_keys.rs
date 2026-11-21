@@ -58,6 +58,42 @@ const TABLES: &[Table] = &[
         opening: Some("[mcp]\n"),
     },
     Table {
+        id: "mcp.dedicated",
+        opening: Some("[mcp.dedicated]\n"),
+    },
+    Table {
+        id: "mcp.auth",
+        opening: Some("[mcp.auth]\n"),
+    },
+    Table {
+        id: "mcp.auth.main",
+        opening: Some("[mcp.auth.main]\n"),
+    },
+    Table {
+        id: "mcp.auth.dedicated",
+        opening: Some("[mcp.auth.dedicated]\n"),
+    },
+    Table {
+        id: "mcp.auth.kcc",
+        opening: Some("[mcp.auth.kcc]\n"),
+    },
+    Table {
+        id: "mcp.auth.oidc",
+        opening: Some("[mcp.auth.oidc]\n"),
+    },
+    Table {
+        id: "mcp.auth.oidc.role_mappings",
+        opening: Some("[[mcp.auth.oidc.role_mappings]]\n"),
+    },
+    Table {
+        id: "mcp.auth.oidc.scopes",
+        opening: Some("[[mcp.auth.oidc.scopes]]\n"),
+    },
+    Table {
+        id: "mcp.auth.mtls",
+        opening: Some("[mcp.auth.mtls]\n"),
+    },
+    Table {
         id: "outbound",
         opening: Some("[outbound]\n"),
     },
