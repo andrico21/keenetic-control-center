@@ -71,3 +71,19 @@ New for this plan:
 - A red run whose new pub(crate) helpers are not yet used fails at the LIB (dead_code), not at the test: for a clean compile-red keep the helper edits out until the module is registered.
 - `module_name_repetitions` fires on plan-mandated names (`ticket::TicketStore`, `ticket::TicketScope`, `state::EnrolmentState`): `#[expect]` with a reason on the item.
 - Mutation probes as a python apply/run/restore loop over one integration target run in ~1 min per mutant when slots are free (11 mutants, all red).
+
+## [2026-11-21] Todo 10 (e10) learnings
+- A fake-router clock that follows tokio time (`impl kcc_testkit::time::Clock` over `tokio::time::Instant::elapsed`) plus `start_paused` makes the component-commit reboot window, the 5 s polls and the 15 min timeout cost no real time, with no manual `MockClock::advance`: the whole entware_setup suite (23 tests) runs in < 1 s.
+- `RouterRegistry::with_local_socket` is `cfg(unix)`; a domain fixture whose job uses the registry (poll_info, workflow.begin) must wire it too, not only the RciClient's OutboundPolicy (`Fixture::spawn_local` did not; `spawn_local_builder` does).
+- To hold a router lease in a test while the router is down, use `workflow.reserve(..)` (no request); `begin` reads the router and fails.
+- clippy: `field_scoped_visibility_modifiers` refuses `pub(super)` fields; put the struct in the parent module with private fields (children see them). A cfg(unix)/cfg(not(unix)) rebinding trips `shadow_*`: bind under a new name first.
+- Mutant probes as a python apply/run/restore loop: ~10 s per mutant once warm; a mutant that trips a deny lint (dropping_copy_types, unreachable_patterns) reads as RED by compile error, so check the output for "test ... FAILED".
+
+## [2026-11-21] Todo 26 (e26) learnings
+- In-process kit-server tests cannot use `Services::open` (it loads the PROCESS master key from `KCC_MASTER_KEY_FILE` or the user's config dir, and `set_var` is unsafe/forbidden): build the handler, Web state, exporter and reload fan-out by hand (`server_listeners/tests/{fixture,services}.rs`).
+- A deterministic test of "queued changes run one after the other" needs no sleep: make the API queue the command when CALLED (`fn restart(&self, c) -> impl Future`), plan the second candidate on a COPY of the state dir where the first is committed, and hold the first at a hook stage; an interleaving implementation refuses the second with `SettingsChanged`.
+- Holding a port the old generation used: run the hook AFTER the stop (and after waiting for the old metrics listener to release `[metrics] bind`, which the kit stops on its own task): binding it in the `Stopped` hook is then race-free.
+- The kit's `serve_with_listener` sends `ready_tx` BEFORE `run_server` loads the TLS files, so a generation with a missing cert still reports its address and then returns `Err`: useful to test "a listener that returns on its own stops the supervisor".
+- `rmcp_server_kit_http_requests_total` only appears in `/metrics` after a request was recorded (an unlabeled CounterVec exports nothing).
+- Mutation probes must keep the crate compiling under `unused = deny`: a mutant that leaves a fn/import unused is a compile error, not a red (`filter(|e| x && !x)` instead of replacing a call with `pending()`).
+- Plain-text kit logs carry ANSI colour codes in a child's stderr; assert on `log_format = "json"` fields (`/fields/reason`) instead.

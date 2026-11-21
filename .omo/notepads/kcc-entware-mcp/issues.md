@@ -31,3 +31,15 @@
 - `McpApply` has no production caller: in `crates/kcc/src/server.rs` the live handler is moved into the kit factory closure. Todo 26 must construct `McpApply` from the same `Arc<ArcSwap<KccMcp>>`, gates cell and `TransportReload` and call it from `restart`/`apply_live`.
 - `server_listeners` must add a test with TWO registrations of the same kind (a restart) proving StateWatch/SIGHUP are not started again (the todo 25 test cannot tell once-per-registration from once).
 - `TransportReload::register`: when reading the keys fails the server is registered and keeps its start-up role policy until the next role reload; the error is returned. Todo 26's restart path must treat that error as a failed health step.
+- [2026-11-21] Todo 29 BLOCKED (owner): enabling the kit `oauth` feature also brings RUSTSEC-2026-0387 (crypto-bigint 0.5.5 via jsonwebtoken 11 `rust_crypto` p256/p384), not covered by D-RSA. No compatible fix (0.5.x unpatched; kit 3.21.1 is the latest and pins jsonwebtoken 11; `[patch]` forbidden). Needs an owner decision: a second ignore with a verify-only reason, or wait for a kit release on jsonwebtoken 12. Measurement in decisions.md "Todo 29 (e29)".
+
+## [2026-11-21] Todo 10 (e10) residuals (not changed)
+- The setup's component commit applies EVERY staged component change, including ones a user queued before the setup (`show components pending` is not required to be empty). The commit's check then demands them too. A preflight refusal "components pending" would be a plan change.
+- `crates/kcc-domain/tests/support/mod.rs` was over 250 pure LOC before todo 10 (about 330) and is 387 after it (local-socket builder, registry helper, separate workflow).
+- The setup treats a non-JSON `show log` reply (the fake's text for an empty log) as an empty log; a real router that always answers text would make the job time out with `MarkerMissing` (fail closed). Confirm the live shape (todo 19).
+
+## [2026-11-21] Todo 8 verifier hardening notes (for the todo 20 docs sweep / BACKLOG; not defects)
+- N1 sealed SSH files are read with an unbounded `fs::read` (`entware_ssh.rs:~194`); a 64 KiB cap would bound a damaged or planted file (credential reads have the same property).
+- N3 `forget` does not remove `.<id>.{sealed,key.sealed,ticket.sealed}.tmp` crash temps (sealed, 0600). N2 a directory at `<id>.ticket.sealed` makes `forget` fail once a redeem renamed it (needs the state-dir owner).
+- N4 ticket expiry is absolute wall-clock time; a clock stepped back extends a ticket. N5 Web delete with a failing `forget` shows success and logs at error (like the credential wipe); the CLI exits Generic after the profile is gone.
+- N6 an inner-record malformed JSON path (M18b) has no test; reachable only with the master key.
