@@ -622,7 +622,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(app,mcp): MCP settings resolver with kcc.toml locks, ManageMcp and toolset safety metadata
   Recommended task executor category: unspecified-high - config schema, state document and permission across four crates
 
-- [ ] 24. API key expiry
+- [x] 24. API key expiry
   What to do / Must NOT do:
   - `crates/kcc-app/src/api_keys.rs`: `StoredApiKey.expires_at: Option<u64>` with `#[serde(default, skip_serializing_if = "Option::is_none")]` (the struct is `deny_unknown_fields`); `create_api_key(.., expires_at: Option<u64>)`; `api_key_entries` sets the kit's `ApiKeyEntry.expires_at` (RFC 3339 through the existing humantime formatting) so the kit answers 401 (verdict `Expired`) after it.
   - CLI `kcc apikey create <name> --role <role> [--expires-in <humantime duration>]`; `kcc apikey list` shows the expiry and "expired"; `create_api_key` enforces the Web's key-name rule (1-64 of `a-z0-9._-`, `crates/kcc-web/src/admin_keys.rs:406`) for every surface, so a CLI key named `oauth:alice` is refused (move the rule into kcc-app and call it from both).
