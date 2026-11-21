@@ -353,6 +353,9 @@ The first release, `0.1.0`, is in preparation and contains:
   instead, so the arm64 image could not create its state directory under the profile
   (`state I/O on /var/lib/kcc: Operation not permitted`). The profile is regenerated from
   native amd64 and arm64 traces.
+- **The seccomp profile allows `sched_yield`.** It is a runtime spin-yield that shows up
+  intermittently in the amd64 traces; the profile is regenerated from the union of the
+  amd64 and arm64 traces.
 - **Every live suite needs a test-device profile.** Each `live_*` suite, read-only ones
   included, requires `KCC_LIVE_TARGET_CONFIG`: a `kcc.toml` whose profile for the router
   has `test_device = true` and whose `[outbound] allowed_networks` admits it. The profile

@@ -18,6 +18,7 @@
         "getpid",
         "gettid",
         "sched_getaffinity",
+        "sched_yield",
         "set_tid_address"
       ],
       "action": "SCMP_ACT_ALLOW"
