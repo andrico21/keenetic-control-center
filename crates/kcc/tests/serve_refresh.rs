@@ -166,6 +166,20 @@ fn last_used(fixture: &Fixture) -> TestResult<Option<u64>> {
         .and_then(|key| key.last_used_at))
 }
 
+/// The inner HTML of the `column`-th plain cell (0 = Role) of the `ops-key` row of the keys
+/// page: Role, Created, Last used, Expires, then the actions cell.
+fn key_cell(page: &str, column: usize) -> TestResult<&str> {
+    let row = page
+        .split("<tr>")
+        .find(|row| row.contains(">ops-key<"))
+        .ok_or("the ops-key row")?;
+    let cell = row
+        .split("<td>")
+        .nth(column.saturating_add(1))
+        .ok_or("the cell")?;
+    Ok(cell.split("</td>").next().unwrap_or_default())
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn the_keys_page_shows_a_key_use_recorded_once_a_minute() -> TestResult {
     let fixture = Fixture::new().await?;
@@ -178,7 +192,14 @@ async fn the_keys_page_shows_a_key_use_recorded_once_a_minute() -> TestResult {
         .await?
         .text()
         .await?;
-    assert!(before.contains(">Never<"), "unused key");
+    let unused = key_cell(&before, 2)?;
+    assert!(unused.contains(">Never<"), "unused key: {unused}");
+    assert!(!unused.contains("data-kcc-time"), "no time yet: {unused}");
+    let expiry_before = key_cell(&before, 3)?;
+    assert!(
+        expiry_before.contains(">Never<"),
+        "no expiry: {expiry_before}"
+    );
 
     let wrong = rpc(
         &http,
@@ -200,8 +221,14 @@ async fn the_keys_page_shows_a_key_use_recorded_once_a_minute() -> TestResult {
         .await?
         .text()
         .await?;
-    assert!(!after.contains(">Never<"), "no longer Never");
-    assert!(after.contains("data-kcc-time"), "a time instead");
+    let used = key_cell(&after, 2)?;
+    assert!(!used.contains(">Never<"), "no longer Never: {used}");
+    assert!(used.contains("data-kcc-time"), "a time instead: {used}");
+    let expiry_after = key_cell(&after, 3)?;
+    assert!(
+        expiry_after.contains(">Never<"),
+        "still no expiry: {expiry_after}"
+    );
 
     drop(call(&http, mcp, ("kcc_routers_list", json!({}))).await?);
     assert_eq!(last_used(&fixture)?, Some(recorded), "same recorded use");
