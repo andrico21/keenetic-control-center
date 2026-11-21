@@ -40,3 +40,9 @@ New for this plan:
 - `[lints] unused = deny` makes `CARGO_BUILD_WARNINGS=allow` useless for a neutered red run: neuter with runtime-only conditions (`if text.len() < usize::MAX { return true; }`, `bound.max(..)`) so no unused/unreachable lint fires.
 - russh's `ssh id = ...` debug record is a reliable proof that the `log` bridge (tracing-subscriber `tracing-log`, `set_default`) reaches the capture in a current-thread tokio test.
 - Git hygiene while a patch is staged in the main tree during a landing gate: commit orchestrator state with `git commit -o <paths>` (only those paths), never a plain `git commit` (it swept the staged todo-3 patch into a state commit once; fixed with `reset --soft` before anything was pushed).
+
+## [2026-11-21] Todo 4 (e4) learnings
+- Every catalog (4.3, 5.0, 5.1) has all five `opkg` paths (`opkg initrc`/`opkg timezone` included, despite "since 5.1" in the 5.1 catalog); only `media initialize` is 5.1-only.
+- To capture a runtime red for surface wiring without lint trouble, neuter with `x.as_deref().filter(|_| false)` (no unused binding); `RUSTFLAGS=--cap-lints=warn` would rebuild every dependency in the private target (avoid).
+- Fake-router setup without a request: `Handle::configure(line)`; actions (not config lines) belong in `server/parse_command.rs::intercept`, since `Shared::parse_command` is at the 100-line clippy limit.
+- clippy in tests: `assert!(x.is_ok())` is refused (`assertions_on_result_states`): use `drop(x?)`; the first doc paragraph of a test is limited (`too_long_first_doc_paragraph`).
