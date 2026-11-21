@@ -637,7 +637,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(app,cli,web): optional API key expiry
   Recommended task executor category: unspecified-low - one field through three surfaces
 
-- [ ] 25. MCP live apply and reload fan-out
+- [x] 25. MCP live apply and reload fan-out
   What to do / Must NOT do:
   - `crates/kcc-mcp`: `KccMcp::reconfigured(&self, settings) -> KccMcp` that keeps every shared `Arc` (`migrations`, `presets` and the rest built once in `KccMcp::new`, `crates/kcc-mcp/src/generic/router.rs:43-150`) and rebuilds only the tool router for the new toolsets/read_only/allow_destructive; the gates (`require_destructive`, `support/access.rs:174-185`, the read-only check, the toolset check before dispatch, `max_result_bytes`) read a shared `Arc<ArcSwap<McpGates>>` at call time, so tightening reaches open sessions at their next call.
   - Dependency: `arc-swap = "1.9.5"` (already in `Cargo.lock` through the kit; no deny or vet change) in `crates/kcc-mcp/Cargo.toml` and `crates/kcc/Cargo.toml`.
