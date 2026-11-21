@@ -33,3 +33,10 @@ New for this plan:
 - Resume of a finished worker session fails ("Task not found"): fix workers are fresh tasks pointing at the existing uncommitted worktree plus the verifier report.
 - Landing gate lesson (todo 24 broke CI on 633a7d96): the per-landing set must include EVERY suite that renders or drives a surface the todo touched, not only the todo's own tests: for a Web page change run the full `kcc-web` tests AND `kcc --test serve_refresh --test serve` (they scrape the page HTML); for a CLI change run `kcc --test cli`; for an audit/permission change run `kcc-app` whole. Workers' briefs must list those suites too.
 - The amd64 seccomp trace is slightly nondeterministic (sched_yield appeared in a run with no relevant change): on a `--check-missing` failure for an already-mapped syscall, regenerate from the CI artifacts (two arches, two traces each), never hand-edit.
+
+## [2026-11-21] Todo 7 (e7) learnings
+- clippy `significant_drop_tightening` false-positives on a binding that a `self`-consuming method moves (`let slot = pool.acquire(..).await?; slot.connect(..)`): chain the calls instead of binding.
+- clippy `tests_outside_test_module` does not recognise `#[cfg(all(test, unix))]`: an `#[expect]` on the mod declaration is needed.
+- `[lints] unused = deny` makes `CARGO_BUILD_WARNINGS=allow` useless for a neutered red run: neuter with runtime-only conditions (`if text.len() < usize::MAX { return true; }`, `bound.max(..)`) so no unused/unreachable lint fires.
+- russh's `ssh id = ...` debug record is a reliable proof that the `log` bridge (tracing-subscriber `tracing-log`, `set_default`) reaches the capture in a current-thread tokio test.
+- Git hygiene while a patch is staged in the main tree during a landing gate: commit orchestrator state with `git commit -o <paths>` (only those paths), never a plain `git commit` (it swept the staged todo-3 patch into a state commit once; fixed with `reset --soft` before anything was pushed).

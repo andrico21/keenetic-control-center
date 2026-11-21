@@ -281,7 +281,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | fix(catalog): Entware disk, init script and drive initialize are destructive, DNS override is management
   Recommended task executor category: quick - data tables and their tests
 
-- [ ] 3. Entware read model and fake router Entware state
+- [x] 3. Entware read model and fake router Entware state
   What to do / Must NOT do:
   - New module `crates/kcc-domain/src/entware.rs` (+ `entware/` submodules), registered in `crates/kcc-domain/src/lib.rs` (module, `DomainId::Entware`, `registry()` descriptor with `read_ops` only and `write_ops: &[]` - todo 13 registers the write ops together with their CLI coverage, `required_components: &["usb","storage"]`).
   - Models (all `#[non_exhaustive]`, tolerant serde with an `extra` map): `EntwareSettings { disk: Option<String>, initrc: Option<String>, timezone: Option<TimezoneSetting /* Auto | Named(String) */>, chroot: bool, dns_override: bool }`; `EntwareStatus { possible: Possibility /* Possible | NoUsbOrStorage | UnsupportedArch(String) */, opkg_component: ComponentPresence /* Installed | Available | Missing */, ext_component: ComponentPresence, settings: EntwareSettings, drives: Vec<EligibleDrive>, initializable: Vec<String> /* media names whose initialize-supported contains ext4 */, arch: ArchResolution /* Aarch64 | MipsAmbiguous | Unknown(String) */, dns_filter_uses_opkg: bool }`; `EligibleDrive { media_id, disk_arg /* "<label>:/" or "<uuid>:/" */, label, filesystem, free_bytes }`; `Installer { Aarch64, Mipsel, Mips }` with `fn url(self) -> &'static str` returning exactly the three URLs in "Adopted defaults".
