@@ -303,6 +303,13 @@ The first release, `0.1.0`, is in preparation and contains:
   only through that resolver. A role the MCP settings name cannot be deleted. Each MCP
   toolset carries a `safety_reducing` flag (`raw`). Library: `remove_unheld` and
   `holder_counts` take the set of roles the MCP settings hold.
+- **New library crate `kcc-ssh`** (no user-visible change yet): SSH to a router's Entware
+  only to policy-admitted addresses, with a mandatory pinned ed25519 host key, one
+  session per router (four in total), a 256 KiB output cap and connect, auth, read and
+  mutation timeouts. Commands come only from a closed typed set (`opkg` list, update,
+  install, remove, upgrade; init script list and `start|stop|restart|check`; adding and
+  removing kcc's own `authorized_keys` line) whose arguments pass token grammars.
+  The fake Entware SSH server now runs the two `authorized_keys` scripts.
 
 ### Changed
 

@@ -189,7 +189,7 @@ impl server::Handler for Connection {
         let listed = {
             let mut state = self.shared.lock();
             state.counters.auth_attempts = state.counters.auth_attempts.saturating_add(1);
-            authorized(&state.authorized_keys, offer.public_key)
+            authorized(&state.system.authorized_keys, offer.public_key)
         };
         Ok(if user == USER && listed {
             Auth::Accept
@@ -208,7 +208,7 @@ impl server::Handler for Connection {
         user: &str,
         key: VerifiedPublicKey<'_>,
     ) -> Result<Auth, Self::Error> {
-        let listed = authorized(&self.shared.lock().authorized_keys, key.public_key);
+        let listed = authorized(&self.shared.lock().system.authorized_keys, key.public_key);
         Ok(if user == USER && listed {
             Auth::Accept
         } else {

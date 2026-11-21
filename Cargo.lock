@@ -2011,6 +2011,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "kcc-ssh"
+version = "0.1.0"
+dependencies = [
+ "kcc-rci",
+ "kcc-testkit",
+ "rand 0.10.4",
+ "russh",
+ "secrecy",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "zeroize",
+]
+
+[[package]]
 name = "kcc-telemetry"
 version = "0.1.0"
 dependencies = [

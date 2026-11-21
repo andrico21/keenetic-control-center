@@ -145,6 +145,8 @@ struct System {
     installable: BTreeMap<String, String>,
     /// Init scripts by file name (`S51dropbear`).
     services: BTreeMap<String, Service>,
+    /// Contents of `/opt/etc/dropbear/authorized_keys`.
+    authorized_keys: String,
 }
 
 /// What one command printed and its exit status.
@@ -164,9 +166,7 @@ struct Reply {
 pub struct Config {
     /// Accepted password for [`USER`].
     password: Zeroizing<String>,
-    /// Contents of `/opt/etc/dropbear/authorized_keys`.
-    authorized_keys: String,
-    /// Packages and services.
+    /// Packages, services and `authorized_keys`.
     system: System,
     /// Listening address.
     bind: SocketAddr,
@@ -177,7 +177,6 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             password: Zeroizing::new(DEFAULT_PASSWORD.to_owned()),
-            authorized_keys: String::new(),
             system: System::default(),
             bind: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
         }
@@ -189,7 +188,6 @@ impl fmt::Debug for Config {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Config")
             .field("password", &"[REDACTED]")
-            .field("authorized_keys", &self.authorized_keys)
             .field("system", &self.system)
             .field("bind", &self.bind)
             .finish()
@@ -215,7 +213,7 @@ impl Config {
     where
         T: Into<String>,
     {
-        self.authorized_keys = text.into();
+        self.system.authorized_keys = text.into();
         self
     }
 
@@ -278,9 +276,7 @@ struct State {
     host_key: PrivateKey,
     /// Accepted password.
     password: Zeroizing<String>,
-    /// Contents of `authorized_keys`.
-    authorized_keys: String,
-    /// Packages and services.
+    /// Packages, services and `authorized_keys`.
     system: System,
     /// Active fault switch.
     fault: Option<Fault>,
@@ -332,7 +328,6 @@ impl FakeEntwareSsh {
             state: Mutex::new(State {
                 host_key: host_key(),
                 password: config.password,
-                authorized_keys: config.authorized_keys,
                 system: config.system,
                 fault: None,
                 counters: Counters::default(),
@@ -398,7 +393,7 @@ impl Handle {
     #[inline]
     #[must_use]
     pub fn authorized_keys(&self) -> String {
-        self.shared.lock().authorized_keys.clone()
+        self.shared.lock().system.authorized_keys.clone()
     }
 
     /// Installed packages: name to version.

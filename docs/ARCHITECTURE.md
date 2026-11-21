@@ -18,6 +18,7 @@ the command catalog and the test tiers.
 | `kcc-i18n` | every user-visible string in en, ru, uk, de, be and kk |
 | `kcc-web` | the Web UI (axum, askama templates, htmx). Shared kits: `page_kit` (`submit`, `form`, `confirm`, `respond`, `request`) runs every write page, `crate::table` renders every table, `crate::wizard` is the one engine of the migration wizard and the preset runs |
 | `kcc-mcp` | the MCP server: tool registry, toolsets, argument validation, result shaping |
+| `kcc-ssh` | SSH to a router's Entware: policy-admitted addresses, pinned ed25519 host key, session limits, the closed typed Entware command set and its output parsers |
 | `kcc-testkit` | the fake router, fake log sinks, fixtures and the capture tool |
 | `kcc` | the binary: CLI, `serve`, `mcp stdio`, privilege floor |
 | `xtask/` | a separate workspace with project gates and generators |

@@ -6,6 +6,7 @@
 //! `stop` and `kill` run `check && stop`; `restart` runs `check > /dev/null && stop; start`;
 //! `check` prints `alive.` (0) or `dead.` (1); any other action prints the usage line and
 //! exits 1. The `opkg` messages and exit codes are assumed, not captured from a router.
+//! The enrolment scripts edit `authorized_keys` as their `grep -v` and `printf` would.
 
 use super::{
     Reply, Service, System,
@@ -64,6 +65,16 @@ impl System {
                 || not_found(&format!("{INIT_D}{name}")),
                 |service| rc_func(&name, service, &action),
             ),
+            Command::AppendKey { line, router_id } => {
+                let mut kept = without_kcc_line(&self.authorized_keys, &router_id);
+                put(&mut kept, &[&line, " kcc:", &router_id, "\n"]);
+                self.authorized_keys = kept;
+                success(String::new())
+            }
+            Command::RemoveKey { router_id } => {
+                self.authorized_keys = without_kcc_line(&self.authorized_keys, &router_id);
+                success(String::new())
+            }
             Command::NotFound(word) => not_found(&word),
         }
     }
@@ -109,6 +120,18 @@ impl System {
         drop(self.installed.insert(name.to_owned(), new));
         reply
     }
+}
+
+/// `grep -v ' kcc:<router_id>$'` of `text`: every other line, each ending in a newline.
+fn without_kcc_line(text: &str, router_id: &str) -> String {
+    let marker = format!(" kcc:{router_id}");
+    let mut kept = String::new();
+    for line in text.split_terminator('\n') {
+        if !line.ends_with(&marker) {
+            put(&mut kept, &[line, "\n"]);
+        }
+    }
+    kept
 }
 
 /// Exit 0 with `stdout`.

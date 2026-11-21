@@ -2,15 +2,18 @@
 //!
 //! A command matches when it is the fixed `PATH` prologue followed by one template: a
 //! fixed text, or a fixed prefix plus one POSIX single-quoted argument where the template
-//! has one; a service action is one bare lowercase word. Anything else is a command the
-//! shell cannot find. New templates (the `authorized_keys` enrolment scripts) are one
-//! [`Command`] variant and one arm here.
+//! has one; a service action is one bare lowercase word. The two `authorized_keys`
+//! enrolment scripts match only when the whole text equals the script rebuilt from the
+//! router id and key line found in it. Anything else is a command the shell cannot find.
 
 /// The prologue every rendered command starts with.
 const PROLOGUE: &str = "PATH=/opt/bin:/opt/sbin:/bin:/sbin:/usr/bin:/usr/sbin; export PATH; ";
 
 /// Directory of the init scripts.
 pub(super) const INIT_D: &str = "/opt/etc/init.d/";
+
+/// dropbear's `authorized_keys`.
+const KEYS: &str = "/opt/etc/dropbear/authorized_keys";
 
 /// The service listing loop.
 const LIST_SERVICES: &str =
@@ -39,6 +42,19 @@ pub(super) enum Command {
         name: String,
         /// rc.func's `$1`.
         action: String,
+    },
+    /// The enrolment script replacing the router's `kcc:<router_id>` line with
+    /// `<line> kcc:<router_id>`.
+    AppendKey {
+        /// The key line before the ` kcc:<router_id>` comment.
+        line: String,
+        /// The router id of the comment.
+        router_id: String,
+    },
+    /// The script removing the router's `kcc:<router_id>` line.
+    RemoveKey {
+        /// The router id of the comment.
+        router_id: String,
     },
     /// Anything else: the shell reports `word` as not found.
     NotFound(String),
@@ -84,7 +100,51 @@ pub(super) fn parse(text: &str) -> Command {
             action: action.to_owned(),
         };
     }
-    not_found(body)
+    key_script(body).unwrap_or_else(|| not_found(body))
+}
+
+/// Matches the two `authorized_keys` scripts: the router id comes from the `grep`
+/// pattern, the key line from the `printf` argument, and the text must equal the script
+/// rebuilt from them.
+fn key_script(body: &str) -> Option<Command> {
+    let (_, after_grep) = body.split_once("{ grep -v ")?;
+    let (pattern, _) = quoted_word(after_grep)?;
+    let router_id = pattern.strip_prefix(" kcc:")?.strip_suffix('$')?;
+    let valid_id = (1..=32).contains(&router_id.len())
+        && router_id
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-');
+    if !valid_id {
+        return None;
+    }
+    let remove = format!(
+        "umask 077 && touch {KEYS} && {{ grep -v ' kcc:{router_id}$' {KEYS}; [ $? -le 1 ]; }} \
+         > {KEYS}.kcc && mv {KEYS}.kcc {KEYS} && chmod 600 {KEYS} || {{ rm -f {KEYS}.kcc; false; }}"
+    );
+    if body == remove {
+        return Some(Command::RemoveKey {
+            router_id: router_id.to_owned(),
+        });
+    }
+    let (_, after_printf) = body.split_once("printf '%s\\n' ")?;
+    let (entry, _) = quoted_prefix(after_printf)?;
+    let line = entry.strip_suffix(&format!(" kcc:{router_id}"))?;
+    let append = format!(
+        "umask 077 && mkdir -p /opt/etc/dropbear && touch {KEYS} && \
+         {{ grep -v ' kcc:{router_id}$' {KEYS}; [ $? -le 1 ] && printf '%s\\n' {quoted}; }} \
+         > {KEYS}.kcc && mv {KEYS}.kcc {KEYS} && chmod 700 /opt/etc/dropbear && chmod 600 {KEYS} \
+         || {{ rm -f {KEYS}.kcc; false; }}",
+        quoted = quote(&entry)
+    );
+    (body == append).then(|| Command::AppendKey {
+        line: line.to_owned(),
+        router_id: router_id.to_owned(),
+    })
+}
+
+/// `text` as one POSIX single-quoted word.
+fn quote(text: &str) -> String {
+    format!("'{}'", text.replace('\'', r"'\''"))
 }
 
 /// A service action: ASCII lowercase letters only, 1 to 16 of them, and nothing after.
@@ -100,6 +160,11 @@ fn not_found(text: &str) -> Command {
 /// Splits one POSIX single-quoted word (`'...'` segments joined by `\'`) off the front of
 /// `text`; the word must end at a space or at the end of `text`.
 fn quoted_word(text: &str) -> Option<(String, &str)> {
+    quoted_prefix(text).filter(|(_, rest)| rest.is_empty() || rest.starts_with(' '))
+}
+
+/// Splits one POSIX single-quoted word off the front of `text`, whatever follows it.
+fn quoted_prefix(text: &str) -> Option<(String, &str)> {
     let mut rest = text.strip_prefix('\'')?;
     let mut value = String::new();
     loop {
@@ -113,7 +178,7 @@ fn quoted_word(text: &str) -> Option<(String, &str)> {
             break;
         }
     }
-    (rest.is_empty() || rest.starts_with(' ')).then_some((value, rest))
+    Some((value, rest))
 }
 
 #[cfg(test)]
@@ -198,6 +263,52 @@ mod tests {
                 service(tail),
                 Command::NotFound("'/opt/etc/init.d/S80nginx'".to_owned()),
                 "{tail:?}"
+            );
+        }
+    }
+
+    /// Todo 7: the enrolment scripts match only verbatim: an unanchored or foreign
+    /// pattern, another router's entry, a changed mode, a missing failure tail or any
+    /// trailing command is no template.
+    #[test]
+    fn key_scripts_match_verbatim() {
+        let keys = "/opt/etc/dropbear/authorized_keys";
+        let append = format!(
+            "umask 077 && mkdir -p /opt/etc/dropbear && touch {keys} && \
+             {{ grep -v ' kcc:home$' {keys}; [ $? -le 1 ] && printf '%s\\n' 'ssh-ed25519 AAAA kcc:home'; }} \
+             > {keys}.kcc && mv {keys}.kcc {keys} && chmod 700 /opt/etc/dropbear && chmod 600 {keys} \
+             || {{ rm -f {keys}.kcc; false; }}"
+        );
+        let remove = format!(
+            "umask 077 && touch {keys} && {{ grep -v ' kcc:home$' {keys}; [ $? -le 1 ]; }} \
+             > {keys}.kcc && mv {keys}.kcc {keys} && chmod 600 {keys} || {{ rm -f {keys}.kcc; false; }}"
+        );
+        assert_eq!(
+            parse(&format!("{PROLOGUE}{append}")),
+            Command::AppendKey {
+                line: "ssh-ed25519 AAAA".to_owned(),
+                router_id: "home".to_owned()
+            }
+        );
+        assert_eq!(
+            parse(&format!("{PROLOGUE}{remove}")),
+            Command::RemoveKey {
+                router_id: "home".to_owned()
+            }
+        );
+        for broken in [
+            append.replace("kcc:home$", "kcc:home"),
+            append.replace("kcc:home$", "kcc:Home$"),
+            append.replace("kcc:home';", "kcc:office';"),
+            append.replace(" || {", " ; {"),
+            append.replace("chmod 600", "chmod 644"),
+            remove.replace("[ $? -le 1 ]", "true"),
+            format!("{append}; id"),
+            format!("{remove} && id"),
+        ] {
+            assert!(
+                matches!(parse(&format!("{PROLOGUE}{broken}")), Command::NotFound(_)),
+                "{broken}"
             );
         }
     }

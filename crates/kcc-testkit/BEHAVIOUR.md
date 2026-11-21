@@ -327,9 +327,14 @@ legacy-only command. These nodes are test fixtures, not observations of real fir
 `FakeEntwareSsh` answers only the exec strings of kcc's closed Entware command set: the
 `PATH=/opt/bin:/opt/sbin:/bin:/sbin:/usr/bin:/usr/sbin; export PATH; ` prologue followed by
 a fixed `opkg` command, `opkg install|remove|upgrade` with one POSIX single-quoted
-argument, the init script listing loop, or `'/opt/etc/init.d/<name>' <action>`, where `<action>` is one bare
+argument, the init script listing loop, `'/opt/etc/init.d/<name>' <action>`, where `<action>` is one bare
 lowercase ASCII word of 1 to 16 characters and nothing else (shell syntax, quotes, a second
-word, a newline or an empty action are no template). Anything
+word, a newline or an empty action are no template), or one of the two `authorized_keys`
+scripts, matched only when the whole text equals the script rebuilt from the router id
+(1 to 32 of `[a-z0-9-]`) and key line found in it. The scripts edit the in-memory
+`authorized_keys` as their `grep -v ' kcc:<id>$'` and `printf` would: every line not
+ending in ` kcc:<id>` is kept and gets a newline, and the add script appends
+`<line> kcc:<id>`; file modes are not modelled. Anything
 else exits 127 with `sh: <word>: not found` on stderr, as for a program the shell cannot
 find. Init script actions follow Entware's `rc.func`
 (`Entware/rtndev/master/entware-opt/files/rc.func`, read 2026-11-20): output with its ANSI
