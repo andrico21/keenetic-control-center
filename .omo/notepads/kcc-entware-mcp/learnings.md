@@ -57,3 +57,17 @@ New for this plan:
 - The kit's `serve_with_listener(.., ready_tx, ..)` sends the address after the "listening" log and BEFORE it calls the reload callback: gate one-time background work (the state watcher) on it to keep "runs once serving" semantics (serve.rs F-23 test).
 - Moving a helper's only caller under `cfg(unix)` makes the helper dead on Windows: the Windows cross-check catches it, Linux clippy does not.
 - Never `pgrep -f`/`pkill -s` a pattern that also appears in your own bash command line: it killed the tool shell (no harm beyond an interrupted run).
+
+## [2026-11-21] es (Windows CI stack overflow after todo 23)
+- Windows gives the main thread 1 MiB; Linux/macOS 8 MiB. Emulate on Linux with `ulimit -s 1024` in the shell that launches `kcc` (`sh -c 'ulimit -s 1024 && exec "$0" "$@"' kcc ...`); overflow shows as SIGABRT (exit 134, "killed by a signal" in the CLI support).
+- Root futures are small (entry::run 16.5 KB; tokio already boxes large block_on futures). What overflows is the depth of DEBUG poll frames: an async fn with a big `match` of `.await` arms gets one stack slot per arm's future (no stack-slot reuse at opt-level 0). entry::local was 311 KB, entry::run 100 KB, domains::run 344 KB. Measure with `objdump -d -C kcc | awk` on the prologue `sub $N,%rsp|%r11`.
+- Fix pattern: a dispatcher is a SYNC fn returning `entry::Boxed<'_>` (`Pin<Box<dyn Future<Output = Outcome> + Send>>`), each arm `Box::pin(async move { .. })` / `Box::pin(f(ctx, sub))`; the sync frame is popped before polling. Preset apply needed >1024 KiB before, 640-768 KiB after.
+- Regression: `permission_gates::apply::preset_apply_runs_within_a_one_mebibyte_main_stack` (Linux only). Domain writes still need 896-1024 KiB is NOT true any more after domains::run was boxed; clap's `augment_subcommands` frames (VpnCommand 430 KB) are the next-largest main-thread cost (argument parsing, before block_on).
+- (correction to the last line above) measured after the fix: the whole CLI suite passes with every kcc child at 896 KiB; at 768 KiB only completions and pipes fail (clap argument parsing on the main thread, before block_on).
+- [2026-11-21 todo 4 fix] Testkit gotcha: `fail_read_matching` matches the GET path for `show/media` but the POST body for `show rc`, so the `opkg disk` read is faulted with `"rc":{"opkg"`. The Web eject reads `show media` in `known` before `configured_media`, so only the `opkg` fault distinguishes a fail-open Web guard.
+
+## [2026-11-21] Todo 8 (e8) learnings
+- clippy here refuses `drop(barrier.wait())` (drop_non_drop) and `let _: bool = ..is_leader()` (let_underscore_must_use): bind `let _wait = barrier.wait();` as backups.rs does.
+- A red run whose new pub(crate) helpers are not yet used fails at the LIB (dead_code), not at the test: for a clean compile-red keep the helper edits out until the module is registered.
+- `module_name_repetitions` fires on plan-mandated names (`ticket::TicketStore`, `ticket::TicketScope`, `state::EnrolmentState`): `#[expect]` with a reason on the item.
+- Mutation probes as a python apply/run/restore loop over one integration target run in ~1 min per mutant when slots are free (11 mutants, all red).
