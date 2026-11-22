@@ -14,7 +14,7 @@
 #
 # or `skopeo inspect --raw docker://<image>:<tag> | sha256sum`.
 
-FROM docker.io/library/rust:1.100.0-alpine@sha256:de1e0058543a81ed7b046629167db587c67a94bdf37cce14eb27f0ec83baaffb AS builder
+FROM docker.io/library/rust:1.100.0-alpine@sha256:8d0e82abfdf9a38071e07cabc5afba4ddbe077631a80e4e742a760c38beadc33 AS builder
 
 # `ring` compiles C and needs the musl headers; confined to this throwaway stage.
 RUN apk add --no-cache musl-dev
@@ -56,7 +56,7 @@ RUN --mount=type=cache,id=kcc-cargo-registry,target=/usr/local/cargo/registry \
 
 # distroless/static: CA bundle, tzdata, /etc/passwd with `nonroot` (65532) and /tmp, and
 # neither a shell nor a package manager.
-FROM gcr.io/distroless/static-debian13@sha256:448810357cc8e67b7208988abdba0f5ec3d3aebee0a5b13eb624979792cffc0f
+FROM gcr.io/distroless/static-debian13@sha256:1a64f46364620465ef9e9a8f5413757dfdf22695e050bbfd7303eeaf17a59383
 
 ARG VERSION="0.1.0"
 ARG VCS_REF=""
@@ -68,7 +68,7 @@ LABEL org.opencontainers.image.title="keenetic-control-center" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.licenses="MIT OR Apache-2.0" \
       org.opencontainers.image.source="https://github.com/andrico21/keenetic-control-center" \
-      org.opencontainers.image.base.name="gcr.io/distroless/static-debian13@sha256:448810357cc8e67b7208988abdba0f5ec3d3aebee0a5b13eb624979792cffc0f"
+      org.opencontainers.image.base.name="gcr.io/distroless/static-debian13@sha256:1a64f46364620465ef9e9a8f5413757dfdf22695e050bbfd7303eeaf17a59383"
 
 COPY --from=builder --chmod=0755 /kcc /kcc
 

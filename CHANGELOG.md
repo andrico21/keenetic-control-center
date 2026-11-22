@@ -927,6 +927,14 @@ The first release, `0.1.0`, is in preparation and contains:
   `clap_derive` 4.6.8, `clap_lex` 1.1.2 and `uuid` 1.29.3 in the root workspace; `clap`,
   `clap_derive` and `clap_lex` in xtask. No behaviour change. `jiff` 1.0.1 is held back
   until its cooldown ends.
+- **CI components at their latest versions**: the gate tools cargo-deny 0.21.0 and
+  cargo-machete 0.10.1, `taiki-e/install-action` v2.90.6 (the pin's comment now names
+  the exact release instead of `v2`), the newest `dtolnay/rust-toolchain` master commit,
+  and the current digests of the `rust:1.100.0-alpine` and `distroless/static-debian13`
+  base images. The macOS release build moves from the retired `macos-14` runner to
+  `macos-26`. Dependabot now also proposes base-image updates, with the same 3-day
+  cooldown. cargo-deny 0.22.0 and cargo-vet 0.10.4 wait for an install-action release
+  past the cooldown that lists them. No behaviour change.
 
 ### Removed
 
