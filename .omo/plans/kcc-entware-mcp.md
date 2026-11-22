@@ -430,7 +430,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(domain,testkit): guided Entware setup job with per-attempt log verification
   Recommended task executor category: deep-low - job orchestration reusing the commit routine
 
-- [ ] 11. Entware SSH operations and the service log
+- [x] 11. Entware SSH operations and the service log
   What to do / Must NOT do:
   - `crates/kcc-domain/src/entware/ssh/ops.rs`: `packages_list`, `packages_upgradable`, `update`, `install(PackageName)`, `remove(PackageName)`, `upgrade(PackageName)`, `services_list`, `service_status(ServiceName)` (renders `check`), `service_action(ServiceName, Start|Stop|Restart)`.
   - Every operation: requires `Permission::Destructive` for the router (D-SSHPERM), an `Active` enrolment with SSH enabled and an unchanged router host, and chroot off (read over RCI); opens the key and pin, `admit_ssh`, connects with the pin; mutations take the router write lease and run as write jobs (mutation timeout); reads use the read timeout.
@@ -677,7 +677,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(serve): listener supervisor with health-checked live restarts and an optional MCP-only listener
   Recommended task executor category: deep-high - process-level lifecycle with revert and shutdown invariants
 
-- [ ] 27. Web: Administration > MCP
+- [x] 27. Web: Administration > MCP
   What to do / Must NOT do:
   - `crates/kcc-web/src/admin_mcp.rs` + `admin_mcp/` + template `pages/admin_mcp.html`, tab `Mcp` (`admin_shared::Tab`, `ManageMcp`, `/ui/admin/mcp`): sections "Tools" (toolsets as checkboxes from the registry metadata with the safety-reducing ones marked, read-only, allow destructive, result size, stdio on/off and role), "Endpoints" (endpoint placement; dedicated listener on/off, bind, port, public URL, TLS mode; the self-signed certificate's fingerprint and a PEM download link), "Sign-in" per listener (API keys always on; OAuth none/kcc/external; mTLS off/optional/required with the main-listener limit), "kcc sign-in" (token lifetimes; the issuer the page computed or the localized reason it is unavailable), "Identity provider" (OIDC fields; claim->role mapping rows), "Client certificates" (CA upload, default role). Each value shows its source; env and locked values are read-only with the reason; "overridden on the Web" shows a reset button.
   - Services: `pub trait McpControl: Debug + Send + Sync` in `crates/kcc-web/src/admin.rs` (pattern `AuthReload`, `admin.rs:28-60`) with `apply_live(candidate)`, `restart(candidate)` and `status()` (current outcome, restart progress, startup-fallback reason), held by `WebState` through `with_mcp_control` and implemented in `crates/kcc` on the `ListenerSupervisor` handle (kcc depends on kcc-web, never the reverse); tests use a stub.
@@ -711,7 +711,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(serve,app): MCP client-certificate sign-in with an uploaded CA
   Recommended task executor category: unspecified-high - TLS wiring and certificate validation
 
-- [ ] 29. Dependency intake: rmcp-server-kit `oauth` feature and the D-RSA ignore
+- [x] 29. Dependency intake: rmcp-server-kit `oauth` feature and the D-RSA ignore
   What to do / Must NOT do:
   - Precondition: todo 6 (russh intake) has landed; this todo never runs in parallel with another dependency change.
   - First measure in a scratch copy (`~/.cache/kcc-review/scratch-oauth`, like the russh scratch): enable `rmcp-server-kit` feature `oauth` in `crates/kcc/Cargo.toml` (and in a crate that names kit OAuth types, if any), add `ring` (kcc-app) at its locked version, `cargo deny check`, `cargo audit`, `cargo vet`, and record the new crates and duplicates in the commit body.
