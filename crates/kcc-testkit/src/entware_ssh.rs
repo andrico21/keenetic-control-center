@@ -59,8 +59,13 @@ pub enum Fault {
 pub struct Counters {
     /// Accepted TCP connections.
     pub connections: u64,
-    /// Password requests and public-key offers evaluated.
+    /// Password requests and public-key offers evaluated: `password_attempts` plus
+    /// `key_offers`.
     pub auth_attempts: u64,
+    /// Password requests evaluated.
+    pub password_attempts: u64,
+    /// Public-key offers evaluated.
+    pub key_offers: u64,
     /// Exec requests received, faulted ones included.
     pub commands: u64,
 }

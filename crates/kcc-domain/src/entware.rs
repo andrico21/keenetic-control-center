@@ -4,6 +4,7 @@
 mod drives;
 pub mod models;
 pub mod setup;
+pub mod ssh;
 mod writes;
 
 use alloc::{collections::BTreeSet, vec};

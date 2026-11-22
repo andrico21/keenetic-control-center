@@ -167,6 +167,7 @@ impl server::Handler for Connection {
         let matches = {
             let mut state = self.shared.lock();
             state.counters.auth_attempts = state.counters.auth_attempts.saturating_add(1);
+            state.counters.password_attempts = state.counters.password_attempts.saturating_add(1);
             bool::from(password.as_bytes().ct_eq(state.password.as_bytes()))
         };
         Ok(if user == USER && matches {
@@ -189,6 +190,7 @@ impl server::Handler for Connection {
         let listed = {
             let mut state = self.shared.lock();
             state.counters.auth_attempts = state.counters.auth_attempts.saturating_add(1);
+            state.counters.key_offers = state.counters.key_offers.saturating_add(1);
             authorized(&state.system.authorized_keys, offer.public_key)
         };
         Ok(if user == USER && listed {

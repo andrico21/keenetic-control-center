@@ -12,6 +12,7 @@ kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
 kcc-config = { version = "0.1.0", path = "../kcc-config" }
 kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
+kcc-ssh = { version = "0.1.0", path = "../kcc-ssh" }
 kcc-telemetry = { version = "0.1.0", path = "../kcc-telemetry" }
 base64 = { workspace = true, features = ["std", "simd-unsafe"] }
 secrecy = { workspace = true }

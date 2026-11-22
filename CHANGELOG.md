@@ -62,6 +62,14 @@ The first release, `0.1.0`, is in preparation and contains:
   from the router log lines of this attempt and a read-back of `opkg disk`, and ends with
   the configuration unsaved for an explicit save.
 
+- **Entware SSH enrolment** (library): a probe shows the router's Entware host key with
+  a single-use five-minute ticket; a bootstrap with the confirmed fingerprint and the
+  Entware root password (used once, never stored) pins the key and installs kcc's own
+  key; a changed host key is re-pinned the same way; revoke removes kcc's key from the
+  router, disable forgets it locally. Every step needs `Destructive`; the steps that
+  contact the router refuse while `opkg chroot` is on, after the router URL host changed
+  and over MCP; each is audited as `entware.ssh.*` with public fingerprints only.
+
 - **MCP error code `router_mode_unknown`**: a management change is refused, with nothing
   sent, when the router reports neither a system mode kcc knows nor a `fail-safe`
   timer in `show last-change`. Every surface now picks the recovery mechanism with the same

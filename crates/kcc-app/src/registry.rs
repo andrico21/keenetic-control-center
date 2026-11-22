@@ -726,6 +726,14 @@ impl RouterRegistry {
         &self.store
     }
 
+    /// The outbound policy every client of this registry dials through; SSH to Entware
+    /// admits its addresses with the same policy.
+    #[inline]
+    #[must_use]
+    pub const fn outbound(&self) -> &OutboundPolicy {
+        &self.outbound
+    }
+
     /// Returns the one lazily constructed shared client for a profile.
     ///
     /// The client is built in the router's own slot, outside the lock of the slot map, so
