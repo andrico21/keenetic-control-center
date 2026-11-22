@@ -38,7 +38,7 @@ use kcc_app::{
     persist::StateStore,
     secrets::{MASTER_KEY_FILE_ENV, MasterKey},
 };
-use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter};
+use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, toml_text};
 use reqwest::{Client, StatusCode, header};
 use secrecy::SecretString;
 use serde_json::{Value, json};
@@ -519,7 +519,7 @@ async fn second_serve_fails_fast_while_first_stays_healthy() -> TestResult {
 
     let (status, stderr) = second.wait()?;
 
-    assert_eq!(status.code(), Some(1_i32));
+    assert_eq!(status.code(), Some(1_i32), "stderr: {stderr}");
     assert!(
         stderr.contains(&fixture.home.display().to_string()),
         "the refusal names the state directory: {stderr}"
@@ -602,7 +602,7 @@ async fn unknown_stdio_role_is_refused() -> TestResult {
 
     let (status, stderr) = process.wait()?;
 
-    assert_eq!(status.code(), Some(1_i32));
+    assert_eq!(status.code(), Some(1_i32), "stderr: {stderr}");
     assert!(stderr.contains("nosuchrole"), "names the role: {stderr}");
     fixture.shutdown().await?;
     Ok(())
@@ -734,7 +734,10 @@ fn disabled_stdio_exits_forbidden() -> TestResult {
     let config = directory.path().join("kcc.toml");
     fs::write(
         &config,
-        "[web]\nenabled = false\n\n[mcp]\nstdio_enabled = false\n\n[state]\ndir = \"state\"\n",
+        format!(
+            "[web]\nenabled = false\n\n[mcp]\nstdio_enabled = false\n\n[state]\ndir = {}\n",
+            toml_text::path(&directory.path().join("state"))
+        ),
     )?;
     let process = ChildGuard::spawn(
         &[
@@ -749,7 +752,7 @@ fn disabled_stdio_exits_forbidden() -> TestResult {
 
     let (status, stderr) = process.wait()?;
 
-    assert_eq!(status.code(), Some(10_i32));
+    assert_eq!(status.code(), Some(10_i32), "stderr: {stderr}");
     assert!(
         stderr.contains("mcp.stdio_enabled"),
         "names the key: {stderr}"
@@ -765,7 +768,10 @@ fn non_loopback_plain_http_web_is_refused() -> TestResult {
     let config = directory.path().join("kcc.toml");
     fs::write(
         &config,
-        "[server]\nlisten_addr = \"0.0.0.0\"\nlisten_port = 18081\n\n[web]\nenabled = true\n\n[state]\ndir = \"state\"\n",
+        format!(
+            "[server]\nlisten_addr = \"0.0.0.0\"\nlisten_port = 18081\n\n[web]\nenabled = true\n\n[state]\ndir = {}\n",
+            toml_text::path(&directory.path().join("state"))
+        ),
     )?;
     let process = ChildGuard::spawn(
         &[
@@ -779,7 +785,7 @@ fn non_loopback_plain_http_web_is_refused() -> TestResult {
 
     let (status, stderr) = process.wait()?;
 
-    assert_eq!(status.code(), Some(1_i32));
+    assert_eq!(status.code(), Some(1_i32), "stderr: {stderr}");
     assert!(
         stderr.contains("server.listen_addr"),
         "names the field: {stderr}"
