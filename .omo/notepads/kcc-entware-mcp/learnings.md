@@ -94,3 +94,25 @@ New for this plan:
 - A mutant that leaves a binding unused (`let _lease = ();` when the only other use of `services` was the lease) or drops a Copy value (`drop(HostKeyPin)`) is a COMPILE red under `unused = deny`/`dropping_copy_types`: re-run it with a replacement that keeps every binding used (`let _lease = services.workflow.state();`, `let _ticket_pin = ..`).
 - The mutation loop for one integration target ran ~20 s per mutant with a warm private target (44 mutants in ~15 min).
 - clippy here: `rest_pattern_accessible_field` refuses `Variant { .. }` on a struct variant with public fields (spell `{ actor: _ }`); `shadow_reuse` refuses `opt.is_some_and(|x| ..)` when `x` names the outer binding; `option_if_let_else` refuses a `match` on an `Option` building two events (use `map_or_else`).
+
+## [2026-11-22] Todo 14 (e14) learnings
+- The fake router has no `system eject` rule: an acknowledged eject over MCP answers `router_rejected`, but the request log still shows `system eject <media>` (assert the line, not `applied`). `media <id> initialize ext4` applies.
+- The rmcp client in the Lab attaches a progress token on its own: a job-starting tool returns `{"job_id", "status": "completed"}` under a paused clock (the call follows the job). Do not pin `"running"`; wait with `JobRunner::ended` instead.
+- A management-meta Entware op is pre-authorized by `open_as` already (SafetyNet::required(Write, Management) = [Write]), so the extra `preauthorize_management` call is an equivalent mutant: nothing can pin it.
+- The `$schema` URL of every rmcp input schema contains `https://`: assert "no installer URL" with the host `bin.entware.net`.
+- Mutation probes: ~40 s per mutant with a warm private target (27 probes in ~20 min); a mutant that builds a `CallToolResult` by hand needs `rmcp::model::ContentBlock` (not `Content`).
+
+## [2026-11-22] Todo 13 (e13) learnings
+- The fake router does not implement `system eject`: an accepted `kcc storage eject` reaches the router (the line is in the request log) and exits 6. Assert the sent line, not exit 0.
+- `show media` of the fake lists `"initialize-supported": ["default","ext4","ntfs"]`: a substring check for `"ext4"` passes before any initialization (mutant "no wait" survived it); assert the medium's own `filesystem`.
+- `kcc-cargo +nightly fmt` also waits for a build slot: run it detached, a foreground call can hit the tool timeout.
+- Never `pkill -f` a pattern from your own command line (it killed the tool shell again: the rules file says so).
+- A CLI child test of the Entware setup costs ~26 s of real time (5 installer polls of 5 s in the job); keep such runs to a few tests that run in parallel.
+
+## [2026-11-22] Todo 12 (e12) learnings
+- kcc-web kit: a confirmation cannot be skipped by dropping `.confirming(risk)` alone (the kit asks again at the planned risk in `carry`), and a management change keeps its fail-safe bracket while the `Operation`'s declared risk is Management even if the plan carries no operation. Mutants that only remove one of those layers are equivalent; mutate `.confirmed_by_page(risk)` (the real skip) or remove both layers.
+- A web test that counts router requests before a confirmation must count COMMANDS (`RequestRecord::commands`), not requests: `Operation::open` loads the router's catalog facts (reads) on first use. Forbidden roles are refused before the facts load, so "zero requests" holds there.
+- Visual QA without a kcc binary: a scratch integration test that builds `support::build::Setup` and proxies `axum::serve` on 127.0.0.1:8080 (the harness's ORIGIN) to `Fixture::send`; Playwright 1.49.1 via `bunx --bun playwright@1.49.1 install chromium` + `bun add playwright@1.49.1` works headless on this machine. The dialog's close button is a `type=submit` in `form[method=dialog]`: click `#dialog .dialog__actions button`, not `#dialog button[type=submit]`.
+- `.choice__option` (flex-wrap) drops a long radio label under the radio on a phone; the `.check` + `.check__label` + `.field__help` pattern (router form) keeps the name next to the control and wraps the details on a full-width help line.
+- clippy here: `struct_excessive_bools` also fires on askama view structs (expect with a reason); `field_scoped_visibility_modifiers` again forced the shared `Described` struct to stay in the parent module (children read private fields).
+- A mutant written as `crate_name::path::Item` inside a module where that crate is imported trips `absolute_paths` (compile error, not a red): import the item instead.
