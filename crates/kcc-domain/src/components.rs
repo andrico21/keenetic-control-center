@@ -19,7 +19,7 @@ use crate::{
     verification,
 };
 
-mod commit;
+pub(crate) mod commit;
 
 /// One component returned by `show components list`.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]

@@ -35,6 +35,7 @@ mod cli_engine;
 mod components;
 mod config_state;
 mod connection_fault;
+pub mod entware_install;
 pub mod entware_ssh;
 mod failsafe;
 pub mod fake_elasticsearch;
@@ -157,6 +158,8 @@ pub struct FaultInjection {
     components_commit_answers: u32,
     /// What the restart after `components commit` does with the staged changes.
     components_restart: components::Restart,
+    /// How the simulated Entware installer goes wrong, if it does.
+    entware_install: Option<entware_install::InstallFault>,
 }
 
 impl FaultInjection {
@@ -311,6 +314,15 @@ impl FaultInjection {
     #[must_use]
     pub const fn components_commit_answers(mut self, probes: u32) -> Self {
         self.components_commit_answers = probes;
+        self
+    }
+
+    /// Makes the simulated Entware installer started by `opkg disk <disk> <url>` go wrong as
+    /// `fault` says.
+    #[inline]
+    #[must_use]
+    pub const fn entware_install(mut self, fault: entware_install::InstallFault) -> Self {
+        self.entware_install = Some(fault);
         self
     }
 
@@ -846,6 +858,15 @@ impl Handle {
     pub fn insert_log(&self, id: u64, record: Value) {
         if let Some(shared) = &self.router {
             shared.insert_log(id, record);
+        }
+    }
+
+    /// Seeds [`entware_install::stale_records`]: router log records older than any line of
+    /// the next Entware install, among them a stale success line and a stale installer error.
+    #[inline]
+    pub fn seed_stale_entware_log(&self) {
+        for (id, record) in entware_install::stale_records() {
+            self.insert_log(id, record);
         }
     }
 

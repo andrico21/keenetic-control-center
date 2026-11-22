@@ -56,6 +56,11 @@ The first release, `0.1.0`, is in preparation and contains:
   initialize ext4`, each read back from the router. Ejecting the drive Entware runs from
   (`opkg disk`) is refused on the Web, in the CLI (exit code 10) and over MCP
   (`conflict`) until acknowledged; nothing changes for routers without Entware.
+- **Guided Entware setup job** (library): one Destructive write job that installs the
+  missing `opkg` and `ext` components by a rebooting component commit, sends `opkg disk
+  <drive> <installer>` once with an installer from the closed table, proves the install
+  from the router log lines of this attempt and a read-back of `opkg disk`, and ends with
+  the configuration unsaved for an explicit save.
 
 - **MCP error code `router_mode_unknown`**: a management change is refused, with nothing
   sent, when the router reports neither a system mode kcc knows nor a `fail-safe`

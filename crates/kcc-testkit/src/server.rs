@@ -27,6 +27,7 @@ use crate::{
     FaultInjection, RequestRecord,
     components::Components,
     config_state::ConfigState,
+    entware_install::Installer,
     failsafe::{FailSafe, ScheduledReboot},
     firmware_update::FirmwareUpdate,
     inflight::Counter,
@@ -264,6 +265,8 @@ pub(crate) struct Shared {
     firmware_update: Mutex<Option<FirmwareUpdate>>,
     /// Media an `initialize` line named.
     media_init: Mutex<media_init::MediaInit>,
+    /// The simulated Entware installer.
+    entware_install: Mutex<Installer>,
     /// Holds requests while a test stalls the router.
     gate: Arc<Gate>,
 }
@@ -340,6 +343,7 @@ impl Shared {
         let parse_fault = bounded(&faults.fail_parse_matching);
         let read_fault = bounded(&faults.fail_read_matching);
         let route_wipe_armed = faults.route_wipe_on_remove;
+        let install_fault = faults.entware_install;
         let components = Components::new(show.get("version"));
         Self {
             cookie_name,
@@ -374,6 +378,7 @@ impl Shared {
             log_streams: AtomicU64::new(0),
             firmware_update: Mutex::new(None),
             media_init: Mutex::default(),
+            entware_install: Mutex::new(Installer::new(install_fault)),
             gate: Arc::default(),
         }
     }
@@ -1460,11 +1465,18 @@ async fn rci_post(
                 .and_then(|value| usize::try_from(value).ok())
                 .unwrap_or(200);
             return if once {
-                if lock(&shared.logs).is_empty() {
-                    "router log text".into_response()
-                } else {
-                    Json(shared.log_snapshot(max_lines)).into_response()
-                }
+                lock(&shared.entware_install).read(&mut lock(&shared.logs));
+                let text = lock(&shared.entware_install).text_reply(&lock(&shared.logs));
+                text.map_or_else(
+                    || {
+                        if lock(&shared.logs).is_empty() {
+                            "router log text".into_response()
+                        } else {
+                            Json(shared.log_snapshot(max_lines)).into_response()
+                        }
+                    },
+                    String::into_response,
+                )
             } else {
                 Json(shared.start_process(ProcessKind::Log)).into_response()
             };

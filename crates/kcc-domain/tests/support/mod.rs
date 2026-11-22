@@ -132,6 +132,8 @@ pub(crate) struct Fixture {
     audit: AuditLog,
     /// Loopback address the fake router listens on.
     address: SocketAddr,
+    /// The Unix socket the registry dials for `address`, when the fake serves one.
+    socket: Option<PathBuf>,
 }
 
 impl Fixture {
@@ -230,26 +232,35 @@ impl Fixture {
     /// on a Unix socket, since a paused clock can jump ahead of a loopback TCP reply that is
     /// written but not yet readable.
     pub(crate) async fn spawn_local(firmware: Firmware) -> TestResult<Self> {
-        let router = FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?)
-            .reached_directly()
-            .build()?;
+        Self::spawn_local_builder(FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?)).await
+    }
+
+    /// Starts one configured fake-router builder for a test under a paused tokio clock, as
+    /// [`Self::spawn_local`] does; on Unix the router registry dials the Unix socket too.
+    pub(crate) async fn spawn_local_builder(
+        builder: kcc_testkit::FakeRouterBuilder,
+    ) -> TestResult<Self> {
+        let router = builder.reached_directly().build()?;
         let loopback = OutboundPolicy::default().with_loopback(true);
         #[cfg(unix)]
-        let (address, handle, outbound) = {
+        let ((address, socket), handle, outbound) = {
             let (address, socket, handle) = router.serve_local()?;
-            (address, handle, loopback.with_local_socket(address, socket))
+            let outbound = loopback.with_local_socket(address, socket.clone());
+            ((address, Some(socket)), handle, outbound)
         };
         #[cfg(not(unix))]
         let ((address, handle), outbound) =
             (router.serve(([127, 0, 0, 1], 0).into()).await?, loopback);
-        Self::connect(address, handle, None, outbound).await
+        #[cfg(not(unix))]
+        let (address, socket) = (address, None);
+        Self::connect((address, socket), handle, None, outbound).await
     }
 
     /// Serves one built fake router and connects the domain context.
     async fn spawn_router(router: FakeRouter, clock: Option<Arc<MockClock>>) -> TestResult<Self> {
         let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
         Self::connect(
-            address,
+            (address, None),
             handle,
             clock,
             OutboundPolicy::default().with_loopback(true),
@@ -258,31 +269,17 @@ impl Fixture {
     }
 
     /// Connects the domain context to the fake router served at `address` through
-    /// `outbound`.
+    /// `outbound`; the registry dials `socket` for `address` when one is given.
     async fn connect(
-        address: SocketAddr,
+        (address, socket): (SocketAddr, Option<PathBuf>),
         handle: Handle,
         clock: Option<Arc<MockClock>>,
         outbound: OutboundPolicy,
     ) -> TestResult<Self> {
         let directory = TempDir::new()?;
-        let password_file =
-            kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
         let state = StateStore::open(&directory.path().join("state"))?;
-        let mut config = OutboundConfig::default();
-        config.allow_loopback = true;
-        let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &config)?);
-        registry
-            .create(
-                &admin_role(),
-                ManagedRouterProfile::new(
-                    "router".to_owned(),
-                    Url::parse(&format!("http://{address}"))?,
-                    DEFAULT_LOGIN.to_owned(),
-                    password_file,
-                ),
-            )
-            .await?;
+        let registry =
+            Arc::new(registry_for(&state, directory.path(), (address, socket.clone())).await?);
         let origin = RouterUrl::from_str(&format!("http://{address}"))?;
         let credentials = Credentials::new(
             DEFAULT_LOGIN.to_owned(),
@@ -322,6 +319,7 @@ impl Fixture {
             clock,
             audit,
             address,
+            socket,
         })
     }
 
@@ -401,6 +399,28 @@ impl Fixture {
         Ok(())
     }
 
+    /// A second workflow on its own state directory for the same router: its lease is
+    /// independent of [`Self::workflow`]'s, as another kcc process's would be.
+    pub(crate) async fn separate_workflow(&self) -> TestResult<(TempDir, Arc<ChangeWorkflow>)> {
+        let directory = TempDir::new()?;
+        let state = StateStore::open(&directory.path().join("state"))?;
+        let registry = Arc::new(
+            registry_for(
+                &state,
+                directory.path(),
+                (self.address, self.socket.clone()),
+            )
+            .await?,
+        );
+        let backups = Arc::new(BackupStore::new(
+            state.clone(),
+            MasterKey::from_bytes([27_u8; 32]),
+        ));
+        let audit = AuditLog::spawn(&state)?;
+        let workflow = ChangeWorkflow::new(state, registry, backups, audit);
+        Ok((directory, workflow))
+    }
+
     /// Opens a job runner on the fixture state.
     pub(crate) async fn jobs(&self) -> TestResult<Arc<kcc_app::jobs::JobRunner>> {
         let state = StateStore::open(&self.directory.path().join("state"))?;
@@ -419,11 +439,47 @@ impl Fixture {
             clock: _,
             audit: _,
             address: _,
+            socket: _,
         } = self;
         handle.shutdown().await?;
         drop(directory);
         Ok(())
     }
+}
+
+/// A router registry on `state` holding the profile `router` at `address`, dialing
+/// `socket` for it when one is given; the password file is written below `directory`.
+async fn registry_for(
+    state: &StateStore,
+    directory: &std::path::Path,
+    (address, socket): (SocketAddr, Option<PathBuf>),
+) -> TestResult<RouterRegistry> {
+    let password_file = kcc_testkit::write_secret_file(directory, "password", DEFAULT_PASSWORD)?;
+    let mut config = OutboundConfig::default();
+    config.allow_loopback = true;
+    let built = RouterRegistry::new(state.clone(), &[], &config)?;
+    #[cfg(unix)]
+    let registry = match socket {
+        Some(path) => built.with_local_socket(address, path),
+        None => built,
+    };
+    #[cfg(not(unix))]
+    let registry = {
+        drop(socket);
+        built
+    };
+    registry
+        .create(
+            &admin_role(),
+            ManagedRouterProfile::new(
+                "router".to_owned(),
+                Url::parse(&format!("http://{address}"))?,
+                DEFAULT_LOGIN.to_owned(),
+                password_file,
+            ),
+        )
+        .await?;
+    Ok(registry)
 }
 
 /// Administrator role used by protected workflow tests.

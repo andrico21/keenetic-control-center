@@ -1,6 +1,8 @@
 //! Router log wire-format parsing.
 
-use chrono::{DateTime, Datelike as _, NaiveDate, NaiveDateTime, TimeDelta};
+use std::time::SystemTime;
+
+use chrono::{DateTime, Datelike as _, NaiveDate, NaiveDateTime, TimeDelta, Utc};
 use serde_json::Value;
 use thiserror::Error;
 
@@ -61,6 +63,18 @@ pub fn parse_records(
     }
     parsed.entries.sort_by_key(|(id, _)| *id);
     Ok(parsed)
+}
+
+/// Parses every record in one router response like [`parse_records`], placing bracket
+/// timestamps with kcc's own UTC wall clock read now.
+///
+/// # Errors
+///
+/// Returns [`ParseError::Response`] when the response has no object-valued `log` member.
+#[inline]
+pub fn parse_records_now(router: &str, response: &Value) -> Result<ParsedLog, ParseError> {
+    let utc: DateTime<Utc> = SystemTime::now().into();
+    parse_records(router, response, utc.naive_utc())
 }
 
 /// Parses one router record and merges newline continuations into its message.
@@ -232,4 +246,53 @@ fn level_from_label(label: Option<&str>) -> String {
         Some("I" | _) | None => "info",
     }
     .to_owned()
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    clippy::missing_errors_doc,
+    clippy::panic_in_result_fn,
+    reason = "test assertions are not rendered API documentation"
+)]
+mod tests {
+    use std::time::SystemTime;
+
+    use chrono::{DateTime, Datelike as _, TimeDelta, Utc};
+    use serde_json::json;
+
+    use super::{ParseError, parse_records_now};
+
+    /// Todo 10: `parse_records_now` places a bracket timestamp with kcc's own clock: the
+    /// record parses, its prefixes split, and its year is this year or the last one, never
+    /// more than a day ahead of now.
+    #[test]
+    fn parse_records_now_places_bracket_times_with_the_current_clock() -> Result<(), ParseError> {
+        let response = json!({"log":{"7":{"message":{"label":"I","message":"[Nov 19 12:00:05] Opkg::Manager: /opt/etc/init.d/doinstall: [5/5] \"Entware\" installed!"}}}});
+
+        let parsed = parse_records_now("router", &response)?;
+
+        let now: DateTime<Utc> = SystemTime::now().into();
+        assert_eq!(parsed.entries.len(), 1, "{:?}", parsed.entries);
+        let Some((id, Some(record))) = parsed.entries.first() else {
+            return Err(ParseError::Message);
+        };
+        assert_eq!(*id, 7);
+        assert_eq!(record.component.as_deref(), Some("Opkg::Manager"));
+        assert_eq!(
+            record.message,
+            "/opt/etc/init.d/doinstall: [5/5] \"Entware\" installed!"
+        );
+        let year = record.ts.year();
+        assert!(
+            year == now.year() || year == now.year().saturating_sub(1),
+            "{year}"
+        );
+        let limit = now
+            .naive_utc()
+            .checked_add_signed(TimeDelta::days(1))
+            .ok_or(ParseError::Timestamp)?;
+        assert!(record.ts <= limit, "{}", record.ts);
+        Ok(())
+    }
 }

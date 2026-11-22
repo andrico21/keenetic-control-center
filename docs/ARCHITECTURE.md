@@ -11,7 +11,7 @@ the command catalog and the test tiers.
 | `kcc-rci` | RCI HTTP client: outbound policy and DNS pinning, TLS verification and pinning, ndw2/ndw4/digest sign-in, sessions, background commands, firmware and capability detection |
 | `kcc-catalog` | the command catalog per firmware line and model, request and CLI-line validation |
 | `kcc-config` | router configuration text: parsing, flattening, `ns3` secrets, and the one secret masker (`mask.rs`) that the Web UI, MCP and CLI all use to redact answers |
-| `kcc-domain` | curated domains (system, interfaces, Wi-Fi, clients, DHCP, segments, routing, policies, NAT, firewall, DNS, VPN, services, components, ...): typed reads and planners for writes |
+| `kcc-domain` | curated domains (system, interfaces, Wi-Fi, clients, DHCP, segments, routing, policies, NAT, firewall, DNS, VPN, services, components, Entware with its guided setup job, ...): typed reads and planners for writes |
 | `kcc-migrate` | migration sources, target inventory, classification rules, planner, applier, presets |
 | `kcc-app` | `kcc.toml`, the state store, encryption, accounts, API keys, roles, router registry, change workflow, backups, jobs, audit log, shared poller |
 | `kcc-telemetry` | Prometheus exporter and router log collection and forwarding |

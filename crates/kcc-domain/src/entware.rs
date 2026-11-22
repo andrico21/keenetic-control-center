@@ -3,6 +3,7 @@
 
 mod drives;
 pub mod models;
+pub mod setup;
 mod writes;
 
 use alloc::{collections::BTreeSet, vec};

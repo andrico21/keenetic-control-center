@@ -32,5 +32,8 @@ pub(super) fn intercept(shared: &Shared, line: &str) -> Option<Value> {
         lock(&shared.media_init).start(name, preset);
         return Some(tree::status("message", "initialization started."));
     }
+    if let ["opkg", "disk", _disk, url] = words.as_slice() {
+        lock(&shared.entware_install).start(url);
+    }
     shared.wipe_routes(line)
 }
