@@ -87,7 +87,7 @@ async fn follow(
 
 /// The started job, followed to its end when the client asked for progress.
 // cancel-safe: it only awaits `follow`, which forwards job progress; the job runs on regardless.
-async fn started(
+pub(super) async fn started(
     job: String,
     events: broadcast::Receiver<JobEvent>,
     progress: Option<Progress>,

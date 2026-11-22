@@ -4,6 +4,7 @@ mod clients;
 mod common;
 pub(crate) mod dispatch;
 mod dns;
+pub(super) mod entware;
 mod filtering;
 mod housekeeping;
 mod interfaces;

@@ -9,6 +9,7 @@ use kcc_domain::{
 };
 
 use super::{
+    entware,
     inventory::{READ_TOOLS, WRITE_TOOLS},
     read::read_ops,
     write::dispatch::write_ops,
@@ -107,8 +108,22 @@ impl Area {
             .iter()
             .find(|operation| operation.name == op)
             .map(|operation| (operation.permission, operation.risk))
+            .or_else(|| {
+                UNLISTED_WRITES
+                    .iter()
+                    .find(|&&(area, name, _meta)| area == self && name == op)
+                    .map(|&(_area, _name, meta)| meta)
+            })
     }
 }
+
+/// Write operations the MCP tools run that the domain registry does not list: area,
+/// name, and the permission and risk of their planner.
+const UNLISTED_WRITES: &[(Area, &str, (Permission, Risk))] = &[(
+    Area::Storage,
+    "initialize",
+    (Permission::Destructive, Risk::Destructive),
+)];
 
 /// Every domain tool description.
 pub(crate) fn descriptions() -> Vec<ToolDescription> {
@@ -150,5 +165,5 @@ pub(crate) fn descriptions() -> Vec<ToolDescription> {
             )
             .with_ops(ops.to_vec())
         });
-    reads.chain(writes).collect()
+    reads.chain(writes).chain(entware::descriptions()).collect()
 }

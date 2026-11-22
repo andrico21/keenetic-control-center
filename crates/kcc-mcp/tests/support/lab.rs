@@ -114,6 +114,19 @@ pub struct Lab {
     pub server: KccMcp,
 }
 
+/// Every toolset; a lab session starts with all of them.
+pub(crate) const TOOLSETS: [&str; 9] = [
+    "core",
+    "network-write",
+    "vpn",
+    "dns",
+    "system-admin",
+    "migration",
+    "presets",
+    "raw",
+    "entware",
+];
+
 /// An administrator with every permission on every router.
 pub(crate) fn admin() -> Role {
     Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()])
@@ -184,6 +197,20 @@ impl Lab {
         allow_destructive: bool,
         privacy: PrivacyConfig,
     ) -> TestResult<Self> {
+        let mut config = McpConfig::default();
+        config.toolsets = TOOLSETS.map(str::to_owned).to_vec();
+        config.allow_destructive = allow_destructive;
+        Self::start_with_settings(routers, role, (config, privacy)).await
+    }
+
+    /// Starts a session on a handler built with `settings`: its `[mcp]` and privacy
+    /// settings.
+    pub(crate) async fn start_with_settings(
+        routers: Vec<(&str, FakeRouter)>,
+        role: Role,
+        settings: (McpConfig, PrivacyConfig),
+    ) -> TestResult<Self> {
+        let (config, privacy) = settings;
         let directory = TempDir::new()?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut outbound = OutboundConfig::default();
@@ -220,20 +247,6 @@ impl Lab {
         let presets = PresetStore::new(state.clone(), MasterKey::from_bytes([6_u8; 32]));
         let jobs = JobRunner::open(state, Arc::clone(&registry), audit.clone()).await?;
         let poller = Poller::new(Arc::clone(&registry));
-        let mut config = McpConfig::default();
-        config.toolsets = [
-            "core",
-            "network-write",
-            "vpn",
-            "dns",
-            "system-admin",
-            "migration",
-            "presets",
-            "raw",
-        ]
-        .map(str::to_owned)
-        .to_vec();
-        config.allow_destructive = allow_destructive;
         let roles = RoleSource::new(vec![admin(), lab_only(), role.clone()]);
         let server = KccMcp::new(
             config,

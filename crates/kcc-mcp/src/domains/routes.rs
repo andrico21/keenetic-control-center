@@ -3,6 +3,7 @@
 use rmcp::handler::server::router::tool::ToolRoute;
 
 use super::{
+    entware,
     inventory::{READ_TOOLS, WRITE_TOOLS},
     read::{ReadInput, read, read_ops},
     table::descriptions,
@@ -39,5 +40,6 @@ pub(crate) fn routes() -> Vec<ToolRoute<KccMcp>> {
             ));
         }
     }
+    routes.extend(entware::routes());
     routes
 }

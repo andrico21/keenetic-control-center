@@ -21,8 +21,8 @@ use crate::{
 /// Todo 4: timezone names and init script paths outside their grammar are refused before
 /// any router request; the edges of the grammar and real zone names are accepted.
 ///
-/// A zone name containing `..`, starting with anything but a letter, a digit or `<`, or
-/// spelling `auto` in any case is refused.
+/// A zone name containing `..` or `//` (a URL), starting with anything but a letter, a
+/// digit or `<`, or spelling `auto` in any case is refused.
 #[tokio::test]
 async fn timezone_and_initrc_grammar_is_checked_before_any_request() -> TestResult {
     let fixture = Fixture::spawn(Firmware::V5_1).await?;
@@ -72,6 +72,8 @@ async fn timezone_and_initrc_grammar_is_checked_before_any_request() -> TestResu
         "a..b",
         "-x",
         "-",
+        "https://evil.example/tz",
+        "a//b",
         too_long_zone.as_str(),
     ] {
         let planned = entware::plan_timezone(

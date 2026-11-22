@@ -182,10 +182,8 @@ pub fn plan_chroot(
 /// # Errors
 ///
 /// Returns [`DomainError::PermissionDenied`] when the role lacks `Write` on the router,
-/// [`DomainError::InvalidCliToken`] when a name spells `auto` in any case, contains `..`,
-/// does not start with `A-Z a-z 0-9 <`, or is not 1 to 64 of
-/// `A-Z a-z 0-9 _ + - / . : , < >`, and [`DomainError::Validation`] when the catalog
-/// refuses the request.
+/// [`DomainError::InvalidCliToken`] when a name fails [`timezone_name_is_valid`], and
+/// [`DomainError::Validation`] when the catalog refuses the request.
 #[inline]
 pub fn plan_timezone(
     router: &RouterCtx,
@@ -195,20 +193,32 @@ pub fn plan_timezone(
 ) -> Result<EntwarePlan> {
     permitted(role, Permission::Write, router_name)?;
     if let TimezoneSetting::Named(name) = &timezone
-        && (name.len() > 64
-            || name.eq_ignore_ascii_case("auto")
-            || name.contains("..")
-            || !name
-                .chars()
-                .next()
-                .is_some_and(|first| first.is_ascii_alphanumeric() || first == '<')
-            || !name.chars().all(|character| {
-                character.is_ascii_alphanumeric() || "_+-/.:,<>".contains(character)
-            }))
+        && !timezone_name_is_valid(name)
     {
         return Err(DomainError::InvalidCliToken);
     }
     planned(router, &OpkgChange::Timezone(timezone))
+}
+
+/// Whether `name` may be sent as `opkg timezone <name>`.
+///
+/// A valid name is 1 to 64 of `A-Z a-z 0-9 _ + - / . : , < >`, starts with
+/// `A-Z a-z 0-9 <`, does not spell `auto` in any case and contains neither `..` nor `//`
+/// (a URL; no zone name or POSIX TZ string has one).
+#[inline]
+#[must_use]
+pub fn timezone_name_is_valid(name: &str) -> bool {
+    name.len() <= 64
+        && !name.eq_ignore_ascii_case("auto")
+        && !name.contains("..")
+        && !name.contains("//")
+        && name
+            .chars()
+            .next()
+            .is_some_and(|first| first.is_ascii_alphanumeric() || first == '<')
+        && name
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "_+-/.:,<>".contains(character))
 }
 
 /// Plans `opkg initrc <path>`, the init script the router runs as root from the drive.

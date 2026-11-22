@@ -137,7 +137,7 @@ System changes, diagnostics, router users, services, components, storage, schedu
 | `kcc_router_users_write` | manage_users | no | no | `create`, `set_tag`, `set_password`, `delete` | Create, tag, set the password of or delete router accounts |
 | `kcc_services_write` | write | no | no | `set_service`, `management_port`, `management_security_level`, `http_ssl` | Change router services and management listeners |
 | `kcc_components_write` | write | no | yes | `check_update`, `install`, `remove`, `commit`, `auto_update_channel`, `auto_update_schedule` | Queue component changes, set auto-update, commit |
-| `kcc_storage_write` | destructive | no | yes | `eject` | Eject storage media |
+| `kcc_storage_write` | destructive | no | yes | `eject`, `initialize` | Eject storage media, or initialize one (swap and ext4) for Entware |
 | `kcc_schedules_write` | write | no | no | `create`, `description`, `action` | Create schedules and set their actions |
 | `kcc_logging_write` | write | no | yes | `server`, `reduction`, `suppress`, `clear` | Change log servers, reduction and suppression; clear the log |
 
@@ -175,4 +175,13 @@ Catalog-validated raw RCI and CLI access.
 | `kcc_rci_batch` | raw_rci | no | yes | - | Apply catalog-validated root RCI mutations without saving |
 | `kcc_cli_parse` | raw_rci | no | yes | - | Validate and apply one router CLI line without saving; lines the catalog cannot map are sent unvalidated as destructive changes (requires RawRci, ManageRouters and Destructive, allow_destructive and confirm) and always reported unsaved |
 
-Total: 68 tools.
+## Toolset `entware` (2 tools)
+
+Entware over the router API: status, drives, the guided setup job and the opkg settings.
+
+| Tool | Permission | Read-only | Destructive | Operations | Description |
+|---|---|---|---|---|---|
+| `kcc_entware_read` | read | yes | no | `status`, `settings`, `drives` | Read whether Entware can run (components, architecture), its opkg settings, and the drives it can use or initialize |
+| `kcc_entware_write` | write | no | yes | `setup`, `chroot`, `timezone`, `initrc`, `dns_override`, `remove` | Start the Entware setup job on a drive (arch is required when the status reports mips_ambiguous), change the opkg chroot, time zone, init script or DNS override, or remove Entware; never saves |
+
+Total: 70 tools.

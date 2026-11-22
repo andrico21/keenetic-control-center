@@ -61,6 +61,11 @@ pub(crate) const TOOLSETS: &[(ToolsetInfo, &str)] = &[
         "Settings presets: capture settings groups from a router or backup and apply them to another router.",
     ),
     entry("raw", true, "Catalog-validated raw RCI and CLI access."),
+    entry(
+        "entware",
+        false,
+        "Entware over the router API: status, drives, the guided setup job and the opkg settings.",
+    ),
 ];
 
 /// The toolset named `name`, if any.

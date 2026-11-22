@@ -253,7 +253,7 @@ pub(crate) const WRITE_TOOLS: &[(Area, &str, &str, &str)] = &[
         Area::Storage,
         "kcc_storage_write",
         "system-admin",
-        "Eject storage media",
+        "Eject storage media, or initialize one (swap and ext4) for Entware",
     ),
     (
         Area::Schedules,

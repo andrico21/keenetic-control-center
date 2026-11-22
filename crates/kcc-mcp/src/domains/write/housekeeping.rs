@@ -23,7 +23,7 @@ pub(super) const LOGGING_OPS: &[&str] = &["server", "reduction", "suppress", "cl
 pub(super) const SCHEDULE_OPS: &[&str] = &["create", "description", "action"];
 
 /// Storage write operations.
-pub(super) const STORAGE_OPS: &[&str] = &["eject"];
+pub(super) const STORAGE_OPS: &[&str] = &["eject", "initialize"];
 
 /// The area a housekeeping write belongs to.
 #[derive(Clone, Copy, Debug)]
@@ -62,6 +62,10 @@ pub(super) struct HousekeepingInput {
     /// Schedule action minute, hour, and day of week.
     #[serde(default)]
     at: Option<[u8; 3]>,
+    /// Storage `eject` and `initialize`: acknowledges that the medium is the drive Entware
+    /// runs from; without it that drive is refused.
+    #[serde(default)]
+    acknowledge_entware_drive: bool,
 }
 
 /// Plans one logging change.
@@ -114,8 +118,8 @@ fn plan_schedule(
     })
 }
 
-/// Plans the storage eject, which is destructive and needs confirmation; the drive
-/// Entware runs from is refused.
+/// Plans the storage eject or initialize (`media <name> initialize ext4`), each
+/// destructive and confirmed; the drive Entware runs from needs its acknowledgement.
 ///
 /// # Errors
 ///
@@ -129,14 +133,19 @@ async fn plan_storage(
     let (identity, router, ctx) = opened;
     let name = text(input.name.as_deref())?;
     let entware_media = entware::configured_media(ctx).await.map_err(map_domain)?;
-    Ok(storage::plan_eject(
+    let plan = if input.op == "initialize" {
+        storage::plan_initialize
+    } else {
+        storage::plan_eject
+    };
+    Ok(plan(
         ctx,
         router.as_str(),
         &identity.role,
         name,
         input.confirm,
         entware_media.as_deref(),
-        false,
+        input.acknowledge_entware_drive,
     ))
 }
 

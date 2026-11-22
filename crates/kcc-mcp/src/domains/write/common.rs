@@ -62,7 +62,23 @@ pub(super) async fn open(
     request: (String, &str, bool),
 ) -> Result<Opened, McpFailure> {
     let (host, op, confirm) = request;
-    let (permission, risk) = area.write_meta(op).ok_or(McpFailure::InvalidArguments)?;
+    let meta = area.write_meta(op).ok_or(McpFailure::InvalidArguments)?;
+    open_as(server, meta, (host, confirm)).await
+}
+
+/// Authorizes an operation of `permission` and `risk` on `host`, then opens its domain
+/// context.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: context discovery can initialize the authenticated router session.
+pub(super) async fn open_as(
+    server: &KccMcp,
+    meta: (Permission, Risk),
+    request: (String, bool),
+) -> Result<Opened, McpFailure> {
+    let ((permission, risk), (host, confirm)) = (meta, request);
     let (identity, router) = server.authorize_host(permission, host)?;
     confirm_risk(server, risk, confirm)?;
     for needed in SafetyNet::required(permission, risk) {

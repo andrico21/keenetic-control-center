@@ -90,7 +90,7 @@ proxies; kcc refuses to start otherwise.
 | `read_only` | bool | `false` | register only read tools |
 | `allow_destructive` | bool | `false` | allow destructive tools and raw changes to management settings (each call still needs `confirm: true`) |
 | `max_result_bytes` | integer | `32768` | cap on the JSON text of one tool result; larger results are truncated: error codes and status members are kept and the largest array is cut |
-| `toolsets` | list of strings | `["core"]` | tool groups to register: `core`, `network-write`, `vpn`, `dns`, `system-admin`, `migration`, `presets`, `raw` ([MCP_TOOLS.md](MCP_TOOLS.md)) |
+| `toolsets` | list of strings | `["core"]` | tool groups to register: `core`, `network-write`, `vpn`, `dns`, `system-admin`, `migration`, `presets`, `raw`, `entware` ([MCP_TOOLS.md](MCP_TOOLS.md)) |
 | `locked` | list of strings | `[]` | key paths below `[mcp]` (for example `"allow_destructive"`, `"auth.main.oauth"`) the Web may not change; each must name a Web-managed key |
 | `endpoint` | string | `"main"` | which listener serves MCP: `main` (`/mcp` beside the Web UI), `dedicated` or `both` |
 | `dedicated` | table | see below | the optional MCP-only listener |

@@ -23,7 +23,7 @@ The first release, `0.1.0`, is in preparation and contains:
   settings copy, a nine-step migration wizard, a command explorer with RCI and CLI
   consoles, and administration of users, roles, API keys, the audit log and the
   server. Six languages and light and dark themes.
-- **MCP server** over Streamable HTTP with API keys and over stdio: 68 tools in eight
+- **MCP server** over Streamable HTTP with API keys and over stdio: 70 tools in nine
   toolsets, role and router-scope checks, destructive-operation gates, secret
   redaction and optional client pseudonymization.
 - **CLI** covering router profiles, reads and writes of every domain, raw validated
@@ -61,6 +61,11 @@ The first release, `0.1.0`, is in preparation and contains:
   <drive> <installer>` once with an installer from the closed table, proves the install
   from the router log lines of this attempt and a read-back of `opkg disk`, and ends with
   the configuration unsaved for an explicit save.
+- **MCP toolset `entware`** (off by default, not safety-reducing): `kcc_entware_read`
+  (`status`, `settings`, `drives`) and `kcc_entware_write` (`setup` as a job with the
+  installer chosen only by `arch`, `chroot`, `timezone`, `initrc`, `dns_override` inside
+  the recovery bracket, `remove`); `kcc_storage_write` gains `initialize` and the input
+  `acknowledge_entware_drive` for `eject` and `initialize` of the Entware drive.
 
 - **Entware SSH enrolment** (library): a probe shows the router's Entware host key with
   a single-use five-minute ticket; a bootstrap with the confirmed fingerprint and the
@@ -949,6 +954,10 @@ The first release, `0.1.0`, is in preparation and contains:
 - **Migrations and presets no longer copy Entware settings.** The `opkg disk`, `opkg chroot`,
   `opkg dns-override`, `opkg initrc`, `opkg timezone` and `opkg object-group` lines are
   skipped as source hardware instead of being copied to the target.
+- **An Entware time zone containing `//` (a URL) is refused.** The planner sent
+  `opkg timezone https://...` to the router; it now refuses such a name as an invalid CLI
+  token before any request, on the Web, in the CLI and over MCP, where the same check runs
+  before the router is contacted.
 
 - **kcc can create its state on Windows.** Creating the state directory or any owner-only
   file failed with "The parameter is incorrect" (Windows error 87). The entry now gets the
