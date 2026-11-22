@@ -4,6 +4,24 @@
 # Every ignore entry must name the advisory, state why it does not apply to this
 # workspace, and note whether an upstream fix exists. No entry without a reason.
 [advisories]
+# RUSTSEC-2023-0071: rsa 0.9.10 (Marvin attack, a timing side channel on RSA
+# private-key operations) comes only through jsonwebtoken 11.1.0 (`rust_crypto`) <-
+# rmcp-server-kit 3.21.1 `oauth`. kcc and rmcp-server-kit only VERIFY RSA signatures from
+# an external identity provider (RS*/PS* with its public key); the Marvin attack needs
+# private-key operations, and kcc signs its own tokens with Ed25519 through ring. The fix
+# is rsa 0.10, which only jsonwebtoken 12 uses, and the kit pins jsonwebtoken 11. Owner
+# decision 2026-11-22, review by 2027-02-18; remove when rmcp-server-kit moves to
+# jsonwebtoken 12 (rsa 0.10).
+# RUSTSEC-2026-0387: crypto-bigint 0.5.5 (timing variability in operations meant to be
+# constant-time) comes only through elliptic-curve 0.13.8 <- ecdsa 0.16.9 / p256 0.13.2 /
+# p384 0.13.1 <- jsonwebtoken 11.1.0 (`rust_crypto`) <- rmcp-server-kit 3.21.1 `oauth`.
+# The kit's production code imports only decode, decode_header, DecodingKey and
+# Validation from jsonwebtoken (every encode/EncodingKey use in its src/oauth.rs and
+# src/auth.rs is under #[cfg(test)]), so ECDSA runs only on public inputs (an identity
+# provider's public key and a token signature) and RSA only verifies; kcc signs its own
+# tokens with Ed25519 through ring. There is no 0.5.x fix (patched >= 0.7.6) and the kit
+# pins jsonwebtoken 11. Owner decision 2026-11-22, review by 2027-02-18; remove when
+# rmcp-server-kit moves to jsonwebtoken 12 (crypto-bigint >= 0.7.6).
 # RUSTSEC-2026-0542: humantime is unmaintained (a notice, not a vulnerability).
 # kcc uses it directly (kcc-app for duration settings through humantime_serde and
 # humantime::parse_duration for environment overrides; kcc-web for RFC 3339 formatting
@@ -23,7 +41,13 @@
 # it on certificate-revocation URLs only when mTLS revocation is configured, so no
 # unauthenticated network input reaches it. Owner decision 2026-11-22, TEMPORARY: remove
 # when `cargo update -p url` lands (review by 2026-11-24).
-ignore = ["RUSTSEC-2026-0542", "RUSTSEC-2026-0543", "RUSTSEC-2026-0592"]
+ignore = [
+    "RUSTSEC-2023-0071",
+    "RUSTSEC-2026-0387",
+    "RUSTSEC-2026-0542",
+    "RUSTSEC-2026-0543",
+    "RUSTSEC-2026-0592",
+]
 
 # No `path` here: cargo-audit does not expand `~` in this file and would clone into
 # a literal `./~` directory inside the checkout. It uses its default location

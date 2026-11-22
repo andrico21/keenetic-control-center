@@ -30,13 +30,45 @@ disallowed-methods = [ # kcc never starts a process: an inherited capability bou
     { path = "jiff::ZonedDateTime::now", reason = "kcc uses only the bundled time zone database (kcc_app::schedules::time::zones); the system zone and zoneinfo files are never read", allow-invalid = true },
 ]
 allowed-duplicate-crates = [ # each unavoidable duplicate, with a reason comment
+    "base16ct", # =0.2.0: elliptic-curve 0.13.8 / sec1 0.7.3 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 1.0.0 comes through elliptic-curve 0.14.3 / sec1 0.8.1 -> russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "base64", # =0.22.1: jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth` (and pem 3.0.6); 0.23.1 is kcc's own (kcc-app, kcc-config, kcc-domain, kcc-rci, kcc-testkit, kcc-web) and the kit's, reqwest's and rmcp's
     "bitflags", # =1.3.2: windows-permissions 0.2.4 -> rmcp-server-kit 3.21.1 (Windows-only)
+    "block-buffer", # =0.10.4: digest 0.10.7 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.12.1 comes through digest 0.11.3 (kcc's sha2 0.11 / hmac 0.13, the kit, russh 0.65.2 -> kcc-ssh and kcc-testkit)
+    "const-oid", # =0.9.6: der 0.7.10 / digest 0.10.7 / rsa 0.9.10 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.10.3 comes through der 0.8.3 / digest 0.11.3 (kcc's sha2 0.11, russh 0.65.2 -> kcc-ssh and kcc-testkit)
+    "cpufeatures", # =0.2.17: sha2 0.10.9 / curve25519-dalek 4.1.3 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.3.1 comes through kcc's sha2 0.11.1, argon2 0.6.0 and chacha20poly1305 0.11
+    "crypto-bigint", # =0.5.5: elliptic-curve 0.13.8 -> ecdsa 0.16.9 / p256 0.13.2 / p384 0.13.1 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.7.11 comes through russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "crypto-common", # =0.1.6: digest 0.10.7 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.2.2 comes through digest 0.11.3 and aead/cipher (kcc's sha2 0.11 and chacha20poly1305 0.11, russh 0.65.2 -> kcc-ssh and kcc-testkit)
+    "curve25519-dalek", # =4.1.3: ed25519-dalek 2.2.0 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 5.0.0 comes through ed25519-dalek 3.0.0 -> russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "der", # =0.7.10: pkcs8 0.10.2 / sec1 0.7.3 / spki 0.7.3 / pkcs1 0.7.5 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.8.3 comes through russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "digest", # =0.10.7: sha2 0.10.9 / hmac 0.12.1 / rsa 0.9.10 / ecdsa 0.16.9 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.11.3 comes through kcc's sha2 0.11 / hmac 0.13 / md-5 0.11, the kit and russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "ecdsa", # =0.16.9: p256 0.13.2 / p384 0.13.1 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.17.0 comes through p256/p384 0.14.0 -> russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "ed25519", # =2.2.3: ed25519-dalek 2.2.0 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 3.0.0 comes through ed25519-dalek 3.0.0 -> russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "ed25519-dalek", # =2.2.0: jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 3.0.0 comes through russh 0.65.2 -> kcc-ssh and kcc-testkit (and ssh-key 0.7.0-rc.12)
+    "elliptic-curve", # =0.13.8: ecdsa 0.16.9 / p256 0.13.2 / p384 0.13.1 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.14.3 comes through russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "ff", # =0.13.1: elliptic-curve 0.13.8 / group 0.13.0 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.14.0 comes through elliptic-curve 0.14.3 -> russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "fiat-crypto", # =0.2.9: curve25519-dalek 4.1.3 -> ed25519-dalek 2.2.0 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.3.0 comes through curve25519-dalek 5.0.0 / p384 0.14.0 -> russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "generic-array", # =0.14.9: digest 0.10.7 / crypto-bigint 0.5.5 / elliptic-curve 0.13.8 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 1.4.5 comes through russh 0.65.2 -> kcc-ssh and kcc-testkit
     "getrandom", # =0.2.17: only ring 0.17.14 -> rustls 0.23 / rustls-webpki 0.103 / rcgen 0.14 -> reqwest 0.13.5, rmcp-server-kit and kcc, and ring 0.17.14 -> russh 0.65.2 -> kcc-testkit; =0.3.4: governor 0.10.4 and rand_core 0.9.5 -> rmcp-server-kit
+    "group", # =0.13.0: elliptic-curve 0.13.8 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.14.0 comes through elliptic-curve 0.14.3 -> russh 0.65.2 -> kcc-ssh and kcc-testkit
     "hashbrown", # =0.14.5: dashmap 6.2.1 -> governor 0.10.4; =0.16.1: governor 0.10.4 -> rmcp-server-kit; =0.17.1: indexmap 2.14.2 -> rmcp 3.10.0 -> rmcp-server-kit
+    "hkdf", # =0.12.4: elliptic-curve 0.13.8 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.13.0 comes through elliptic-curve 0.14.3 -> russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "hmac", # =0.12.1: jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth` (and hkdf 0.12.4 / rfc6979 0.4.0); 0.13.0 is kcc's own (kcc-rci, kcc-testkit) and the kit's and russh 0.65.2's
     "num-bigint", # =0.4.8: der-parser 10.0.0 -> x509-parser 0.18.1 -> kcc-rci and rmcp-server-kit; =0.5.1: russh 0.65.2 -> kcc-testkit
+    "p256", # =0.13.2: jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.14.0 comes through russh 0.65.2 -> kcc-ssh and kcc-testkit (and ssh-key 0.7.0-rc.12)
+    "p384", # =0.13.1: jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.14.0 comes through russh 0.65.2 -> kcc-ssh and kcc-testkit (and ssh-key 0.7.0-rc.12)
+    "pem", # =3.0.6: jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 4.0.0 comes through rcgen 0.14.10 -> kcc and kcc-rci
+    "pem-rfc7468", # =0.7.0: der 0.7.10 / elliptic-curve 0.13.8 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 1.0.0 comes through der 0.8.3 / ssh-encoding 0.3.0 -> russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "pkcs8", # =0.10.2: ed25519 2.2.3 / elliptic-curve 0.13.8 / rsa 0.9.10 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.11.0 comes through russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "primeorder", # =0.13.6: p256 0.13.2 / p384 0.13.1 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.14.0 comes through p256/p384 0.14.0 -> russh 0.65.2 -> kcc-ssh and kcc-testkit
     "r-efi", # =5.3.0: getrandom 0.3.4 -> governor 0.10.4 -> rmcp-server-kit (UEFI target only)
-    "rand", # =0.9.5: governor 0.10.4 -> rmcp-server-kit
-    "rand_core", # =0.9.5: rand 0.9.5 / rand_chacha 0.9.0 -> governor 0.10.4 -> rmcp-server-kit
+    "rand", # =0.9.5: governor 0.10.4 -> rmcp-server-kit; =0.8.8: jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth` (and num-bigint-dig 0.8.6 -> rsa 0.9.10); 0.10.4 is kcc's own (kcc-ssh, kcc-testkit, kcc-web) and the kit's, rmcp's and russh 0.65.2's
+    "rand_chacha", # =0.3.1: rand 0.8.8 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.9.0 comes through rand 0.9.5 -> governor 0.10.4 -> rmcp-server-kit
+    "rand_core", # =0.9.5: rand 0.9.5 / rand_chacha 0.9.0 -> governor 0.10.4 -> rmcp-server-kit; =0.6.4: rand 0.8.8 / rsa 0.9.10 / elliptic-curve 0.13.8 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.10.1 comes through rand 0.10.4 (kcc, the kit, russh 0.65.2)
+    "rfc6979", # =0.4.0: ecdsa 0.16.9 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.6.0 comes through ecdsa 0.17.0 -> russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "sec1", # =0.7.3: elliptic-curve 0.13.8 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.8.1 comes through russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "sha2", # =0.10.9: jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth` (and ed25519-dalek 2.2.0 / p256 0.13.2 / p384 0.13.1); 0.11.1 is kcc's own (kcc, kcc-app, kcc-rci, kcc-testkit, kcc-web) and the kit's, rmcp's and russh 0.65.2's
+    "signature", # =2.2.0: jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth` (and ecdsa 0.16.9 / ed25519 2.2.3 / rsa 0.9.10); 3.0.0 comes through russh 0.65.2 -> kcc-ssh and kcc-testkit
+    "spki", # =0.7.3: ecdsa 0.16.9 / pkcs8 0.10.2 / rsa 0.9.10 -> jsonwebtoken 11.1.0 (`rust_crypto`) -> rmcp-server-kit 3.21.1 `oauth`; 0.8.1 comes through russh 0.65.2 -> kcc-ssh and kcc-testkit
     "syn", # =2.0.119: asn1-rs-derive 0.6.0 -> asn1-rs 0.7.2 -> x509-parser 0.18.1 -> rmcp-server-kit
     "synstructure", # =0.13.2: asn1-rs-derive 0.6.0 -> asn1-rs 0.7.2 -> x509-parser 0.18.1 -> rmcp-server-kit
     "thiserror", # =1.0.69: protobuf 3.7.2 -> prometheus 0.14.0 -> rmcp-server-kit `metrics` and kcc-telemetry

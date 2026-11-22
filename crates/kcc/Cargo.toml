@@ -30,7 +30,7 @@ kcc-telemetry = { version = "0.1.0", path = "../kcc-telemetry" }
 kcc-web = { version = "0.1.0", path = "../kcc-web" }
 rcgen = { workspace = true, features = ["crypto", "pem", "ring"] }
 reqwest = { workspace = true, features = ["rustls-no-provider"] }
-rmcp-server-kit = { workspace = true, features = ["metrics"] }
+rmcp-server-kit = { workspace = true, features = ["metrics", "oauth"] }
 rpassword = "7.5.5"
 rustls = { workspace = true, features = ["ring", "std", "tls12"] }
 secrecy = { workspace = true }

@@ -18,6 +18,7 @@ kcc-config = { version = "0.1.0", path = "../kcc-config" }
 kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
 kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
+ring = "0.17.14"
 rmcp-server-kit = { workspace = true }
 secrecy = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -44,7 +45,8 @@ tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }
 
 [package.metadata.cargo-machete]
 # humantime-serde is used only via `#[serde(with = "humantime_serde")]`, invisible to machete's import scan
-ignored = ["humantime-serde"]
+# ring has no user yet: the MCP authorization server signs its tokens with it (Ed25519); remove this entry when that code lands
+ignored = ["humantime-serde", "ring"]
 
 [lints]
 workspace = true

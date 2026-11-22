@@ -164,10 +164,12 @@ impl Fixture {
         });
         let (supervisor, queue, status) = ListenerSupervisor::channel();
         let (ready, first) = oneshot::channel();
-        let started = Supervisor::new(Arc::clone(&shared), effective, status)
-            .with(setup.windows.unwrap_or_default(), setup.hook)
-            .start(ready)
-            .await?;
+        let started = Box::pin(
+            Supervisor::new(Arc::clone(&shared), effective, status)
+                .with(setup.windows.unwrap_or_default(), setup.hook)
+                .start(ready),
+        )
+        .await?;
         let terminate = CancellationToken::new();
         let fired = terminate.clone();
         let serving = tokio::spawn(started.serve(queue, async move { fired.cancelled().await }));
