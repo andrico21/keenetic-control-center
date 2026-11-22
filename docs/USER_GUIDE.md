@@ -253,7 +253,16 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
   removals, commit (a background job that reboots the router). The job completes only
   after the router went down and came back with every queued change in place, and fails
   when the router comes back without them or does not restart within 15 minutes.
-- **Storage**: attached media; eject.
+- **Storage**: attached media; eject; Prepare for Entware (wipes the medium and creates
+  swap and an ext4 partition, KeeneticOS 5.1). Ejecting or initializing the drive Entware
+  runs from asks a second time.
+- **Entware**: whether the router can run Entware and why not, its components,
+  architecture, settings and drives. Change chroot (SSH management stops while it is
+  on), the time zone, the startup script and DNS override (inside the fail-safe timer:
+  the household then resolves names only through Entware's DNS server), remove Entware,
+  or set it up: a background job installs the missing components (the router restarts),
+  sends the installer for the router's architecture (a MIPS router asks which one) and
+  checks its log lines. The job leaves the configuration unsaved and offers Save.
 - **Schedules**: create schedules and their actions.
 - **KeenDNS**: book or drop a name, set the access level, add proxy entries. The
   current access level and proxy entries aren't readable.

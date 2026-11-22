@@ -82,6 +82,14 @@ The first release, `0.1.0`, is in preparation and contains:
   and runs under the fail-safe timer, and ejecting or initializing the Entware drive needs
   `--entware-ok` (else exit code 10). An invalid `--drive` is refused with exit code 4
   before any router request.
+- **Web: the Entware page and the drive warnings**: System > Entware shows whether the
+  router can run Entware (and why not), its components, architecture, `opkg` settings and
+  drives; it turns chroot on or off (warning that SSH management stops), sets the time
+  zone and the startup script, turns DNS override on or off inside the fail-safe timer
+  (with the household DNS warning), removes Entware, and runs the guided setup as a job
+  that ends by offering Save, never saving itself. The storage page offers Prepare for
+  Entware (`media initialize ext4`) and asks a second time before it ejects or
+  initializes the drive Entware runs from.
 
 - **MCP error code `router_mode_unknown`**: a management change is refused, with nothing
   sent, when the router reports neither a system mode kcc knows nor a `fail-safe`

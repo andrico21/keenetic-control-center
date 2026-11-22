@@ -7940,8 +7940,265 @@ pub const WEB_ADMIN_ERROR_KEY_EXPIRY: MessageKey = MessageKey::new("web-admin-er
 pub const WEB_ADMIN_PERMISSION_MANAGE_MCP: MessageKey =
     MessageKey::new("web-admin-permission-manage-mcp");
 
+/// `web-system-entware-title` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_TITLE: MessageKey = MessageKey::new("web-system-entware-title");
+
+/// `web-system-entware-no-usb` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_NO_USB: MessageKey = MessageKey::new("web-system-entware-no-usb");
+
+/// `web-system-entware-no-arch` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_NO_ARCH: MessageKey = MessageKey::new("web-system-entware-no-arch");
+
+/// `web-system-entware-status` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_STATUS: MessageKey = MessageKey::new("web-system-entware-status");
+
+/// `web-system-entware-opkg` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_OPKG: MessageKey = MessageKey::new("web-system-entware-opkg");
+
+/// `web-system-entware-ext` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_EXT: MessageKey = MessageKey::new("web-system-entware-ext");
+
+/// `web-system-entware-installed` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_INSTALLED: MessageKey =
+    MessageKey::new("web-system-entware-installed");
+
+/// `web-system-entware-available` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_AVAILABLE: MessageKey =
+    MessageKey::new("web-system-entware-available");
+
+/// `web-system-entware-not-installed` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_NOT_INSTALLED: MessageKey =
+    MessageKey::new("web-system-entware-not-installed");
+
+/// `web-system-entware-missing` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_MISSING: MessageKey = MessageKey::new("web-system-entware-missing");
+
+/// `web-system-entware-arch` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_ARCH: MessageKey = MessageKey::new("web-system-entware-arch");
+
+/// `web-system-entware-arch-aarch64` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_ARCH_AARCH64: MessageKey =
+    MessageKey::new("web-system-entware-arch-aarch64");
+
+/// `web-system-entware-arch-mips` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_ARCH_MIPS: MessageKey =
+    MessageKey::new("web-system-entware-arch-mips");
+
+/// `web-system-entware-settings` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SETTINGS: MessageKey = MessageKey::new("web-system-entware-settings");
+
+/// `web-system-entware-disk` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_DISK: MessageKey = MessageKey::new("web-system-entware-disk");
+
+/// `web-system-entware-initrc` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_INITRC: MessageKey = MessageKey::new("web-system-entware-initrc");
+
+/// `web-system-entware-timezone` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_TIMEZONE: MessageKey = MessageKey::new("web-system-entware-timezone");
+
+/// `web-system-entware-timezone-auto` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_TIMEZONE_AUTO: MessageKey =
+    MessageKey::new("web-system-entware-timezone-auto");
+
+/// `web-system-entware-not-set` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_NOT_SET: MessageKey = MessageKey::new("web-system-entware-not-set");
+
+/// `web-system-entware-chroot` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_CHROOT: MessageKey = MessageKey::new("web-system-entware-chroot");
+
+/// `web-system-entware-dns-override` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_DNS_OVERRIDE: MessageKey =
+    MessageKey::new("web-system-entware-dns-override");
+
+/// `web-system-entware-on` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_ON: MessageKey = MessageKey::new("web-system-entware-on");
+
+/// `web-system-entware-off` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_OFF: MessageKey = MessageKey::new("web-system-entware-off");
+
+/// `web-system-entware-turn-on` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_TURN_ON: MessageKey = MessageKey::new("web-system-entware-turn-on");
+
+/// `web-system-entware-turn-off` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_TURN_OFF: MessageKey = MessageKey::new("web-system-entware-turn-off");
+
+/// `web-system-entware-chroot-warning` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_CHROOT_WARNING: MessageKey =
+    MessageKey::new("web-system-entware-chroot-warning");
+
+/// `web-system-entware-dns-warning` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_DNS_WARNING: MessageKey =
+    MessageKey::new("web-system-entware-dns-warning");
+
+/// `web-system-entware-dns-filter` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_DNS_FILTER: MessageKey =
+    MessageKey::new("web-system-entware-dns-filter");
+
+/// `web-system-entware-change` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_CHANGE: MessageKey = MessageKey::new("web-system-entware-change");
+
+/// `web-system-entware-timezone-rule` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_TIMEZONE_RULE: MessageKey =
+    MessageKey::new("web-system-entware-timezone-rule");
+
+/// `web-system-entware-initrc-rule` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_INITRC_RULE: MessageKey =
+    MessageKey::new("web-system-entware-initrc-rule");
+
+/// `web-system-entware-apply` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_APPLY: MessageKey = MessageKey::new("web-system-entware-apply");
+
+/// `web-system-entware-remove-title` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_REMOVE_TITLE: MessageKey =
+    MessageKey::new("web-system-entware-remove-title");
+
+/// `web-system-entware-remove-text` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_REMOVE_TEXT: MessageKey =
+    MessageKey::new("web-system-entware-remove-text");
+
+/// `web-system-entware-remove` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_REMOVE: MessageKey = MessageKey::new("web-system-entware-remove");
+
+/// `web-system-entware-setup-title` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SETUP_TITLE: MessageKey =
+    MessageKey::new("web-system-entware-setup-title");
+
+/// `web-system-entware-setup-text` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SETUP_TEXT: MessageKey =
+    MessageKey::new("web-system-entware-setup-text");
+
+/// `web-system-entware-drive` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_DRIVE: MessageKey = MessageKey::new("web-system-entware-drive");
+
+/// `web-system-entware-drive-option` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_DRIVE_OPTION: MessageKey =
+    MessageKey::new("web-system-entware-drive-option");
+
+/// `web-system-entware-drive-option-plain` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_DRIVE_OPTION_PLAIN: MessageKey =
+    MessageKey::new("web-system-entware-drive-option-plain");
+
+/// `web-system-entware-internal` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_INTERNAL: MessageKey = MessageKey::new("web-system-entware-internal");
+
+/// `web-system-entware-internal-warning` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_INTERNAL_WARNING: MessageKey =
+    MessageKey::new("web-system-entware-internal-warning");
+
+/// `web-system-entware-installer` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_INSTALLER: MessageKey =
+    MessageKey::new("web-system-entware-installer");
+
+/// `web-system-entware-installer-mipsel` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_INSTALLER_MIPSEL: MessageKey =
+    MessageKey::new("web-system-entware-installer-mipsel");
+
+/// `web-system-entware-installer-mips` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_INSTALLER_MIPS: MessageKey =
+    MessageKey::new("web-system-entware-installer-mips");
+
+/// `web-system-entware-installer-help` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_INSTALLER_HELP: MessageKey =
+    MessageKey::new("web-system-entware-installer-help");
+
+/// `web-system-entware-setup` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SETUP: MessageKey = MessageKey::new("web-system-entware-setup");
+
+/// `web-system-entware-no-drives` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_NO_DRIVES: MessageKey =
+    MessageKey::new("web-system-entware-no-drives");
+
+/// `web-system-entware-prepare-note` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_PREPARE_NOTE: MessageKey =
+    MessageKey::new("web-system-entware-prepare-note");
+
+/// `web-system-entware-warning-title` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_WARNING_TITLE: MessageKey =
+    MessageKey::new("web-system-entware-warning-title");
+
+/// `web-system-entware-warning-other` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_WARNING_OTHER: MessageKey =
+    MessageKey::new("web-system-entware-warning-other");
+
+/// `web-system-entware-refused` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_REFUSED: MessageKey = MessageKey::new("web-system-entware-refused");
+
+/// `web-system-entware-unsaved` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_UNSAVED: MessageKey = MessageKey::new("web-system-entware-unsaved");
+
+/// `web-system-entware-fail-safe` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_FAIL_SAFE: MessageKey =
+    MessageKey::new("web-system-entware-fail-safe");
+
+/// `web-system-entware-installer-required` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_INSTALLER_REQUIRED: MessageKey =
+    MessageKey::new("web-system-entware-installer-required");
+
+/// `web-system-entware-installer-mismatch` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_INSTALLER_MISMATCH: MessageKey =
+    MessageKey::new("web-system-entware-installer-mismatch");
+
+/// `web-system-entware-drive-not-eligible` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_DRIVE_NOT_ELIGIBLE: MessageKey =
+    MessageKey::new("web-system-entware-drive-not-eligible");
+
+/// `web-system-entware-already-set` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_ALREADY_SET: MessageKey =
+    MessageKey::new("web-system-entware-already-set");
+
+/// `web-system-entware-component-missing` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_COMPONENT_MISSING: MessageKey =
+    MessageKey::new("web-system-entware-component-missing");
+
+/// `web-system-entware-setup-job` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SETUP_JOB: MessageKey =
+    MessageKey::new("web-system-entware-setup-job");
+
+/// `web-system-entware-step-components` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_STEP_COMPONENTS: MessageKey =
+    MessageKey::new("web-system-entware-step-components");
+
+/// `web-system-entware-step-install` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_STEP_INSTALL: MessageKey =
+    MessageKey::new("web-system-entware-step-install");
+
+/// `web-system-entware-step-verify` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_STEP_VERIFY: MessageKey =
+    MessageKey::new("web-system-entware-step-verify");
+
+/// `web-system-entware-step-wait` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_STEP_WAIT: MessageKey =
+    MessageKey::new("web-system-entware-step-wait");
+
+/// `web-system-entware-step-read-back` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_STEP_READ_BACK: MessageKey =
+    MessageKey::new("web-system-entware-step-read-back");
+
+/// `web-system-entware-step-done` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_STEP_DONE: MessageKey =
+    MessageKey::new("web-system-entware-step-done");
+
+/// `web-system-entware-drive-title` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_DRIVE_TITLE: MessageKey =
+    MessageKey::new("web-system-entware-drive-title");
+
+/// `web-system-entware-drive-eject` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_DRIVE_EJECT: MessageKey =
+    MessageKey::new("web-system-entware-drive-eject");
+
+/// `web-system-entware-drive-initialize` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_DRIVE_INITIALIZE: MessageKey =
+    MessageKey::new("web-system-entware-drive-initialize");
+
+/// `web-system-entware-prepare` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_PREPARE: MessageKey = MessageKey::new("web-system-entware-prepare");
+
+/// `web-system-entware-prepare-started` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_PREPARE_STARTED: MessageKey =
+    MessageKey::new("web-system-entware-prepare-started");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2494] = [
+pub static ALL: [MessageKey; 2565] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -10436,4 +10693,75 @@ pub static ALL: [MessageKey; 2494] = [
     WEB_ADMIN_KEY_EXPIRES_1Y,
     WEB_ADMIN_ERROR_KEY_EXPIRY,
     WEB_ADMIN_PERMISSION_MANAGE_MCP,
+    WEB_SYSTEM_ENTWARE_TITLE,
+    WEB_SYSTEM_ENTWARE_NO_USB,
+    WEB_SYSTEM_ENTWARE_NO_ARCH,
+    WEB_SYSTEM_ENTWARE_STATUS,
+    WEB_SYSTEM_ENTWARE_OPKG,
+    WEB_SYSTEM_ENTWARE_EXT,
+    WEB_SYSTEM_ENTWARE_INSTALLED,
+    WEB_SYSTEM_ENTWARE_AVAILABLE,
+    WEB_SYSTEM_ENTWARE_NOT_INSTALLED,
+    WEB_SYSTEM_ENTWARE_MISSING,
+    WEB_SYSTEM_ENTWARE_ARCH,
+    WEB_SYSTEM_ENTWARE_ARCH_AARCH64,
+    WEB_SYSTEM_ENTWARE_ARCH_MIPS,
+    WEB_SYSTEM_ENTWARE_SETTINGS,
+    WEB_SYSTEM_ENTWARE_DISK,
+    WEB_SYSTEM_ENTWARE_INITRC,
+    WEB_SYSTEM_ENTWARE_TIMEZONE,
+    WEB_SYSTEM_ENTWARE_TIMEZONE_AUTO,
+    WEB_SYSTEM_ENTWARE_NOT_SET,
+    WEB_SYSTEM_ENTWARE_CHROOT,
+    WEB_SYSTEM_ENTWARE_DNS_OVERRIDE,
+    WEB_SYSTEM_ENTWARE_ON,
+    WEB_SYSTEM_ENTWARE_OFF,
+    WEB_SYSTEM_ENTWARE_TURN_ON,
+    WEB_SYSTEM_ENTWARE_TURN_OFF,
+    WEB_SYSTEM_ENTWARE_CHROOT_WARNING,
+    WEB_SYSTEM_ENTWARE_DNS_WARNING,
+    WEB_SYSTEM_ENTWARE_DNS_FILTER,
+    WEB_SYSTEM_ENTWARE_CHANGE,
+    WEB_SYSTEM_ENTWARE_TIMEZONE_RULE,
+    WEB_SYSTEM_ENTWARE_INITRC_RULE,
+    WEB_SYSTEM_ENTWARE_APPLY,
+    WEB_SYSTEM_ENTWARE_REMOVE_TITLE,
+    WEB_SYSTEM_ENTWARE_REMOVE_TEXT,
+    WEB_SYSTEM_ENTWARE_REMOVE,
+    WEB_SYSTEM_ENTWARE_SETUP_TITLE,
+    WEB_SYSTEM_ENTWARE_SETUP_TEXT,
+    WEB_SYSTEM_ENTWARE_DRIVE,
+    WEB_SYSTEM_ENTWARE_DRIVE_OPTION,
+    WEB_SYSTEM_ENTWARE_DRIVE_OPTION_PLAIN,
+    WEB_SYSTEM_ENTWARE_INTERNAL,
+    WEB_SYSTEM_ENTWARE_INTERNAL_WARNING,
+    WEB_SYSTEM_ENTWARE_INSTALLER,
+    WEB_SYSTEM_ENTWARE_INSTALLER_MIPSEL,
+    WEB_SYSTEM_ENTWARE_INSTALLER_MIPS,
+    WEB_SYSTEM_ENTWARE_INSTALLER_HELP,
+    WEB_SYSTEM_ENTWARE_SETUP,
+    WEB_SYSTEM_ENTWARE_NO_DRIVES,
+    WEB_SYSTEM_ENTWARE_PREPARE_NOTE,
+    WEB_SYSTEM_ENTWARE_WARNING_TITLE,
+    WEB_SYSTEM_ENTWARE_WARNING_OTHER,
+    WEB_SYSTEM_ENTWARE_REFUSED,
+    WEB_SYSTEM_ENTWARE_UNSAVED,
+    WEB_SYSTEM_ENTWARE_FAIL_SAFE,
+    WEB_SYSTEM_ENTWARE_INSTALLER_REQUIRED,
+    WEB_SYSTEM_ENTWARE_INSTALLER_MISMATCH,
+    WEB_SYSTEM_ENTWARE_DRIVE_NOT_ELIGIBLE,
+    WEB_SYSTEM_ENTWARE_ALREADY_SET,
+    WEB_SYSTEM_ENTWARE_COMPONENT_MISSING,
+    WEB_SYSTEM_ENTWARE_SETUP_JOB,
+    WEB_SYSTEM_ENTWARE_STEP_COMPONENTS,
+    WEB_SYSTEM_ENTWARE_STEP_INSTALL,
+    WEB_SYSTEM_ENTWARE_STEP_VERIFY,
+    WEB_SYSTEM_ENTWARE_STEP_WAIT,
+    WEB_SYSTEM_ENTWARE_STEP_READ_BACK,
+    WEB_SYSTEM_ENTWARE_STEP_DONE,
+    WEB_SYSTEM_ENTWARE_DRIVE_TITLE,
+    WEB_SYSTEM_ENTWARE_DRIVE_EJECT,
+    WEB_SYSTEM_ENTWARE_DRIVE_INITIALIZE,
+    WEB_SYSTEM_ENTWARE_PREPARE,
+    WEB_SYSTEM_ENTWARE_PREPARE_STARTED,
 ];

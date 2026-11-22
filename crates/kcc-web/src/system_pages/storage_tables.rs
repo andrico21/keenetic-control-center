@@ -1,5 +1,5 @@
-//! The tables of the storage page: the media with the eject action where the role may
-//! run it, and the USB devices.
+//! The tables of the storage page: the media with Eject and Prepare for Entware where the
+//! role may run them, and the USB devices.
 
 use kcc_i18n::{keys, locale::Locale};
 
@@ -8,7 +8,7 @@ use super::{
     tables::{Viewer, headed, name_cell, said},
 };
 use crate::{
-    page_kit::{gate::Controls, request::with_query},
+    page_kit::request::with_query,
     table::{
         acts::Act,
         cells::{Cell, Layout, Pill},
@@ -19,10 +19,11 @@ use crate::{
     },
 };
 
-/// The storage media of `table`, with the eject action where `controls` allow it.
+/// The storage media of `table`, with Eject and, for a medium the router can initialize
+/// with ext4, Prepare for Entware, each where the role may run it (`eject`, `prepare`).
 pub(super) fn media(
     table: &Table<Medium>,
-    controls: &Controls,
+    (eject, prepare): (bool, bool),
     (router, locale): Viewer<'_>,
 ) -> TableView {
     let columns = [
@@ -32,7 +33,7 @@ pub(super) fn media(
         ("size", keys::WEB_SYSTEM_STORAGE_SIZE),
         ("free", keys::WEB_SYSTEM_STORAGE_FREE),
     ];
-    let actions = controls.allows("eject");
+    let actions = eject || prepare;
     let empty = keys::WEB_SYSTEM_STORAGE_NO_MEDIA;
     let mut view = headed((table, empty), &columns, (actions, locale)).nested();
     for (index, row) in table.rows().iter().enumerate() {
@@ -49,12 +50,21 @@ pub(super) fn media(
             Cell::optional(owned(row.free_text())).class("numeric"),
         ];
         if actions {
-            let url = with_query(
-                &format!("/ui/r/{router}/system/storage/eject"),
-                &[("media", row.id())],
-            );
-            let label = said(locale, keys::WEB_SYSTEM_STORAGE_EJECT);
-            let acts = vec![Act::sends(label, url).danger()];
+            let url = |slug: &str| {
+                with_query(
+                    &format!("/ui/r/{router}/system/storage/{slug}"),
+                    &[("media", row.id())],
+                )
+            };
+            let mut acts = Vec::new();
+            if eject {
+                let label = said(locale, keys::WEB_SYSTEM_STORAGE_EJECT);
+                acts.push(Act::sends(label, url("eject")).danger());
+            }
+            if prepare && row.initializable() {
+                let label = said(locale, keys::WEB_SYSTEM_ENTWARE_PREPARE);
+                acts.push(Act::sends(label, url("initialize")).danger());
+            }
             cells.push(Cell::acts(Layout::Wrapped("admin-actions"), acts, id));
         }
         view = view.row(cells);

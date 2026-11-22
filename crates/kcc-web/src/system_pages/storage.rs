@@ -1,8 +1,10 @@
 //! Storage at `/ui/r/{router}/system/storage`: the mounted media and the USB devices,
-//! with Eject where the role may use it and the router's catalog has the command.
+//! with Eject and Prepare for Entware where the role may use them and the router's catalog
+//! has the command.
 //!
-//! Eject is destructive: it needs `Destructive` and the router name typed into the kit's
-//! confirmation.
+//! Both are destructive: they need `Destructive` and the router name typed into the kit's
+//! confirmation. Prepare for Entware is offered for a medium the router can initialize
+//! with ext4.
 
 use askama::Template;
 use axum::{
@@ -13,9 +15,11 @@ use axum::{
 };
 use kcc_domain::{RouterCtx, storage};
 use kcc_i18n::{bundle::MessageKey, format, keys, locale::Locale};
+use serde_json::Value;
 
 use super::{
     shared::Visit,
+    storage_actions::INITIALIZE,
     storage_tables,
     tabs::{Tab, TabBar},
 };
@@ -69,6 +73,8 @@ pub(super) struct Medium {
     size_text: Option<String>,
     /// Free space, as people read it.
     free_text: Option<String>,
+    /// Whether the router can initialize it with ext4.
+    initializable: bool,
 }
 
 impl Row for Medium {
@@ -127,6 +133,11 @@ impl Medium {
     pub(super) fn free_text(&self) -> Option<&str> {
         self.free_text.as_deref()
     }
+
+    /// Whether the router can initialize it with ext4.
+    pub(super) const fn initializable(&self) -> bool {
+        self.initializable
+    }
 }
 
 /// One USB device.
@@ -176,8 +187,14 @@ async fn read(
     let media = volumes
         .into_iter()
         .filter_map(|volume| {
+            let initializable = volume
+                .extra
+                .get("initialize-supported")
+                .and_then(Value::as_array)
+                .is_some_and(|kinds| kinds.iter().any(|kind| kind.as_str() == Some("ext4")));
             Some(Medium {
                 id: volume.id?,
+                initializable,
                 size_text: volume.size.map(|bytes| format::bytes(locale, bytes)),
                 free_text: volume.free.map(|bytes| format::bytes(locale, bytes)),
                 label: volume.label,
@@ -236,12 +253,16 @@ pub(crate) async fn page(
         Ok((facts, domain)) => {
             let controls = Controls::new(user.role(), &router)
                 .with_operations(storage::DESCRIPTOR.write_ops, Some(facts.catalog()));
+            let allowed = (
+                controls.allows("eject"),
+                INITIALIZE.offered(&controls, facts.catalog()),
+            );
             match read(&domain, user.locale()).await {
                 Ok((media, usb)) => {
                     let base = format!("/ui/r/{router}/system/storage");
                     let table = Table::new(media, &query, base);
                     let viewer = (router.as_str(), user.locale());
-                    page.media = Some(storage_tables::media(&table, &controls, viewer));
+                    page.media = Some(storage_tables::media(&table, allowed, viewer));
                     page.usb = storage_tables::usb(&usb, user.locale());
                 }
                 Err(message) => page.problem = Some(message),

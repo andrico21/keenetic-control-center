@@ -202,6 +202,16 @@ document; nested scrollers: `.table-wrap` (horizontal, the table only); anti-pat
 fixed-height scrolling table, row actions in a hover-only menu, a control for an operation
 the router's catalog lacks.
 
+Layout (system Entware `/ui/r/{router}/system/entware`): stacked sections - page head,
+router link, tab bar, the outcome region, then `#entware-region`: the not-possible notice
+or the DNS-filter dependency notice, the status and settings panels in the `.panels`
+grid, the Change settings panel (time zone and startup script forms), the Remove panel,
+and while Entware is not set up the setup panel (drive radio group with the internal
+storage and the router's warning under it, the installer select on a MIPS router, the
+danger Set up button); the setup's job panel lands in the outcome region; scroll owner:
+the document; anti-patterns: an editable installer address, an action on a router that
+cannot run Entware, a save the job makes by itself.
+
 Layout (system log `/ui/r/{router}/system/logs`): stacked sections - page head with
 Download, router link, tab bar, the filter, then the log view whose `.log-tail` (at most
 `--log-height`, keyboard-focusable) scrolls the lines; scroll owner: the document; nested
@@ -587,7 +597,7 @@ with the unsaved badge, one validation failure that sends nothing, one router er
 - Tab bar (`partials/system_tabs.html`, `system_pages::tabs::TabBar`): the admin tabs'
   anatomy (`.tabs`), one link per system page of the router, the current one marked with
   `aria-current="page"`; every system page and the general page show it under the router
-  link. With nine tabs it wraps (`.tabs--wrap`) instead of scrolling sideways, so the
+  link. With ten tabs it wraps (`.tabs--wrap`) instead of scrolling sideways, so the
   current page's tab is always in view on a phone.
 - Tag and day checkboxes (`.system-checks`): `.choice__option` checkboxes in an auto-fill
   grid of 10rem columns inside a `fieldset.choice` with its legend.
@@ -619,7 +629,21 @@ with the unsaved badge, one validation failure that sends nothing, one router er
   job panel with its phases.
 - Storage. Primary action: none. Priorities: 1 media (name, label, filesystem, size, free),
   2 their actions, 3 USB devices. Required content: Eject, Check and Format only where the
-  catalog has them (Check and Format are hidden until a catalog does), the USB table.
+  catalog has them (Check and Format are hidden until a catalog does), Prepare for Entware
+  for a medium the router can initialize with ext4 (5.1 catalogs), the second dialog
+  ("Entware runs from this drive", the router name again) before the Entware drive is
+  ejected or initialized, the USB table.
+- Entware. Primary action: Set up Entware while it is not set up, otherwise none.
+  Priorities: 1 whether the router can run Entware (the reason when it cannot), 2 the
+  components, architecture and settings, 3 the settings actions, the removal and the
+  setup. Left out on purpose: installer addresses (the installer is chosen by
+  architecture; a MIPS router offers the two MIPS installers as a select), package and
+  service management (SSH, later). Required content: opkg and ext states, architecture,
+  drive, startup script, time zone, chroot and DNS override with Turn on/Turn off, the
+  chroot warning while it is on, the household DNS warning beside DNS override, the DNS
+  filter dependency notice, the time zone and startup script forms with their rules,
+  Remove, the drive choice with the internal storage and the router's warning, the job
+  panel's step lines ending with Save offered.
 - Schedules. Primary action: Add schedule. Priorities: 1 name, 2 description, 3 state and
   Add action. Required content: the one-word rule in the dialogs, action start or stop,
   time, days Monday to Sunday.

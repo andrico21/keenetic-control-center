@@ -16,6 +16,8 @@ pub(crate) enum Tab {
     Components,
     /// Media and USB devices.
     Storage,
+    /// Entware: its status, settings and setup.
+    Entware,
     /// Schedules and their timed actions.
     Schedules,
     /// The KeenDNS name and remote access.
@@ -28,12 +30,13 @@ pub(crate) enum Tab {
 
 impl Tab {
     /// Every system page, in tab order.
-    const ALL: [Self; 9] = [
+    const ALL: [Self; 10] = [
         Self::General,
         Self::Users,
         Self::Services,
         Self::Components,
         Self::Storage,
+        Self::Entware,
         Self::Schedules,
         Self::KeenDns,
         Self::Logs,
@@ -48,6 +51,7 @@ impl Tab {
             Self::Services => "services",
             Self::Components => "components",
             Self::Storage => "storage",
+            Self::Entware => "entware",
             Self::Schedules => "schedules",
             Self::KeenDns => "keendns",
             Self::Logs => "logs",
@@ -63,6 +67,7 @@ impl Tab {
             Self::Services => keys::WEB_SYSTEM_SERVICES_TITLE,
             Self::Components => keys::WEB_SYSTEM_COMPONENTS_TITLE,
             Self::Storage => keys::WEB_SYSTEM_STORAGE_TITLE,
+            Self::Entware => keys::WEB_SYSTEM_ENTWARE_TITLE,
             Self::Schedules => keys::WEB_SYSTEM_SCHEDULES_TITLE,
             Self::KeenDns => keys::WEB_SYSTEM_KEENDNS_TITLE,
             Self::Logs => keys::WEB_SYSTEM_LOGS_TITLE,

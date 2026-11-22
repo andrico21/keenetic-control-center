@@ -168,6 +168,29 @@ impl Fixture {
         .await
     }
 
+    /// A same-origin form `POST` of the encoded `form` as `browser` that carries no CSRF
+    /// token, as a page of another site would send it with the session cookie.
+    pub(crate) async fn post_without_token(
+        &self,
+        path: &str,
+        browser: &Browser,
+        form: &str,
+    ) -> TestResult<Response> {
+        self.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri(path)
+                .header(header::COOKIE, &browser.cookie)
+                .header(header::ORIGIN, ORIGIN)
+                .header("sec-fetch-site", "same-origin")
+                .header("hx-request", "true")
+                .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .header(header::CONTENT_LENGTH, form.len())
+                .body(Body::from(form.to_owned()))?,
+        )
+        .await
+    }
+
     /// A `multipart/form-data` `POST` of `fields` and, when given, a text `file` named
     /// `startup-config.txt`.
     pub(crate) async fn post_multipart(

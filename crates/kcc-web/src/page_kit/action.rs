@@ -7,19 +7,23 @@
 //! through the change workflow. The action audits how it ended, once, with field names
 //! only, and returns the outcome to render ([`ending`]).
 
+mod described;
 mod ending;
 
 use axum::{
     http::StatusCode,
     response::{IntoResponse as _, Response},
 };
-use kcc_app::workflow::{ChangeSet, WorkflowError};
-use kcc_domain::{
-    DomainDescriptor, OperationDescriptor, RouterCtx, configuration::SafetyNet, verification,
+use kcc_app::{
+    permissions::Permission,
+    workflow::{ChangeSet, WorkflowError},
 };
+use kcc_catalog::{Catalog, Risk};
+use kcc_domain::{DomainDescriptor, RouterCtx, configuration::SafetyNet, verification};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde_json::json;
 
+use self::described::Source;
 use super::{
     audit::Record,
     change::{self, Applied, Change, Plan, Refused},
@@ -27,7 +31,7 @@ use super::{
     context::{self, Target, fragment_shell},
     facts::RouterFacts,
     family::Family,
-    gate::allowed,
+    gate::{Controls, allowed},
     outcome::{Failure, Outcome},
     respond::Answer,
     submit::{Planned, work::Job},
@@ -38,13 +42,22 @@ use crate::{
     errors::{self, Kind},
 };
 
+/// What running a write takes: its catalog command, the permission it needs and its risk.
+#[derive(Debug, Clone, Copy)]
+struct Described {
+    /// Catalog command of the write.
+    catalog_path: &'static str,
+    /// Permission the write needs.
+    permission: Permission,
+    /// The write's risk.
+    risk: Risk,
+}
+
 /// A curated write of a domain, as a page runs it.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Operation {
-    /// The domain whose write it is.
-    domain: &'static DomainDescriptor,
-    /// The write's name in the domain descriptor.
-    name: &'static str,
+    /// Where the write is described.
+    source: Source,
     /// Stable audit action id, such as `web.system_hostname`.
     action: &'static str,
 }
@@ -57,18 +70,41 @@ impl Operation {
         action: &'static str,
     ) -> Self {
         Self {
-            domain,
-            name,
+            source: Source::Listed(domain, name),
             action,
         }
     }
 
-    /// The domain's description of the write; `None` is a page bug.
-    fn descriptor(self) -> Option<&'static OperationDescriptor> {
-        self.domain
-            .write_ops
-            .iter()
-            .find(|operation| operation.name == self.name)
+    /// A write its domain plans without listing it in its descriptor, such as an Entware
+    /// setting: the catalog command `catalog_path`, the `permission` and `risk` its
+    /// planner checks, audited as `action`.
+    pub(crate) const fn planned(
+        catalog_path: &'static str,
+        (permission, risk): (Permission, Risk),
+        action: &'static str,
+    ) -> Self {
+        Self {
+            source: Source::Planned(Described {
+                catalog_path,
+                permission,
+                risk,
+            }),
+            action,
+        }
+    }
+
+    /// The description of the write; `None` is a page bug.
+    fn descriptor(self) -> Option<Described> {
+        self.source.described()
+    }
+
+    /// Whether a page offers the write: the role holds what it needs (`controls`) and the
+    /// router's `catalog` has its command; [`Self::open`] checks the same permissions.
+    pub(crate) fn offered(self, controls: &Controls, catalog: &Catalog) -> bool {
+        self.descriptor().is_some_and(|described| {
+            catalog.lookup(described.catalog_path).is_some()
+                && controls.permits(&SafetyNet::required(described.permission, described.risk))
+        })
     }
 
     /// Opens the operation on `router` for `user`.
@@ -95,7 +131,7 @@ impl Operation {
             .await
             .map_err(context::Refusal::status)?;
         let Some(descriptor) = self.descriptor() else {
-            let error = format!("domain write {} is not described", self.name);
+            let error = format!("domain write of {} is not described", self.action);
             return Err(errors::internal(&error, fragment_shell(locale)).into());
         };
         let record = Record::on_router(self.action, router, descriptor.catalog_path.to_owned());
@@ -138,8 +174,8 @@ pub(crate) struct Action<'call> {
     target: Target<'call>,
     /// The router's catalog facts.
     facts: RouterFacts,
-    /// The domain's description of the operation.
-    descriptor: &'static OperationDescriptor,
+    /// The description of the operation.
+    descriptor: Described,
     /// The audit record the action ends with.
     record: Record,
     /// The words of the domain pages.

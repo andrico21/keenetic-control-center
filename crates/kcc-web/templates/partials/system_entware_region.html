@@ -1,0 +1,147 @@
+{#- Entware on the router: why it cannot run, or its status, settings and the actions the role may use; a change sends the region again out of band. -#}
+{%- import "components.html" as ui -%}
+<div class="system-region" id="entware-region"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- if let Some(reason) = blocked %}
+  <p class="notice" data-tone="info" id="entware-blocked">{{ reason }}</p>
+  {%- endif %}
+  {%- if dns_filter %}
+  <p class="notice" data-tone="warning" id="entware-dns-filter">{{ t(keys::WEB_SYSTEM_ENTWARE_DNS_FILTER) }}</p>
+  {%- endif %}
+  <div class="panels">
+    <section class="panel" aria-labelledby="entware-status-title">
+      <h2 class="panel__title" id="entware-status-title">{{ t(keys::WEB_SYSTEM_ENTWARE_STATUS) }}</h2>
+      <dl class="settings">
+        <div class="settings__row">
+          <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_OPKG) }}</dt>
+          <dd class="settings__value">{{ t(*opkg) }}</dd>
+        </div>
+        <div class="settings__row">
+          <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_EXT) }}</dt>
+          <dd class="settings__value">{{ t(*ext) }}</dd>
+        </div>
+        <div class="settings__row">
+          <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_ARCH) }}</dt>
+          <dd class="settings__value">{{ arch }}</dd>
+        </div>
+      </dl>
+    </section>
+    {%- if blocked.is_none() %}
+    <section class="panel" aria-labelledby="entware-settings-title">
+      <h2 class="panel__title" id="entware-settings-title">{{ t(keys::WEB_SYSTEM_ENTWARE_SETTINGS) }}</h2>
+      <dl class="settings">
+        <div class="settings__row">
+          <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_DISK) }}</dt>
+          <dd class="settings__value">{% if let Some(text) = disk %}<span class="mono">{{ text }}</span>{% else %}<span class="muted">{{ t(keys::WEB_SYSTEM_ENTWARE_NOT_SET) }}</span>{% endif %}</dd>
+        </div>
+        <div class="settings__row">
+          <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_INITRC) }}</dt>
+          <dd class="settings__value">{% if let Some(text) = initrc %}<span class="mono">{{ text }}</span>{% else %}<span class="muted">{{ t(keys::WEB_SYSTEM_ENTWARE_NOT_SET) }}</span>{% endif %}</dd>
+        </div>
+        <div class="settings__row">
+          <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_TIMEZONE) }}</dt>
+          <dd class="settings__value">{% if let Some(text) = timezone %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_SYSTEM_ENTWARE_NOT_SET) }}</span>{% endif %}</dd>
+        </div>
+        <div class="settings__row">
+          <dt class="settings__label" id="entware-chroot">{{ t(keys::WEB_SYSTEM_ENTWARE_CHROOT) }}</dt>
+          <dd class="settings__value">{% if chroot %}{{ t(keys::WEB_SYSTEM_ENTWARE_ON) }}{% else %}{{ t(keys::WEB_SYSTEM_ENTWARE_OFF) }}{% endif %}</dd>
+          {%- if offered.chroot %}
+          <dd class="settings__action"><button class="button button--ghost" type="button" hx-post="/ui/r/{{ router }}/system/entware/chroot?on={% if chroot %}false{% else %}true{% endif %}" hx-target="#page-outcome" aria-describedby="entware-chroot">{% if chroot %}{{ t(keys::WEB_SYSTEM_ENTWARE_TURN_OFF) }}{% else %}{{ t(keys::WEB_SYSTEM_ENTWARE_TURN_ON) }}{% endif %}</button></dd>
+          {%- endif %}
+        </div>
+        <div class="settings__row">
+          <dt class="settings__label" id="entware-dns-override">{{ t(keys::WEB_SYSTEM_ENTWARE_DNS_OVERRIDE) }}</dt>
+          <dd class="settings__value">{% if dns_override %}{{ t(keys::WEB_SYSTEM_ENTWARE_ON) }}{% else %}{{ t(keys::WEB_SYSTEM_ENTWARE_OFF) }}{% endif %}</dd>
+          {%- if offered.dns_override %}
+          <dd class="settings__action"><button class="button button--ghost" type="button" hx-post="/ui/r/{{ router }}/system/entware/dns-override?on={% if dns_override %}false{% else %}true{% endif %}" hx-target="#page-outcome" aria-describedby="entware-dns-override">{% if dns_override %}{{ t(keys::WEB_SYSTEM_ENTWARE_TURN_OFF) }}{% else %}{{ t(keys::WEB_SYSTEM_ENTWARE_TURN_ON) }}{% endif %}</button></dd>
+          {%- endif %}
+        </div>
+      </dl>
+      {%- if chroot %}
+      <p class="notice" data-tone="warning" id="entware-chroot-warning">{{ t(keys::WEB_SYSTEM_ENTWARE_CHROOT_WARNING) }}</p>
+      {%- endif %}
+      {%- if dns_override || offered.dns_override %}
+      <p class="notice" data-tone="warning" id="entware-dns-warning">{{ t(keys::WEB_SYSTEM_ENTWARE_DNS_WARNING) }}</p>
+      {%- endif %}
+    </section>
+    {%- endif %}
+  </div>
+  {%- if offered.timezone || offered.initrc %}
+  <section class="panel" aria-labelledby="entware-change-title">
+    <h2 class="panel__title" id="entware-change-title">{{ t(keys::WEB_SYSTEM_ENTWARE_CHANGE) }}</h2>
+    {%- if offered.timezone %}
+    <form class="form" id="entware-timezone-form" method="post" action="/ui/r/{{ router }}/system/entware/timezone" hx-post="/ui/r/{{ router }}/system/entware/timezone" hx-target="#page-outcome">
+      {{ ui::field("entware-timezone-value", "timezone", t(keys::WEB_SYSTEM_ENTWARE_TIMEZONE), "", "", "text", "off", t(keys::WEB_SYSTEM_ENTWARE_TIMEZONE_RULE)) }}
+      <div class="form__actions">
+        <button class="button button--secondary" type="submit">{{ t(keys::WEB_SYSTEM_ENTWARE_APPLY) }}</button>
+      </div>
+    </form>
+    {%- endif %}
+    {%- if offered.initrc %}
+    <form class="form" id="entware-initrc-form" method="post" action="/ui/r/{{ router }}/system/entware/initrc" hx-post="/ui/r/{{ router }}/system/entware/initrc" hx-target="#page-outcome">
+      {{ ui::field("entware-initrc-value", "path", t(keys::WEB_SYSTEM_ENTWARE_INITRC), "", "", "text", "off", t(keys::WEB_SYSTEM_ENTWARE_INITRC_RULE)) }}
+      <div class="form__actions">
+        <button class="button button--danger-ghost" type="submit">{{ t(keys::WEB_SYSTEM_ENTWARE_APPLY) }}</button>
+      </div>
+    </form>
+    {%- endif %}
+  </section>
+  {%- endif %}
+  {%- if offered.remove %}
+  <section class="panel" aria-labelledby="entware-remove-title">
+    <h2 class="panel__title" id="entware-remove-title">{{ t(keys::WEB_SYSTEM_ENTWARE_REMOVE_TITLE) }}</h2>
+    <p class="page__text">{{ t(keys::WEB_SYSTEM_ENTWARE_REMOVE_TEXT) }}</p>
+    <div><button class="button button--danger-ghost" type="button" hx-post="/ui/r/{{ router }}/system/entware/remove" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_ENTWARE_REMOVE) }}</button></div>
+  </section>
+  {%- endif %}
+  {%- if offered.setup || (blocked.is_none() && disk.is_none()) %}
+  <section class="panel" aria-labelledby="entware-setup-title">
+    <h2 class="panel__title" id="entware-setup-title">{{ t(keys::WEB_SYSTEM_ENTWARE_SETUP_TITLE) }}</h2>
+    {%- if offered.setup %}
+    <p class="page__text">{{ t(keys::WEB_SYSTEM_ENTWARE_SETUP_TEXT) }}</p>
+    <form class="form" id="entware-setup-form" method="post" action="/ui/r/{{ router }}/system/entware/setup" hx-post="/ui/r/{{ router }}/system/entware/setup" hx-target="#page-outcome">
+      <fieldset class="choice">
+        <legend class="field__label">{{ t(keys::WEB_SYSTEM_ENTWARE_DRIVE) }}</legend>
+        {%- for drive in drives %}
+        <div class="check">
+          <input class="check__input" type="radio" id="entware-drive-{{ loop.index }}" name="drive" value="{{ drive.arg }}"{% if loop.first %} checked{% endif %} aria-describedby="entware-drive-{{ loop.index }}-help">
+          <label class="check__label mono" for="entware-drive-{{ loop.index }}">{{ drive.arg }}</label>
+          <p class="field__help" id="entware-drive-{{ loop.index }}-help">{{ drive.details }}</p>
+        </div>
+        {%- endfor %}
+        <div class="check">
+          <input class="check__input" type="radio" id="entware-drive-internal" name="drive" value="internal"{% if drives.is_empty() %} checked{% endif %} aria-describedby="entware-internal-help">
+          <label class="check__label" for="entware-drive-internal">{{ t(keys::WEB_SYSTEM_ENTWARE_INTERNAL) }}</label>
+          <p class="field__help" id="entware-internal-help">{{ t(keys::WEB_SYSTEM_ENTWARE_INTERNAL_WARNING) }}</p>
+        </div>
+      </fieldset>
+      {%- if installers %}
+      <div class="field">
+        <label class="field__label" for="entware-installer">{{ t(keys::WEB_SYSTEM_ENTWARE_INSTALLER) }}</label>
+        <select class="field__input" id="entware-installer" name="installer" aria-describedby="entware-installer-help">
+          <option value="mipsel">{{ t(keys::WEB_SYSTEM_ENTWARE_INSTALLER_MIPSEL) }}</option>
+          <option value="mips">{{ t(keys::WEB_SYSTEM_ENTWARE_INSTALLER_MIPS) }}</option>
+        </select>
+        <p class="field__help" id="entware-installer-help">{{ t(keys::WEB_SYSTEM_ENTWARE_INSTALLER_HELP) }}</p>
+      </div>
+      {%- endif %}
+      <div class="form__actions">
+        <button class="button button--danger" type="submit">{{ t(keys::WEB_SYSTEM_ENTWARE_SETUP) }}</button>
+      </div>
+    </form>
+    {%- else %}
+    {%- if drives.is_empty() %}
+    <p class="panel__note">{{ t(keys::WEB_SYSTEM_ENTWARE_NO_DRIVES) }}</p>
+    {%- else %}
+    <ul class="plain-list">
+      {%- for drive in drives %}
+      <li><span class="mono">{{ drive.arg }}</span> {{ drive.details }}</li>
+      {%- endfor %}
+    </ul>
+    {%- endif %}
+    {%- endif %}
+    {%- if !initializable.is_empty() %}
+    <p class="panel__note">{{ t(keys::WEB_SYSTEM_ENTWARE_PREPARE_NOTE) }} <a href="/ui/r/{{ router }}/system/storage">{% for media in initializable %}{% if !loop.first %} {% endif %}<span class="mono">{{ media }}</span>{% endfor %}</a></p>
+    {%- endif %}
+  </section>
+  {%- endif %}
+</div>

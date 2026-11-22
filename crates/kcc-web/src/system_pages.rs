@@ -1,7 +1,7 @@
 //! The router's system pages under `/ui/r/{router}/system/...`.
 //!
-//! Router users, services, components and firmware, storage, schedules, KeenDNS, the log
-//! and diagnostics. The general page (`system_general`) is the page kit's reference page
+//! Router users, services, components and firmware, storage, Entware, schedules, KeenDNS,
+//! the log and diagnostics. The general page (`system_general`) is the page kit's reference page
 //! and shares their tabs.
 //!
 //! Every page reads its domain through the router's catalog and shows only the controls
@@ -20,7 +20,14 @@
 //!   `POST .../components/queue?name=&action=install|remove`, `POST .../components/commit`:
 //!   the firmware, the component queue and the commit job that restarts the router.
 //! - `GET /ui/r/{router}/system/storage`, `POST .../storage/eject?media=`: media and USB
-//!   devices; the eject is destructive.
+//!   devices; the eject is destructive. `POST .../storage/initialize?media=` prepares a
+//!   medium for Entware (ext4, destructive). Ejecting or initializing the drive Entware
+//!   runs from asks a second time and passes `entware_ok=yes` only after it.
+//! - `GET /ui/r/{router}/system/entware`, `POST .../entware/chroot?on=`,
+//!   `POST .../entware/timezone`, `POST .../entware/initrc` (destructive),
+//!   `POST .../entware/dns-override?on=` (management), `POST .../entware/remove`
+//!   (destructive), `POST .../entware/setup` (destructive, a job): Entware's status, its
+//!   `opkg` settings, the removal and the guided setup.
 //! - `GET /ui/r/{router}/system/schedules` and `POST` (create), `GET .../schedules/new`,
 //!   `GET|POST .../schedules/action`: schedules and their timed actions (writes).
 //! - `GET /ui/r/{router}/system/keendns`, `GET|POST .../keendns/book`,
@@ -41,6 +48,10 @@ mod components;
 mod diagnostic_form;
 mod diagnostic_lines;
 mod diagnostics;
+mod entware;
+mod entware_actions;
+mod entware_change;
+mod entware_setup;
 pub(crate) mod job_feed;
 mod jobs;
 mod keendns;
@@ -58,6 +69,7 @@ mod services;
 pub(crate) mod shared;
 mod storage;
 mod storage_actions;
+mod storage_guard;
 mod storage_tables;
 mod tables;
 pub(crate) mod tabs;
@@ -154,6 +166,41 @@ pub(crate) fn routes() -> Router<WebState> {
         .route(
             "/ui/r/{router}/system/jobs/{job}/cancel",
             post(jobs::cancel),
+        )
+        .merge(entware_routes())
+}
+
+/// The routes of the Entware page and of the storage page's Prepare for Entware.
+fn entware_routes() -> Router<WebState> {
+    Router::new()
+        .route(
+            "/ui/r/{router}/system/storage/initialize",
+            post(storage_actions::initialize),
+        )
+        .route("/ui/r/{router}/system/entware", get(entware::page))
+        .route(
+            "/ui/r/{router}/system/entware/chroot",
+            post(entware_actions::chroot),
+        )
+        .route(
+            "/ui/r/{router}/system/entware/timezone",
+            post(entware_actions::timezone),
+        )
+        .route(
+            "/ui/r/{router}/system/entware/initrc",
+            post(entware_actions::initrc),
+        )
+        .route(
+            "/ui/r/{router}/system/entware/dns-override",
+            post(entware_actions::dns_override),
+        )
+        .route(
+            "/ui/r/{router}/system/entware/remove",
+            post(entware_actions::remove),
+        )
+        .route(
+            "/ui/r/{router}/system/entware/setup",
+            post(entware_setup::setup),
         )
 }
 
