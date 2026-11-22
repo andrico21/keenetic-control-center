@@ -3,6 +3,7 @@
 
 mod drives;
 pub mod models;
+pub mod service_log;
 pub mod setup;
 pub mod ssh;
 mod writes;

@@ -3,9 +3,10 @@
 use kcc_app::{
     audit::{Attempt, AuditError},
     entware_ssh::{SshStateError, TicketRefusal},
+    jobs::JobError,
     workflow::WorkflowError,
 };
-use kcc_ssh::error::SshError;
+use kcc_ssh::{error::SshError, parse::ServiceState};
 
 use crate::DomainError;
 
@@ -69,6 +70,35 @@ pub enum EntwareError {
     /// The audit log cannot record the step.
     #[error(transparent)]
     Audit(#[from] AuditError),
+    /// SSH management of the router is switched off; nothing was sent.
+    #[error("Entware SSH management is switched off for this router")]
+    SshDisabled,
+    /// A removal or upgrade names a package the router's installed listing lacks; no
+    /// mutating command was sent.
+    #[error("the Entware package {package} is not installed")]
+    PackageNotInstalled {
+        /// The package name.
+        package: String,
+    },
+    /// A service operation names a service the router's service listing lacks; no
+    /// action was sent.
+    #[error("the router has no Entware service {service}")]
+    UnknownService {
+        /// The init script name.
+        service: String,
+    },
+    /// rc.func refused to start a service whose `ENABLED` is not `yes` (exit 8); `state`
+    /// is what `check` read afterwards (a restart has stopped it).
+    #[error("the Entware service {service} is disabled; it is now {}", state_word(*.state))]
+    ServiceDisabled {
+        /// The init script name.
+        service: String,
+        /// The service's state after the action.
+        state: ServiceState,
+    },
+    /// A mutation job could not be started.
+    #[error(transparent)]
+    Job(#[from] JobError),
 }
 
 impl EntwareError {
@@ -93,11 +123,22 @@ impl EntwareError {
                 actual: _,
             }) => refused("hostkey_mismatch"),
             Self::Ssh(SshError::AuthRejected) => refused("auth_rejected"),
+            Self::SshDisabled => refused("ssh_disabled"),
+            Self::PackageNotInstalled { package: _ } => refused("package_not_installed"),
+            Self::UnknownService { service: _ } => refused("unknown_service"),
+            Self::ServiceDisabled {
+                service: _,
+                state: _,
+            } => refused("service_disabled"),
+            Self::Workflow(WorkflowError::VerificationFailed { field: _ }) => {
+                failed("verification")
+            }
             Self::Workflow(_) => failed("workflow"),
             Self::Domain(_) | Self::RevokeUnreachable(_) => failed("router"),
             Self::State(_) => failed("state"),
             Self::Ssh(_) | Self::RevokeFailed(_) => failed("ssh"),
             Self::Audit(_) => failed("audit"),
+            Self::Job(_) => failed("job"),
         }
     }
 
@@ -121,7 +162,15 @@ impl EntwareError {
             | Self::Ssh(_)
             | Self::RevokeFailed(_)
             | Self::RevokeUnreachable(_)
-            | Self::Audit(_) => None,
+            | Self::Audit(_)
+            | Self::SshDisabled
+            | Self::PackageNotInstalled { package: _ }
+            | Self::UnknownService { service: _ }
+            | Self::ServiceDisabled {
+                service: _,
+                state: _,
+            }
+            | Self::Job(_) => None,
         }
     }
 }
@@ -136,6 +185,15 @@ const fn failed(error: &'static str) -> Attempt {
     Attempt::Failed {
         error,
         fail_safe_armed: false,
+    }
+}
+
+/// A service state as a word.
+const fn state_word(state: ServiceState) -> &'static str {
+    match state {
+        ServiceState::Running => "running",
+        ServiceState::Stopped => "stopped",
+        _ => "in an unknown state",
     }
 }
 

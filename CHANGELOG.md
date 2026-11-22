@@ -90,6 +90,13 @@ The first release, `0.1.0`, is in preparation and contains:
   that ends by offering Save, never saving itself. The storage page offers Prepare for
   Entware (`media initialize ext4`) and asks a second time before it ejects or
   initializes the drive Entware runs from.
+- **Entware package and service operations** (library): list, upgradable, update,
+  install, remove and upgrade packages, and list, check, start, stop and restart services
+  over the pinned key-only SSH session, each needing `Destructive`; mutations hold the
+  router write lease (or run as a write job), name only packages and services the same
+  session listed, and are read back (installed listing, rc.func `check`). A service's log
+  is its process's router log records, masked without `RevealSecrets`. Results are parsed
+  values; the audit records the output's byte count and SHA-256, never the output.
 
 - **MCP error code `router_mode_unknown`**: a management change is refused, with nothing
   sent, when the router reports neither a system mode kcc knows nor a `fail-safe`

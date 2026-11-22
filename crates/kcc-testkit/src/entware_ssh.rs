@@ -8,15 +8,15 @@
 //! every other command answers 127 as the shell does for a missing program. The fake never
 //! logs the password, a key or command output.
 
-use alloc::{collections::BTreeMap, sync::Arc};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 use core::{
     fmt,
     net::{Ipv4Addr, SocketAddr},
 };
-use std::{
-    io,
-    sync::{Mutex, MutexGuard, PoisonError},
-};
+use std::io;
 
 use rand::RngExt as _;
 use russh::keys::{PrivateKey, PublicKey, ssh_key::private};
@@ -25,7 +25,11 @@ use zeroize::Zeroizing;
 
 mod command;
 mod connection;
+mod opkg;
+mod state;
 mod system;
+
+use state::Shared;
 
 /// The only login the fake accepts, as on Entware's dropbear.
 pub const USER: &str = "root";
@@ -51,6 +55,10 @@ pub enum Fault {
     NoExitStatus,
     /// Drop the connection on every command once this many commands were received.
     KillAfter(u64),
+    /// Accept every mutating command (`opkg update`, `install`, `remove`, `upgrade`, an
+    /// init script action other than `check`) and answer it only at [`Handle::release`];
+    /// other commands run.
+    HoldMutations,
 }
 
 /// Activity counters since the fake started.
@@ -82,6 +90,8 @@ pub struct Service {
     running: bool,
     /// Whether the process ignores start and stop, so both report `failed.` and 255.
     failing: bool,
+    /// Exit status that `start`, `stop` and `restart` report instead of their own.
+    exit: Option<u32>,
 }
 
 impl Service {
@@ -97,6 +107,7 @@ impl Service {
             enabled: true,
             running: false,
             failing: false,
+            exit: None,
         }
     }
 
@@ -124,6 +135,15 @@ impl Service {
         self
     }
 
+    /// Makes `start`, `stop` and `restart` exit with `code` after their usual effect on the
+    /// process; `check` keeps its own status.
+    #[inline]
+    #[must_use]
+    pub const fn exits(mut self, code: u32) -> Self {
+        self.exit = Some(code);
+        self
+    }
+
     /// Whether the process runs.
     #[inline]
     #[must_use]
@@ -148,10 +168,14 @@ struct System {
     upgradable: BTreeMap<String, String>,
     /// Packages the feed offers that are not installed: name to version.
     installable: BTreeMap<String, String>,
+    /// Packages whose install, remove and upgrade report success and change nothing.
+    frozen: BTreeSet<String>,
     /// Init scripts by file name (`S51dropbear`).
     services: BTreeMap<String, Service>,
     /// Contents of `/opt/etc/dropbear/authorized_keys`.
     authorized_keys: String,
+    /// Whether `opkg update` fails to download the package lists.
+    update_fails: bool,
 }
 
 /// What one command printed and its exit status.
@@ -258,6 +282,23 @@ impl Config {
         self
     }
 
+    /// Makes install, remove and upgrade of `name` exit 0 and change nothing, as a broken
+    /// package manager would.
+    #[inline]
+    #[must_use]
+    pub fn frozen(mut self, name: &str) -> Self {
+        let _new: bool = self.system.frozen.insert(name.to_owned());
+        self
+    }
+
+    /// Makes `opkg update` fail to download the package lists (exit 255).
+    #[inline]
+    #[must_use]
+    pub const fn update_fails(mut self) -> Self {
+        self.system.update_fails = true;
+        self
+    }
+
     /// Adds the init script `/opt/etc/init.d/<name>`.
     #[inline]
     #[must_use]
@@ -272,33 +313,6 @@ impl Config {
     pub const fn bind(mut self, address: SocketAddr) -> Self {
         self.bind = address;
         self
-    }
-}
-
-/// Mutable state of a running fake.
-struct State {
-    /// Current host key; a new connection uses the key current at accept time.
-    host_key: PrivateKey,
-    /// Accepted password.
-    password: Zeroizing<String>,
-    /// Packages, services and `authorized_keys`.
-    system: System,
-    /// Active fault switch.
-    fault: Option<Fault>,
-    /// Activity counters.
-    counters: Counters,
-}
-
-/// State shared by the connections and the handle.
-struct Shared {
-    /// Guarded state.
-    state: Mutex<State>,
-}
-
-impl Shared {
-    /// Locks the state; a poisoned lock still holds consistent data.
-    fn lock(&self) -> MutexGuard<'_, State> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -329,15 +343,7 @@ impl FakeEntwareSsh {
     pub async fn spawn(config: Config) -> io::Result<(SocketAddr, Handle)> {
         let listener = TcpListener::bind(config.bind).await?;
         let address = listener.local_addr()?;
-        let shared = Arc::new(Shared {
-            state: Mutex::new(State {
-                host_key: host_key(),
-                password: config.password,
-                system: config.system,
-                fault: None,
-                counters: Counters::default(),
-            }),
-        });
+        let shared = Arc::new(Shared::new(host_key(), config.password, config.system));
         let (stop, stopped) = oneshot::channel();
         let task = tokio::spawn(connection::serve(listener, Arc::clone(&shared), stopped));
         Ok((address, Handle { shared, stop, task }))
@@ -392,6 +398,27 @@ impl Handle {
     #[inline]
     pub fn set_fault(&self, fault: Option<Fault>) {
         self.shared.lock().fault = fault;
+    }
+
+    /// Waits until [`Fault::HoldMutations`] held `count` commands since the fake started.
+    ///
+    /// # Errors
+    ///
+    /// None in practice: the fake owns the notifier.
+    // cancel-safe: it only waits.
+    #[inline]
+    pub async fn held(&self, count: u64) -> io::Result<()> {
+        self.shared.held(count).await
+    }
+
+    /// Runs every held command now and sends its reply; clear the fault first to let the
+    /// following commands run.
+    // NOT cancel-safe: dropped, the remaining replies are lost; every held command ran.
+    #[inline]
+    pub async fn release(&self) {
+        for (handle, channel, reply) in self.shared.release() {
+            connection::deliver(handle, channel, reply, true).await;
+        }
     }
 
     /// Current `authorized_keys` text.

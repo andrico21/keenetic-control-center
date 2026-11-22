@@ -1,5 +1,6 @@
-//! Entware management over SSH: the shared services and caller of every SSH flow, and
-//! the enrolment lifecycle (probe, bootstrap, re-pin, revoke, disable).
+//! Entware management over SSH: the shared services and caller of every SSH flow, the
+//! enrolment lifecycle (probe, bootstrap, re-pin, revoke, disable) and the package and
+//! service operations.
 //!
 //! The flows build on `kcc-ssh` (pinned transport, closed command set) and on the sealed
 //! SSH state of `kcc_app::entware_ssh`. Every flow needs `Permission::Destructive` on the
@@ -8,6 +9,7 @@
 
 pub mod enrol;
 pub mod error;
+pub mod ops;
 mod preflight;
 mod report;
 
@@ -150,4 +152,16 @@ struct Facts {
     /// Whether kcc's key stays in the router's `authorized_keys`.
     #[serde(skip_serializing_if = "Option::is_none")]
     entware_key_still_authorized: Option<bool>,
+    /// The package an operation names.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    package: Option<String>,
+    /// The service an operation names.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    service: Option<String>,
+    /// Bytes of SSH output an operation received, standard output and error together.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    output_bytes: Option<u64>,
+    /// SHA-256 of that output, lowercase hex; the output itself is never recorded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    output_sha256: Option<String>,
 }

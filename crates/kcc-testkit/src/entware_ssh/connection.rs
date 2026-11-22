@@ -15,7 +15,10 @@ use tokio::{
     task::JoinSet,
 };
 
-use super::{Fault, HUGE_OUTPUT_LINE, HUGE_OUTPUT_LINES, Reply, Shared, State, USER, command};
+use super::{
+    Fault, HUGE_OUTPUT_LINE, HUGE_OUTPUT_LINES, Reply, Shared, USER, command,
+    state::{self, Held, State},
+};
 
 /// Accepts connections until `stopped` fires or its sender is dropped; dropping the
 /// returned future drops every connection.
@@ -74,6 +77,8 @@ enum Step {
     Kill,
     /// Accept and never answer.
     Hang,
+    /// Accept and answer when the handle releases the command.
+    Hold(command::Command),
     /// Send `reply`, with an exit status when `exit_status` holds.
     Answer {
         /// Output and exit status.
@@ -103,6 +108,16 @@ fn execute(state: &mut State, text: &str) -> Step {
             reply: state.system.run(command::parse(text)),
             exit_status: false,
         },
+        Some(Fault::HoldMutations) => {
+            let parsed = command::parse(text);
+            if state::mutating(&parsed) {
+                return Step::Hold(parsed);
+            }
+            Step::Answer {
+                reply: state.system.run(parsed),
+                exit_status: true,
+            }
+        }
         Some(Fault::KillAfter(_)) | None => Step::Answer {
             reply: state.system.run(command::parse(text)),
             exit_status: true,
@@ -119,7 +134,12 @@ fn authorized(keys: &str, offered: &PublicKey) -> bool {
 
 /// Sends `reply` on `channel`, then closes it; a client that left ends the delivery.
 // cancel-safe: dropped, the rest of the reply is not sent; the command already ran.
-async fn deliver(handle: server::Handle, channel: ChannelId, reply: Reply, exit_status: bool) {
+pub(super) async fn deliver(
+    handle: server::Handle,
+    channel: ChannelId,
+    reply: Reply,
+    exit_status: bool,
+) {
     if !reply.stdout.is_empty()
         && handle
             .data(channel, reply.stdout.into_bytes())
@@ -245,6 +265,15 @@ impl server::Handler for Connection {
         match step {
             Step::Kill => Err(russh::Error::Disconnect),
             Step::Hang => session.channel_success(channel),
+            Step::Hold(command) => {
+                session.channel_success(channel)?;
+                self.shared.hold(Held {
+                    handle: session.handle(),
+                    channel,
+                    command,
+                });
+                Ok(())
+            }
             Step::Answer { reply, exit_status } => {
                 session.channel_success(channel)?;
                 drop(tokio::spawn(deliver(

@@ -11,6 +11,7 @@
 use super::{
     Reply, Service, System,
     command::{Command, INIT_D},
+    opkg,
 };
 
 /// rc.func's `ansi_white`.
@@ -46,11 +47,7 @@ impl System {
                 }
                 success(out)
             }
-            Command::Update => success(
-                "Downloading http://bin.entware.net/aarch64-k3.10/Packages.gz\n\
-                 Updated list of available packages in /opt/var/opkg-lists/entware\n"
-                    .to_owned(),
-            ),
+            Command::Update => opkg::update(self.update_fails),
             Command::Install(name) => self.install(&name),
             Command::Remove(name) => self.remove(&name),
             Command::Upgrade(name) => self.upgrade(&name),
@@ -81,13 +78,16 @@ impl System {
 
     /// `opkg install`.
     fn install(&mut self, name: &str) -> Reply {
+        if self.frozen.contains(name) {
+            return success(String::new());
+        }
         if let Some(version) = self.installed.get(name) {
             return success(format!(
                 "Package {name} ({version}) installed in root is up to date.\n"
             ));
         }
         let Some(version) = self.installable.remove(name) else {
-            return unknown_package(name, "opkg_install_cmd: Cannot install package");
+            return opkg::unknown_package(name, "opkg_install_cmd: Cannot install package");
         };
         let reply = success(format!(
             "Installing {name} ({version}) to root...\nConfiguring {name}.\n"
@@ -98,6 +98,9 @@ impl System {
 
     /// `opkg remove`; the package goes back to the feed.
     fn remove(&mut self, name: &str) -> Reply {
+        if self.frozen.contains(name) {
+            return success(String::new());
+        }
         let Some(version) = self.installed.remove(name) else {
             return success("No packages removed.\n".to_owned());
         };
@@ -108,8 +111,11 @@ impl System {
 
     /// `opkg upgrade`.
     fn upgrade(&mut self, name: &str) -> Reply {
+        if self.frozen.contains(name) {
+            return success(String::new());
+        }
         let Some(old) = self.installed.get(name).cloned() else {
-            return unknown_package(name, "opkg_upgrade_cmd: Cannot upgrade package");
+            return opkg::unknown_package(name, "opkg_upgrade_cmd: Cannot upgrade package");
         };
         let Some(new) = self.upgradable.remove(name) else {
             return success(String::new());
@@ -142,15 +148,6 @@ fn success(stdout: String) -> Reply {
     }
 }
 
-/// opkg's answer for a package it does not know.
-fn unknown_package(name: &str, collected: &str) -> Reply {
-    Reply {
-        stderr: format!("Unknown package '{name}'.\nCollected errors:\n * {collected} {name}.\n"),
-        exit: 255,
-        ..Reply::default()
-    }
-}
-
 /// The shell's answer for a program it cannot find.
 fn not_found(word: &str) -> Reply {
     Reply {
@@ -164,16 +161,23 @@ fn not_found(word: &str) -> Reply {
 fn rc_func(name: &str, service: &mut Service, action: &str) -> Reply {
     let mut out = String::new();
     let exit = match action {
-        "start" => start(service, &mut out),
-        "stop" | "kill" => match check(service, &mut out) {
-            0 => stop(service, action, &mut out),
-            dead => dead,
-        },
+        "start" => {
+            let code = start(service, &mut out);
+            forced(service, code)
+        }
+        "stop" | "kill" => {
+            let code = match check(service, &mut out) {
+                0 => stop(service, action, &mut out),
+                dead => dead,
+            };
+            forced(service, code)
+        }
         "restart" => {
             if check(service, &mut String::new()) == 0 {
                 let _: u32 = stop(service, action, &mut out);
             }
-            start(service, &mut out)
+            let code = start(service, &mut out);
+            forced(service, code)
         }
         "check" => check(service, &mut out),
         "reconfigure" => {
@@ -210,6 +214,14 @@ fn rc_func(name: &str, service: &mut Service, action: &str) -> Reply {
         stdout: out,
         exit,
         ..Reply::default()
+    }
+}
+
+/// `code`, or the status the service is configured to report instead.
+const fn forced(service: &Service, code: u32) -> u32 {
+    match service.exit {
+        Some(forced) => forced,
+        None => code,
     }
 }
 
