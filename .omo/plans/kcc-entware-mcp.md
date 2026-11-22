@@ -389,7 +389,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(app): sealed SSH key, enrolment record and single-use probe tickets
   Recommended task executor category: unspecified-high - state store, ticket store and removal hooks
 
-- [ ] 9. Enrolment lifecycle: probe, bootstrap, re-pin, revoke, disable
+- [x] 9. Enrolment lifecycle: probe, bootstrap, re-pin, revoke, disable
   What to do / Must NOT do:
   - Add `kcc-ssh = { version = "0.1.0", path = "../kcc-ssh" }` to `crates/kcc-domain/Cargo.toml` `[dependencies]` in this todo (its first user).
   - `crates/kcc-domain/src/entware/ssh/enrol.rs` (kcc-domain depends on kcc-app and kcc-ssh), every function requiring `Permission::Destructive` on the router (`authorize`); the functions that open an SSH connection (`probe`, `bootstrap`, `repin`, `revoke`) first refuse with `EntwareError::ChrootEnabled` when `entware::read_settings` reports chroot on; mutating steps take the router write lease (`crates/kcc-app/src/workflow.rs:641-683`):
