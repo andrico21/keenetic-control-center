@@ -1,5 +1,4 @@
-//! Reloads of a running `kcc serve`: the state watcher, SIGHUP, and the registration of
-//! each MCP server with the reload fan-out.
+//! Reloads of a running `kcc serve`: the state watcher and SIGHUP.
 #![expect(
     clippy::missing_errors_doc,
     reason = "binary assembly: the reload errors are logged, not returned to an API caller"
@@ -13,14 +12,14 @@ use std::path::PathBuf;
 #[cfg(unix)]
 use std::{io, path::Path};
 
-use kcc_app::{mcp_settings::ListenerKind, registry::RouterRegistry};
+use kcc_app::registry::RouterRegistry;
 #[cfg(unix)]
 use kcc_app::{permissions::load_roles, settings::Config};
+#[cfg(unix)]
 use kcc_web::admin::TransportReload;
-use rmcp_server_kit::transport::McpServerConfig;
 #[cfg(unix)]
 use tokio::signal::unix::{Signal, SignalKind, signal};
-use tokio::{sync::oneshot, task::spawn_blocking};
+use tokio::sync::oneshot;
 
 #[cfg(unix)]
 use crate::server_error::ServerError;
@@ -54,7 +53,7 @@ pub(crate) const fn hangups() -> Hangups {
 /// (`serving` resolves); never when that server does not start.
 ///
 /// `watch` applies key and account changes made outside the server to every MCP server
-/// registered with its transport ([`registering`]). A SIGHUP applies the API keys and
+/// registered with its transport (the listener supervisor registers each generation). A SIGHUP applies the API keys and
 /// accounts as the watcher does, then reloads the roles (MCP RBAC, the MCP handlers and
 /// the Web UI) and the router profiles from `path`.
 #[cfg(unix)]
@@ -94,24 +93,6 @@ pub(crate) fn start_watch(
             watch.run().await;
         }
     }));
-}
-
-/// `config` registering its server with `reload` under `kind` once it runs.
-///
-/// Key and role reloads then reach it; the registration installs the current keys and
-/// roles, so a change made while the server started is not missed.
-pub(crate) fn registering(
-    config: McpServerConfig,
-    reload: Arc<TransportReload>,
-    kind: ListenerKind,
-) -> McpServerConfig {
-    config.with_reload_callback(move |handle| {
-        drop(spawn_blocking(move || {
-            if let Err(error) = reload.register(kind, handle) {
-                tracing::error!(%error, "the MCP server keeps its start-up keys and roles until the next reload");
-            }
-        }));
-    })
 }
 
 /// Applies one validated reload generation of `kcc.toml` and the roles.

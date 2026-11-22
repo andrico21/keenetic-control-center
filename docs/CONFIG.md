@@ -109,6 +109,11 @@ No setting turns MCP authentication off: API keys always work on every listener,
 | `public_url` | URL | unset | externally reachable base URL; required for a non-loopback `bind` |
 | `tls` | string | `"main"` | certificate: `main` (the `[server]` certificate), `self_signed`, or `none` (plain HTTP, loopback `bind` only) |
 
+`self_signed` generates the certificate once, for `localhost`, `bind` and the host of
+`public_url`, into `dedicated-cert.pem` and `dedicated-key.pem` (owner-only) below
+`mcp/` in the state directory. The dedicated listener serves `/mcp` only: no Web UI and
+no metrics.
+
 ### `[mcp.auth]`
 
 | Key | Type | Default | Meaning |
@@ -125,6 +130,11 @@ No setting turns MCP authentication off: API keys always work on every listener,
 |---|---|---|---|
 | `oauth` | string | `"none"` | OAuth sign-in besides API keys: `none`, `kcc` (kcc accounts) or `external` (`[mcp.auth.oidc]`) |
 | `mtls` | string | `"off"` | client certificates: `off` or `optional`; `required` is refused here because this listener also serves the Web UI |
+
+OAuth and client-certificate sign-in are not available yet: a listener whose `oauth` is
+not `none` or whose `mtls` is not `off` does not start. When that comes from values saved
+on the Web, the main listener starts with this file's `[mcp.auth.*]` and
+`[mcp.dedicated]` instead (logged) and a dedicated listener is skipped.
 
 ### `[mcp.auth.dedicated]`
 

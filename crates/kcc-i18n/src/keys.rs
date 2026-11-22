@@ -698,6 +698,15 @@ pub const CLI_COL_EXPIRES: MessageKey = MessageKey::new("cli-col-expires");
 /// `cli-key-expired` in `cli.ftl`.
 pub const CLI_KEY_EXPIRED: MessageKey = MessageKey::new("cli-key-expired");
 
+/// `cli-serve-listener-start` in `cli.ftl`.
+pub const CLI_SERVE_LISTENER_START: MessageKey = MessageKey::new("cli-serve-listener-start");
+
+/// `cli-serve-rebind` in `cli.ftl`.
+pub const CLI_SERVE_REBIND: MessageKey = MessageKey::new("cli-serve-rebind");
+
+/// `cli-serve-listener-task` in `cli.ftl`.
+pub const CLI_SERVE_LISTENER_TASK: MessageKey = MessageKey::new("cli-serve-listener-task");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -7870,7 +7879,7 @@ pub const WEB_ADMIN_PERMISSION_MANAGE_MCP: MessageKey =
     MessageKey::new("web-admin-permission-manage-mcp");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2472] = [
+pub static ALL: [MessageKey; 2475] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8095,6 +8104,9 @@ pub static ALL: [MessageKey; 2472] = [
     CLI_SCHEDULED_RUN_ROUTER,
     CLI_COL_EXPIRES,
     CLI_KEY_EXPIRED,
+    CLI_SERVE_LISTENER_START,
+    CLI_SERVE_REBIND,
+    CLI_SERVE_LISTENER_TASK,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

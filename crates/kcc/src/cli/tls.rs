@@ -173,12 +173,23 @@ fn hex(bytes: &[u8]) -> String {
     text
 }
 
-/// Trusts exactly one leaf certificate, byte for byte.
-struct PinnedLeaf {
+/// Trusts exactly one leaf certificate, byte for byte; neither the chain nor the name is
+/// checked, so a certificate from any CA passes when it is the configured one.
+pub(crate) struct PinnedLeaf {
     /// DER of the configured server certificate.
     leaf: Vec<u8>,
     /// Ring algorithms verifying handshake signatures.
     provider: CryptoProvider,
+}
+
+impl PinnedLeaf {
+    /// Trusts the DER certificate `leaf` only.
+    pub(crate) fn new(leaf: Vec<u8>) -> Self {
+        Self {
+            leaf,
+            provider: ring::default_provider(),
+        }
+    }
 }
 
 impl fmt::Debug for PinnedLeaf {

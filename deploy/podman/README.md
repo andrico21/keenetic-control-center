@@ -46,6 +46,13 @@ carry it. kcc derives its browser Origin allowlist from that URL and the listene
 uses the exec (JSON) form: the plain-string form becomes `CMD-SHELL`, which needs
 `/bin/sh`, and distroless has no shell. The unit's `StopTimeout=100` covers the server shutdown (30 s) plus 10 s reserved for stopping the scheduler, the bracket grace (10 s), job drain (30 s), queued Telegram notifications (2 s), audit flush (5 s) and a 13 s margin; keep it at least this value.
 
+The optional MCP-only listener (`[mcp.dedicated]`, default port 8444) serves `/mcp` only,
+without the Web UI and without metrics. To reach it from the host, set `bind = "0.0.0.0"`
+(with `public_url` and `tls = "main"` or `"self_signed"`, since plaintext is accepted only
+on loopback) and uncomment `#PublishPort=127.0.0.1:8444:8444`; publish beyond the host
+loopback only behind its own TLS. `StopTimeout=100` stays sufficient with it: both
+listeners drain at the same time within the one `server.shutdown_timeout`.
+
 ### Secrets
 
 Everything secret is a Podman secret mounted read-only for uid 65532 with mode 0400;

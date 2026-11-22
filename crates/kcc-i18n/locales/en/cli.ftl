@@ -227,3 +227,6 @@ cli-scheduled-dropped = Scheduled action { $id } did not run; it was changed or 
 cli-scheduled-run-router = Router { $router } could not be reached or did not take the change; scheduled action { $name } did not finish.
 cli-col-expires = Expires
 cli-key-expired = expired
+cli-serve-listener-start = the { $name } listener did not start: { $reason }
+cli-serve-rebind = the previous { $name } listener could not serve again: { $reason }
+cli-serve-listener-task = a listener task ended abnormally

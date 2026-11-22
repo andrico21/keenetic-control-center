@@ -227,3 +227,6 @@ cli-scheduled-dropped = { $id } жоспарланған әрекеті орын
 cli-scheduled-run-router = { $router } роутері қолжетімсіз немесе өзгерісті қабылдамады; «{ $name }» жоспарланған әрекеті аяқталмады.
 cli-col-expires = Мерзімі бітеді
 cli-key-expired = мерзімі өткен
+cli-serve-listener-start = { $name } тыңдаушысы іске қосылмады: { $reason }
+cli-serve-rebind = алдыңғы { $name } тыңдаушысын қайта іске қосу мүмкін болмады: { $reason }
+cli-serve-listener-task = тыңдаушы тапсырмасы күтпеген жерден аяқталды

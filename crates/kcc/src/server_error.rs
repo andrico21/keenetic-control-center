@@ -11,7 +11,7 @@ use kcc_telemetry::{logs::runtime::StartError, metrics::failure::MetricsError};
 use kcc_web::admin::ReloadError;
 use rmcp_server_kit::RmcpServerKitError;
 
-use crate::server_tls_key::readable;
+use crate::{server_listeners::build::BuildError, server_tls_key::readable};
 
 /// Why a server process could not start or stopped with an error.
 #[derive(Debug, thiserror::Error)]
@@ -97,6 +97,29 @@ pub enum ServerError {
     /// The audit writer terminated, so the server drained and stopped.
     #[error("audit writer terminated")]
     AuditWriterTerminated,
+    /// A listener generation could not be built from the settings.
+    #[error("{0}")]
+    Listener(#[from] BuildError),
+    /// After a failed restart, the previous generation of a listener could not serve
+    /// again, so `kcc serve` stopped.
+    #[error("the previous {listener} listener could not be started again: {reason}")]
+    Rebind {
+        /// `main` or `dedicated`.
+        listener: &'static str,
+        /// Why the last attempt failed.
+        reason: String,
+    },
+    /// A listener generation stopped before it served.
+    #[error("the {listener} listener did not start: {reason}")]
+    Start {
+        /// `main` or `dedicated`.
+        listener: &'static str,
+        /// The kit's failure.
+        reason: String,
+    },
+    /// A listener's task ended abnormally.
+    #[error("a listener task ended abnormally")]
+    ListenerTask,
 }
 
 /// Process outcome mapped to the exit-code contract.

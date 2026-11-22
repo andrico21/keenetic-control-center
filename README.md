@@ -268,6 +268,11 @@ The threat model is in [docs/SECURITY.md](docs/SECURITY.md).
 - MCP migration plans, transient MCP presets and unsaved preset drafts in the Web UI live
   in memory and are lost on restart. An armed router timer still rolls the router back.
 - Wide tables scroll sideways on phones without a visual cue.
+- A change of the MCP sign-in or dedicated-listener settings restarts the listener it
+  affects: while the main listener restarts, the Web UI is unreachable for up to
+  `server.shutdown_timeout` plus 10 seconds (Web sessions stay signed in), and open MCP
+  sessions on that listener drop. Its `rmcp_server_kit_*` metrics restart from zero; the
+  `kcc_*` series continue.
 
 [CHANGELOG.md](CHANGELOG.md) lists what exists today.
 

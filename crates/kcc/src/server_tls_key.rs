@@ -1,6 +1,6 @@
 //! The `[server] tls_key_path` permission check, run before the key reaches the listener.
 
-use std::path::Path;
+use std::{fs::File, path::Path};
 
 use fluent_bundle::FluentArgs;
 use kcc_app::{
@@ -20,11 +20,19 @@ pub(crate) fn check(config: &Config) -> Result<(), ServerError> {
     let Some(key) = &config.server.tls_key_path else {
         return Ok(());
     };
+    drop(open_key(key)?);
+    Ok(())
+}
+
+/// Opens the TLS private key at `key`, refusing one that group or others can read (unix
+/// only).
+///
+/// # Errors
+///
+/// Returns [`ServerError::TlsKeyReadable`] naming the key, or the key's read failure.
+pub(crate) fn open_key(key: &Path) -> Result<File, ServerError> {
     match open_secret_file(key) {
-        Ok(file) => {
-            drop(file);
-            Ok(())
-        }
+        Ok(file) => Ok(file),
         Err(SecretFileError::Permissions { path }) => Err(ServerError::TlsKeyReadable { path }),
         Err(other @ (SecretFileError::Read { path: _, source: _ } | _)) => Err(other.into()),
     }

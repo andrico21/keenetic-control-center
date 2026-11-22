@@ -14,18 +14,15 @@ use std::path::PathBuf;
 
 use arc_swap::ArcSwap;
 use kcc_app::{
-    api_keys::api_key_entries,
     audit::AuditLog,
-    mcp_settings::{EnvOverrides, ListenerKind, McpBase},
+    mcp_settings::{EnvOverrides, McpBase},
     persist::StateStore,
     settings::{Config, default_config_dir},
 };
-use kcc_web::{admin::TransportReload, web_router};
+use kcc_web::admin::TransportReload;
 use rmcp_server_kit::{
-    auth::{AuthConfig, RateLimitConfig},
     observability::init_tracing_from_config_strict,
-    rbac::RbacPolicy,
-    transport::{McpServerConfig, ReadinessCheck, serve_stdio, serve_with_listener},
+    transport::{ReadinessCheck, serve_stdio},
 };
 use serde_json::json;
 use tokio::sync::oneshot;
@@ -33,20 +30,22 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     server_error::{Outcome, ServerError},
-    server_metrics::with_metrics,
+    server_listeners::{ListenerSupervisor, build::Shared, supervisor::Supervisor},
     server_notify::{self, Deps, NotifyHandle, Options},
-    server_reload::{hangups, registering, start_watch},
+    server_reload::{hangups, start_watch},
     server_schedules::{self, wiring::start_for_server},
     server_services::{Services, ServicesMode},
-    server_shutdown::BRACKET_GRACE,
+    server_shutdown::{BRACKET_GRACE, Termination},
     server_web::web_state,
     state_watch::StateWatch,
 };
 
 /// Runs the HTTP server command.
-// NOT cancel-safe: once the listener starts, shutdown must be driven cooperatively by the kit.
+// NOT cancel-safe: once the listeners start, shutdown must be driven cooperatively by the
+// supervisor.
 pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerError> {
     let hangups = hangups();
+    let termination = Termination::install();
     let (path, config, mcp_base, _tracing_guard) = load_config(config_path)?;
     crate::server_tls_key::check(&config)?;
     let state_dir = config.state.resolved_dir()?;
@@ -57,7 +56,8 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             dir: state_dir.clone(),
             source,
         })?;
-    let mcp = mcp_base.effective(&state)?.into_settings();
+    let effective = mcp_base.effective(&state)?;
+    let mcp = effective.settings();
     let mut services = Services::open(&config, state, ServicesMode::Serve).await?;
     let notify = NotifyHandle::start(
         Deps::from_services(&services),
@@ -65,24 +65,9 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     )
     .await?;
     let (scheduler, schedule_control) = start_for_server(&services, &notify, &config);
-    let handler = services.handler(&config, &mcp, mcp.http_enabled)?;
-    let rbac = Arc::new(RbacPolicy::new(&handler.rbac_config()));
+    let handler = services.handler(&config, mcp, mcp.http_enabled)?;
     let tools = handler.tool_specs().to_vec();
     let live = Arc::new(ArcSwap::from_pointee(handler));
-    let auth = AuthConfig::with_keys(api_key_entries(&services.state)?)
-        .with_rate_limit(RateLimitConfig::new(30).with_pre_auth_burst(10));
-    let secure_transport = config.browser_transport_secure();
-    let base = McpServerConfig::new("placeholder:0", "kcc", env!("CARGO_PKG_VERSION"));
-    let readiness = readiness_check(services.state.dir().to_owned(), services.audit.clone());
-    let server = config
-        .server
-        .apply_to_mcp_config(base)?
-        .with_auth(auth)
-        .with_rbac(rbac)
-        .with_extra_route_rate_limit(600)
-        .with_security_headers(kcc_web::csp::security_headers(secure_transport))
-        .with_readiness_check(readiness);
-    let mut server_with_origins = crate::server_origins::apply(server, &config)?;
     let auth_reload = Arc::new(
         TransportReload::new(services.state.clone(), tools)
             .with_role_source(services.roles.clone()),
@@ -102,40 +87,43 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         let metrics = services.metrics.clone()?;
         Some(crate::server_tasks::track_sessions(web.clone(), metrics))
     });
-    if let Some(web) = &web_state {
-        server_with_origins = server_with_origins.with_extra_router(web_router(web.clone()));
-    }
     let (listen_ready, listening) = oneshot::channel();
     start_watch(
-        StateWatch::new(Arc::clone(&auth_reload), web_state)
+        StateWatch::new(Arc::clone(&auth_reload), web_state.clone())
             .with_follower(server_notify::FILES, notify.follower())
             .with_follower(server_schedules::FILES, scheduler.follower()),
         (hangups, listening),
         (path, Arc::clone(&services.registry)),
     );
-    server_with_origins = registering(
-        server_with_origins,
-        Arc::clone(&auth_reload),
-        ListenerKind::Main,
-    );
-    let (configured_server, _exporter) = with_metrics(&services, server_with_origins, &config)?;
-    let validated = configured_server.validate()?;
-    let listener = bind_main(&config).await?;
-    let shutdown = CancellationToken::new();
-    let serving = serve_with_listener(
-        listener,
-        validated,
-        move || live.load().as_ref().clone(),
-        Some(listen_ready),
-        Some(shutdown.clone()),
-    );
-    let serve_result =
-        crate::server_shutdown::serve_until_shutdown(serving, &services.audit, || {
-            shutdown.cancel();
+    let shared = Shared {
+        metrics: crate::server_metrics::start(&services, &config)?,
+        readiness: readiness_check(services.state.dir().to_owned(), services.audit.clone()),
+        state: services.state.clone(),
+        web: web_state,
+        live,
+        reload: auth_reload,
+        config,
+    };
+    let (_supervisor, queue, status) = ListenerSupervisor::channel();
+    let started =
+        Box::pin(Supervisor::new(Arc::new(shared), effective, status).start(listen_ready)).await?;
+    let stop = CancellationToken::new();
+    let stopping = stop.clone();
+    let supervising = tokio::spawn(started.serve(queue, async move {
+        tokio::select! {
+            () = termination.wait() => {}
+            () = stopping.cancelled() => {}
+        }
+    }));
+    let serve_result = crate::server_shutdown::serve_until_shutdown(
+        async move { supervising.await.unwrap_or(Err(ServerError::ListenerTask)) },
+        &services.audit,
+        || {
+            stop.cancel();
             scheduler.stop_token().cancel();
-        })
-        .await;
-    auth_reload.unregister(ListenerKind::Main);
+        },
+    )
+    .await;
     scheduler.finish(BRACKET_GRACE).await;
     if !services.audit.is_alive() {
         notify.writer_stopped();
@@ -144,21 +132,6 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     wind_down(&mut services, &notify).await;
     serve_result?;
     Ok(Outcome::Ok)
-}
-
-/// Binds the main listener, `[server] listen_addr` and `listen_port`.
-// cancel-safe: dropping it drops the socket before it is used.
-async fn bind_main(config: &Config) -> Result<tokio::net::TcpListener, ServerError> {
-    tokio::net::TcpListener::bind((
-        config.server.listen_addr.trim_matches(['[', ']']),
-        config.server.listen_port,
-    ))
-    .await
-    .map_err(|source| ServerError::Bind {
-        address: config.server.listen_addr.clone(),
-        port: config.server.listen_port,
-        source,
-    })
 }
 
 /// Stops `kcc serve`'s services once the listener and the scheduler have stopped.
@@ -251,7 +224,7 @@ fn load_config(
 }
 
 /// Builds the state-directory and audit-writer readiness probe.
-fn readiness_check(state_dir: PathBuf, audit: AuditLog) -> ReadinessCheck {
+pub(crate) fn readiness_check(state_dir: PathBuf, audit: AuditLog) -> ReadinessCheck {
     Arc::new(move || {
         let path = state_dir.join(".ready");
         let audit_alive = audit.is_alive();

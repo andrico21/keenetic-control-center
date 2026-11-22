@@ -48,6 +48,9 @@ kcc <command> ──┴──────── CLI ──────┤
   sealed bot token) and the scheduler (`schedules.json`) to re-read their files. The watcher and
   `SIGHUP` start once per `kcc serve`; every running MCP server registers its reload
   handle, and key and role reloads fan out to all of them.
+  A listener supervisor (`crates/kcc/src/server_listeners.rs`) runs this listener and the
+  optional MCP-only dedicated listener as generations and restarts them one change at a
+  time, health-checked, reverting to the previous generation on any failure.
 - `kcc mcp stdio` and CLI runs share the same state directory without that lock;
   per-file locks, per-router leases and the audit append lock keep them consistent.
 - One shared **poller** issues all periodic router reads. Web live views and the

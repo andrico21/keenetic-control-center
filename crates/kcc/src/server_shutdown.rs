@@ -18,7 +18,9 @@ use kcc_app::{
 use rmcp_server_kit::RmcpServerKitError;
 use tokio::signal::ctrl_c;
 #[cfg(unix)]
-use tokio::signal::unix::{SignalKind, signal};
+use tokio::signal::unix::{Signal, SignalKind, signal};
+#[cfg(not(unix))]
+use tokio::signal::windows::CtrlC;
 
 use crate::server_error::ServerError;
 
@@ -26,23 +28,23 @@ use crate::server_error::ServerError;
 /// router's safety bracket.
 pub(crate) const BRACKET_GRACE: Duration = Duration::from_secs(10);
 
-/// Serves until the kit stops (SIGTERM, Ctrl-C) or the audit writer dies.
+/// Serves until the listeners stop (SIGTERM, Ctrl-C) or the audit writer dies.
 ///
-/// A dead writer calls `stop`, the kit's graceful shutdown: no new connection is accepted and the
-/// requests in flight finish and are answered, within `server.shutdown_timeout`, before
-/// the writer's failure is returned.
+/// A dead writer calls `stop`, which stops every listener gracefully: no new connection is
+/// accepted and the requests in flight finish and are answered, within
+/// `server.shutdown_timeout`, before the writer's failure is returned.
 ///
 /// # Errors
 ///
-/// The kit's error, or the terminated audit writer.
-// NOT cancel-safe: dropped, `serving` detaches the kit's shutdown tasks.
+/// The listeners' error, or the terminated audit writer.
+// NOT cancel-safe: dropped, `serving` detaches the listeners' shutdown tasks.
 pub(crate) async fn serve_until_shutdown<F, S>(
     serving: F,
     audit: &AuditLog,
     stop: S,
 ) -> Result<(), ServerError>
 where
-    F: Future<Output = Result<(), RmcpServerKitError>>,
+    F: Future<Output = Result<(), ServerError>>,
     S: FnOnce(),
 {
     tokio::pin!(serving);
@@ -51,7 +53,7 @@ where
         () = audit.closed() => None,
     };
     if let Some(result) = served {
-        return result.map_err(ServerError::from);
+        return result;
     }
     tracing::error!("audit writer terminated; finishing the requests in flight before exit");
     stop();
@@ -75,6 +77,82 @@ where
     tokio::select! {
         served = serving => served.map_err(ServerError::from),
         () = termination() => Ok(()),
+    }
+}
+
+/// The SIGTERM and SIGINT streams of `kcc serve`, installed when created, so a signal that
+/// arrives before anything waits on them is kept.
+pub(crate) struct Termination {
+    /// SIGTERM.
+    #[cfg(unix)]
+    term: Option<Signal>,
+    /// SIGINT.
+    #[cfg(unix)]
+    interrupt: Option<Signal>,
+    /// Ctrl-C.
+    #[cfg(not(unix))]
+    interrupt: Option<CtrlC>,
+}
+
+impl Termination {
+    /// Installs the streams; one that cannot be installed is logged and never fires.
+    #[cfg(unix)]
+    pub(crate) fn install() -> Self {
+        Self {
+            term: installed(signal(SignalKind::terminate()), "SIGTERM"),
+            interrupt: installed(signal(SignalKind::interrupt()), "SIGINT"),
+        }
+    }
+
+    /// Installs the Ctrl-C stream; one that cannot be installed is logged and never fires.
+    #[cfg(not(unix))]
+    pub(crate) fn install() -> Self {
+        Self {
+            interrupt: installed(tokio::signal::windows::ctrl_c(), "Ctrl-C"),
+        }
+    }
+
+    /// Resolves on the first SIGTERM or SIGINT (Ctrl-C on non-Unix platforms).
+    // cancel-safe: tokio's signal streams keep a signal for the next wait.
+    #[cfg(unix)]
+    pub(crate) async fn wait(mut self) {
+        tokio::select! {
+            () = next(self.term.as_mut()) => {}
+            () = next(self.interrupt.as_mut()) => {}
+        }
+        tracing::info!(
+            "shutdown signal received; finishing open router fail-safe brackets before exit"
+        );
+    }
+
+    /// Resolves on the first Ctrl-C.
+    // cancel-safe: tokio's signal streams keep a signal for the next wait.
+    #[cfg(not(unix))]
+    pub(crate) async fn wait(mut self) {
+        match self.interrupt.as_mut() {
+            Some(stream) => drop(stream.recv().await),
+            None => pending().await,
+        }
+        tracing::info!(
+            "shutdown signal received; finishing open router fail-safe brackets before exit"
+        );
+    }
+}
+
+/// `stream`, or a log line naming `name` when it could not be installed.
+fn installed<T>(stream: io::Result<T>, name: &'static str) -> Option<T> {
+    stream
+        .inspect_err(|error| tracing::warn!(%error, signal = name, "cannot install a shutdown signal handler"))
+        .ok()
+}
+
+/// The next signal of `stream`; never for a stream that was not installed.
+// cancel-safe: tokio's signal streams keep a signal for the next wait.
+#[cfg(unix)]
+async fn next(stream: Option<&mut Signal>) {
+    match stream {
+        Some(signals) => drop(signals.recv().await),
+        None => pending().await,
     }
 }
 

@@ -335,6 +335,23 @@ The first release, `0.1.0`, is in preparation and contains:
   single-use, five-minute probe ticket bound to router, port and actor as sealed files
   `<state>/router-ssh/<id>.sealed`, `<id>.key.sealed` and `<id>.ticket.sealed`; removing a
   router in the Web UI or with `kcc router remove` also wipes them.
+- **Dedicated MCP listener**: `[mcp.dedicated] enabled = true` runs a second, MCP-only
+  listener (default `127.0.0.1:8444`; no Web UI, no metrics) with the `[server]`
+  certificate, a self-signed one generated once into `<state>/mcp/dedicated-cert.pem` and
+  `dedicated-key.pem` (owner-only), or none on loopback; `endpoint = "dedicated"` leaves
+  the main listener's `/mcp` without tools. A dedicated listener that cannot start is
+  skipped at start and logged. Until OAuth and client-certificate sign-in are available,
+  a listener whose `oauth` is not `none` or whose `mtls` is not `off` does not start: the
+  main listener then starts with kcc.toml's sign-in settings, the dedicated one is skipped.
+- **Live restart of the MCP listeners**: `kcc serve` runs its listeners under a
+  supervisor (`kcc::server_listeners::ListenerSupervisor`): a settings change that
+  restarts a listener builds and validates the new one first, then stops, serves,
+  registers and health-checks it (within 10 s), and reverts to the previous listeners on
+  any failure; settings are applied and `mcp_settings.json` written only after that. If a
+  previous listener cannot bind again within 10 s, `kcc serve` stops with an error. The
+  main listener's `rmcp_server_kit_*` metrics restart from zero at each restart (the
+  `kcc_*` series continue); SIGTERM stops both listeners before the existing shutdown
+  sequence.
 
 ### Changed
 

@@ -227,3 +227,6 @@ cli-scheduled-dropped = Запланированное действие { $id } 
 cli-scheduled-run-router = Роутер { $router } недоступен или не принял изменение; запланированное действие «{ $name }» не завершено.
 cli-col-expires = Истекает
 cli-key-expired = истёк
+cli-serve-listener-start = слушатель { $name } не запустился: { $reason }
+cli-serve-rebind = предыдущий слушатель { $name } не удалось запустить снова: { $reason }
+cli-serve-listener-task = задача слушателя завершилась аварийно

@@ -175,6 +175,15 @@ impl From<ServerError> for Failure {
             ServerError::AuditWriterTerminated => {
                 message(keys::CLI_SERVE_AUDIT_WRITER_TERMINATED, &[])
             }
+            ServerError::Start { listener, reason } => message(
+                keys::CLI_SERVE_LISTENER_START,
+                &[("name", listener), ("reason", reason)],
+            ),
+            ServerError::Rebind { listener, reason } => message(
+                keys::CLI_SERVE_REBIND,
+                &[("name", listener), ("reason", reason)],
+            ),
+            ServerError::ListenerTask => message(keys::CLI_SERVE_LISTENER_TASK, &[]),
             ServerError::Config(_)
             | ServerError::Kit(_)
             | ServerError::State(_)
@@ -186,7 +195,8 @@ impl From<ServerError> for Failure {
             | ServerError::Jobs(_)
             | ServerError::Reload(_)
             | ServerError::Logs(_)
-            | ServerError::Metrics(_) => Self::text(Exit::Generic, &error),
+            | ServerError::Metrics(_)
+            | ServerError::Listener(_) => Self::text(Exit::Generic, &error),
         }
     }
 }
