@@ -133,3 +133,8 @@ New for this plan:
 - The status fragment's restart outcome is recorded by the Web task AFTER its audit entry is queued, so a test that sees the outcome can read the audit at once (no polling of the audit).
 - Mutation probes for a Web page are about 4 min each with two shared build slots; batch them in one detached python apply/run/restore loop (30 probes took about 2 h of wall time).
 - Playwright 1.49.1 here needs `executablePath` = `~/.cache/ms-playwright/chromium-1148/chrome-linux/chrome` (the headless-shell download is absent); `bypassCSP: true` for a text-spacing probe (the page's CSP refuses injected styles). Never `pkill -f` a pattern from the command line (it killed the tool shell once more).
+
+## [2026-11-22] eci (D-CI-LATEST) learnings
+- taiki-e/install-action resolves `tool: x@ver` from manifests/<tool>.json of the PINNED action SHA. A version not in that manifest falls back to cargo-binstall (default `fallback: cargo-binstall`), losing the manifest's sha256 check. A gate-tool bump therefore needs an install-action pin whose manifest lists it; under the 3-day action cooldown that can hold back a brand-new tool (cargo-deny 0.22.0, cargo-vet 0.10.4 on 2026-11-22).
+- GitHub Actions retired the macos-14 runner on 2026-11-02 (runner-images #15226); release.yml now uses macos-26.
+- Container digest refresh without podman: registry HTTP API (Docker Hub token from auth.docker.io; gcr.io anonymous), compare per-platform manifest digests to see whether the image content changed or only the index.
