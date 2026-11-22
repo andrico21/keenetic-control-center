@@ -116,3 +116,20 @@ New for this plan:
 - `.choice__option` (flex-wrap) drops a long radio label under the radio on a phone; the `.check` + `.check__label` + `.field__help` pattern (router form) keeps the name next to the control and wraps the details on a full-width help line.
 - clippy here: `struct_excessive_bools` also fires on askama view structs (expect with a reason); `field_scoped_visibility_modifiers` again forced the shared `Described` struct to stay in the parent module (children read private fields).
 - A mutant written as `crate_name::path::Item` inside a module where that crate is imported trips `absolute_paths` (compile error, not a red): import the item instead.
+
+## [2026-11-22] Todo 11 (e11) learnings
+- Reusing `tests/entware_enrol/harness.rs` via `#[path]` (+ `#[expect(dead_code)]`) gave an enrolled rig in a few lines; table tests over every op (`READS`/`MUTATIONS` arrays) made the per-op guard rules cheap to pin (counters() equality proves zero connections/commands).
+- Fake switches that made read-back rules testable: `Service::exits(code)` (an rc.func exit status that lies about the effect) and `Config::frozen(name)` (opkg exits 0 and changes nothing). Without them a skipped read-back is invisible.
+- Mutation loop (python apply/run/restore + touch): ~10 s per mutant once warm, 52 mutants. Mutants that leave a binding of type `()` (`let _lease = run.read()?;`) or an unused import are compile errors under `unused`/`let_unit_value`: rewrite them as statements/guards (`run.read()?;`, `(_, 255) if name.is_empty() =>`).
+- Logging pipelines: `cmd 2>&1 | tee -a EV | grep .. | head -40` kills cargo with SIGPIPE once head exits (EXIT=101 with no failing test). Never cap a tee'd cargo pipe with head.
+- `pgrep -f`/`pkill -f` with a pattern in your own command line killed the tool shell (again).
+- Slot wrapper is not FIFO: a queued command waited ~25 min behind other workers; batch runs into one detached script.
+
+## [2026-11-22] Todo 27 (e27) learnings
+- askama macros: bool macro arguments are awkward (references vs values); pass structs and read their fields (`section.save`, `upload.stored`), and in `{% match %}` arms bound values are references (`{% if *on %}`). Indexing an array field in a template (`sections[0]`) was replaced by a struct with named fields to keep generated code free of indexing.
+- `clippy::field_scoped_visibility_modifiers` again: view-model structs read by templates live in the module root (`admin_mcp.rs`) with private fields; the child modules (rows, view, sections, page) see them.
+- A section form that posts only the keys whose value differs from the effective one keeps "Save" from pinning every kcc.toml value as a Web override; every editable control posts a hidden `field=<key>` so an unticked checkbox still means "off".
+- htmx: an outcome region at the top of a long page is out of view after a save at the bottom; `hx-swap="innerHTML show:top"` on the forms scrolls it in.
+- The status fragment's restart outcome is recorded by the Web task AFTER its audit entry is queued, so a test that sees the outcome can read the audit at once (no polling of the audit).
+- Mutation probes for a Web page are about 4 min each with two shared build slots; batch them in one detached python apply/run/restore loop (30 probes took about 2 h of wall time).
+- Playwright 1.49.1 here needs `executablePath` = `~/.cache/ms-playwright/chromium-1148/chrome-linux/chrome` (the headless-shell download is absent); `bypassCSP: true` for a text-spacing probe (the page's CSP refuses injected styles). Never `pkill -f` a pattern from the command line (it killed the tool shell once more).
