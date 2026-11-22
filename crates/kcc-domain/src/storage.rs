@@ -69,12 +69,20 @@ pub const INITIALIZE_LIMIT: Duration = Duration::from_mins(10);
 pub const INITIALIZE_POLL: Duration = Duration::from_secs(5);
 
 /// Storage write inventory.
-const WRITES: &[OperationDescriptor] = &[descriptor::operation(
-    "eject",
-    "system eject",
-    Risk::Destructive,
-    Permission::Destructive,
-)];
+const WRITES: &[OperationDescriptor] = &[
+    descriptor::operation(
+        "eject",
+        "system eject",
+        Risk::Destructive,
+        Permission::Destructive,
+    ),
+    descriptor::operation(
+        "initialize",
+        "media initialize",
+        Risk::Destructive,
+        Permission::Destructive,
+    ),
+];
 
 /// Storage domain metadata.
 pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {

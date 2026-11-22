@@ -40,7 +40,7 @@ const READS: &[OperationDescriptor] = &[
 pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
     id: DomainId::Entware,
     read_ops: READS,
-    write_ops: &[],
+    write_ops: writes::OPERATIONS,
     required_components: &["usb", "storage"],
 };
 

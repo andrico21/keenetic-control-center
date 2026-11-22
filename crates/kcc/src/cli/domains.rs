@@ -16,8 +16,8 @@ use super::{
     args_domains::DomainCommand,
     change::{Gate, applied, run_headlined},
     context::{Ctx, Services, Target},
-    dom_admin, dom_clients, dom_core, dom_dns, dom_jobs, dom_lan, dom_link, dom_mgmt, dom_net,
-    dom_policies, dom_routes, dom_vpn, dom_vpn_server, dom_wifi, dom_wire,
+    dom_admin, dom_clients, dom_core, dom_dns, dom_entware, dom_jobs, dom_lan, dom_link, dom_mgmt,
+    dom_net, dom_policies, dom_routes, dom_vpn, dom_vpn_server, dom_wifi, dom_wire,
     entry::Boxed,
     exit::Outcome,
 };
@@ -53,6 +53,7 @@ pub(crate) fn run(ctx: &Ctx, command: DomainCommand) -> Boxed<'_> {
         DomainCommand::Wan(sub) => Box::pin(dom_link::wan(ctx, sub)),
         DomainCommand::Wifi(sub) => Box::pin(dom_wifi::wifi(ctx, sub)),
         DomainCommand::Mesh(sub) => Box::pin(dom_link::mesh(ctx, sub)),
+        DomainCommand::Entware(sub) => dom_entware::entware(ctx, sub),
     }
 }
 

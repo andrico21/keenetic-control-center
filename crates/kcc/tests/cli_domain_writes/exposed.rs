@@ -2,9 +2,9 @@
 //! holds the table to the registry and to the clap command tree.
 
 use kcc_domain::DomainId::{
-    self, Clients, Components, Configuration, Dhcp, Diagnostics, Dns, Firewall, Interfaces,
-    KeenDns, Logging, Mesh, Nat, Policies, RouterUsers, Routing, Schedules, Segments, Services,
-    Storage, System, VpnClients, VpnServers, Wan, Wifi,
+    self, Clients, Components, Configuration, Dhcp, Diagnostics, Dns, Entware, Firewall,
+    Interfaces, KeenDns, Logging, Mesh, Nat, Policies, RouterUsers, Routing, Schedules, Segments,
+    Services, Storage, System, VpnClients, VpnServers, Wan, Wifi,
 };
 
 /// One registry write operation and the CLI subcommand that runs it.
@@ -107,6 +107,7 @@ pub(crate) const EXPOSED: &[Exposure] = &[
         "components auto-update-schedule",
     ),
     on(Storage, "eject", "storage eject"),
+    on(Storage, "initialize", "storage initialize"),
     on(Schedules, "create", "schedules create"),
     on(Schedules, "description", "schedules describe"),
     on(Schedules, "action", "schedules action"),
@@ -224,4 +225,10 @@ pub(crate) const EXPOSED: &[Exposure] = &[
     on(Mesh, "member_reboot", "mesh reboot"),
     on(Mesh, "update_check", "mesh update-check"),
     on(Mesh, "update_start", "mesh update-start"),
+    on(Entware, "setup", "entware setup"),
+    on(Entware, "remove", "entware remove"),
+    on(Entware, "chroot", "entware set chroot"),
+    on(Entware, "timezone", "entware set timezone"),
+    on(Entware, "initrc", "entware set initrc"),
+    on(Entware, "dns_override", "entware set dns-override"),
 ];

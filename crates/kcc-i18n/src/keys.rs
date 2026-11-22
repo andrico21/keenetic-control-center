@@ -707,6 +707,68 @@ pub const CLI_SERVE_REBIND: MessageKey = MessageKey::new("cli-serve-rebind");
 /// `cli-serve-listener-task` in `cli.ftl`.
 pub const CLI_SERVE_LISTENER_TASK: MessageKey = MessageKey::new("cli-serve-listener-task");
 
+/// `cli-entware-warning-chroot` in `cli.ftl`.
+pub const CLI_ENTWARE_WARNING_CHROOT: MessageKey = MessageKey::new("cli-entware-warning-chroot");
+
+/// `cli-entware-warning-dns-override` in `cli.ftl`.
+pub const CLI_ENTWARE_WARNING_DNS_OVERRIDE: MessageKey =
+    MessageKey::new("cli-entware-warning-dns-override");
+
+/// `cli-entware-drive-invalid` in `cli.ftl`.
+pub const CLI_ENTWARE_DRIVE_INVALID: MessageKey = MessageKey::new("cli-entware-drive-invalid");
+
+/// `cli-entware-component-missing` in `cli.ftl`.
+pub const CLI_ENTWARE_COMPONENT_MISSING: MessageKey =
+    MessageKey::new("cli-entware-component-missing");
+
+/// `cli-entware-arch-mismatch` in `cli.ftl`.
+pub const CLI_ENTWARE_ARCH_MISMATCH: MessageKey = MessageKey::new("cli-entware-arch-mismatch");
+
+/// `cli-entware-arch-unsupported` in `cli.ftl`.
+pub const CLI_ENTWARE_ARCH_UNSUPPORTED: MessageKey =
+    MessageKey::new("cli-entware-arch-unsupported");
+
+/// `cli-entware-no-storage` in `cli.ftl`.
+pub const CLI_ENTWARE_NO_STORAGE: MessageKey = MessageKey::new("cli-entware-no-storage");
+
+/// `cli-entware-unsaved` in `cli.ftl`.
+pub const CLI_ENTWARE_UNSAVED: MessageKey = MessageKey::new("cli-entware-unsaved");
+
+/// `cli-entware-fail-safe-active` in `cli.ftl`.
+pub const CLI_ENTWARE_FAIL_SAFE_ACTIVE: MessageKey =
+    MessageKey::new("cli-entware-fail-safe-active");
+
+/// `cli-entware-arch-required` in `cli.ftl`.
+pub const CLI_ENTWARE_ARCH_REQUIRED: MessageKey = MessageKey::new("cli-entware-arch-required");
+
+/// `cli-entware-drive-not-eligible` in `cli.ftl`.
+pub const CLI_ENTWARE_DRIVE_NOT_ELIGIBLE: MessageKey =
+    MessageKey::new("cli-entware-drive-not-eligible");
+
+/// `cli-entware-disk-set` in `cli.ftl`.
+pub const CLI_ENTWARE_DISK_SET: MessageKey = MessageKey::new("cli-entware-disk-set");
+
+/// `cli-entware-setup-progress` in `cli.ftl`.
+pub const CLI_ENTWARE_SETUP_PROGRESS: MessageKey = MessageKey::new("cli-entware-setup-progress");
+
+/// `cli-entware-step-components` in `cli.ftl`.
+pub const CLI_ENTWARE_STEP_COMPONENTS: MessageKey = MessageKey::new("cli-entware-step-components");
+
+/// `cli-entware-step-install` in `cli.ftl`.
+pub const CLI_ENTWARE_STEP_INSTALL: MessageKey = MessageKey::new("cli-entware-step-install");
+
+/// `cli-entware-step-verify` in `cli.ftl`.
+pub const CLI_ENTWARE_STEP_VERIFY: MessageKey = MessageKey::new("cli-entware-step-verify");
+
+/// `cli-entware-step-read-back` in `cli.ftl`.
+pub const CLI_ENTWARE_STEP_READ_BACK: MessageKey = MessageKey::new("cli-entware-step-read-back");
+
+/// `cli-entware-setup-done` in `cli.ftl`.
+pub const CLI_ENTWARE_SETUP_DONE: MessageKey = MessageKey::new("cli-entware-setup-done");
+
+/// `cli-entware-setup-failed` in `cli.ftl`.
+pub const CLI_ENTWARE_SETUP_FAILED: MessageKey = MessageKey::new("cli-entware-setup-failed");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -7879,7 +7941,7 @@ pub const WEB_ADMIN_PERMISSION_MANAGE_MCP: MessageKey =
     MessageKey::new("web-admin-permission-manage-mcp");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2475] = [
+pub static ALL: [MessageKey; 2494] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8107,6 +8169,25 @@ pub static ALL: [MessageKey; 2475] = [
     CLI_SERVE_LISTENER_START,
     CLI_SERVE_REBIND,
     CLI_SERVE_LISTENER_TASK,
+    CLI_ENTWARE_WARNING_CHROOT,
+    CLI_ENTWARE_WARNING_DNS_OVERRIDE,
+    CLI_ENTWARE_DRIVE_INVALID,
+    CLI_ENTWARE_COMPONENT_MISSING,
+    CLI_ENTWARE_ARCH_MISMATCH,
+    CLI_ENTWARE_ARCH_UNSUPPORTED,
+    CLI_ENTWARE_NO_STORAGE,
+    CLI_ENTWARE_UNSAVED,
+    CLI_ENTWARE_FAIL_SAFE_ACTIVE,
+    CLI_ENTWARE_ARCH_REQUIRED,
+    CLI_ENTWARE_DRIVE_NOT_ELIGIBLE,
+    CLI_ENTWARE_DISK_SET,
+    CLI_ENTWARE_SETUP_PROGRESS,
+    CLI_ENTWARE_STEP_COMPONENTS,
+    CLI_ENTWARE_STEP_INSTALL,
+    CLI_ENTWARE_STEP_VERIFY,
+    CLI_ENTWARE_STEP_READ_BACK,
+    CLI_ENTWARE_SETUP_DONE,
+    CLI_ENTWARE_SETUP_FAILED,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

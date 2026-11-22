@@ -74,6 +74,14 @@ The first release, `0.1.0`, is in preparation and contains:
   router, disable forgets it locally. Every step needs `Destructive`; the steps that
   contact the router refuse while `opkg chroot` is on, after the router URL host changed
   and over MCP; each is audited as `entware.ssh.*` with public fingerprints only.
+- **CLI `kcc entware` and `kcc storage initialize`**: `kcc entware status`, `setup
+  --drive <disk-arg|internal> [--arch aarch64|mipsel|mips]` (a job with progress that
+  ends unsaved), `set chroot|timezone|initrc|dns-override`, and `remove`; `kcc storage
+  initialize <media>` waits for the ext4 partition. `setup`, `remove`, `set initrc` and
+  `initialize` need `--confirm-destructive <router-id>`, `set dns-override` needs `--yes`
+  and runs under the fail-safe timer, and ejecting or initializing the Entware drive needs
+  `--entware-ok` (else exit code 10). An invalid `--drive` is refused with exit code 4
+  before any router request.
 
 - **MCP error code `router_mode_unknown`**: a management change is refused, with nothing
   sent, when the router reports neither a system mode kcc knows nor a `fail-safe`

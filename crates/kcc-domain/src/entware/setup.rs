@@ -339,3 +339,21 @@ pub async fn start(
     .await
     .map_err(SetupError::Job)
 }
+
+/// The `opkg disk <disk> <installer url>` request the setup job sends.
+///
+/// Destructive, read back from `show rc` `opkg` `disk`. Front ends start the setup with
+/// [`start`], which plans this request once its checks passed; this is for inspection.
+///
+/// # Errors
+///
+/// [`SetupError::Domain`] when the catalog refuses the request or the line does not render
+/// it.
+#[inline]
+pub fn install_request(
+    router: &RouterCtx,
+    disk: &str,
+    installer: Installer,
+) -> CoreResult<CliChangeRequest, SetupError> {
+    preflight::install_request(router, disk, installer)
+}

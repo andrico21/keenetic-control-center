@@ -5,6 +5,7 @@ use clap::{Subcommand, ValueEnum};
 use super::{
     args_dom_admin::{FirewallCommand, KeenDnsCommand, SchedulesCommand, ServicesCommand},
     args_dom_dns::DnsCommand,
+    args_dom_entware::EntwareCommand,
     args_dom_jobs::{ComponentsCommand, DiagnosticsCommand},
     args_dom_lan::{ClientsCommand, DhcpCommand, PoliciesCommand, SegmentsCommand},
     args_dom_link::{InterfacesCommand, MeshCommand, WanCommand, WifiCommand},
@@ -90,6 +91,9 @@ pub enum DomainCommand {
     /// Mesh members.
     #[command(subcommand)]
     Mesh(MeshCommand),
+    /// Entware: the `opkg` package system on a drive.
+    #[command(subcommand)]
+    Entware(EntwareCommand),
 }
 
 /// An on or off switch.

@@ -11,6 +11,13 @@ mod support;
     reason = "test helpers assert the real planner contract"
 )]
 mod administration;
+#[path = "verification_coverage/tests/entware.rs"]
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    reason = "test helpers propagate planner failures"
+)]
+mod entware;
 #[path = "verification_coverage/tests/execution.rs"]
 #[cfg(test)]
 #[expect(
@@ -53,7 +60,7 @@ mod tests {
     use kcc_domain::{DomainError, DomainId, registry, services, verification};
 
     use crate::{
-        administration, execution, network,
+        administration, entware, execution, network,
         support::{Fixture, PROFILES, TestResult, toggle_service},
         vpn,
     };
@@ -134,6 +141,7 @@ mod tests {
                         | DomainId::Firewall => {
                             network::check(fixture.context(), domain.id, operation.name).await
                         }
+                        DomainId::Entware => entware::check(fixture.context(), operation.name),
                         DomainId::VpnClients | DomainId::VpnServers => {
                             vpn::check(fixture.context(), domain.id, operation.name).await
                         }

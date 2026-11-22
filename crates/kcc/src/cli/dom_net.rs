@@ -1,12 +1,13 @@
 //! Router user and storage commands, and the new-secret prompt.
 
 use kcc_app::permissions::Permission;
-use kcc_domain::{entware, router_users, storage};
+use kcc_domain::{entware, router_users, storage, verification};
 use kcc_i18n::keys;
 use secrecy::SecretString;
 
 use super::{
     args_domains_net::{RouterUsersCommand, StorageCommand},
+    change::{Gate, applied},
     context::Ctx,
     domains::Session,
     exit::Outcome,
@@ -80,7 +81,7 @@ pub(crate) async fn storage(ctx: &Ctx, command: StorageCommand) -> Outcome {
             let session = Session::open(ctx, Permission::Read).await?;
             session.show(&storage::read_usb(session.router()).await?)
         }
-        StorageCommand::Eject { media } => {
+        StorageCommand::Eject { media, entware_ok } => {
             let session = Session::open(ctx, Permission::Destructive).await?;
             let target = session.target();
             let entware_media = entware::configured_media(session.router()).await?;
@@ -91,13 +92,47 @@ pub(crate) async fn storage(ctx: &Ctx, command: StorageCommand) -> Outcome {
                 &media,
                 true,
                 entware_media.as_deref(),
-                false,
+                entware_ok,
             )?;
             session
                 .cli(&operation, storage::change_request(&operation)?)
                 .await
         }
+        StorageCommand::Initialize { media, entware_ok } => {
+            initialize(ctx, &media, entware_ok).await
+        }
     }
+}
+
+/// Initializes `media` and waits until the router reports its ext4 partition, holding the
+/// router's change lease throughout.
+///
+/// # Errors
+///
+/// Returns the command's failure with its exit code.
+// NOT cancel-safe: the initialization may start before cancellation.
+async fn initialize(ctx: &Ctx, media: &str, entware_ok: bool) -> Outcome {
+    let session = Session::open(ctx, Permission::Destructive).await?;
+    let target = session.target();
+    let entware_media = entware::configured_media(session.router()).await?;
+    let operation = storage::plan_initialize(
+        session.router(),
+        target.id(),
+        target.role(),
+        media,
+        true,
+        entware_media.as_deref(),
+        entware_ok,
+    )?;
+    let request = verification::complete(storage::change_request(&operation)?)?;
+    verification::require(&request)?;
+    session
+        .change(Gate::of(&operation), async |changes, router| {
+            let result = changes.apply_cli(request).await?;
+            storage::wait_initialized(router, media).await?;
+            Ok(applied(result.unsaved))
+        })
+        .await
 }
 
 /// Reads a new router secret for `name` from the usual sources.

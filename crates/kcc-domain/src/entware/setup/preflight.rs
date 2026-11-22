@@ -128,7 +128,7 @@ fn resolve(arch: &ArchResolution, choice: Option<Installer>) -> CoreResult<Insta
 ///
 /// [`SetupError::Domain`] when the catalog refuses the request or the line does not render
 /// it.
-fn install_request(
+pub(super) fn install_request(
     router: &RouterCtx,
     disk: &str,
     installer: Installer,

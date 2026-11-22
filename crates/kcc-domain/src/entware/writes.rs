@@ -11,7 +11,40 @@ use kcc_catalog::Risk;
 use serde_json::{Value, json};
 
 use super::models::TimezoneSetting;
-use crate::{ChangeOp, Result, RouterCtx, planning::validate, request_words::negated};
+use crate::{
+    ChangeOp, OperationDescriptor, Result, RouterCtx, descriptor, planning::validate,
+    request_words::negated,
+};
+
+/// Entware write inventory: the guided setup's `opkg disk`, its removal and the settings.
+pub(super) const OPERATIONS: &[OperationDescriptor] = &[
+    descriptor::operation(
+        "setup",
+        "opkg disk",
+        Risk::Destructive,
+        Permission::Destructive,
+    ),
+    descriptor::operation(
+        "remove",
+        "opkg disk",
+        Risk::Destructive,
+        Permission::Destructive,
+    ),
+    descriptor::write("chroot", "opkg chroot"),
+    descriptor::write("timezone", "opkg timezone"),
+    descriptor::operation(
+        "initrc",
+        "opkg initrc",
+        Risk::Destructive,
+        Permission::Destructive,
+    ),
+    descriptor::operation(
+        "dns_override",
+        "opkg dns-override",
+        Risk::Management,
+        Permission::Write,
+    ),
+];
 
 /// One `opkg` settings change, its arguments already checked.
 pub(super) enum OpkgChange<'change> {

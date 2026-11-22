@@ -164,5 +164,17 @@ pub enum StorageCommand {
     Eject {
         /// Volume name.
         media: String,
+        /// Acknowledge that the volume is the drive Entware runs from.
+        #[arg(long)]
+        entware_ok: bool,
+    },
+    /// Wipe a drive and create a swap and an ext4 partition (destructive); waits until
+    /// the router reports ext4.
+    Initialize {
+        /// Medium name, e.g. `Media0`.
+        media: String,
+        /// Acknowledge that the medium is the drive Entware runs from.
+        #[arg(long)]
+        entware_ok: bool,
     },
 }
