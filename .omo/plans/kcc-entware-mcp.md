@@ -448,7 +448,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(domain): typed Entware package and service operations with read-back
   Recommended task executor category: unspecified-high - operations, leases, audit and parsing
 
-- [ ] 12. Web: System > Entware (status, settings, setup, removal) and drive warnings
+- [x] 12. Web: System > Entware (status, settings, setup, removal) and drive warnings
   What to do / Must NOT do:
   - New tab `Entware` in `crates/kcc-web/src/system_pages/tabs.rs`, page `crates/kcc-web/src/system_pages/entware.rs` + `entware_actions.rs`, template `crates/kcc-web/templates/pages/system_entware.html`, routes registered in `crates/kcc-web/src/system_pages.rs` next to `/ui/r/{router}/system/storage` (`system_pages.rs:114`).
   - Shows `EntwareStatus` (not-possible reason; components; settings; eligible and initializable drives; arch and installer; DNS filter dependency warning).
@@ -465,7 +465,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(web): Entware page with setup wizard, settings and drive warnings
   Recommended task executor category: visual-engineering - new Web page, forms, wizard and templates
 
-- [ ] 13. CLI: `kcc entware` (Option 1) and `kcc storage initialize`
+- [x] 13. CLI: `kcc entware` (Option 1) and `kcc storage initialize`
   What to do / Must NOT do:
   - `crates/kcc/src/cli/args_dom_entware.rs` + `dom_entware.rs`, registered in `args_domains.rs`/`domains.rs`: `kcc entware status`; `kcc entware setup --drive <disk-arg|internal> [--arch aarch64|mipsel|mips] --confirm-destructive <router-id>` (job progress; ends with "unsaved; run `kcc config save`"); `kcc entware set chroot on|off` (prints the SSH warning when enabling), `set timezone auto|<tz>`, `set initrc <path> --confirm-destructive <router-id>`, `set dns-override on|off --yes` (the CLI's management bracket, `crates/kcc/src/cli/change.rs:70,82`, wraps it because the risk is Management), `kcc entware remove --confirm-destructive <router-id>`; `kcc storage initialize <media> --confirm-destructive <router-id> [--entware-ok]`; `kcc storage eject` gains `--entware-ok`. `--json` prints one document. Strings in `cli.ftl` (six locales).
   - Register the Entware write ops and the storage `initialize` op in the domain registry (`entware` descriptor `write_ops`, storage `WRITES`), add their rows to the CLI coverage tables (`crates/kcc/tests/cli_domain_writes/coverage.rs:40-70`, `exposed.rs`) and their arms to `crates/kcc-domain/tests/verification_coverage.rs:106-150`.
@@ -479,7 +479,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(cli): kcc entware status, setup, settings, removal and storage initialize
   Recommended task executor category: unspecified-high - CLI commands across several files
 
-- [ ] 14. MCP: toolset `entware` (Option 1) and storage initialize
+- [x] 14. MCP: toolset `entware` (Option 1) and storage initialize
   What to do / Must NOT do:
   - `crates/kcc-mcp/src/domains/write/entware.rs` + read support: tools `kcc_entware_read` (ops `status`, `settings`, `drives`; read-only) and `kcc_entware_write` (ops `setup`, `chroot`, `timezone`, `initrc`, `dns_override`, `remove`) in toolset `entware` (`crates/kcc-mcp/src/registry/definitions.rs`); every op passes `confirm_risk` (`crates/kcc-mcp/src/domains/write/common.rs:80-92`); `dns_override` also uses `preauthorize_management` and the management bracket (`common.rs:125-170`); `chroot` returns the `ChrootStopsSshManagement` warning in its result when enabling; `setup` starts through the long-job pattern of `crates/kcc-mcp/src/domains/write/jobs.rs`; `arch` required when the status says MipsAmbiguous. `kcc_storage_write` gains op `initialize` and the input field `acknowledge_entware_drive: bool` for `eject` and `initialize` (`housekeeping.rs` `STORAGE_OPS`). Declare the toolset `entware` with `safety_reducing: false` in the registry metadata of todo 23. Regenerate `docs/MCP_TOOLS.md`; update `docs/CONFIG.md:81` toolset list.
   - Tests (`crates/kcc-mcp/tests/entware_tools.rs`): tools absent with default `toolsets`; present with `entware`; write tool absent in `read_only`; `setup`/`remove`/`initrc` need `allow_destructive` and `confirm`; `dns_override` needs `confirm` and the fake request log shows the fail-safe arm before and the disarm after; eject/initialize of the Entware drive refused without `acknowledge_entware_drive`; results within the cap.
