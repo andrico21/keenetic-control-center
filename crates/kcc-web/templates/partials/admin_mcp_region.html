@@ -1,0 +1,66 @@
+{#- The MCP settings region: one form per section posting to #page-outcome; a change answers with this region out of band. Values set by the environment or [mcp] locked are text only. The self-signed certificate is offered with its fingerprint, never its key; CA files are uploaded, never named by a path. -#}
+{%- import "partials/admin_mcp_macros.html" as mcp -%}
+<div class="admin-region mcp-region" id="mcp-region"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- if let Some(status) = facts.status %}
+  {%- if status.fallback %}
+  <div class="banner" role="alert"><p class="banner__text">{{ t(keys::WEB_ADMIN_MCP_FALLBACK) }}</p></div>
+  {%- endif %}
+  {%- if status.skipped %}
+  <div class="banner" role="alert"><p class="banner__text">{{ t(keys::WEB_ADMIN_MCP_SKIPPED) }}</p></div>
+  {%- endif %}
+  {%- else %}
+  <p class="notice" data-tone="info" role="note">{{ t(keys::WEB_ADMIN_MCP_UNAVAILABLE) }}</p>
+  {%- endif %}
+  <div class="panels admin-panels">
+    <section class="panel" aria-labelledby="mcp-tools-title">
+      <h2 class="panel__title" id="mcp-tools-title">{{ t(keys::WEB_ADMIN_MCP_TOOLS) }}</h2>
+      {{ mcp::section(sections.tools, facts.revision) }}
+    </section>
+    <section class="panel" aria-labelledby="mcp-endpoints-title">
+      <h2 class="panel__title" id="mcp-endpoints-title">{{ t(keys::WEB_ADMIN_MCP_ENDPOINTS) }}</h2>
+      <p class="panel__note">{{ t(keys::WEB_ADMIN_MCP_RESTART_NOTE) }}</p>
+      {{ mcp::section(sections.endpoints, facts.revision) }}
+      <h3 class="panel__subtitle">{{ t(keys::WEB_ADMIN_MCP_CERT) }}</h3>
+      {%- if let Some(fingerprint) = facts.fingerprint %}
+      <dl class="facts">
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_MCP_CERT_FINGERPRINT) }}</dt><dd class="mono mcp-fingerprint">{{ fingerprint }}</dd></div>
+      </dl>
+      <p><a class="button button--secondary" href="/ui/admin/mcp/certificate" download>{{ t(keys::WEB_ADMIN_MCP_CERT_DOWNLOAD) }}</a></p>
+      {%- else %}
+      <p class="panel__note">{{ t(keys::WEB_ADMIN_MCP_CERT_NONE) }}</p>
+      {%- endif %}
+    </section>
+  </div>
+  <div class="panels admin-panels">
+    <section class="panel" aria-labelledby="mcp-signin-title">
+      <h2 class="panel__title" id="mcp-signin-title">{{ t(keys::WEB_ADMIN_MCP_SIGNIN) }}</h2>
+      <dl class="facts">
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_MCP_API_KEYS) }}</dt><dd>{{ t(keys::WEB_ADMIN_MCP_API_KEYS_ON) }}</dd></div>
+      </dl>
+      <h3 class="panel__subtitle">{{ t(keys::WEB_ADMIN_MCP_LISTENER_MAIN_TITLE) }}</h3>
+      <p class="panel__note">{{ t(keys::WEB_ADMIN_MCP_MTLS_MAIN_LIMIT) }}</p>
+      {{ mcp::section(sections.signin_main, facts.revision) }}
+      <h3 class="panel__subtitle">{{ t(keys::WEB_ADMIN_MCP_LISTENER_DEDICATED_TITLE) }}</h3>
+      {{ mcp::section(sections.signin_dedicated, facts.revision) }}
+    </section>
+    <section class="panel" aria-labelledby="mcp-kcc-title">
+      <h2 class="panel__title" id="mcp-kcc-title">{{ t(keys::WEB_ADMIN_MCP_KCC) }}</h2>
+      <dl class="facts">
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_MCP_ISSUER) }}</dt><dd>{% if let Some(url) = issuer_url() %}<span class="mono mcp-issuer">{{ url }}</span>{% else %}{{ t(issuer_reason()) }}{% endif %}</dd></div>
+      </dl>
+      {{ mcp::section(sections.kcc, facts.revision) }}
+    </section>
+  </div>
+  <div class="panels admin-panels">
+    <section class="panel" aria-labelledby="mcp-idp-title">
+      <h2 class="panel__title" id="mcp-idp-title">{{ t(keys::WEB_ADMIN_MCP_IDP) }}</h2>
+      {{ mcp::section(sections.idp, facts.revision) }}
+      {{ mcp::upload(idp_ca) }}
+    </section>
+    <section class="panel" aria-labelledby="mcp-certs-title">
+      <h2 class="panel__title" id="mcp-certs-title">{{ t(keys::WEB_ADMIN_MCP_CERTS) }}</h2>
+      {{ mcp::upload(mtls_ca) }}
+      {{ mcp::section(sections.certs, facts.revision) }}
+    </section>
+  </div>
+</div>

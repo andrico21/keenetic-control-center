@@ -17,6 +17,7 @@
 )]
 
 pub mod build;
+pub(crate) mod control;
 mod generation;
 mod health;
 mod restart;

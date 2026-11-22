@@ -50,7 +50,8 @@ kcc <command> ──┴──────── CLI ──────┤
   handle, and key and role reloads fan out to all of them.
   A listener supervisor (`crates/kcc/src/server_listeners.rs`) runs this listener and the
   optional MCP-only dedicated listener as generations and restarts them one change at a
-  time, health-checked, reverting to the previous generation on any failure.
+  time, health-checked, reverting to the previous generation on any failure; the Web
+  UI's MCP settings page hands it changes through `kcc_web::admin::McpControl`.
 - `kcc mcp stdio` and CLI runs share the same state directory without that lock;
   per-file locks, per-router leases and the audit append lock keep them consistent.
 - One shared **poller** issues all periodic router reads. Web live views and the

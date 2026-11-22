@@ -3350,3 +3350,42 @@ h3 {
   display: flex;
   justify-content: flex-end;
 }
+
+/* ---------- MCP settings ---------- */
+
+.mcp-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.mcp-value {
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.mcp-mappings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+  margin-block: var(--space-3);
+}
+
+.choice .mcp-source {
+  margin-block-start: var(--space-2);
+}
+
+.mcp-fingerprint,
+.mcp-issuer {
+  overflow-wrap: anywhere;
+}
+
+.mcp-upload .field__file {
+  inline-size: 100%;
+}
+
+.mcp-region .field__input {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}

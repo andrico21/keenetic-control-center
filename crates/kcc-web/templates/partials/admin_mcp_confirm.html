@@ -1,0 +1,20 @@
+{#- The password asked before a change that reduces safety: the change's fields ride along as hidden inputs, the password is typed here and never shown again. A wrong password counts toward the sign-in lockout; the outcome lands in #page-outcome, a refusal comes back into this dialog. -#}
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(t(keys::WEB_ADMIN_MCP_CONFIRM_TITLE)) %}
+<p class="dialog__text">{{ text }}</p>
+{%- if let Some(said) = refusal %}
+<p class="notice" data-tone="error" role="alert" data-message-key="{{ said.key() }}">{{ said.text() }}</p>
+{%- endif %}
+<form class="form" method="post" action="{{ post_to }}" hx-post="{{ post_to }}" hx-target="#page-outcome" hx-swap="innerHTML show:top">
+  {%- for (name, value) in pairs %}
+  <input type="hidden" name="{{ name }}" value="{{ value }}">
+  {%- endfor %}
+  <div class="field">
+    <label class="field__label" for="mcp-password">{{ t(keys::WEB_ADMIN_MCP_CONFIRM_PASSWORD) }}</label>
+    <input class="field__input" id="mcp-password" name="password" type="password" value="" autocomplete="current-password" autocapitalize="none" spellcheck="false" required>
+  </div>
+  <div class="dialog__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::WEB_ADMIN_MCP_CONFIRM_APPLY) }}</button>
+  </div>
+</form>
+{% endcall %}

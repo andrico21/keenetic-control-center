@@ -374,7 +374,10 @@ show secrets as `********` unless you hold RevealSecrets on that router. On the 
 - **Audit log**: search, filter and export the hash-chained audit log (ViewAudit). A role
   scoped to some routers sees only those routers' entries; entries that name no router
   (sign-ins, account changes) are shown only to a role scoped to all routers.
-- **Server**: the running configuration summary and catalog versions.
+- **MCP**: the MCP settings (ManageMcp), described below. The tab shows only to roles
+  that hold the permission.
+- **Server**: the running configuration summary and catalog versions, with a link to the
+  MCP settings.
 
 Your own account page (`/ui/account`) changes your password and language; a password
 change signs your other sessions out and keeps the one you made it in. After
@@ -385,6 +388,35 @@ Changes made with the CLI (`kcc apikey revoke`, `kcc user disable`, `kcc user pa
 reach a running `kcc serve` within about 2 seconds: a revoked key is refused, and the
 account's signed-in sessions end when it is disabled or its password is reset; their open
 live views end within 5 seconds after that.
+
+### Administration > MCP
+
+`/ui/admin/mcp` changes the `[mcp]` settings while `kcc serve` runs, one section at a
+time: **Tools** (toolsets, read-only, destructive tools, result size, local stdio and
+its role), **Endpoints** (MCP over HTTP, which listener serves `/mcp`, the dedicated
+listener's address, port, public URL and certificate; for a self-signed certificate the
+SHA-256 fingerprint and a PEM download), **Sign-in** per listener (API keys are always
+on; OAuth and client certificates; `required` only on the dedicated listener),
+**kcc sign-in** (token lifetimes and the issuer, or why there is none), **Identity
+provider** (issuer, audience, JWKS URL, role claim, claim value and scope to role rows,
+signing algorithms, CA bundle upload) and **Client certificates** (CA upload and the role
+of a certificate). Under each value the page says where it comes from: an environment
+variable or `[mcp] locked` makes it read-only; "Overridden on the Web" offers a reset to
+kcc.toml.
+
+A change that reduces safety (destructive tools on, read-only off, a toolset marked
+"Reduces safety", stdio on or a stronger stdio role, a sign-in method, an identity
+provider setting, a non-loopback dedicated listener) asks for your password first; a
+wrong password counts toward the sign-in lockout, and a lockout leaves your current
+session signed in. A role you name must be one whose permissions and routers you hold.
+Tool settings apply at once (open MCP sessions get a tightening at their next call, new
+sessions get a loosening). Listener and sign-in changes restart the listener they affect:
+the page shows "Restarting" and then the outcome; if the new listener cannot start, the
+previous one serves again, the settings file stays as it was and the page says why. A
+restart of the main listener interrupts the Web UI for at most `server.shutdown_timeout`
+plus 10 seconds. OAuth and client-certificate sign-in are not available in this build
+yet: choosing them reverts with that reason. CA files are uploaded as PEM files of at most 64 KiB; nothing on the page
+takes a file path.
 
 ### Administration > Notifications
 

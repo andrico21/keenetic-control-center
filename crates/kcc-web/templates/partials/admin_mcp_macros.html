@@ -1,0 +1,108 @@
+{#- The settings rows of the MCP settings page. A row the environment or [mcp] locked sets shows its value as text only, with no form field; every other row posts its key in "field" with its control, and each section form posts the settings revision it was rendered from. Each row names where its value comes from; a value set on the Web offers a reset to kcc.toml. -#}
+
+{%- macro source(row) -%}
+<p class="field__help mcp-source" id="{{ row.id }}-source">
+  <span>{{ row.source }}</span>
+  {%- if row.reset %}
+  <button class="button button--ghost" type="submit" formaction="/ui/admin/mcp/reset" hx-post="/ui/admin/mcp/reset" name="key" value="{{ row.name }}">{{ t(keys::WEB_ADMIN_MCP_RESET) }}</button>
+  {%- endif %}
+</p>
+{%- endmacro -%}
+
+{%- macro setting(row) -%}
+{%- if row.fixed %}
+<div class="field">
+  <span class="field__label">{{ row.label }}</span>
+  <p class="mcp-value">{{ row.shown }}</p>
+  {{ source(row) }}
+</div>
+{%- else %}
+<input type="hidden" name="field" value="{{ row.name }}">
+{%- match row.control %}
+{%- when Control::Check with (on) %}
+<div class="check">
+  <input class="check__input" type="checkbox" id="{{ row.id }}" name="{{ row.name }}" value="on" aria-describedby="{{ row.id }}-source"{% if *on %} checked{% endif %}>
+  <label class="check__label" for="{{ row.id }}">{{ row.label }}</label>
+  {{ source(row) }}
+</div>
+{%- when Control::Text with (value, kind) %}
+<div class="field">
+  <label class="field__label" for="{{ row.id }}">{{ row.label }}</label>
+  <input class="field__input" id="{{ row.id }}" name="{{ row.name }}" type="{{ kind }}" value="{{ value }}" autocomplete="off" spellcheck="false" aria-describedby="{{ row.id }}-source">
+  {{ source(row) }}
+</div>
+{%- when Control::Select with (choices) %}
+<div class="field">
+  <label class="field__label" for="{{ row.id }}">{{ row.label }}</label>
+  <select class="field__input" id="{{ row.id }}" name="{{ row.name }}" aria-describedby="{{ row.id }}-source">
+    {%- for choice in choices %}
+    <option value="{{ choice.value }}"{% if choice.chosen %} selected{% endif %}>{{ choice.label }}</option>
+    {%- endfor %}
+  </select>
+  {{ source(row) }}
+</div>
+{%- when Control::Checks with (choices) %}
+<fieldset class="choice" aria-describedby="{{ row.id }}-source">
+  <legend class="field__label">{{ row.label }}</legend>
+  <div class="admin-checks">
+    {%- for choice in choices %}
+    <label class="choice__option"><input type="checkbox" name="{{ row.name }}" value="{{ choice.value }}"{% if choice.chosen %} checked{% endif %}><span>{{ choice.label }}</span>{% if choice.reduces %}<span class="flag" data-tone="warning">{{ t(keys::WEB_ADMIN_MCP_SAFETY) }}</span>{% endif %}</label>
+    {%- endfor %}
+  </div>
+  {{ source(row) }}
+</fieldset>
+{%- when Control::Mappings with (table) %}
+<fieldset class="choice" aria-describedby="{{ row.id }}-source">
+  <legend class="field__label">{{ row.label }}</legend>
+  <div class="mcp-mappings">
+    <span class="field__label" aria-hidden="true">{{ table.heading }}</span>
+    <span class="field__label" aria-hidden="true">{{ t(keys::WEB_ADMIN_MCP_MAPPING_ROLE) }}</span>
+    {%- for (value, role) in table.rows %}
+    <input class="field__input" name="{{ table.first }}" type="text" value="{{ value }}" autocomplete="off" spellcheck="false" aria-label="{{ table.heading }} {{ loop.index }}">
+    <select class="field__input" name="{{ table.second }}" aria-label="{{ t(keys::WEB_ADMIN_MCP_MAPPING_ROLE) }} {{ loop.index }}">
+      <option value=""{% if role.is_empty() %} selected{% endif %}>{{ t(keys::WEB_ADMIN_MCP_UNSET) }}</option>
+      {%- for known in table.roles %}
+      <option value="{{ known }}"{% if known == role %} selected{% endif %}>{{ known }}</option>
+      {%- endfor %}
+    </select>
+    {%- endfor %}
+  </div>
+  <p class="field__help">{{ t(keys::WEB_ADMIN_MCP_MAPPING_HELP) }}</p>
+  {{ source(row) }}
+</fieldset>
+{%- endmatch %}
+{%- endif %}
+{%- endmacro -%}
+
+{%- macro section(section, revision) -%}
+<form class="form" method="post" action="/ui/admin/mcp" hx-post="/ui/admin/mcp" hx-target="#page-outcome" hx-swap="innerHTML show:top">
+  <input type="hidden" name="revision" value="{{ revision }}">
+  {%- for row in section.rows %}
+  {{ setting(row) }}
+  {%- endfor %}
+  {%- if section.save %}
+  <div class="form__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::COMMON_SAVE) }}</button>
+  </div>
+  {%- endif %}
+</form>
+{%- endmacro -%}
+
+{%- macro upload(upload) -%}
+<div class="field">
+  <span class="field__label">{{ upload.label }}</span>
+  <p class="mcp-value">{% if upload.stored %}{{ t(keys::WEB_ADMIN_MCP_CA_STORED) }}{% else %}{{ t(keys::WEB_ADMIN_MCP_CA_NONE) }}{% endif %}</p>
+</div>
+{%- if upload.editable %}
+<form class="form mcp-upload" method="post" action="/ui/admin/mcp/ca" hx-post="/ui/admin/mcp/ca" hx-target="#page-outcome" hx-swap="innerHTML show:top" hx-encoding="multipart/form-data" enctype="multipart/form-data">
+  <input type="hidden" name="kind" value="{{ upload.kind }}">
+  <div class="field">
+    <label class="field__label" for="mcp-ca-{{ upload.kind }}">{{ t(keys::WEB_ADMIN_MCP_CA_FILE) }}</label>
+    <input class="field__input field__file" id="mcp-ca-{{ upload.kind }}" name="file" type="file" accept=".pem,.crt,application/x-pem-file" required>
+  </div>
+  <div class="form__actions">
+    <button class="button button--secondary" type="submit">{{ t(keys::WEB_ADMIN_MCP_CA_UPLOAD) }}</button>
+  </div>
+</form>
+{%- endif %}
+{%- endmacro -%}

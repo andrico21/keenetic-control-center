@@ -1,0 +1,15 @@
+{#- The MCP settings page's restart status: while a restart runs it asks again every 2 seconds, until its deadline; then it shows how the restart ended, with the settings region read again out of band. -#}
+<div class="mcp-status" id="mcp-status" aria-live="polite"{% if polling() %} hx-get="/ui/admin/mcp/status?until={{ until }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  {%- match shown %}
+  {%- when Shown::Nothing %}
+  {%- when Shown::Running with (text) %}
+  <p class="notice" data-tone="info" role="status">{{ text }}</p>
+  {%- when Shown::Late with (text) %}
+  <p class="notice" data-tone="warning" role="status">{{ text }}</p>
+  {%- when Shown::Ended with (said, tone) %}
+  <p class="notice" data-tone="{{ tone }}" role="status" data-message-key="{{ said.key() }}">{{ said.text() }}</p>
+  {%- endmatch %}
+</div>
+{%- if let Some(region) = region %}
+{{ region }}
+{%- endif %}

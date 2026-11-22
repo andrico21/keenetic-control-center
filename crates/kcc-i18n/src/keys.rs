@@ -8197,8 +8197,413 @@ pub const WEB_SYSTEM_ENTWARE_PREPARE: MessageKey = MessageKey::new("web-system-e
 pub const WEB_SYSTEM_ENTWARE_PREPARE_STARTED: MessageKey =
     MessageKey::new("web-system-entware-prepare-started");
 
+/// `web-admin-mcp-tab` in `web.ftl`.
+pub const WEB_ADMIN_MCP_TAB: MessageKey = MessageKey::new("web-admin-mcp-tab");
+
+/// `web-admin-mcp-unavailable` in `web.ftl`.
+pub const WEB_ADMIN_MCP_UNAVAILABLE: MessageKey = MessageKey::new("web-admin-mcp-unavailable");
+
+/// `web-admin-mcp-saved` in `web.ftl`.
+pub const WEB_ADMIN_MCP_SAVED: MessageKey = MessageKey::new("web-admin-mcp-saved");
+
+/// `web-admin-mcp-unchanged` in `web.ftl`.
+pub const WEB_ADMIN_MCP_UNCHANGED: MessageKey = MessageKey::new("web-admin-mcp-unchanged");
+
+/// `web-admin-mcp-tools` in `web.ftl`.
+pub const WEB_ADMIN_MCP_TOOLS: MessageKey = MessageKey::new("web-admin-mcp-tools");
+
+/// `web-admin-mcp-endpoints` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ENDPOINTS: MessageKey = MessageKey::new("web-admin-mcp-endpoints");
+
+/// `web-admin-mcp-signin` in `web.ftl`.
+pub const WEB_ADMIN_MCP_SIGNIN: MessageKey = MessageKey::new("web-admin-mcp-signin");
+
+/// `web-admin-mcp-kcc` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KCC: MessageKey = MessageKey::new("web-admin-mcp-kcc");
+
+/// `web-admin-mcp-idp` in `web.ftl`.
+pub const WEB_ADMIN_MCP_IDP: MessageKey = MessageKey::new("web-admin-mcp-idp");
+
+/// `web-admin-mcp-certs` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CERTS: MessageKey = MessageKey::new("web-admin-mcp-certs");
+
+/// `web-admin-mcp-key-http-enabled` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_HTTP_ENABLED: MessageKey =
+    MessageKey::new("web-admin-mcp-key-http-enabled");
+
+/// `web-admin-mcp-key-stdio-enabled` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_STDIO_ENABLED: MessageKey =
+    MessageKey::new("web-admin-mcp-key-stdio-enabled");
+
+/// `web-admin-mcp-key-stdio-role` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_STDIO_ROLE: MessageKey =
+    MessageKey::new("web-admin-mcp-key-stdio-role");
+
+/// `web-admin-mcp-key-read-only` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_READ_ONLY: MessageKey = MessageKey::new("web-admin-mcp-key-read-only");
+
+/// `web-admin-mcp-key-allow-destructive` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_ALLOW_DESTRUCTIVE: MessageKey =
+    MessageKey::new("web-admin-mcp-key-allow-destructive");
+
+/// `web-admin-mcp-key-max-result-bytes` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_MAX_RESULT_BYTES: MessageKey =
+    MessageKey::new("web-admin-mcp-key-max-result-bytes");
+
+/// `web-admin-mcp-key-toolsets` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_TOOLSETS: MessageKey = MessageKey::new("web-admin-mcp-key-toolsets");
+
+/// `web-admin-mcp-key-endpoint` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_ENDPOINT: MessageKey = MessageKey::new("web-admin-mcp-key-endpoint");
+
+/// `web-admin-mcp-key-dedicated-enabled` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_DEDICATED_ENABLED: MessageKey =
+    MessageKey::new("web-admin-mcp-key-dedicated-enabled");
+
+/// `web-admin-mcp-key-dedicated-bind` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_DEDICATED_BIND: MessageKey =
+    MessageKey::new("web-admin-mcp-key-dedicated-bind");
+
+/// `web-admin-mcp-key-dedicated-port` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_DEDICATED_PORT: MessageKey =
+    MessageKey::new("web-admin-mcp-key-dedicated-port");
+
+/// `web-admin-mcp-key-dedicated-public-url` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_DEDICATED_PUBLIC_URL: MessageKey =
+    MessageKey::new("web-admin-mcp-key-dedicated-public-url");
+
+/// `web-admin-mcp-key-dedicated-tls` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_DEDICATED_TLS: MessageKey =
+    MessageKey::new("web-admin-mcp-key-dedicated-tls");
+
+/// `web-admin-mcp-key-main-oauth` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_MAIN_OAUTH: MessageKey =
+    MessageKey::new("web-admin-mcp-key-main-oauth");
+
+/// `web-admin-mcp-key-main-mtls` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_MAIN_MTLS: MessageKey = MessageKey::new("web-admin-mcp-key-main-mtls");
+
+/// `web-admin-mcp-key-dedicated-oauth` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_DEDICATED_OAUTH: MessageKey =
+    MessageKey::new("web-admin-mcp-key-dedicated-oauth");
+
+/// `web-admin-mcp-key-dedicated-mtls` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_DEDICATED_MTLS: MessageKey =
+    MessageKey::new("web-admin-mcp-key-dedicated-mtls");
+
+/// `web-admin-mcp-key-access-ttl` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_ACCESS_TTL: MessageKey =
+    MessageKey::new("web-admin-mcp-key-access-ttl");
+
+/// `web-admin-mcp-key-refresh-ttl` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_REFRESH_TTL: MessageKey =
+    MessageKey::new("web-admin-mcp-key-refresh-ttl");
+
+/// `web-admin-mcp-key-oidc-issuer` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_OIDC_ISSUER: MessageKey =
+    MessageKey::new("web-admin-mcp-key-oidc-issuer");
+
+/// `web-admin-mcp-key-oidc-audience` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_OIDC_AUDIENCE: MessageKey =
+    MessageKey::new("web-admin-mcp-key-oidc-audience");
+
+/// `web-admin-mcp-key-oidc-jwks-uri` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_OIDC_JWKS_URI: MessageKey =
+    MessageKey::new("web-admin-mcp-key-oidc-jwks-uri");
+
+/// `web-admin-mcp-key-oidc-role-claim` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_OIDC_ROLE_CLAIM: MessageKey =
+    MessageKey::new("web-admin-mcp-key-oidc-role-claim");
+
+/// `web-admin-mcp-key-oidc-role-mappings` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_OIDC_ROLE_MAPPINGS: MessageKey =
+    MessageKey::new("web-admin-mcp-key-oidc-role-mappings");
+
+/// `web-admin-mcp-key-oidc-scopes` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_OIDC_SCOPES: MessageKey =
+    MessageKey::new("web-admin-mcp-key-oidc-scopes");
+
+/// `web-admin-mcp-key-oidc-algorithms` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_OIDC_ALGORITHMS: MessageKey =
+    MessageKey::new("web-admin-mcp-key-oidc-algorithms");
+
+/// `web-admin-mcp-key-mtls-default-role` in `web.ftl`.
+pub const WEB_ADMIN_MCP_KEY_MTLS_DEFAULT_ROLE: MessageKey =
+    MessageKey::new("web-admin-mcp-key-mtls-default-role");
+
+/// `web-admin-mcp-source-env` in `web.ftl`.
+pub const WEB_ADMIN_MCP_SOURCE_ENV: MessageKey = MessageKey::new("web-admin-mcp-source-env");
+
+/// `web-admin-mcp-source-locked` in `web.ftl`.
+pub const WEB_ADMIN_MCP_SOURCE_LOCKED: MessageKey = MessageKey::new("web-admin-mcp-source-locked");
+
+/// `web-admin-mcp-source-state` in `web.ftl`.
+pub const WEB_ADMIN_MCP_SOURCE_STATE: MessageKey = MessageKey::new("web-admin-mcp-source-state");
+
+/// `web-admin-mcp-source-toml` in `web.ftl`.
+pub const WEB_ADMIN_MCP_SOURCE_TOML: MessageKey = MessageKey::new("web-admin-mcp-source-toml");
+
+/// `web-admin-mcp-source-default` in `web.ftl`.
+pub const WEB_ADMIN_MCP_SOURCE_DEFAULT: MessageKey =
+    MessageKey::new("web-admin-mcp-source-default");
+
+/// `web-admin-mcp-reset` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESET: MessageKey = MessageKey::new("web-admin-mcp-reset");
+
+/// `web-admin-mcp-safety` in `web.ftl`.
+pub const WEB_ADMIN_MCP_SAFETY: MessageKey = MessageKey::new("web-admin-mcp-safety");
+
+/// `web-admin-mcp-endpoint-main` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ENDPOINT_MAIN: MessageKey = MessageKey::new("web-admin-mcp-endpoint-main");
+
+/// `web-admin-mcp-endpoint-dedicated` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ENDPOINT_DEDICATED: MessageKey =
+    MessageKey::new("web-admin-mcp-endpoint-dedicated");
+
+/// `web-admin-mcp-endpoint-both` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ENDPOINT_BOTH: MessageKey = MessageKey::new("web-admin-mcp-endpoint-both");
+
+/// `web-admin-mcp-tls-main` in `web.ftl`.
+pub const WEB_ADMIN_MCP_TLS_MAIN: MessageKey = MessageKey::new("web-admin-mcp-tls-main");
+
+/// `web-admin-mcp-tls-self-signed` in `web.ftl`.
+pub const WEB_ADMIN_MCP_TLS_SELF_SIGNED: MessageKey =
+    MessageKey::new("web-admin-mcp-tls-self-signed");
+
+/// `web-admin-mcp-tls-none` in `web.ftl`.
+pub const WEB_ADMIN_MCP_TLS_NONE: MessageKey = MessageKey::new("web-admin-mcp-tls-none");
+
+/// `web-admin-mcp-oauth-none` in `web.ftl`.
+pub const WEB_ADMIN_MCP_OAUTH_NONE: MessageKey = MessageKey::new("web-admin-mcp-oauth-none");
+
+/// `web-admin-mcp-oauth-kcc` in `web.ftl`.
+pub const WEB_ADMIN_MCP_OAUTH_KCC: MessageKey = MessageKey::new("web-admin-mcp-oauth-kcc");
+
+/// `web-admin-mcp-oauth-external` in `web.ftl`.
+pub const WEB_ADMIN_MCP_OAUTH_EXTERNAL: MessageKey =
+    MessageKey::new("web-admin-mcp-oauth-external");
+
+/// `web-admin-mcp-mtls-off` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_OFF: MessageKey = MessageKey::new("web-admin-mcp-mtls-off");
+
+/// `web-admin-mcp-mtls-optional` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_OPTIONAL: MessageKey = MessageKey::new("web-admin-mcp-mtls-optional");
+
+/// `web-admin-mcp-mtls-required` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_REQUIRED: MessageKey = MessageKey::new("web-admin-mcp-mtls-required");
+
+/// `web-admin-mcp-mtls-main-limit` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_MAIN_LIMIT: MessageKey =
+    MessageKey::new("web-admin-mcp-mtls-main-limit");
+
+/// `web-admin-mcp-api-keys` in `web.ftl`.
+pub const WEB_ADMIN_MCP_API_KEYS: MessageKey = MessageKey::new("web-admin-mcp-api-keys");
+
+/// `web-admin-mcp-api-keys-on` in `web.ftl`.
+pub const WEB_ADMIN_MCP_API_KEYS_ON: MessageKey = MessageKey::new("web-admin-mcp-api-keys-on");
+
+/// `web-admin-mcp-listener-main` in `web.ftl`.
+pub const WEB_ADMIN_MCP_LISTENER_MAIN: MessageKey = MessageKey::new("web-admin-mcp-listener-main");
+
+/// `web-admin-mcp-listener-dedicated` in `web.ftl`.
+pub const WEB_ADMIN_MCP_LISTENER_DEDICATED: MessageKey =
+    MessageKey::new("web-admin-mcp-listener-dedicated");
+
+/// `web-admin-mcp-listener-main-title` in `web.ftl`.
+pub const WEB_ADMIN_MCP_LISTENER_MAIN_TITLE: MessageKey =
+    MessageKey::new("web-admin-mcp-listener-main-title");
+
+/// `web-admin-mcp-listener-dedicated-title` in `web.ftl`.
+pub const WEB_ADMIN_MCP_LISTENER_DEDICATED_TITLE: MessageKey =
+    MessageKey::new("web-admin-mcp-listener-dedicated-title");
+
+/// `web-admin-mcp-restart-note` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_NOTE: MessageKey = MessageKey::new("web-admin-mcp-restart-note");
+
+/// `web-admin-mcp-unset` in `web.ftl`.
+pub const WEB_ADMIN_MCP_UNSET: MessageKey = MessageKey::new("web-admin-mcp-unset");
+
+/// `web-admin-mcp-cert` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CERT: MessageKey = MessageKey::new("web-admin-mcp-cert");
+
+/// `web-admin-mcp-cert-fingerprint` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CERT_FINGERPRINT: MessageKey =
+    MessageKey::new("web-admin-mcp-cert-fingerprint");
+
+/// `web-admin-mcp-cert-download` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CERT_DOWNLOAD: MessageKey = MessageKey::new("web-admin-mcp-cert-download");
+
+/// `web-admin-mcp-cert-none` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CERT_NONE: MessageKey = MessageKey::new("web-admin-mcp-cert-none");
+
+/// `web-admin-mcp-issuer` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ISSUER: MessageKey = MessageKey::new("web-admin-mcp-issuer");
+
+/// `web-admin-mcp-issuer-web-disabled` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ISSUER_WEB_DISABLED: MessageKey =
+    MessageKey::new("web-admin-mcp-issuer-web-disabled");
+
+/// `web-admin-mcp-issuer-ip-only` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ISSUER_IP_ONLY: MessageKey =
+    MessageKey::new("web-admin-mcp-issuer-ip-only");
+
+/// `web-admin-mcp-mapping-claim` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MAPPING_CLAIM: MessageKey = MessageKey::new("web-admin-mcp-mapping-claim");
+
+/// `web-admin-mcp-mapping-scope` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MAPPING_SCOPE: MessageKey = MessageKey::new("web-admin-mcp-mapping-scope");
+
+/// `web-admin-mcp-mapping-role` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MAPPING_ROLE: MessageKey = MessageKey::new("web-admin-mcp-mapping-role");
+
+/// `web-admin-mcp-mapping-help` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MAPPING_HELP: MessageKey = MessageKey::new("web-admin-mcp-mapping-help");
+
+/// `web-admin-mcp-mtls-ca` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_CA: MessageKey = MessageKey::new("web-admin-mcp-mtls-ca");
+
+/// `web-admin-mcp-idp-ca` in `web.ftl`.
+pub const WEB_ADMIN_MCP_IDP_CA: MessageKey = MessageKey::new("web-admin-mcp-idp-ca");
+
+/// `web-admin-mcp-ca-stored` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CA_STORED: MessageKey = MessageKey::new("web-admin-mcp-ca-stored");
+
+/// `web-admin-mcp-ca-none` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CA_NONE: MessageKey = MessageKey::new("web-admin-mcp-ca-none");
+
+/// `web-admin-mcp-ca-file` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CA_FILE: MessageKey = MessageKey::new("web-admin-mcp-ca-file");
+
+/// `web-admin-mcp-ca-upload` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CA_UPLOAD: MessageKey = MessageKey::new("web-admin-mcp-ca-upload");
+
+/// `web-admin-mcp-ca-saved` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CA_SAVED: MessageKey = MessageKey::new("web-admin-mcp-ca-saved");
+
+/// `web-admin-mcp-error-upload-size` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_UPLOAD_SIZE: MessageKey =
+    MessageKey::new("web-admin-mcp-error-upload-size");
+
+/// `web-admin-mcp-error-upload-pem` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_UPLOAD_PEM: MessageKey =
+    MessageKey::new("web-admin-mcp-error-upload-pem");
+
+/// `web-admin-mcp-error-upload-fields` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_UPLOAD_FIELDS: MessageKey =
+    MessageKey::new("web-admin-mcp-error-upload-fields");
+
+/// `web-admin-mcp-restarting` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTARTING: MessageKey = MessageKey::new("web-admin-mcp-restarting");
+
+/// `web-admin-mcp-restart-applied` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_APPLIED: MessageKey =
+    MessageKey::new("web-admin-mcp-restart-applied");
+
+/// `web-admin-mcp-restart-timeout` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_TIMEOUT: MessageKey =
+    MessageKey::new("web-admin-mcp-restart-timeout");
+
+/// `web-admin-mcp-restart-settings-changed` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_SETTINGS_CHANGED: MessageKey =
+    MessageKey::new("web-admin-mcp-restart-settings-changed");
+
+/// `web-admin-mcp-restart-sign-in-unavailable` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_SIGN_IN_UNAVAILABLE: MessageKey =
+    MessageKey::new("web-admin-mcp-restart-sign-in-unavailable");
+
+/// `web-admin-mcp-restart-unusable` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_UNUSABLE: MessageKey =
+    MessageKey::new("web-admin-mcp-restart-unusable");
+
+/// `web-admin-mcp-restart-bind` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_BIND: MessageKey = MessageKey::new("web-admin-mcp-restart-bind");
+
+/// `web-admin-mcp-restart-serve` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_SERVE: MessageKey = MessageKey::new("web-admin-mcp-restart-serve");
+
+/// `web-admin-mcp-restart-register` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_REGISTER: MessageKey =
+    MessageKey::new("web-admin-mcp-restart-register");
+
+/// `web-admin-mcp-restart-health` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_HEALTH: MessageKey =
+    MessageKey::new("web-admin-mcp-restart-health");
+
+/// `web-admin-mcp-restart-apply` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_APPLY: MessageKey = MessageKey::new("web-admin-mcp-restart-apply");
+
+/// `web-admin-mcp-restart-commit` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_COMMIT: MessageKey =
+    MessageKey::new("web-admin-mcp-restart-commit");
+
+/// `web-admin-mcp-restart-failed` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_FAILED: MessageKey =
+    MessageKey::new("web-admin-mcp-restart-failed");
+
+/// `web-admin-mcp-restart-stopping` in `web.ftl`.
+pub const WEB_ADMIN_MCP_RESTART_STOPPING: MessageKey =
+    MessageKey::new("web-admin-mcp-restart-stopping");
+
+/// `web-admin-mcp-error-value` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_VALUE: MessageKey = MessageKey::new("web-admin-mcp-error-value");
+
+/// `web-admin-mcp-error-env` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_ENV: MessageKey = MessageKey::new("web-admin-mcp-error-env");
+
+/// `web-admin-mcp-error-locked` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_LOCKED: MessageKey = MessageKey::new("web-admin-mcp-error-locked");
+
+/// `web-admin-mcp-error-invalid` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_INVALID: MessageKey = MessageKey::new("web-admin-mcp-error-invalid");
+
+/// `web-admin-mcp-error-toolset` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_TOOLSET: MessageKey = MessageKey::new("web-admin-mcp-error-toolset");
+
+/// `web-admin-mcp-error-role-unknown` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_ROLE_UNKNOWN: MessageKey =
+    MessageKey::new("web-admin-mcp-error-role-unknown");
+
+/// `web-admin-mcp-error-role-above` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_ROLE_ABOVE: MessageKey =
+    MessageKey::new("web-admin-mcp-error-role-above");
+
+/// `web-admin-mcp-error-actor` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_ACTOR: MessageKey = MessageKey::new("web-admin-mcp-error-actor");
+
+/// `web-admin-mcp-error-fields` in `web.ftl`.
+pub const WEB_ADMIN_MCP_ERROR_FIELDS: MessageKey = MessageKey::new("web-admin-mcp-error-fields");
+
+/// `web-admin-mcp-confirm-title` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONFIRM_TITLE: MessageKey = MessageKey::new("web-admin-mcp-confirm-title");
+
+/// `web-admin-mcp-confirm-text` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONFIRM_TEXT: MessageKey = MessageKey::new("web-admin-mcp-confirm-text");
+
+/// `web-admin-mcp-confirm-password` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONFIRM_PASSWORD: MessageKey =
+    MessageKey::new("web-admin-mcp-confirm-password");
+
+/// `web-admin-mcp-confirm-apply` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONFIRM_APPLY: MessageKey = MessageKey::new("web-admin-mcp-confirm-apply");
+
+/// `web-admin-mcp-confirm-wrong` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONFIRM_WRONG: MessageKey = MessageKey::new("web-admin-mcp-confirm-wrong");
+
+/// `web-admin-mcp-confirm-locked` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONFIRM_LOCKED: MessageKey =
+    MessageKey::new("web-admin-mcp-confirm-locked");
+
+/// `web-admin-mcp-fallback` in `web.ftl`.
+pub const WEB_ADMIN_MCP_FALLBACK: MessageKey = MessageKey::new("web-admin-mcp-fallback");
+
+/// `web-admin-mcp-skipped` in `web.ftl`.
+pub const WEB_ADMIN_MCP_SKIPPED: MessageKey = MessageKey::new("web-admin-mcp-skipped");
+
+/// `web-admin-mcp-server-link` in `web.ftl`.
+pub const WEB_ADMIN_MCP_SERVER_LINK: MessageKey = MessageKey::new("web-admin-mcp-server-link");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2565] = [
+pub static ALL: [MessageKey; 2683] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -10764,4 +11169,122 @@ pub static ALL: [MessageKey; 2565] = [
     WEB_SYSTEM_ENTWARE_DRIVE_INITIALIZE,
     WEB_SYSTEM_ENTWARE_PREPARE,
     WEB_SYSTEM_ENTWARE_PREPARE_STARTED,
+    WEB_ADMIN_MCP_TAB,
+    WEB_ADMIN_MCP_UNAVAILABLE,
+    WEB_ADMIN_MCP_SAVED,
+    WEB_ADMIN_MCP_UNCHANGED,
+    WEB_ADMIN_MCP_TOOLS,
+    WEB_ADMIN_MCP_ENDPOINTS,
+    WEB_ADMIN_MCP_SIGNIN,
+    WEB_ADMIN_MCP_KCC,
+    WEB_ADMIN_MCP_IDP,
+    WEB_ADMIN_MCP_CERTS,
+    WEB_ADMIN_MCP_KEY_HTTP_ENABLED,
+    WEB_ADMIN_MCP_KEY_STDIO_ENABLED,
+    WEB_ADMIN_MCP_KEY_STDIO_ROLE,
+    WEB_ADMIN_MCP_KEY_READ_ONLY,
+    WEB_ADMIN_MCP_KEY_ALLOW_DESTRUCTIVE,
+    WEB_ADMIN_MCP_KEY_MAX_RESULT_BYTES,
+    WEB_ADMIN_MCP_KEY_TOOLSETS,
+    WEB_ADMIN_MCP_KEY_ENDPOINT,
+    WEB_ADMIN_MCP_KEY_DEDICATED_ENABLED,
+    WEB_ADMIN_MCP_KEY_DEDICATED_BIND,
+    WEB_ADMIN_MCP_KEY_DEDICATED_PORT,
+    WEB_ADMIN_MCP_KEY_DEDICATED_PUBLIC_URL,
+    WEB_ADMIN_MCP_KEY_DEDICATED_TLS,
+    WEB_ADMIN_MCP_KEY_MAIN_OAUTH,
+    WEB_ADMIN_MCP_KEY_MAIN_MTLS,
+    WEB_ADMIN_MCP_KEY_DEDICATED_OAUTH,
+    WEB_ADMIN_MCP_KEY_DEDICATED_MTLS,
+    WEB_ADMIN_MCP_KEY_ACCESS_TTL,
+    WEB_ADMIN_MCP_KEY_REFRESH_TTL,
+    WEB_ADMIN_MCP_KEY_OIDC_ISSUER,
+    WEB_ADMIN_MCP_KEY_OIDC_AUDIENCE,
+    WEB_ADMIN_MCP_KEY_OIDC_JWKS_URI,
+    WEB_ADMIN_MCP_KEY_OIDC_ROLE_CLAIM,
+    WEB_ADMIN_MCP_KEY_OIDC_ROLE_MAPPINGS,
+    WEB_ADMIN_MCP_KEY_OIDC_SCOPES,
+    WEB_ADMIN_MCP_KEY_OIDC_ALGORITHMS,
+    WEB_ADMIN_MCP_KEY_MTLS_DEFAULT_ROLE,
+    WEB_ADMIN_MCP_SOURCE_ENV,
+    WEB_ADMIN_MCP_SOURCE_LOCKED,
+    WEB_ADMIN_MCP_SOURCE_STATE,
+    WEB_ADMIN_MCP_SOURCE_TOML,
+    WEB_ADMIN_MCP_SOURCE_DEFAULT,
+    WEB_ADMIN_MCP_RESET,
+    WEB_ADMIN_MCP_SAFETY,
+    WEB_ADMIN_MCP_ENDPOINT_MAIN,
+    WEB_ADMIN_MCP_ENDPOINT_DEDICATED,
+    WEB_ADMIN_MCP_ENDPOINT_BOTH,
+    WEB_ADMIN_MCP_TLS_MAIN,
+    WEB_ADMIN_MCP_TLS_SELF_SIGNED,
+    WEB_ADMIN_MCP_TLS_NONE,
+    WEB_ADMIN_MCP_OAUTH_NONE,
+    WEB_ADMIN_MCP_OAUTH_KCC,
+    WEB_ADMIN_MCP_OAUTH_EXTERNAL,
+    WEB_ADMIN_MCP_MTLS_OFF,
+    WEB_ADMIN_MCP_MTLS_OPTIONAL,
+    WEB_ADMIN_MCP_MTLS_REQUIRED,
+    WEB_ADMIN_MCP_MTLS_MAIN_LIMIT,
+    WEB_ADMIN_MCP_API_KEYS,
+    WEB_ADMIN_MCP_API_KEYS_ON,
+    WEB_ADMIN_MCP_LISTENER_MAIN,
+    WEB_ADMIN_MCP_LISTENER_DEDICATED,
+    WEB_ADMIN_MCP_LISTENER_MAIN_TITLE,
+    WEB_ADMIN_MCP_LISTENER_DEDICATED_TITLE,
+    WEB_ADMIN_MCP_RESTART_NOTE,
+    WEB_ADMIN_MCP_UNSET,
+    WEB_ADMIN_MCP_CERT,
+    WEB_ADMIN_MCP_CERT_FINGERPRINT,
+    WEB_ADMIN_MCP_CERT_DOWNLOAD,
+    WEB_ADMIN_MCP_CERT_NONE,
+    WEB_ADMIN_MCP_ISSUER,
+    WEB_ADMIN_MCP_ISSUER_WEB_DISABLED,
+    WEB_ADMIN_MCP_ISSUER_IP_ONLY,
+    WEB_ADMIN_MCP_MAPPING_CLAIM,
+    WEB_ADMIN_MCP_MAPPING_SCOPE,
+    WEB_ADMIN_MCP_MAPPING_ROLE,
+    WEB_ADMIN_MCP_MAPPING_HELP,
+    WEB_ADMIN_MCP_MTLS_CA,
+    WEB_ADMIN_MCP_IDP_CA,
+    WEB_ADMIN_MCP_CA_STORED,
+    WEB_ADMIN_MCP_CA_NONE,
+    WEB_ADMIN_MCP_CA_FILE,
+    WEB_ADMIN_MCP_CA_UPLOAD,
+    WEB_ADMIN_MCP_CA_SAVED,
+    WEB_ADMIN_MCP_ERROR_UPLOAD_SIZE,
+    WEB_ADMIN_MCP_ERROR_UPLOAD_PEM,
+    WEB_ADMIN_MCP_ERROR_UPLOAD_FIELDS,
+    WEB_ADMIN_MCP_RESTARTING,
+    WEB_ADMIN_MCP_RESTART_APPLIED,
+    WEB_ADMIN_MCP_RESTART_TIMEOUT,
+    WEB_ADMIN_MCP_RESTART_SETTINGS_CHANGED,
+    WEB_ADMIN_MCP_RESTART_SIGN_IN_UNAVAILABLE,
+    WEB_ADMIN_MCP_RESTART_UNUSABLE,
+    WEB_ADMIN_MCP_RESTART_BIND,
+    WEB_ADMIN_MCP_RESTART_SERVE,
+    WEB_ADMIN_MCP_RESTART_REGISTER,
+    WEB_ADMIN_MCP_RESTART_HEALTH,
+    WEB_ADMIN_MCP_RESTART_APPLY,
+    WEB_ADMIN_MCP_RESTART_COMMIT,
+    WEB_ADMIN_MCP_RESTART_FAILED,
+    WEB_ADMIN_MCP_RESTART_STOPPING,
+    WEB_ADMIN_MCP_ERROR_VALUE,
+    WEB_ADMIN_MCP_ERROR_ENV,
+    WEB_ADMIN_MCP_ERROR_LOCKED,
+    WEB_ADMIN_MCP_ERROR_INVALID,
+    WEB_ADMIN_MCP_ERROR_TOOLSET,
+    WEB_ADMIN_MCP_ERROR_ROLE_UNKNOWN,
+    WEB_ADMIN_MCP_ERROR_ROLE_ABOVE,
+    WEB_ADMIN_MCP_ERROR_ACTOR,
+    WEB_ADMIN_MCP_ERROR_FIELDS,
+    WEB_ADMIN_MCP_CONFIRM_TITLE,
+    WEB_ADMIN_MCP_CONFIRM_TEXT,
+    WEB_ADMIN_MCP_CONFIRM_PASSWORD,
+    WEB_ADMIN_MCP_CONFIRM_APPLY,
+    WEB_ADMIN_MCP_CONFIRM_WRONG,
+    WEB_ADMIN_MCP_CONFIRM_LOCKED,
+    WEB_ADMIN_MCP_FALLBACK,
+    WEB_ADMIN_MCP_SKIPPED,
+    WEB_ADMIN_MCP_SERVER_LINK,
 ];

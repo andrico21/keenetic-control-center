@@ -25,6 +25,8 @@
 //!   with and runs them through, and the dashboards name the next scheduled action of.
 //! - [`WebState::with_jobs`] attaches the job runner that runs the command explorer's
 //!   background commands.
+//! - [`WebState::with_mcp_control`] attaches the running MCP listeners
+//!   ([`admin::McpControl`]) the MCP settings page applies changes through.
 // `dead_code_pub_in_binary` fires on the public API only in the lib unit-test
 // binary; rustc accepts an expect for it at crate level alone.
 #![cfg_attr(
@@ -145,6 +147,7 @@ mod blocking;
 
 mod admin_audit;
 mod admin_keys;
+mod admin_mcp;
 mod admin_roles;
 mod admin_server;
 mod admin_shared;
@@ -215,6 +218,7 @@ use core::{fmt, time::Duration};
 
 use axum::{
     Router,
+    extract::DefaultBodyLimit,
     http::{HeaderValue, header},
     middleware,
     routing::{get, post},
@@ -231,7 +235,7 @@ use kcc_telemetry::logs::readers::LogFeeds;
 use tower_http::{limit::RequestBodyLimitLayer, set_header::SetResponseHeaderLayer};
 
 use crate::{
-    admin::AdminServices,
+    admin::{AdminServices, McpControl},
     admin_notify::NotifyControl,
     admin_scheduled::ScheduleControl,
     admin_shared::Admin,
@@ -280,6 +284,8 @@ pub struct WebState {
     notify: Option<Arc<dyn NotifyControl>>,
     /// The running scheduler, when attached with [`WebState::with_schedules`].
     schedules: Option<Arc<dyn ScheduleControl>>,
+    /// The running MCP listeners, when attached with [`WebState::with_mcp_control`].
+    mcp: Option<Arc<admin_mcp::Attached>>,
     /// Command explorer and console services.
     advanced: Arc<advanced::Services>,
     /// The routers' catalog facts, shared by every page that validates a request.
@@ -351,6 +357,7 @@ impl WebState {
             admin: None,
             notify: None,
             schedules: None,
+            mcp: None,
             advanced: Arc::new(advanced::Services::new(None)),
             facts: Arc::default(),
             log_feeds: LogFeeds::default(),
@@ -475,6 +482,22 @@ impl WebState {
     #[must_use]
     pub(crate) fn schedules(&self) -> Option<&dyn ScheduleControl> {
         self.schedules.as_deref()
+    }
+
+    /// Attaches the running MCP listeners: the MCP settings page applies its changes
+    /// through them and reports how they started. Without it the page shows the settings
+    /// and says they change only while `kcc serve` runs.
+    #[inline]
+    #[must_use]
+    pub fn with_mcp_control(mut self, control: Arc<dyn McpControl>) -> Self {
+        self.mcp = Some(Arc::new(admin_mcp::Attached::new(control)));
+        self
+    }
+
+    /// The running MCP listeners and the page's restart progress, when attached.
+    #[must_use]
+    pub(crate) const fn mcp(&self) -> Option<&Arc<admin_mcp::Attached>> {
+        self.mcp.as_ref()
     }
 
     /// The audit page's verified log.
@@ -663,6 +686,7 @@ pub fn web_router(state: WebState) -> Router {
         .merge(streams)
         .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
         .merge(dns_vpn::uploads(&state))
+        .merge(mcp_uploads(&state))
         .merge(config_page::wiring::routes(&state))
         .merge(migrate_wizard::routes::router(&state))
         .merge(presets_page::routes::router(&state))
@@ -745,6 +769,25 @@ fn admin_routes() -> Router<WebState> {
         .route("/ui/admin/audit", get(admin_audit::page))
         .route("/ui/admin/audit/export", get(admin_audit::export))
         .route("/ui/admin/server", get(admin_server::page))
+        .route(
+            "/ui/admin/mcp",
+            get(admin_mcp::page::page).post(admin_mcp::save::save),
+        )
+        .route("/ui/admin/mcp/reset", post(admin_mcp::save::reset))
+        .route("/ui/admin/mcp/status", get(admin_mcp::status::status))
+        .route(
+            "/ui/admin/mcp/certificate",
+            get(admin_mcp::certificate::download),
+        )
+}
+
+/// The MCP settings CA upload, with its own body limit.
+fn mcp_uploads(state: &WebState) -> Router<WebState> {
+    let route = Router::new()
+        .route("/ui/admin/mcp/ca", post(admin_mcp::upload::upload))
+        .route_layer(DefaultBodyLimit::disable())
+        .route_layer(RequestBodyLimitLayer::new(admin_mcp::upload::BODY_LIMIT));
+    protect(route, state).route_layer(middleware::from_fn(brackets::budget))
 }
 
 /// The scheduled actions routes under `/ui/admin/scheduled`.

@@ -9,13 +9,16 @@
 
 extern crate alloc;
 
+pub(crate) mod issuer;
+pub mod mcp_control;
+
 use alloc::{collections::BTreeMap, sync::Arc};
-use core::{fmt, time::Duration};
+use core::{fmt, pin::Pin, time::Duration};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use kcc_app::{
     api_keys::api_key_entries,
-    mcp_settings::{Effective, ListenerKind, McpBase},
+    mcp_settings::{Candidate, Effective, ListenerKind, McpBase},
     permissions::{Role, ToolSpec, load_roles, rbac_config},
     persist::StateStore,
     role_source::RoleSource,
@@ -28,7 +31,37 @@ use kcc_i18n::{
 };
 use rmcp_server_kit::{auth::ApiKeyEntry, rbac::RbacPolicy, transport::ReloadHandle};
 
+use self::{
+    issuer::Issuer,
+    mcp_control::{McpRefusal, McpStatus, McpToolset},
+};
 use crate::page::{Shell, Theme};
+
+/// The future of one MCP settings change: applied and saved, or why not.
+pub type McpChange = Pin<Box<dyn Future<Output = Result<(), McpRefusal>> + Send + 'static>>;
+
+/// The running MCP listeners as the MCP settings page sees them.
+///
+/// The page plans a change with `mcp_settings::McpBase::plan_update` and hands the
+/// candidate over; the control applies it and writes `mcp_settings.json` itself, so a
+/// refused or reverted change leaves the file as it was.
+pub trait McpControl: fmt::Debug + Send + Sync {
+    /// Applies `candidate`, which restarts no listener, to the running MCP server and
+    /// saves it. The change is queued when this is called; dropping the future does not
+    /// stop it.
+    fn apply_live(&self, candidate: Candidate) -> McpChange;
+
+    /// Restarts every listener `candidate` names with it as one unit, then applies and
+    /// saves it; a failed step serves the previous listeners again. The change is queued
+    /// when this is called; dropping the future does not stop it.
+    fn restart(&self, candidate: Candidate) -> McpChange;
+
+    /// How the listeners started; cheap, never waits.
+    fn status(&self) -> McpStatus;
+
+    /// Every toolset the MCP server offers, in documentation order.
+    fn toolsets(&self) -> Vec<McpToolset>;
+}
 
 /// Applies API-key and role changes to the running MCP transport without a restart.
 pub trait AuthReload: fmt::Debug + Send + Sync {
@@ -245,6 +278,10 @@ pub struct ServerFacts {
     telegram_api: Option<String>,
     /// The zone schedule forms start with, `[schedules] default_timezone`.
     default_timezone: String,
+    /// How long a listener restart may take: `server.shutdown_timeout` plus 10 seconds.
+    restart_window: Duration,
+    /// The issuer kcc's own authorization server would use.
+    issuer: Issuer,
 }
 
 /// One configuration summary value, localized when the page renders.
@@ -387,12 +424,28 @@ impl ServerFacts {
             .api_url
             .as_ref()
             .map(ToString::to_string);
+        let shutdown =
+            humantime::parse_duration(&server.shutdown_timeout).unwrap_or(Duration::from_secs(30));
         Self {
             version,
             summary,
             telegram_api,
             default_timezone: config.schedules.default_timezone.clone(),
+            restart_window: shutdown.saturating_add(Duration::from_secs(10)),
+            issuer: Issuer::of(config),
         }
+    }
+
+    /// How long a listener restart may take.
+    #[must_use]
+    pub(crate) const fn restart_window(&self) -> Duration {
+        self.restart_window
+    }
+
+    /// The issuer of kcc's own authorization server, or why it has none.
+    #[must_use]
+    pub(crate) const fn issuer(&self) -> &Issuer {
+        &self.issuer
     }
 
     /// Release version of the running binary.

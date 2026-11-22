@@ -40,7 +40,9 @@ over this file. A `KCC_MCP_*` variable wins over both, and a key listed in
 `[mcp] locked` keeps this file's value and is read-only on the Web. `kcc serve` and
 `kcc mcp stdio` read the locks and the `[mcp]` values of this file at start (`SIGHUP`
 does not re-read them); Web changes apply while kcc runs, live or by restarting the
-affected listener in-process.
+affected listener in-process. The page shows where each value comes from (environment,
+locked in kcc.toml, overridden on the Web, kcc.toml, default) and resets a Web value to
+kcc.toml; a change that reduces safety asks for the administrator's password again.
 
 ## Top level
 

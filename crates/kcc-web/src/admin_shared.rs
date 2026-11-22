@@ -9,7 +9,7 @@ extern crate alloc;
 pub(crate) mod roles;
 
 use alloc::sync::Arc;
-use core::time::Duration;
+use core::{fmt::Write as _, time::Duration};
 use std::time::UNIX_EPOCH;
 
 use askama::Template;
@@ -207,6 +207,8 @@ pub(crate) enum Tab {
     Roles,
     /// MCP API keys.
     Keys,
+    /// The MCP settings.
+    Mcp,
     /// Telegram notifications.
     Notifications,
     /// Scheduled actions.
@@ -219,10 +221,11 @@ pub(crate) enum Tab {
 
 impl Tab {
     /// Every page, in tab order.
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::Users,
         Self::Roles,
         Self::Keys,
+        Self::Mcp,
         Self::Notifications,
         Self::Scheduled,
         Self::Audit,
@@ -235,6 +238,7 @@ impl Tab {
             Self::Users => "/ui/admin/users",
             Self::Roles => "/ui/admin/roles",
             Self::Keys => "/ui/admin/api-keys",
+            Self::Mcp => "/ui/admin/mcp",
             Self::Notifications => "/ui/admin/notifications",
             Self::Scheduled => "/ui/admin/scheduled",
             Self::Audit => "/ui/admin/audit",
@@ -248,6 +252,7 @@ impl Tab {
             Self::Users => keys::WEB_ADMIN_TAB_USERS,
             Self::Roles => keys::WEB_ADMIN_TAB_ROLES,
             Self::Keys => keys::WEB_ADMIN_TAB_KEYS,
+            Self::Mcp => keys::WEB_ADMIN_MCP_TAB,
             Self::Notifications => keys::WEB_ADMIN_NOTIFY_TAB,
             Self::Scheduled => keys::WEB_ADMIN_SCHEDULED_TAB,
             Self::Audit => keys::WEB_ADMIN_TAB_AUDIT,
@@ -261,6 +266,7 @@ impl Tab {
             Self::Audit => Permission::ViewAudit,
             Self::Notifications => Permission::ManageNotifications,
             Self::Scheduled => Permission::ManageSchedules,
+            Self::Mcp => Permission::ManageMcp,
             Self::Users | Self::Roles | Self::Keys | Self::Server => Permission::ManageUsers,
         }
     }
@@ -362,11 +368,12 @@ pub(crate) struct Timestamp {
 }
 
 impl Timestamp {
-    /// The time `unix` seconds after the epoch, if representable, with its UTC text in
-    /// `locale`.
+    /// The time `unix` seconds after the epoch, if representable (RFC 3339 ends at the year
+    /// 9999), with its UTC text in `locale`.
     pub(crate) fn at(unix: u64, locale: Locale) -> Option<Self> {
         let time = UNIX_EPOCH.checked_add(Duration::from_secs(unix))?;
-        let iso = humantime::format_rfc3339_seconds(time).to_string();
+        let mut iso = String::new();
+        write!(iso, "{}", humantime::format_rfc3339_seconds(time)).ok()?;
         let mut args = FluentArgs::new();
         args.set("time", iso.trim_end_matches('Z').replacen('T', " ", 1));
         let text = tr(locale, keys::WEB_TIME_UTC, Some(&args));
@@ -452,4 +459,30 @@ pub(crate) async fn forbidden(
 ) -> Response {
     record(state, user, change).await;
     errors::response(Kind::Forbidden, fragment_shell(user.locale()))
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+mod tests {
+    use kcc_i18n::locale::Locale;
+
+    use super::Timestamp;
+
+    /// Todo 27: a time past the year 9999, as a hand-edited state file may hold, has no
+    /// RFC 3339 text and is left out instead of failing the page.
+    #[test]
+    fn a_time_past_the_year_9999_is_left_out() {
+        assert!(
+            Timestamp::at(253_402_300_799, Locale::En).is_some(),
+            "9999-12-31"
+        );
+        assert_eq!(
+            Timestamp::at(253_402_300_800, Locale::En),
+            None,
+            "10000-01-01"
+        );
+    }
 }

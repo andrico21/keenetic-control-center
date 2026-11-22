@@ -1,0 +1,10 @@
+{#- The answer to a change of the MCP settings, for #page-outcome: its notice or the restart status, and the settings region read again, out of band. -#}
+{%- if let Some(said) = notice %}
+<p class="notice" data-tone="{{ tone }}" role="status" data-message-key="{{ said.key() }}">{{ said.text() }}</p>
+{%- endif %}
+{%- if let Some(status) = status %}
+{{ status }}
+{%- endif %}
+{%- if let Some(region) = region %}
+{{ region }}
+{%- endif %}

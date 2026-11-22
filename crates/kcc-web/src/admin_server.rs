@@ -9,6 +9,7 @@ use std::{fs::OpenOptions, path::Path};
 
 use askama::Template;
 use axum::{extract::State, http::HeaderMap, response::Response};
+use kcc_app::permissions::Permission;
 use kcc_catalog::generated::FILES;
 use kcc_i18n::{bundle::tr, format, keys};
 use tokio::task::spawn_blocking;
@@ -48,6 +49,8 @@ struct ServerPage {
     audit_writer: String,
     /// Built-in command catalog lines.
     catalogs: TableView,
+    /// Whether the viewer may open the MCP settings, which the page links to.
+    mcp_link: bool,
 }
 
 localized!(ServerPage);
@@ -106,6 +109,7 @@ pub(crate) async fn page(
             None,
         ),
         catalogs: catalogs(&shell),
+        mcp_link: user.role().grants(Permission::ManageMcp),
         shell,
     };
     errors::render(&page)

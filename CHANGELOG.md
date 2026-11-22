@@ -388,6 +388,22 @@ The first release, `0.1.0`, is in preparation and contains:
   main listener's `rmcp_server_kit_*` metrics restart from zero at each restart (the
   `kcc_*` series continue); SIGTERM stops both listeners before the existing shutdown
   sequence.
+- **Web: Administration > MCP** (`/ui/admin/mcp`, permission ManageMcp): tools,
+  endpoints (with the self-signed certificate's SHA-256 fingerprint and a PEM download),
+  sign-in per listener, kcc sign-in (token lifetimes and the issuer, or why there is
+  none), the identity provider (claim and scope to role rows) and client certificates.
+  Each value shows its source; environment and `[mcp] locked` values are read-only, and a
+  value set on the Web can be reset to kcc.toml. A change that reduces safety asks for the
+  account's password (a wrong one counts toward the sign-in lockout; a lockout ends no
+  session). Live changes apply at once; listener changes restart the affected listener in
+  the background while the page polls a localized outcome, and a revert leaves
+  `mcp_settings.json` unchanged. CA files are uploaded (PEM, at most 64 KiB) into
+  `<state>/mcp/mtls-ca.pem` and `<state>/mcp/oidc-ca.pem`, never named by a path. Each
+  change is audited as `web.mcp_settings` with the changed key names, the restarted
+  listeners and the outcome (`success`, `wrong_password`, `locked`, or the refusal class
+  such as `bind` or `settings_changed`). The server page links to it. Library:
+  `kcc_web::admin::McpControl` and `WebState::with_mcp_control`;
+  `kcc_mcp::registry::definitions::toolsets`.
 
 ### Changed
 

@@ -30,6 +30,9 @@
   <section class="panel admin-config" aria-labelledby="server-config">
     <h2 class="panel__title" id="server-config">{{ t(keys::WEB_ADMIN_SERVER_CONFIG) }}</h2>
     <p class="panel__note">{{ t(keys::WEB_ADMIN_SERVER_CONFIG_TEXT) }}</p>
+    {%- if mcp_link %}
+    <p class="panel__note"><a id="server-mcp-link" href="/ui/admin/mcp">{{ t(keys::WEB_ADMIN_MCP_SERVER_LINK) }}</a></p>
+    {%- endif %}
     <dl class="facts">
       {%- for (label, value) in summary %}
       <div class="facts__row"><dt>{{ label }}</dt><dd>{{ value }}</dd></div>

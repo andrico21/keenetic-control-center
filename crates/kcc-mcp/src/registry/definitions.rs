@@ -68,14 +68,17 @@ pub(crate) const TOOLSETS: &[(ToolsetInfo, &str)] = &[
     ),
 ];
 
+/// Every toolset, in documentation order.
+#[inline]
+pub fn toolsets() -> impl Iterator<Item = ToolsetInfo> {
+    TOOLSETS.iter().map(|&(info, _summary)| info)
+}
+
 /// The toolset named `name`, if any.
 #[inline]
 #[must_use]
 pub fn toolset(name: &str) -> Option<ToolsetInfo> {
-    TOOLSETS
-        .iter()
-        .map(|&(info, _summary)| info)
-        .find(|info| info.name == name)
+    toolsets().find(|info| info.name == name)
 }
 
 /// One registered tool as clients and the coarse RBAC gate see it.

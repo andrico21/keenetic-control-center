@@ -30,7 +30,9 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     server_error::{Outcome, ServerError},
-    server_listeners::{ListenerSupervisor, build::Shared, supervisor::Supervisor},
+    server_listeners::{
+        ListenerSupervisor, build::Shared, control::WebHandle, supervisor::Supervisor,
+    },
     server_notify::{self, Deps, NotifyHandle, Options},
     server_reload::{hangups, start_watch},
     server_schedules::{self, wiring::start_for_server},
@@ -73,13 +75,17 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             .with_role_source(services.roles.clone()),
     );
     let updates = crate::server_tasks::refresh_updates(Arc::clone(&services.updates));
+    let (supervisor, queue, status) = ListenerSupervisor::channel();
     let web_state = if config.web.enabled {
-        Some(web_state(
-            &services,
-            (&config, mcp_base),
-            Arc::clone(&auth_reload),
-            (Arc::new(notify.clone()), schedule_control),
-        )?)
+        Some(
+            web_state(
+                &services,
+                (&config, mcp_base),
+                Arc::clone(&auth_reload),
+                (Arc::new(notify.clone()), schedule_control),
+            )?
+            .with_mcp_control(Arc::new(WebHandle::new(supervisor.clone()))),
+        )
     } else {
         None
     };
@@ -104,7 +110,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         reload: auth_reload,
         config,
     };
-    let (_supervisor, queue, status) = ListenerSupervisor::channel();
+    let _supervisor = supervisor;
     let started =
         Box::pin(Supervisor::new(Arc::new(shared), effective, status).start(listen_ready)).await?;
     let stop = CancellationToken::new();
