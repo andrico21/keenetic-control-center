@@ -138,3 +138,37 @@ New for this plan:
 - taiki-e/install-action resolves `tool: x@ver` from manifests/<tool>.json of the PINNED action SHA. A version not in that manifest falls back to cargo-binstall (default `fallback: cargo-binstall`), losing the manifest's sha256 check. A gate-tool bump therefore needs an install-action pin whose manifest lists it; under the 3-day action cooldown that can hold back a brand-new tool (cargo-deny 0.22.0, cargo-vet 0.10.4 on 2026-11-22).
 - GitHub Actions retired the macos-14 runner on 2026-11-02 (runner-images #15226); release.yml now uses macos-26.
 - Container digest refresh without podman: registry HTTP API (Docker Hub token from auth.docker.io; gcr.io anonymous), compare per-platform manifest digests to see whether the image content changed or only the index.
+
+## [2026-11-22] Todo 30 (e30) learnings
+- A table-driven negative case that reuses a value derived from ANOTHER fixture object can pass for the wrong reason: the `plain` verifier case first used the challenge of an earlier code, so a mutant accepting `verifier == challenge` survived. Derive the bad input from the very object under test (here: the fresh code's own challenge).
+- The base Cargo.lock (be146782) listed `sha2` without a version in kcc-domain's dependencies although two sha2 versions are locked (0.10 via jsonwebtoken, 0.11); the first cargo command rewrites it to `"sha2 0.11.1"`. Expect that one-line Cargo.lock diff in any worktree cut from that base.
+- Mutation loop over one integration target with a warm private target: about 8 s per mutant (73 mutants in ~12 min). Neutering with `&& now == u64::MAX` keeps every binding used under `unused = deny`; a mutant that drops the only use of an import is a compile red, rewrite it.
+- rustfmt reflows test tables of tuples into one field per line: a 25-row table pushed a test fn over clippy's 100-line limit. Keep fixed rows in a `const` array and add the runtime-built rows in a helper.
+
+## [2026-11-22] Todo 17 (e17) learnings
+- kcc-mcp may not depend on kcc-ssh (F1): build kcc-ssh values through kcc-domain functions and let inference carry the type (`Mutation::Install(names::package(text)?)`); a value that must be stored before use is kept as its checked text and parsed again at the call.
+- `common::open_as` authorizes the router twice (authorize_host, then `SafetyNet::required(Destructive, Destructive)` = [Destructive] again): removing only one scope check is an equivalent mutant; mutate both.
+- A test that holds a mutation (`Fault::HoldMutations`) and reads behind it must release the hold whatever the read answered, or a regression turns into a hang instead of a red (join! waits for the held install).
+- The MCP Lab clients attach a progress token, so a job-starting call waits for the job: run it inside `tokio::join!` with the code that releases a held fake command.
+
+## [2026-11-22] Todo 16 (e16) learnings
+- A CLI gate that must refuse BEFORE any router contact cannot use `domains::Session::open` (it connects to the router during `Ctx::target`); authorize with `Ctx::authorize_audited`, confirm with `secret::confirm` + `Ctx::confirmed`, then call `Ctx::target_named` only when the command needs a `RouterCtx`.
+- A test process can make the CLI child see `RouterBusy` by holding `StateStore::open(state_dir)?.try_lease(router)` (a file lock): no setup job is needed.
+- Per-command audit pins: `kcc_app::audit::read_entries(state_dir)` counting `cli.refused` entries before/after each refused run kills "refusal not audited" mutants.
+- clippy here flags `entries + 1` (usize) in a test assert as arithmetic_side_effects; `checked_add(1)` compared with `Some(..)` passes.
+- The mutation loop for the CLI suite ran ~1 min per mutant with free slots but waited up to 20 min for a slot (the wrapper is not FIFO). Mutants that add two helpers at once fail to compile (dead_code on the unused one): add only the helper each mutant uses.
+
+## [2026-11-22] Todo 15 (e15) learnings
+- Golden "before" without git stash/checkout: copy the touched sources aside, write `git show HEAD:<path>` over them, build and run a scratch dump test (same private target: only kcc-web rebuilds), restore the copies and `touch` them. Normalize the CSRF meta token before `diff`.
+- `SshStore::set_port`/`set_enabled` create a default record (Pending, no pin): a page that shows "Pending" for any record calls a never-enrolled router Pending; treat a record without a fingerprint as not enrolled.
+- A test that reuses a nonce after a successful enrolment must also tick the Active-replacement box, or the page's own Active guard answers first and the domain's ticket refusal is never reached.
+- The kit's destructive dialog text ("can erase data or restart") is wrong for SSH reads and local changes: build the kit `Dialog` with `Guard::Destructive.check` and an own text per action kind; pin the kind via `data-message-key`.
+- `.check` uses `flex-wrap: wrap`: a long checkbox label drops under its box at 390 px; keep labels short and put the explanation in a notice or `.field__help`.
+- `axum::serve` in a scratch Playwright server holds the cargo build slot while the test runs: stop it as soon as the screenshots are taken.
+- Slot contention: a 2-minute compile often waited 5-10 minutes for a slot; xtask subcommands that need no cargo (i18n-gen, allow-gate, i18n-check) run from `$CARGO_TARGET_DIR/debug/xtask` without a slot.
+
+## [2026-11-22] Todo 28 (e28) learnings
+- rustls client: a `ResolvesClientCert` whose `has_certs()` is true and whose `resolve()` returns `None` records the server's CertificateRequest without presenting a certificate; a required rustls server then fails the exchange with `rustls::Error::AlertReceived(CertificateRequired)` (TLS 1.3, on the first read), reachable through `io::Error::get_ref()` + `downcast_ref::<rustls::Error>()`.
+- rmcp 3.10 puts the HTTP `http::request::Parts` into `RequestContext.extensions`; the kit's `AuthIdentity` (with `method`) is in `parts.extensions`. The kit only exposes the identity NAME as a task-local, so the sign-in method needs its own task-local scoped in the `ServerHandler` methods.
+- The kit's `RbacPolicy` denies a host outside a role's router scope at the HTTP middleware, before kcc's handler: a kcc-audited `forbidden` cannot be produced that way. A destructive tool with `allow_destructive = false` (`kcc_storage_write` eject) gives a kcc-audited refusal without a router.
+- A mutant that leaves a parameter unused (`assignable` -> `roles`) is a compile error under `unused = deny`; use `[assignable, roles].concat()`. A "refused" table row must isolate one rule: a path-field case carrying random certificate bytes was refused for the bytes, so the ignore-unknown-fields mutant survived until the row sent a valid CA.
