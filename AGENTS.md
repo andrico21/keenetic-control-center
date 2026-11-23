@@ -90,6 +90,18 @@ Models: `KN-1811`, `KN-1010`, `KN-3810`, `NC-3013`.
   (`crates/kcc/tests/live_telegram.rs`) contacts the real Bot API and no router, so it is
   exempt from `KCC_LIVE_TARGET_CONFIG` and `KCC_LIVE_ALLOW_SERIAL`; every other live suite
   keeps both.
+- `KCC_LIVE_ENTWARE_SETUP=1` (with `KCC_LIVE_ALLOW_WRITE=1`): the Entware setup suite
+  (`crates/kcc/tests/live_entware.rs`, `live_entware_setup`) installs Entware on a spare
+  drive of the test router. It never saves.
+- `KCC_LIVE_ENTWARE_DRIVE`: the `opkg disk` argument of that spare drive (`<label>:/` or
+  `<uuid>:/`), exactly as `kcc entware status` lists it under `drives`; any other value is
+  refused before a write.
+- `KCC_LIVE_ENTWARE_PASSWORD_FILE`: path of a file holding the Entware root password
+  (owner-readable; the installer's default is `keenetic`). With `KCC_LIVE_ALLOW_WRITE=1`
+  the Entware SSH suite (`live_entware_ssh`) enrols kcc's key on port 222 (then 22),
+  installs and removes a package, checks one service and always revokes the key.
+- `KCC_LIVE_ENTWARE_PACKAGE`: the package the SSH suite installs and removes (default
+  `nano`); it must not be installed before the run.
 
 A missing variable makes the live test log `live-skip:<reason>` through `tracing` and
 return `Ok(())`. It never passes silently.
