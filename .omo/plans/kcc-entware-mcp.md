@@ -546,7 +546,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | build(e2e,seccomp): Entware SSH and MCP legs in e2e and a re-traced profile
   Recommended task executor category: deep-low - shell e2e and trace procedure
 
-- [ ] 19. Owner-run live suites for Entware
+- [x] 19. Owner-run live suites for Entware
   What to do / Must NOT do:
   - `crates/kcc/tests/live_entware.rs` + `crates/kcc/tests/live_entware/` (pattern `live_domains`): every test `#[ignore]`, gated by the live env contract (`KCC_LIVE_URL`, `_LOGIN`, `_PASSWORD_FILE`, `KCC_LIVE_TARGET_CONFIG` with `test_device = true`, `KCC_LIVE_ALLOW_SERIAL`), logging `live-skip:<reason>` when unset.
   - Read-only probe (no extra flag): records `show media` fields (label, uuid, `initialize-supported`), `components list` names (whether `opkg`/`ext` exist and whether not-installed components are listed), `show rc` `opkg`, `show version` `arch`, Entware status; writes the capture to `.omo/evidence/live-entware-probe.json` when run by the owner.
