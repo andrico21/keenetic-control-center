@@ -404,6 +404,15 @@ The first release, `0.1.0`, is in preparation and contains:
   such as `bind` or `settings_changed`). The server page links to it. Library:
   `kcc_web::admin::McpControl` and `WebState::with_mcp_control`;
   `kcc_mcp::registry::definitions::toolsets`.
+- **kcc OAuth core** (library and state, no endpoints yet): `kcc_app::mcp_auth` signs MCP
+  access tokens as RFC 9068 `at+jwt` JWS with an Ed25519 key (ring) sealed under
+  `mcp:oauth-signing` at `<state>/mcp/oauth-signing.sealed` and serves its JWKS; keeps
+  public clients in `mcp_oauth_clients.json` (RFC 7591 rules: at most 50, 5 redirect URIs
+  of loopback `http`, `https` or reverse-domain schemes, unused ones purged after 24 h)
+  with an in-memory per-address limiter; holds consent requests (10 min) and PKCE S256
+  codes (60 s, single use) in memory only; and keeps grants in `mcp_oauth_grants.json`
+  (refresh tokens as SHA-256 only, rotated on use, reuse revokes the family; 20 per
+  account, 500 in total; a password change ends them).
 
 ### Changed
 

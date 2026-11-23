@@ -52,6 +52,10 @@ kcc <command> ──┴──────── CLI ──────┤
   optional MCP-only dedicated listener as generations and restarts them one change at a
   time, health-checked, reverting to the previous generation on any failure; the Web
   UI's MCP settings page hands it changes through `kcc_web::admin::McpControl`.
+  The core of kcc's own OAuth authorization server is `kcc_app::mcp_auth`: the sealed
+  Ed25519 signing key and JWKS, the client registry, in-memory consent requests and
+  codes, rotating refresh grants and the per-call grant check, all synchronous over the
+  state directory.
 - `kcc mcp stdio` and CLI runs share the same state directory without that lock;
   per-file locks, per-router leases and the audit append lock keep them consistent.
 - One shared **poller** issues all periodic router reads. Web live views and the

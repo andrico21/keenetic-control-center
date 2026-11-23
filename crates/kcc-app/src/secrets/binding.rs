@@ -3,8 +3,9 @@
 //!
 //! A binding is `<tag>:<owner>`, plus a fixed `:<part>` for record types that seal more
 //! than one part. The tags (`router`, `account`, `backup`, `migration`, `preset-run`,
-//! `preset`, `notify`) hold no `:`, so the bytes before the first `:` name the record type
-//! and two record types never share a binding. Within one type the owner is recovered too:
+//! `preset`, `notify`, `mcp`) hold no `:`, so the bytes before the first `:` name the
+//! record type and two record types never share a binding. Within one type the owner is
+//! recovered too:
 //!
 //! - `router:<id>`, `router:<id>:token`, `router:<id>:read`, `router:<id>:ssh-state`,
 //!   `router:<id>:ssh-key`, `router:<id>:ssh-ticket`: a checked router id holds no `:`, so
@@ -17,6 +18,8 @@
 //! - `preset:<id>`: the id is all the rest.
 //! - `notify:telegram`: the Telegram bot token, the only notification secret; the
 //!   channel is all the rest.
+//! - `mcp:oauth-signing`: the Ed25519 key kcc's authorization server signs MCP access
+//!   tokens with, the only MCP secret sealed at rest; the purpose is all the rest.
 //!
 //! Two bindings are therefore equal only for the same record, and a ciphertext moved to
 //! any other record fails to open.
@@ -103,6 +106,14 @@ impl Binding {
         Self("notify:telegram".to_owned())
     }
 
+    /// The access-token signing key of kcc's MCP authorization server:
+    /// `mcp:oauth-signing`.
+    #[inline]
+    #[must_use]
+    pub fn mcp_oauth_signing() -> Self {
+        Self("mcp:oauth-signing".to_owned())
+    }
+
     /// The bytes the cipher authenticates.
     pub(super) const fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
@@ -151,6 +162,7 @@ mod tests {
             (Binding::preset_run("home"), "preset-run:home:preset"),
             (Binding::preset("home"), "preset:home"),
             (Binding::notify_telegram(), "notify:telegram"),
+            (Binding::mcp_oauth_signing(), "mcp:oauth-signing"),
         ];
 
         for (binding, expected) in &bindings {

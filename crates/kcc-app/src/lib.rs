@@ -20,6 +20,7 @@ pub mod composition;
 pub mod credentials;
 pub mod entware_ssh;
 pub mod jobs;
+pub mod mcp_auth;
 pub mod mcp_settings;
 pub mod notify_store;
 pub mod permissions;

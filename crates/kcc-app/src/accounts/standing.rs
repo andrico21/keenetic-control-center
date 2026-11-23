@@ -30,6 +30,11 @@ impl PasswordFingerprint {
     pub(super) fn of(phc: &str) -> Self {
         Self(Sha256::digest(phc.as_bytes()).into())
     }
+
+    /// The fingerprint's bytes, from which the MCP grants derive the value they store.
+    pub(crate) const fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
 }
 
 /// One account as its signed-in sessions see it.
