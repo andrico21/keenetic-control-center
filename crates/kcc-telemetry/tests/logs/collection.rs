@@ -20,7 +20,7 @@ use tokio::{
 
 use super::{Endpoint, TestResult, client, serve};
 
-/// Longest virtual wait for a collector to read the router.
+/// Longest wait for a collector to read the router.
 const READ_BOUND: Duration = Duration::from_secs(60);
 
 /// A fake router serving `logs`, keyed by record id.
@@ -72,7 +72,9 @@ fn loki_streams(fake: &FakeLoki) -> Result<Vec<Value>, Box<dyn Error>> {
 
 /// G-10: one malformed router record among good ones neither blocks nor hides them: the good
 /// records are forwarded and the bad one is counted as a `parse` drop.
-#[tokio::test(start_paused = true)]
+// Real clock: the sink fake answers over loopback TCP, and a paused clock jumps the
+// forwarder's flush deadline over a reply that is not readable yet (lo0 on macOS).
+#[tokio::test]
 async fn malformed_record_is_counted_and_the_others_are_forwarded() -> TestResult {
     let (router, handle) = router_with(vec![
         (1, entry(None, "[Jan 01 00:00:00] first")),
@@ -119,7 +121,9 @@ async fn malformed_record_is_counted_and_the_others_are_forwarded() -> TestResul
 
 /// G-11: the router writes its local wall-clock time without an offset; the forwarded
 /// document carries that naive local time and does not claim it is UTC.
-#[tokio::test(start_paused = true)]
+// Real clock: the sink fake answers over loopback TCP, and a paused clock jumps the
+// forwarder's flush deadline over a reply that is not readable yet (lo0 on macOS).
+#[tokio::test]
 async fn forwarded_timestamp_is_naive_local_time() -> TestResult {
     let (router, handle) =
         router_with(vec![(5, entry(None, "[Jan 01 00:00:00] local clock"))]).await?;
@@ -160,7 +164,9 @@ async fn forwarded_timestamp_is_naive_local_time() -> TestResult {
 
 /// G-24: a `level` text the router invents becomes the fixed `other` label instead of a new
 /// Loki stream label value.
-#[tokio::test(start_paused = true)]
+// Real clock: the sink fake answers over loopback TCP, and a paused clock jumps the
+// forwarder's flush deadline over a reply that is not readable yet (lo0 on macOS).
+#[tokio::test]
 async fn unknown_router_level_becomes_other() -> TestResult {
     let (router, handle) = router_with(vec![
         (

@@ -294,7 +294,9 @@ async fn collector_owns_one_stream_and_emits_each_id_once() -> TestResult {
     Ok(())
 }
 
-#[tokio::test(start_paused = true)]
+// Real clock: the sink fake answers over loopback TCP, and a paused clock jumps the
+// forwarder's flush deadline over a reply that is not readable yet (lo0 on macOS).
+#[tokio::test]
 async fn runtime_forwards_fake_router_records_to_fake_loki() -> TestResult {
     let router = FakeRouter::builder(Profile::default()).build()?;
     router.insert_log(
@@ -317,9 +319,7 @@ async fn runtime_forwards_fake_router_records_to_fake_loki() -> TestResult {
     .await?;
     let mut page = runtime.subscribe("fake").ok_or("collector")?;
 
-    sleep(Duration::from_secs(5)).await;
-    assert_eq!(timeout(Duration::from_secs(1), page.recv()).await??.id, 21);
-    sleep(Duration::from_secs(2)).await;
+    assert_eq!(timeout(Duration::from_secs(60), page.recv()).await??.id, 21);
     runtime.shutdown().await;
 
     assert_eq!(handle.log_streams(), 1);

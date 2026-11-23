@@ -1,6 +1,6 @@
 //! End-to-end queue, batching, item classification, and credential-redaction contracts.
 
-use core::{error::Error, time::Duration};
+use core::error::Error;
 use std::{
     io,
     sync::{Arc, Mutex},
@@ -18,14 +18,15 @@ use tokio::{
     io::{AsyncReadExt as _, AsyncWriteExt as _},
     net::TcpListener,
     task::JoinHandle,
-    time::advance,
 };
 use tracing::{Level, subscriber::set_default};
 use tracing_subscriber::fmt::MakeWriter;
 
 use super::{TestResult, record};
 
-#[tokio::test(start_paused = true)]
+// Real clock: the sink fake answers over loopback TCP, and a paused clock jumps the
+// forwarder's flush deadline over a reply that is not readable yet (lo0 on macOS).
+#[tokio::test]
 async fn search_item_error_drops_only_the_failing_record() -> TestResult {
     let fake =
         FakeElasticsearch::spawn_with_faults(vec![ElasticsearchFault::MapperParsing { item: 1 }])
@@ -44,7 +45,6 @@ async fn search_item_error_drops_only_the_failing_record() -> TestResult {
         pipeline.push(&record(id, timestamp, message));
     }
 
-    advance(Duration::from_secs(2)).await;
     pipeline.shutdown().await;
 
     assert_eq!(fake.requests().len(), 1);
@@ -58,7 +58,9 @@ async fn search_item_error_drops_only_the_failing_record() -> TestResult {
     Ok(())
 }
 
-#[tokio::test(start_paused = true)]
+// Real clock: the sink fake answers over loopback TCP, and a paused clock jumps the
+// forwarder's flush deadline over a reply that is not readable yet (lo0 on macOS).
+#[tokio::test]
 async fn record_bound_splits_one_thousand_and_one_records() -> TestResult {
     let fake = FakeLoki::spawn().await?;
     let config = Config::from_toml_str(&format!(
@@ -80,7 +82,9 @@ async fn record_bound_splits_one_thousand_and_one_records() -> TestResult {
     Ok(())
 }
 
-#[tokio::test(start_paused = true)]
+// Real clock: the sink fake answers over loopback TCP, and a paused clock jumps the
+// forwarder's flush deadline over a reply that is not readable yet (lo0 on macOS).
+#[tokio::test]
 async fn trace_and_debug_never_include_sink_password_or_api_key() -> TestResult {
     let fake = FakeElasticsearch::spawn().await?;
     let directory = TempDir::new()?;
@@ -110,7 +114,9 @@ async fn trace_and_debug_never_include_sink_password_or_api_key() -> TestResult 
     Ok(())
 }
 
-#[tokio::test(start_paused = true)]
+// Real clock: the sink fake answers over loopback TCP, and a paused clock jumps the
+// forwarder's flush deadline over a reply that is not readable yet (lo0 on macOS).
+#[tokio::test]
 async fn loki_partial_refusal_drops_only_the_refused_entries_and_warns_once() -> TestResult {
     let (url, loki) =
         loki_answering_400("user 'fake', total ignored: 1 out of 3 for stream: {router=\"lab\"}")
@@ -135,7 +141,6 @@ async fn loki_partial_refusal_drops_only_the_refused_entries_and_warns_once() ->
         pipeline.push(&record(id, timestamp, message));
     }
 
-    advance(Duration::from_secs(2)).await;
     pipeline.shutdown().await;
     loki.await??;
 
