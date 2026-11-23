@@ -1,6 +1,10 @@
 //! Router profile commands.
 
-use kcc_app::{entware_ssh::state::forget, permissions::Permission, registry::ProfileSource};
+use kcc_app::{
+    entware_ssh::state::{SshStore, active, forget},
+    permissions::Permission,
+    registry::ProfileSource,
+};
 use kcc_catalog::Risk;
 use kcc_i18n::keys;
 use serde_json::{Value, json};
@@ -42,6 +46,13 @@ async fn remove(ctx: &Ctx, services: &Services, id: &str) -> Outcome {
     let role = ctx
         .authorize_audited(services, &[Permission::ManageRouters], &[id])
         .await?;
+    if active(
+        &SshStore::new(ctx.state().clone(), services.key().duplicate()),
+        id,
+    ) {
+        let out = ctx.out();
+        out.note(&out.tr(keys::CLI_ROUTER_REMOVE_SSH_ACTIVE, &[("router", id)]));
+    }
     let confirmation = confirm(ctx.out(), ctx.globals(), Risk::Management, id, false);
     ctx.confirmed(services, id, confirmation).await?;
     services.registry().delete(&role, id).await?;

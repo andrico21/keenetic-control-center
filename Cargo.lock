@@ -2036,6 +2036,7 @@ dependencies = [
  "kcc-mcp",
  "kcc-migrate",
  "kcc-rci",
+ "kcc-ssh",
  "kcc-telemetry",
  "kcc-testkit",
  "kcc-web",

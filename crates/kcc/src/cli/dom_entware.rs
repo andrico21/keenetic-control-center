@@ -16,7 +16,7 @@ use super::{
     args_dom_entware::{EntwareCommand, EntwareSetting},
     change::{Gate, applied},
     context::Ctx,
-    dom_entware_setup,
+    dom_entware_setup, dom_entware_ssh, dom_entware_ssh_packages, dom_entware_ssh_services,
     domains::Session,
     entry::Boxed,
     exit::Outcome,
@@ -35,6 +35,9 @@ pub(crate) fn entware(ctx: &Ctx, command: EntwareCommand) -> Boxed<'_> {
         }
         EntwareCommand::Set(setting) => Box::pin(set(ctx, setting)),
         EntwareCommand::Remove => Box::pin(remove(ctx)),
+        EntwareCommand::Ssh(sub) => dom_entware_ssh::ssh(ctx, sub),
+        EntwareCommand::Packages(sub) => dom_entware_ssh_packages::packages(ctx, sub),
+        EntwareCommand::Services(sub) => dom_entware_ssh_services::services(ctx, sub),
     }
 }
 

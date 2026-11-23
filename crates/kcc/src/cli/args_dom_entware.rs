@@ -1,8 +1,12 @@
-//! Entware commands: status, the guided setup, the `opkg` settings and the removal.
+//! Entware commands: status, the guided setup, the `opkg` settings, the removal, and the
+//! SSH management of `args_dom_entware_ssh`.
 
 use clap::{Subcommand, ValueEnum};
 
-use super::args_domains::Toggle;
+use super::{
+    args_dom_entware_ssh::{EntwareServicesCommand, EntwareSshCommand, PackagesCommand},
+    args_domains::Toggle,
+};
 
 /// Entware commands.
 #[derive(Debug, Subcommand)]
@@ -26,6 +30,15 @@ pub enum EntwareCommand {
     Set(EntwareSetting),
     /// Stop running Entware from its drive (destructive).
     Remove,
+    /// SSH management of Entware: enrolment and host key pinning (destructive).
+    #[command(subcommand)]
+    Ssh(EntwareSshCommand),
+    /// Entware packages over SSH (destructive, reads included).
+    #[command(subcommand)]
+    Packages(PackagesCommand),
+    /// Entware services over SSH (destructive, reads included).
+    #[command(subcommand)]
+    Services(EntwareServicesCommand),
 }
 
 /// Entware settings.

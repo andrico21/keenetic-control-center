@@ -769,6 +769,148 @@ pub const CLI_ENTWARE_SETUP_DONE: MessageKey = MessageKey::new("cli-entware-setu
 /// `cli-entware-setup-failed` in `cli.ftl`.
 pub const CLI_ENTWARE_SETUP_FAILED: MessageKey = MessageKey::new("cli-entware-setup-failed");
 
+/// `cli-entware-name-invalid` in `cli.ftl`.
+pub const CLI_ENTWARE_NAME_INVALID: MessageKey = MessageKey::new("cli-entware-name-invalid");
+
+/// `cli-entware-ssh-confirmation-invalid` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_CONFIRMATION_INVALID: MessageKey =
+    MessageKey::new("cli-entware-ssh-confirmation-invalid");
+
+/// `cli-entware-ssh-chroot` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_CHROOT: MessageKey = MessageKey::new("cli-entware-ssh-chroot");
+
+/// `cli-entware-ssh-host-changed` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_HOST_CHANGED: MessageKey =
+    MessageKey::new("cli-entware-ssh-host-changed");
+
+/// `cli-entware-ssh-not-enrolled` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_NOT_ENROLLED: MessageKey =
+    MessageKey::new("cli-entware-ssh-not-enrolled");
+
+/// `cli-entware-ssh-repin-required` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_REPIN_REQUIRED: MessageKey =
+    MessageKey::new("cli-entware-ssh-repin-required");
+
+/// `cli-entware-ssh-key-unchanged` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_KEY_UNCHANGED: MessageKey =
+    MessageKey::new("cli-entware-ssh-key-unchanged");
+
+/// `cli-entware-ssh-busy` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_BUSY: MessageKey = MessageKey::new("cli-entware-ssh-busy");
+
+/// `cli-entware-ssh-slow` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_SLOW: MessageKey = MessageKey::new("cli-entware-ssh-slow");
+
+/// `cli-entware-ssh-ticket-missing` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_TICKET_MISSING: MessageKey =
+    MessageKey::new("cli-entware-ssh-ticket-missing");
+
+/// `cli-entware-ssh-ticket-expired` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_TICKET_EXPIRED: MessageKey =
+    MessageKey::new("cli-entware-ssh-ticket-expired");
+
+/// `cli-entware-ssh-ticket-fingerprint` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_TICKET_FINGERPRINT: MessageKey =
+    MessageKey::new("cli-entware-ssh-ticket-fingerprint");
+
+/// `cli-entware-ssh-ticket-invalid` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_TICKET_INVALID: MessageKey =
+    MessageKey::new("cli-entware-ssh-ticket-invalid");
+
+/// `cli-entware-ssh-hostkey-mismatch` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_HOSTKEY_MISMATCH: MessageKey =
+    MessageKey::new("cli-entware-ssh-hostkey-mismatch");
+
+/// `cli-entware-ssh-auth-rejected` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_AUTH_REJECTED: MessageKey =
+    MessageKey::new("cli-entware-ssh-auth-rejected");
+
+/// `cli-entware-ssh-disabled` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_DISABLED: MessageKey = MessageKey::new("cli-entware-ssh-disabled");
+
+/// `cli-entware-package-not-installed` in `cli.ftl`.
+pub const CLI_ENTWARE_PACKAGE_NOT_INSTALLED: MessageKey =
+    MessageKey::new("cli-entware-package-not-installed");
+
+/// `cli-entware-service-unknown` in `cli.ftl`.
+pub const CLI_ENTWARE_SERVICE_UNKNOWN: MessageKey = MessageKey::new("cli-entware-service-unknown");
+
+/// `cli-entware-service-disabled` in `cli.ftl`.
+pub const CLI_ENTWARE_SERVICE_DISABLED: MessageKey =
+    MessageKey::new("cli-entware-service-disabled");
+
+/// `cli-entware-ssh-active-notice` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_ACTIVE_NOTICE: MessageKey =
+    MessageKey::new("cli-entware-ssh-active-notice");
+
+/// `cli-prompt-entware-password` in `cli.ftl`.
+pub const CLI_PROMPT_ENTWARE_PASSWORD: MessageKey = MessageKey::new("cli-prompt-entware-password");
+
+/// `cli-entware-ssh-enabled` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_ENABLED: MessageKey = MessageKey::new("cli-entware-ssh-enabled");
+
+/// `cli-entware-ssh-forgotten` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_FORGOTTEN: MessageKey = MessageKey::new("cli-entware-ssh-forgotten");
+
+/// `cli-entware-ssh-probe-key` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_PROBE_KEY: MessageKey = MessageKey::new("cli-entware-ssh-probe-key");
+
+/// `cli-entware-ssh-probe-ticket` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_PROBE_TICKET: MessageKey =
+    MessageKey::new("cli-entware-ssh-probe-ticket");
+
+/// `cli-entware-ssh-probe-check` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_PROBE_CHECK: MessageKey = MessageKey::new("cli-entware-ssh-probe-check");
+
+/// `cli-entware-ssh-enrolled` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_ENROLLED: MessageKey = MessageKey::new("cli-entware-ssh-enrolled");
+
+/// `cli-entware-ssh-default-password` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_DEFAULT_PASSWORD: MessageKey =
+    MessageKey::new("cli-entware-ssh-default-password");
+
+/// `cli-entware-ssh-revoked` in `cli.ftl`.
+pub const CLI_ENTWARE_SSH_REVOKED: MessageKey = MessageKey::new("cli-entware-ssh-revoked");
+
+/// `cli-entware-packages-none` in `cli.ftl`.
+pub const CLI_ENTWARE_PACKAGES_NONE: MessageKey = MessageKey::new("cli-entware-packages-none");
+
+/// `cli-entware-packages-updated` in `cli.ftl`.
+pub const CLI_ENTWARE_PACKAGES_UPDATED: MessageKey =
+    MessageKey::new("cli-entware-packages-updated");
+
+/// `cli-entware-package-changed` in `cli.ftl`.
+pub const CLI_ENTWARE_PACKAGE_CHANGED: MessageKey = MessageKey::new("cli-entware-package-changed");
+
+/// `cli-entware-package-absent` in `cli.ftl`.
+pub const CLI_ENTWARE_PACKAGE_ABSENT: MessageKey = MessageKey::new("cli-entware-package-absent");
+
+/// `cli-entware-services-none` in `cli.ftl`.
+pub const CLI_ENTWARE_SERVICES_NONE: MessageKey = MessageKey::new("cli-entware-services-none");
+
+/// `cli-entware-service-running` in `cli.ftl`.
+pub const CLI_ENTWARE_SERVICE_RUNNING: MessageKey = MessageKey::new("cli-entware-service-running");
+
+/// `cli-entware-service-stopped` in `cli.ftl`.
+pub const CLI_ENTWARE_SERVICE_STOPPED: MessageKey = MessageKey::new("cli-entware-service-stopped");
+
+/// `cli-entware-service-state` in `cli.ftl`.
+pub const CLI_ENTWARE_SERVICE_STATE: MessageKey = MessageKey::new("cli-entware-service-state");
+
+/// `cli-entware-service-log-empty` in `cli.ftl`.
+pub const CLI_ENTWARE_SERVICE_LOG_EMPTY: MessageKey =
+    MessageKey::new("cli-entware-service-log-empty");
+
+/// `cli-col-version` in `cli.ftl`.
+pub const CLI_COL_VERSION: MessageKey = MessageKey::new("cli-col-version");
+
+/// `cli-col-upgrade` in `cli.ftl`.
+pub const CLI_COL_UPGRADE: MessageKey = MessageKey::new("cli-col-upgrade");
+
+/// `cli-router-remove-ssh-active` in `cli.ftl`.
+pub const CLI_ROUTER_REMOVE_SSH_ACTIVE: MessageKey =
+    MessageKey::new("cli-router-remove-ssh-active");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -8634,7 +8776,7 @@ pub const WEB_ADMIN_MCP_MTLS_CA_UNCHECKED: MessageKey =
     MessageKey::new("web-admin-mcp-mtls-ca-unchecked");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2691] = [
+pub static ALL: [MessageKey; 2732] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8881,6 +9023,47 @@ pub static ALL: [MessageKey; 2691] = [
     CLI_ENTWARE_STEP_READ_BACK,
     CLI_ENTWARE_SETUP_DONE,
     CLI_ENTWARE_SETUP_FAILED,
+    CLI_ENTWARE_NAME_INVALID,
+    CLI_ENTWARE_SSH_CONFIRMATION_INVALID,
+    CLI_ENTWARE_SSH_CHROOT,
+    CLI_ENTWARE_SSH_HOST_CHANGED,
+    CLI_ENTWARE_SSH_NOT_ENROLLED,
+    CLI_ENTWARE_SSH_REPIN_REQUIRED,
+    CLI_ENTWARE_SSH_KEY_UNCHANGED,
+    CLI_ENTWARE_SSH_BUSY,
+    CLI_ENTWARE_SSH_SLOW,
+    CLI_ENTWARE_SSH_TICKET_MISSING,
+    CLI_ENTWARE_SSH_TICKET_EXPIRED,
+    CLI_ENTWARE_SSH_TICKET_FINGERPRINT,
+    CLI_ENTWARE_SSH_TICKET_INVALID,
+    CLI_ENTWARE_SSH_HOSTKEY_MISMATCH,
+    CLI_ENTWARE_SSH_AUTH_REJECTED,
+    CLI_ENTWARE_SSH_DISABLED,
+    CLI_ENTWARE_PACKAGE_NOT_INSTALLED,
+    CLI_ENTWARE_SERVICE_UNKNOWN,
+    CLI_ENTWARE_SERVICE_DISABLED,
+    CLI_ENTWARE_SSH_ACTIVE_NOTICE,
+    CLI_PROMPT_ENTWARE_PASSWORD,
+    CLI_ENTWARE_SSH_ENABLED,
+    CLI_ENTWARE_SSH_FORGOTTEN,
+    CLI_ENTWARE_SSH_PROBE_KEY,
+    CLI_ENTWARE_SSH_PROBE_TICKET,
+    CLI_ENTWARE_SSH_PROBE_CHECK,
+    CLI_ENTWARE_SSH_ENROLLED,
+    CLI_ENTWARE_SSH_DEFAULT_PASSWORD,
+    CLI_ENTWARE_SSH_REVOKED,
+    CLI_ENTWARE_PACKAGES_NONE,
+    CLI_ENTWARE_PACKAGES_UPDATED,
+    CLI_ENTWARE_PACKAGE_CHANGED,
+    CLI_ENTWARE_PACKAGE_ABSENT,
+    CLI_ENTWARE_SERVICES_NONE,
+    CLI_ENTWARE_SERVICE_RUNNING,
+    CLI_ENTWARE_SERVICE_STOPPED,
+    CLI_ENTWARE_SERVICE_STATE,
+    CLI_ENTWARE_SERVICE_LOG_EMPTY,
+    CLI_COL_VERSION,
+    CLI_COL_UPGRADE,
+    CLI_ROUTER_REMOVE_SSH_ACTIVE,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

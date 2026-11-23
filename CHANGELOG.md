@@ -82,6 +82,20 @@ The first release, `0.1.0`, is in preparation and contains:
   and runs under the fail-safe timer, and ejecting or initializing the Entware drive needs
   `--entware-ok` (else exit code 10). An invalid `--drive` is refused with exit code 4
   before any router request.
+- **CLI: Entware SSH enrolment, packages and services**: `kcc entware ssh
+  enable [--port N]|disable|probe|bootstrap|repin|revoke`, `kcc entware packages
+  list|upgradable|update|install|remove|upgrade` and `kcc entware services
+  list|status|start|stop|restart|log [--lines N]`, all with `--json`. Every command needs
+  `Destructive` and `--confirm-destructive <router-id>`, reads included (exit code 10
+  before any router or SSH contact). The probe prints the host key fingerprint and a
+  single-use ticket; `bootstrap --ticket <t> --fingerprint <SHA256:...>` in a second
+  invocation reads the Entware root password from `--password-file`, `KCC_PASSWORD` or a
+  hidden prompt, never from the command line. A new bootstrap or re-pin of an enrolled
+  router prints that the local key is replaced first and needs `--yes`. Invalid package
+  or service names, tickets and fingerprints exit with code 4 before any contact; a busy
+  router or a read that does not answer in 25 s exits with code 5. Router-reported text
+  is printed without control characters. `kcc router remove` warns while kcc's SSH key
+  line is still authorized on the router.
 - **Web: the Entware page and the drive warnings**: System > Entware shows whether the
   router can run Entware (and why not), its components, architecture, `opkg` settings and
   drives; it turns chroot on or off (warning that SSH management stops), sets the time
