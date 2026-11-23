@@ -148,8 +148,14 @@ impl Fixture {
 
     /// Creates a weekly policy switch on `router`, owned by the CLI principal and last
     /// changed at `at`; returns its id.
+    ///
+    /// Its slot is 03:00 UTC three days after `at`'s day, so no slot falls between `at`
+    /// and the test's end whatever the date: a due slot would add its own message.
     pub(crate) fn schedule(&self, router: &str, at: i64) -> TestResult<String> {
-        let days = DaySet::from_names(["mon"])?;
+        /// The UTC weekdays from 1970-01-01, a Thursday.
+        const WEEKDAYS: [&str; 7] = ["thu", "fri", "sat", "sun", "mon", "tue", "wed"];
+        let weekday = usize::try_from(at.div_euclid(86_400).saturating_add(3).rem_euclid(7))?;
+        let days = DaySet::from_names([*WEEKDAYS.get(weekday).ok_or("weekday")?])?;
         let new = NewSchedule::new(
             ScheduleName::parse("phone night")?,
             router.to_owned(),

@@ -25,10 +25,14 @@ mod spawning;
 #[path = "serve_scheduled/support.rs"]
 mod support;
 
+#[cfg(unix)]
+use fluent_bundle::FluentArgs;
 use kcc_app::schedules::{
     ledger::RunState,
     model::{PauseReason, ScheduleState},
 };
+#[cfg(unix)]
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use crate::support::{Fixture, ROUTER, TestResult, now};
 
@@ -88,7 +92,7 @@ async fn a_schedule_of_an_unknown_router_is_paused_at_start() -> TestResult {
 }
 
 /// Todo 13: removing the router from `kcc.toml` and reloading pauses its schedule
-/// `router_removed` and sends one message. SIGHUP is the reload of `kcc.toml`.
+/// `router_removed` and sends one message, the pause. SIGHUP is the reload of `kcc.toml`.
 #[cfg(unix)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn removing_the_router_pauses_its_schedule() -> TestResult {
@@ -106,7 +110,23 @@ async fn removing_the_router_pauses_its_schedule() -> TestResult {
     assert!(status.is_some(), "the server exits");
     assert!(router_removed(fixture.schedule_state(&id)?));
     let messages = fixture.messages();
-    assert_eq!(messages.len(), 1, "{messages:?}");
+    let mut paused = FluentArgs::new();
+    paused.set("name", "phone night");
+    paused.set("router", ROUTER);
+    paused.set(
+        "reason",
+        tr(
+            Locale::En,
+            keys::NOTIFY_SCHEDULED_REASON_ROUTER_REMOVED,
+            None,
+        ),
+    );
+    let only = format!(
+        "{} {}",
+        tr(Locale::En, keys::NOTIFY_SCHEDULED_PAUSED, Some(&paused)),
+        tr(Locale::En, keys::NOTIFY_SCHEDULED_UNSAVED, None)
+    );
+    assert_eq!(messages, vec![only]);
     Ok(())
 }
 

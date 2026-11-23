@@ -9,10 +9,15 @@ use serde_json::{Value, json};
 use super::{TestResult, fixture::PASSWORD};
 
 /// A client that follows no redirect, with a bounded timeout.
+///
+/// It keeps no idle connection: every request opens its own, so none rides a keep-alive
+/// connection of a listener generation a restart has since closed (which resets it). The
+/// cookies and keys go in headers, so sessions do not depend on the connection.
 pub(super) fn http() -> TestResult<Client> {
     let _installed = default_provider().install_default();
     Ok(Client::builder()
         .redirect(Policy::none())
+        .pool_max_idle_per_host(0)
         .timeout(Duration::from_secs(10))
         .build()?)
 }
