@@ -134,3 +134,11 @@
 
 ## [2026-11-23] e28 fix: serve_scheduled flake (outside todo 28)
 - `crates/kcc/tests/serve_scheduled.rs::removing_the_router_pauses_its_schedule` failed 3 times out of 9 runs in the e28 tree while the machine was loaded (panics at :107 `router_removed` false and at :109 message count != 1; ~0.2-1.3 s runs). It passed 3/3 on a pristine HEAD export and 5/5 + the whole-crate run in the fixed tree afterwards. The suite and the scheduler are untouched by the fix. Likely race: `await_messages(1)` can be satisfied before the SIGHUP reload has paused the schedule (or by a different message), then SIGTERM. Not fixed (out of scope).
+
+## [2026-11-23] Todo 31 (e31): residuals and findings (not changed)
+- `crates/kcc-web/src/auth.rs` (573 -> ~606 pure LOC) and `crates/kcc-web/src/lib.rs` (564 -> ~583) were far over 250 before todo 31; the login resume id and the OAuth wiring add to both. A split (login vs. account handlers; `WebState` builders into a child) is a follow-up.
+- An account that must change its password is sent to `/ui/account` from the consent page or the login; after the change it lands on `/ui/`, so the client's pending request is not resumed (it expires after 10 minutes): the client starts the sign-in again. Documented in SECURITY.
+- `/oauth/token` checks a refreshed grant's resource against the active listeners AFTER `GrantStore::refresh` rotated it: if a listener stopped serving that resource, the client gets `invalid_target` and the rotated refresh token is never delivered (the grant is then dead until it expires or is revoked). Checking before would need a grant lookup by refresh token in kcc-app.
+- Access tokens are not revocable (stateless JWT); `/oauth/revoke` revokes the refresh family and every MCP call checks the grant, so a revoked grant's access token is refused at kcc's per-call check (forbidden) until it expires at the kit (then 401).
+- The authorization limiter counts requests per address; many addresses (or one IPv6 /48 split into /64s) can still fill the 1024 pending requests (consent DoS, todo 30 N5): documented as a known limit.
+- Todo 30 carry-overs kept as documented limits in SECURITY.md: a replayed code does not revoke the grant already issued from it (N2), 16 rotated hashes (N3), 50 clients including admin-registered ones (N4).
