@@ -74,7 +74,7 @@ pub(crate) async fn chroot(
         );
         return Ok(Dialog::new(locale, words, again).show());
     }
-    let course = Course::new(again, Viewer::new(&user, &router));
+    let course = Course::new(again, Viewer::new(&state, &user, &router));
     Ok(run(action, pairs, course, |ctx| {
         entware::plan_chroot(ctx, &router, user.role(), enabled)
     })
@@ -106,7 +106,7 @@ pub(crate) async fn timezone(
     };
     let path = format!("/ui/r/{router}/system/entware/timezone");
     let again = Resubmit::new(with_query(&path, &[("timezone", &typed)]), "#page-outcome");
-    let course = Course::new(again, Viewer::new(&user, &router))
+    let course = Course::new(again, Viewer::new(&state, &user, &router))
         .refusing_with(keys::WEB_SYSTEM_ENTWARE_TIMEZONE_RULE);
     Ok(run(action, pairs, course, |ctx| {
         entware::plan_timezone(ctx, &router, user.role(), setting)
@@ -134,7 +134,7 @@ pub(crate) async fn initrc(
     let script = value(&pairs, "path").unwrap_or_default().to_owned();
     let path = format!("/ui/r/{router}/system/entware/initrc");
     let again = Resubmit::new(with_query(&path, &[("path", &script)]), "#page-outcome");
-    let course = Course::new(again, Viewer::new(&user, &router))
+    let course = Course::new(again, Viewer::new(&state, &user, &router))
         .asking_first(Risk::Destructive)
         .refusing_with(keys::WEB_SYSTEM_ENTWARE_INITRC_RULE);
     Ok(run(action, pairs, course, |ctx| {
@@ -165,7 +165,8 @@ pub(crate) async fn dns_override(
     let word = if enabled { "true" } else { "false" };
     let path = format!("/ui/r/{router}/system/entware/dns-override");
     let again = Resubmit::new(with_query(&path, &[("on", word)]), "#page-outcome");
-    let course = Course::new(again, Viewer::new(&user, &router)).asking_first(Risk::Management);
+    let course =
+        Course::new(again, Viewer::new(&state, &user, &router)).asking_first(Risk::Management);
     Ok(run(action, pairs, course, |ctx| {
         entware::plan_dns_override(ctx, &router, user.role(), enabled)
     })
@@ -191,7 +192,8 @@ pub(crate) async fn remove(
         format!("/ui/r/{router}/system/entware/remove"),
         "#page-outcome",
     );
-    let course = Course::new(again, Viewer::new(&user, &router)).asking_first(Risk::Destructive);
+    let course =
+        Course::new(again, Viewer::new(&state, &user, &router)).asking_first(Risk::Destructive);
     Ok(run(action, pairs, course, |ctx| {
         entware::plan_remove(ctx, &router, user.role(), true)
     })

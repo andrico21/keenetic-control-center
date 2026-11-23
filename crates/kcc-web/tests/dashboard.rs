@@ -190,6 +190,7 @@ mod tests {
             outbound,
             now: 0,
             wiring: Wiring::Fleet,
+            entware_ssh: None,
         }
         .build()
         .await

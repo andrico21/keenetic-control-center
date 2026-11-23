@@ -27,6 +27,8 @@
 //!   background commands.
 //! - [`WebState::with_mcp_control`] attaches the running MCP listeners
 //!   ([`admin::McpControl`]) the MCP settings page applies changes through.
+//! - [`WebState::with_entware_ssh_timeouts`] bounds the Entware page's SSH connections,
+//!   commands and reads; the page builds its SSH services over the fleet at first use.
 // `dead_code_pub_in_binary` fires on the public API only in the lib unit-test
 // binary; rustc accepts an expect for it at crate level alone.
 #![cfg_attr(
@@ -231,6 +233,7 @@ use kcc_app::{
     role_source::RoleSource,
 };
 use kcc_i18n::locale::Locale;
+use kcc_ssh::transport::Timeouts;
 use kcc_telemetry::logs::readers::LogFeeds;
 use tower_http::{limit::RequestBodyLimitLayer, set_header::SetResponseHeaderLayer};
 
@@ -296,6 +299,8 @@ pub struct WebState {
     polled_logs: Arc<system_pages::log_poller::PolledLogs>,
     /// The audit log as the audit page last verified it.
     audit_log: admin_audit::log::LogCache,
+    /// The Entware page's SSH services and their bounds.
+    entware_ssh: Arc<system_pages::entware_ssh::SshAccess>,
 }
 
 impl fmt::Debug for WebState {
@@ -363,7 +368,20 @@ impl WebState {
             log_feeds: LogFeeds::default(),
             polled_logs: Arc::default(),
             audit_log: admin_audit::log::LogCache::default(),
+            entware_ssh: Arc::default(),
         }
+    }
+
+    /// Bounds the Entware page's SSH work: `timeouts` for its connections and commands,
+    /// and `read_limit` for every list, status or log it reads, which then answers that
+    /// the router is busy instead of waiting for a running change.
+    #[inline]
+    #[must_use]
+    pub fn with_entware_ssh_timeouts(mut self, timeouts: Timeouts, read_limit: Duration) -> Self {
+        self.entware_ssh = Arc::new(system_pages::entware_ssh::SshAccess::new(
+            timeouts, read_limit,
+        ));
+        self
     }
 
     /// Shares `roles` with the other front ends: a role change in the Web UI then
@@ -498,6 +516,18 @@ impl WebState {
     #[must_use]
     pub(crate) const fn mcp(&self) -> Option<&Arc<admin_mcp::Attached>> {
         self.mcp.as_ref()
+    }
+
+    /// The Entware page's SSH services and their bounds.
+    #[must_use]
+    pub(crate) fn entware_ssh(&self) -> &system_pages::entware_ssh::SshAccess {
+        &self.entware_ssh
+    }
+
+    /// The shared wall clock.
+    #[must_use]
+    pub(crate) fn clock(&self) -> Arc<dyn Clock> {
+        Arc::clone(&self.clock)
     }
 
     /// The audit page's verified log.

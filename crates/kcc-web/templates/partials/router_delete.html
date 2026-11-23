@@ -1,6 +1,9 @@
 {%- import "components.html" as ui -%}
 {% call ui::dialog_body(title) %}
 <p class="dialog__text">{{ t(keys::WEB_ROUTER_DELETE_TEXT) }}</p>
+{%- if ssh_active %}
+<p class="notice" data-tone="warning" id="router-delete-ssh-notice">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_DELETE_NOTICE) }}</p>
+{%- endif %}
 <form class="dialog__actions" method="post" action="/ui/routers/{{ id }}/delete" hx-post="/ui/routers/{{ id }}/delete">
   <button class="button button--danger" type="submit">{{ t(keys::COMMON_DELETE) }}</button>
 </form>

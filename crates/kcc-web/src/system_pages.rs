@@ -51,7 +51,16 @@ mod diagnostics;
 mod entware;
 mod entware_actions;
 mod entware_change;
+mod entware_labels;
 mod entware_setup;
+pub(crate) mod entware_ssh;
+mod entware_ssh_confirm;
+mod entware_ssh_desk;
+mod entware_ssh_enrol;
+mod entware_ssh_errors;
+mod entware_ssh_ops;
+mod entware_ssh_services;
+mod entware_ssh_views;
 pub(crate) mod job_feed;
 mod jobs;
 mod keendns;
@@ -202,6 +211,7 @@ fn entware_routes() -> Router<WebState> {
             "/ui/r/{router}/system/entware/setup",
             post(entware_setup::setup),
         )
+        .merge(entware_ssh::routes())
 }
 
 /// The event-stream routes of the system pages, merged outside the request timeout.

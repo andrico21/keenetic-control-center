@@ -1,0 +1,13 @@
+{#- One Entware service's records from the router log, masked by the domain; an empty list does not tell no records from an unreadable log, so it says both. -#}
+<h3 class="panel__subtitle">{{ title }}</h3>
+{%- if lines.is_empty() %}
+<p class="panel__note">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_LOG_EMPTY) }}</p>
+{%- else %}
+<div class="log-tail">
+  <ol class="log-lines">
+    {%- for (time, message) in lines %}
+    <li class="log-lines__line">{{ time }} {{ message }}</li>
+    {%- endfor %}
+  </ol>
+</div>
+{%- endif %}

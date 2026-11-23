@@ -21,6 +21,7 @@ kcc-domain = { version = "0.1.0", path = "../kcc-domain" }
 kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
 kcc-migrate = { version = "0.1.0", path = "../kcc-migrate" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
+kcc-ssh = { version = "0.1.0", path = "../kcc-ssh" }
 kcc-telemetry = { version = "0.1.0", path = "../kcc-telemetry" }
 rand = { workspace = true }
 rmcp-server-kit = { workspace = true }

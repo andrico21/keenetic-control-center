@@ -20,6 +20,7 @@ use kcc_app::{
     settings::{BackupsConfig, OutboundConfig},
     workflow::ChangeWorkflow,
 };
+use kcc_ssh::transport::Timeouts;
 use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle};
 use kcc_web::{
     fleet::{BackupServices, FleetServices},
@@ -64,6 +65,9 @@ pub(crate) struct Setup {
     pub(crate) now: u64,
     /// The services beside the fleet.
     pub(crate) wiring: Wiring,
+    /// The Entware page's SSH bounds: connection and command timeouts, and how long a page
+    /// waits for a read; `None` keeps the Web UI's defaults.
+    pub(crate) entware_ssh: Option<(Timeouts, Duration)>,
 }
 
 impl Default for Setup {
@@ -92,6 +96,7 @@ impl Default for Setup {
             outbound,
             now: 1_700_000_000,
             wiring: Wiring::Pages,
+            entware_ssh: None,
         }
     }
 }
@@ -146,11 +151,15 @@ impl Setup {
                 backups: (self.wiring == Wiring::Pages)
                     .then(|| BackupServices::new(backups, BackupsConfig::default())),
             });
-        let web = match self.wiring {
+        let wired = match self.wiring {
             Wiring::Pages | Wiring::Wizards => {
                 fleet.with_jobs(JobRunner::open(state, Arc::clone(&registry), audit).await?)
             }
             Wiring::Fleet => fleet,
+        };
+        let web = match self.entware_ssh {
+            Some((timeouts, read_limit)) => wired.with_entware_ssh_timeouts(timeouts, read_limit),
+            None => wired,
         };
         Ok(Fixture {
             directory: core.directory,

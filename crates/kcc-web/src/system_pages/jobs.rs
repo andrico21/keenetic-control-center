@@ -30,6 +30,7 @@ use super::{
     component_commit::phase_line,
     diagnostic_lines::sentence,
     entware_setup::step_line,
+    entware_ssh_views::ssh_line,
     job_feed::{JobView, may_act},
 };
 use crate::{
@@ -55,6 +56,9 @@ pub(crate) const COMMIT: &str = "components.commit";
 
 /// Kind of the Entware setup job.
 pub(crate) const SETUP: &str = "entware.setup";
+
+/// Kind prefix of the Entware SSH change jobs.
+pub(crate) const SSH: &str = "entware.ssh.";
 
 /// The panel following one job.
 #[derive(Template)]
@@ -138,7 +142,8 @@ pub(crate) fn followed(
         record.router.as_deref() == Some(router)
             && (record.kind.starts_with(DIAGNOSTICS)
                 || record.kind == COMMIT
-                || record.kind == SETUP)
+                || record.kind == SETUP
+                || record.kind.starts_with(SSH))
     })
 }
 
@@ -244,7 +249,8 @@ fn line(detail: &JobProgress, locale: Locale) -> Option<(String, bool)> {
     match detail {
         JobProgress::Structured(value) => phase_line(value, locale)
             .map(|said| (said, false))
-            .or_else(|| step_line(value, locale)),
+            .or_else(|| step_line(value, locale))
+            .or_else(|| ssh_line(value, locale)),
         JobProgress::OutputLine(output) => sentence(output, locale).map(|said| (said, false)),
         _ => None,
     }

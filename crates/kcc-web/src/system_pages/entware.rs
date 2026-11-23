@@ -21,10 +21,7 @@ use kcc_domain::{
     RouterCtx,
     entware::{
         self,
-        models::{
-            ArchResolution, ComponentPresence, EligibleDrive, EntwareStatus, Possibility,
-            TimezoneSetting,
-        },
+        models::{ArchResolution, EligibleDrive, EntwareStatus, Possibility},
     },
 };
 use kcc_i18n::{
@@ -35,7 +32,9 @@ use kcc_i18n::{
 
 use super::{
     entware_change::{CHROOT, DNS_OVERRIDE, INITRC, REMOVE, TIMEZONE},
+    entware_labels::{arch, blocked, presence, timezone},
     entware_setup::SETUP,
+    entware_ssh::{SshSection, section},
     shared::Visit,
     tabs::{Tab, TabBar},
 };
@@ -154,6 +153,8 @@ pub(crate) struct Region {
     installers: bool,
     /// What the role may do.
     offered: Offered,
+    /// The SSH access section, for a role with `Destructive` on the router.
+    ssh: Option<SshSection>,
     /// Whether the region replaces the page's out of band.
     oob: bool,
 }
@@ -161,55 +162,10 @@ pub(crate) struct Region {
 localized!(Region);
 fragment!(Region);
 
-/// The localized reason the router cannot run Entware, or `None` when it can.
-fn blocked(possible: &Possibility, locale: Locale) -> Option<String> {
-    match possible {
-        Possibility::Possible => None,
-        Possibility::UnsupportedArch(arch) => {
-            let mut args = FluentArgs::new();
-            args.set("name", arch.clone());
-            Some(tr(locale, keys::WEB_SYSTEM_ENTWARE_NO_ARCH, Some(&args)))
-        }
-        Possibility::NoUsbOrStorage | _ => Some(tr(locale, keys::WEB_SYSTEM_ENTWARE_NO_USB, None)),
-    }
-}
-
-/// The label of a component's state; on a router that cannot run Entware (`blocked`) no
-/// label promises the setup.
-const fn presence(component: ComponentPresence, blocked: bool) -> MessageKey {
-    match (component, blocked) {
-        (ComponentPresence::Installed, _) => keys::WEB_SYSTEM_ENTWARE_INSTALLED,
-        (ComponentPresence::Available, false) => keys::WEB_SYSTEM_ENTWARE_AVAILABLE,
-        (ComponentPresence::Available, true) => keys::WEB_SYSTEM_ENTWARE_NOT_INSTALLED,
-        (ComponentPresence::Missing | _, _) => keys::WEB_SYSTEM_ENTWARE_MISSING,
-    }
-}
-
-/// The architecture, localized; on a router that cannot run Entware (`blocked`) only the
-/// name the router reports.
-fn arch(resolution: &ArchResolution, blocked: bool, locale: Locale) -> String {
-    match (resolution, blocked) {
-        (ArchResolution::Aarch64, false) => tr(locale, keys::WEB_SYSTEM_ENTWARE_ARCH_AARCH64, None),
-        (ArchResolution::MipsAmbiguous, false) => {
-            tr(locale, keys::WEB_SYSTEM_ENTWARE_ARCH_MIPS, None)
-        }
-        (ArchResolution::Aarch64, true) => "aarch64".to_owned(),
-        (ArchResolution::MipsAmbiguous, true) => "mips".to_owned(),
-        (ArchResolution::Unknown(name), _) => name.clone(),
-        _ => tr(locale, keys::WEB_KIT_NOT_REPORTED, None),
-    }
-}
-
-/// The time zone setting, localized.
-fn timezone(setting: &TimezoneSetting, locale: Locale) -> String {
-    match setting {
-        TimezoneSetting::Named(name) => name.clone(),
-        TimezoneSetting::Auto | _ => tr(locale, keys::WEB_SYSTEM_ENTWARE_TIMEZONE_AUTO, None),
-    }
-}
-
 /// Who looks at Entware on which router.
 pub(crate) struct Viewer<'call> {
+    /// Web services.
+    state: &'call WebState,
     /// The signed-in user.
     user: &'call CurrentUser,
     /// Router profile id.
@@ -217,9 +173,17 @@ pub(crate) struct Viewer<'call> {
 }
 
 impl<'call> Viewer<'call> {
-    /// `user` looking at Entware on `router`.
-    pub(crate) const fn new(user: &'call CurrentUser, router: &'call str) -> Self {
-        Self { user, router }
+    /// `user` looking at Entware on `router` through `state`.
+    pub(crate) const fn new(
+        state: &'call WebState,
+        user: &'call CurrentUser,
+        router: &'call str,
+    ) -> Self {
+        Self {
+            state,
+            user,
+            router,
+        }
     }
 
     /// What the role may do with Entware in the state `status`, on a router whose
@@ -245,6 +209,7 @@ impl<'call> Viewer<'call> {
     fn region(&self, status: EntwareStatus, catalog: &Catalog) -> Region {
         let locale = self.user.locale();
         let offered = self.offered(&status, catalog);
+        let ssh = section(self.state, self.user, self.router, &status);
         let settings = status.settings;
         let reason = blocked(&status.possible, locale);
         let stuck = reason.is_some();
@@ -272,6 +237,7 @@ impl<'call> Viewer<'call> {
             initializable: status.initializable,
             installers: status.arch == ArchResolution::MipsAmbiguous,
             offered,
+            ssh,
             oob: false,
         }
     }
@@ -316,7 +282,7 @@ pub(crate) async fn page(
     match reading {
         Ok((_, domain)) => match entware::read_status(&domain).await {
             Ok(status) => {
-                let viewer = Viewer::new(&user, &router);
+                let viewer = Viewer::new(&state, &user, &router);
                 page.region = Some(viewer.region(status, &domain.catalog));
             }
             Err(error) => {

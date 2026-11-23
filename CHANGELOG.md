@@ -111,6 +111,18 @@ The first release, `0.1.0`, is in preparation and contains:
   session listed, and are read back (installed listing, rc.func `check`). A service's log
   is its process's router log records, masked without `RevealSecrets`. Results are parsed
   values; the audit records the output's byte count and SHA-256, never the output.
+- **Web: Entware SSH enrolment, packages and services**: the Entware page gains an SSH
+  access section, shown only to a role with `Destructive` on the router (any other role
+  gets 403 before anything reaches the router). It switches SSH management and its port,
+  enrols in two steps (Check router identity shows the host key fingerprint and how to
+  check it out of band; the fingerprint is then confirmed with the Entware root password,
+  used once and never shown, stored or logged), re-pins, revokes and forgets; enrolling
+  an Active router again needs an extra confirmation, because it is Pending until it
+  succeeds. Once Active, Packages (installed, upgradable, update, install, remove,
+  upgrade) and Services (list, status, start, stop, restart, log) appear: changes run as
+  jobs read back on the router, reads answer that the router is busy after 25 seconds,
+  and every action asks for the router name. The router removal dialog warns while the
+  router still authorizes kcc's SSH key line.
 
 - **MCP error code `router_mode_unknown`**: a management change is refused, with nothing
   sent, when the router reports neither a system mode kcc knows nor a `fail-safe`

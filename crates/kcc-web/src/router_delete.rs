@@ -21,6 +21,7 @@ use crate::{
         respond::open,
     },
     router_access::{ProfileAction, audit},
+    system_pages::entware_ssh::store,
 };
 
 /// `GET /ui/routers/{id}/delete`: the confirmation dialog.
@@ -36,7 +37,9 @@ pub(crate) async fn delete_dialog(
     };
     match managed(fleet, user.role(), &id).await {
         Ok(entry) if matches!(entry.source, ProfileSource::State) => {
-            errors::render(&DeleteDialog::new(shell, id))
+            let ssh_active =
+                store(&state).is_some_and(|records| entware_ssh::state::active(&records, &id));
+            errors::render(&DeleteDialog::new(shell, id, ssh_active))
         }
         Ok(_) => StatusCode::FORBIDDEN.into_response(),
         Err(refusal) => refusal.page(shell),
@@ -89,15 +92,23 @@ pub(crate) struct DeleteDialog {
     id: String,
     /// Dialog title.
     title: String,
+    /// Whether the router still authorizes kcc's Entware SSH key line.
+    ssh_active: bool,
 }
 
 impl DeleteDialog {
-    /// The confirmation for `id`.
-    pub(crate) fn new(shell: Shell, id: String) -> Self {
+    /// The confirmation for `id`; `ssh_active` when the router still authorizes kcc's
+    /// Entware SSH key line, which the removal leaves there.
+    pub(crate) fn new(shell: Shell, id: String, ssh_active: bool) -> Self {
         let mut args = FluentArgs::new();
         args.set("name", id.clone());
         let title = tr(shell.locale(), keys::WEB_ROUTER_DELETE_TITLE, Some(&args));
-        Self { shell, id, title }
+        Self {
+            shell,
+            id,
+            title,
+            ssh_active,
+        }
     }
 }
 

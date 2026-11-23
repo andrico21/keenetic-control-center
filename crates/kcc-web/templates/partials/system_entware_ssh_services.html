@@ -1,0 +1,14 @@
+{#- The Entware services the router listed over SSH: init script names only. -#}
+<p class="table-count">{{ count }}</p>
+{%- if !names.is_empty() %}
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th scope="col">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_SERVICE_NAME) }}</th></tr></thead>
+    <tbody>
+      {%- for name in names %}
+      <tr><td class="mono">{{ name }}</td></tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+</div>
+{%- endif %}

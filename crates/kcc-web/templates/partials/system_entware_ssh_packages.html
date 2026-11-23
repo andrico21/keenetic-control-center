@@ -1,0 +1,14 @@
+{#- The installed or upgradable Entware packages the router listed over SSH: parsed names and versions only. -#}
+<p class="table-count">{{ count }}</p>
+{%- if !rows.is_empty() %}
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th scope="col">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_PACKAGE_NAME) }}</th><th scope="col">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_VERSION) }}</th>{% if upgradable %}<th scope="col">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_NEW_VERSION) }}</th>{% endif %}</tr></thead>
+    <tbody>
+      {%- for row in rows %}
+      <tr><td class="mono">{{ row.name }}</td><td class="mono">{{ row.version }}</td>{% if upgradable %}<td class="mono">{{ row.new_version }}</td>{% endif %}</tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+</div>
+{%- endif %}

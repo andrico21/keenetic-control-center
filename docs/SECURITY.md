@@ -132,6 +132,9 @@ never its value.
 - **Web UI and MCP.** Plain HTTP is accepted only on a loopback listener. Any other
   listener needs TLS (`[server] tls_cert_path`/`tls_key_path`) or an https
   `[web] public_url` behind `[server] trusted_proxies`; kcc refuses to start otherwise.
+  The Entware root password typed on the Entware page's SSH enrolment therefore reaches
+  kcc only over TLS or loopback; it is used once for the password session that installs
+  kcc's key and is never stored, logged, audited or shown again.
 - **RCI to the router.** Routers usually offer plain HTTP on the LAN. kcc's ndw2/ndw4
   sign-in is a challenge-response, so the password itself isn't sent, but the session
   cookie, every configuration read (including encrypted `ns3` blobs and Wi-Fi keys in

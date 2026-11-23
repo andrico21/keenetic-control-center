@@ -1,0 +1,99 @@
+{#- The SSH access section of the Entware page: the enrolment and its steps, and once it is Active the packages and services; every action asks for the router name first. -#}
+{%- import "components.html" as ui -%}
+<section class="panel" id="entware-ssh" aria-labelledby="entware-ssh-title">
+  <h2 class="panel__title" id="entware-ssh-title">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_TITLE) }}</h2>
+  <p class="page__text">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_INTRO) }}</p>
+  {%- if chroot %}
+  <p class="notice" data-tone="warning" id="entware-ssh-chroot">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_CHROOT) }}</p>
+  {%- endif %}
+  <dl class="settings">
+    <div class="settings__row">
+      <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STATE) }}</dt>
+      <dd class="settings__value" id="entware-ssh-state" data-state="{{ shown.word() }}">{{ t(shown.key()) }}</dd>
+    </div>
+    <div class="settings__row">
+      <dt class="settings__label" id="entware-ssh-management">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_MANAGEMENT) }}</dt>
+      <dd class="settings__value">{% if enabled() %}{{ t(keys::WEB_SYSTEM_ENTWARE_ON) }}{% else %}{{ t(keys::WEB_SYSTEM_ENTWARE_OFF) }}{% endif %}</dd>
+      <dd class="settings__action"><button class="button button--ghost" type="button" hx-post="{{ base }}/enabled?on={% if enabled() %}false{% else %}true{% endif %}" hx-target="#page-outcome" aria-describedby="entware-ssh-management">{% if enabled() %}{{ t(keys::WEB_SYSTEM_ENTWARE_TURN_OFF) }}{% else %}{{ t(keys::WEB_SYSTEM_ENTWARE_TURN_ON) }}{% endif %}</button></dd>
+    </div>
+    {%- if let Some(fingerprint) = pinned() %}
+    <div class="settings__row">
+      <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_FINGERPRINT) }}</dt>
+      <dd class="settings__value"><code class="mono">{{ fingerprint }}</code></dd>
+    </div>
+    {%- endif %}
+    {%- if let Some(name) = enrolled_by() %}
+    <div class="settings__row">
+      <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_ENROLLED_BY) }}</dt>
+      <dd class="settings__value">{{ name }}</dd>
+    </div>
+    {%- endif %}
+  </dl>
+  <form class="form" id="entware-ssh-port-form" method="post" action="{{ base }}/port" hx-post="{{ base }}/port" hx-target="#page-outcome">
+    {{ ui::field("entware-ssh-port-value", "port", t(keys::WEB_SYSTEM_ENTWARE_SSH_PORT), port(), "", "number", "off", t(keys::WEB_SYSTEM_ENTWARE_SSH_PORT_RULE)) }}
+    <div class="form__actions">
+      <button class="button button--danger-ghost" type="submit">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_PORT_APPLY) }}</button>
+    </div>
+  </form>
+  {%- if checks() %}
+  {%- if shown == Shown::Active %}
+  <p class="notice" data-tone="warning" id="entware-ssh-active-warning">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_ACTIVE_WARNING) }}</p>
+  {%- endif %}
+  <div class="form__actions">
+    <button class="button button--secondary" type="button" id="entware-ssh-check" hx-post="{{ base }}/probe?mode=bootstrap" hx-target="#entware-ssh-step" aria-describedby="entware-ssh-check-help">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_CHECK) }}</button>
+    {%- if pinned().is_some() %}
+    <button class="button button--ghost" type="button" id="entware-ssh-repin" hx-post="{{ base }}/probe?mode=repin" hx-target="#entware-ssh-step" aria-describedby="entware-ssh-check-help">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_REPIN) }}</button>
+    {%- endif %}
+  </div>
+  <p class="field__help" id="entware-ssh-check-help">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_CHECK_HELP) }}</p>
+  <div id="entware-ssh-step" aria-live="polite"></div>
+  {%- endif %}
+  {%- if record.is_some() %}
+  <div class="form__actions">
+    {%- if checks() && pinned().is_some() %}
+    <button class="button button--danger-ghost" type="button" hx-post="{{ base }}/revoke" hx-target="#page-outcome" aria-describedby="entware-ssh-revoke-help">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_REVOKE) }}</button>
+    {%- endif %}
+    <button class="button button--danger-ghost" type="button" hx-post="{{ base }}/disable" hx-target="#page-outcome" aria-describedby="entware-ssh-disable-help">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_DISABLE) }}</button>
+  </div>
+  {%- if checks() && pinned().is_some() %}
+  <p class="field__help" id="entware-ssh-revoke-help">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_REVOKE_HELP) }}</p>
+  {%- endif %}
+  <p class="field__help" id="entware-ssh-disable-help">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_DISABLE_HELP) }}</p>
+  {%- endif %}
+</section>
+{%- if manages() %}
+<section class="panel" id="entware-ssh-packages-panel" aria-labelledby="entware-ssh-packages-title">
+  <h2 class="panel__title" id="entware-ssh-packages-title">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_PACKAGES) }}</h2>
+  <div class="form__actions">
+    <button class="button button--secondary" type="button" hx-post="{{ base }}/packages/list" hx-target="#entware-ssh-packages">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_PACKAGES_LIST) }}</button>
+    <button class="button button--secondary" type="button" hx-post="{{ base }}/packages/upgradable" hx-target="#entware-ssh-packages">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_PACKAGES_UPGRADABLE) }}</button>
+    <button class="button button--danger-ghost" type="button" hx-post="{{ base }}/packages/update" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_PACKAGES_UPDATE) }}</button>
+  </div>
+  <form class="form" id="entware-ssh-package-form" method="post" action="{{ base }}/packages/install" hx-post="{{ base }}/packages/install" hx-target="#page-outcome">
+    {{ ui::field("entware-ssh-package", "name", t(keys::WEB_SYSTEM_ENTWARE_SSH_PACKAGE_NAME), "", "", "text", "off", t(keys::WEB_SYSTEM_ENTWARE_SSH_NAME_RULE)) }}
+    <div class="form__actions">
+      <button class="button button--danger" type="submit">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_INSTALL) }}</button>
+      <button class="button button--danger-ghost" type="button" hx-post="{{ base }}/packages/upgrade" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_UPGRADE) }}</button>
+      <button class="button button--danger-ghost" type="button" hx-post="{{ base }}/packages/remove" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_REMOVE) }}</button>
+    </div>
+  </form>
+  <div id="entware-ssh-packages" aria-live="polite"></div>
+</section>
+<section class="panel" id="entware-ssh-services-panel" aria-labelledby="entware-ssh-services-title">
+  <h2 class="panel__title" id="entware-ssh-services-title">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_SERVICES) }}</h2>
+  <div class="form__actions">
+    <button class="button button--secondary" type="button" hx-post="{{ base }}/services/list" hx-target="#entware-ssh-services">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_SERVICES_LIST) }}</button>
+  </div>
+  <form class="form" id="entware-ssh-service-form" method="post" action="{{ base }}/services/status" hx-post="{{ base }}/services/status" hx-target="#page-outcome">
+    {{ ui::field("entware-ssh-service", "name", t(keys::WEB_SYSTEM_ENTWARE_SSH_SERVICE_NAME), "", "", "text", "off", t(keys::WEB_SYSTEM_ENTWARE_SSH_SERVICE_RULE)) }}
+    <div class="form__actions">
+      <button class="button button--secondary" type="submit">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STATUS) }}</button>
+      <button class="button button--secondary" type="button" hx-post="{{ base }}/services/log" hx-target="#entware-ssh-services">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_LOG) }}</button>
+      <button class="button button--danger-ghost" type="button" hx-post="{{ base }}/services/start" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_START) }}</button>
+      <button class="button button--danger-ghost" type="button" hx-post="{{ base }}/services/stop" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STOP) }}</button>
+      <button class="button button--danger-ghost" type="button" hx-post="{{ base }}/services/restart" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_RESTART) }}</button>
+    </div>
+  </form>
+  <div id="entware-ssh-services" aria-live="polite"></div>
+</section>
+{%- endif %}

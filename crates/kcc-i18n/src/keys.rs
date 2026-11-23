@@ -8775,8 +8775,407 @@ pub const WEB_ADMIN_MCP_MTLS_CA_SUBJECTS: MessageKey =
 pub const WEB_ADMIN_MCP_MTLS_CA_UNCHECKED: MessageKey =
     MessageKey::new("web-admin-mcp-mtls-ca-unchecked");
 
+/// `web-system-entware-ssh-title` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_TITLE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-title");
+
+/// `web-system-entware-ssh-intro` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_INTRO: MessageKey =
+    MessageKey::new("web-system-entware-ssh-intro");
+
+/// `web-system-entware-ssh-state` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STATE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-state");
+
+/// `web-system-entware-ssh-state-none` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STATE_NONE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-state-none");
+
+/// `web-system-entware-ssh-state-pending` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STATE_PENDING: MessageKey =
+    MessageKey::new("web-system-entware-ssh-state-pending");
+
+/// `web-system-entware-ssh-state-active` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STATE_ACTIVE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-state-active");
+
+/// `web-system-entware-ssh-state-unreadable` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STATE_UNREADABLE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-state-unreadable");
+
+/// `web-system-entware-ssh-port` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PORT: MessageKey = MessageKey::new("web-system-entware-ssh-port");
+
+/// `web-system-entware-ssh-port-rule` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PORT_RULE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-port-rule");
+
+/// `web-system-entware-ssh-port-apply` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PORT_APPLY: MessageKey =
+    MessageKey::new("web-system-entware-ssh-port-apply");
+
+/// `web-system-entware-ssh-management` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_MANAGEMENT: MessageKey =
+    MessageKey::new("web-system-entware-ssh-management");
+
+/// `web-system-entware-ssh-fingerprint` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_FINGERPRINT: MessageKey =
+    MessageKey::new("web-system-entware-ssh-fingerprint");
+
+/// `web-system-entware-ssh-enrolled-by` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_ENROLLED_BY: MessageKey =
+    MessageKey::new("web-system-entware-ssh-enrolled-by");
+
+/// `web-system-entware-ssh-chroot` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_CHROOT: MessageKey =
+    MessageKey::new("web-system-entware-ssh-chroot");
+
+/// `web-system-entware-ssh-check` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_CHECK: MessageKey =
+    MessageKey::new("web-system-entware-ssh-check");
+
+/// `web-system-entware-ssh-check-help` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_CHECK_HELP: MessageKey =
+    MessageKey::new("web-system-entware-ssh-check-help");
+
+/// `web-system-entware-ssh-repin` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_REPIN: MessageKey =
+    MessageKey::new("web-system-entware-ssh-repin");
+
+/// `web-system-entware-ssh-active-warning` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_ACTIVE_WARNING: MessageKey =
+    MessageKey::new("web-system-entware-ssh-active-warning");
+
+/// `web-system-entware-ssh-revoke` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_REVOKE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-revoke");
+
+/// `web-system-entware-ssh-revoke-help` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_REVOKE_HELP: MessageKey =
+    MessageKey::new("web-system-entware-ssh-revoke-help");
+
+/// `web-system-entware-ssh-disable` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_DISABLE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-disable");
+
+/// `web-system-entware-ssh-disable-help` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_DISABLE_HELP: MessageKey =
+    MessageKey::new("web-system-entware-ssh-disable-help");
+
+/// `web-system-entware-ssh-step-title` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STEP_TITLE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-step-title");
+
+/// `web-system-entware-ssh-step-fingerprint` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STEP_FINGERPRINT: MessageKey =
+    MessageKey::new("web-system-entware-ssh-step-fingerprint");
+
+/// `web-system-entware-ssh-step-check` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STEP_CHECK: MessageKey =
+    MessageKey::new("web-system-entware-ssh-step-check");
+
+/// `web-system-entware-ssh-step-expires` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STEP_EXPIRES: MessageKey =
+    MessageKey::new("web-system-entware-ssh-step-expires");
+
+/// `web-system-entware-ssh-step-password` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STEP_PASSWORD: MessageKey =
+    MessageKey::new("web-system-entware-ssh-step-password");
+
+/// `web-system-entware-ssh-step-password-help` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STEP_PASSWORD_HELP: MessageKey =
+    MessageKey::new("web-system-entware-ssh-step-password-help");
+
+/// `web-system-entware-ssh-step-confirm` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STEP_CONFIRM: MessageKey =
+    MessageKey::new("web-system-entware-ssh-step-confirm");
+
+/// `web-system-entware-ssh-step-replace` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STEP_REPLACE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-step-replace");
+
+/// `web-system-entware-ssh-step-enrol` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STEP_ENROL: MessageKey =
+    MessageKey::new("web-system-entware-ssh-step-enrol");
+
+/// `web-system-entware-ssh-step-repin` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STEP_REPIN: MessageKey =
+    MessageKey::new("web-system-entware-ssh-step-repin");
+
+/// `web-system-entware-ssh-enrolled` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_ENROLLED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-enrolled");
+
+/// `web-system-entware-ssh-repinned` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_REPINNED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-repinned");
+
+/// `web-system-entware-ssh-default-password` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_DEFAULT_PASSWORD: MessageKey =
+    MessageKey::new("web-system-entware-ssh-default-password");
+
+/// `web-system-entware-ssh-revoked` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_REVOKED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-revoked");
+
+/// `web-system-entware-ssh-disabled` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_DISABLED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-disabled");
+
+/// `web-system-entware-ssh-enabled-on` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_ENABLED_ON: MessageKey =
+    MessageKey::new("web-system-entware-ssh-enabled-on");
+
+/// `web-system-entware-ssh-enabled-off` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_ENABLED_OFF: MessageKey =
+    MessageKey::new("web-system-entware-ssh-enabled-off");
+
+/// `web-system-entware-ssh-port-set` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PORT_SET: MessageKey =
+    MessageKey::new("web-system-entware-ssh-port-set");
+
+/// `web-system-entware-ssh-unconfirmed` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_UNCONFIRMED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-unconfirmed");
+
+/// `web-system-entware-ssh-replace-unconfirmed` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_REPLACE_UNCONFIRMED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-replace-unconfirmed");
+
+/// `web-system-entware-ssh-password-missing` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PASSWORD_MISSING: MessageKey =
+    MessageKey::new("web-system-entware-ssh-password-missing");
+
+/// `web-system-entware-ssh-ticket-invalid` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_TICKET_INVALID: MessageKey =
+    MessageKey::new("web-system-entware-ssh-ticket-invalid");
+
+/// `web-system-entware-ssh-mcp-refused` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_MCP_REFUSED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-mcp-refused");
+
+/// `web-system-entware-ssh-host-changed` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_HOST_CHANGED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-host-changed");
+
+/// `web-system-entware-ssh-not-enrolled` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_NOT_ENROLLED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-not-enrolled");
+
+/// `web-system-entware-ssh-repin-required` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_REPIN_REQUIRED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-repin-required");
+
+/// `web-system-entware-ssh-host-key-unchanged` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_HOST_KEY_UNCHANGED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-host-key-unchanged");
+
+/// `web-system-entware-ssh-slow` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_SLOW: MessageKey = MessageKey::new("web-system-entware-ssh-slow");
+
+/// `web-system-entware-ssh-unreachable` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_UNREACHABLE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-unreachable");
+
+/// `web-system-entware-ssh-not-admitted` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_NOT_ADMITTED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-not-admitted");
+
+/// `web-system-entware-ssh-auth-rejected` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_AUTH_REJECTED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-auth-rejected");
+
+/// `web-system-entware-ssh-ssh-failed` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_SSH_FAILED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-ssh-failed");
+
+/// `web-system-entware-ssh-mismatch` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_MISMATCH: MessageKey =
+    MessageKey::new("web-system-entware-ssh-mismatch");
+
+/// `web-system-entware-ssh-mismatch-pinned` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_MISMATCH_PINNED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-mismatch-pinned");
+
+/// `web-system-entware-ssh-mismatch-presented` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_MISMATCH_PRESENTED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-mismatch-presented");
+
+/// `web-system-entware-ssh-revoke-failed` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_REVOKE_FAILED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-revoke-failed");
+
+/// `web-system-entware-ssh-switched-off` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_SWITCHED_OFF: MessageKey =
+    MessageKey::new("web-system-entware-ssh-switched-off");
+
+/// `web-system-entware-ssh-state-failed` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STATE_FAILED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-state-failed");
+
+/// `web-system-entware-ssh-audit` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_AUDIT: MessageKey =
+    MessageKey::new("web-system-entware-ssh-audit");
+
+/// `web-system-entware-ssh-verification` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_VERIFICATION: MessageKey =
+    MessageKey::new("web-system-entware-ssh-verification");
+
+/// `web-system-entware-ssh-failed` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_FAILED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-failed");
+
+/// `web-system-entware-ssh-package-missing` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PACKAGE_MISSING: MessageKey =
+    MessageKey::new("web-system-entware-ssh-package-missing");
+
+/// `web-system-entware-ssh-service-unknown` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_SERVICE_UNKNOWN: MessageKey =
+    MessageKey::new("web-system-entware-ssh-service-unknown");
+
+/// `web-system-entware-ssh-service-disabled` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_SERVICE_DISABLED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-service-disabled");
+
+/// `web-system-entware-ssh-name-rule` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_NAME_RULE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-name-rule");
+
+/// `web-system-entware-ssh-service-rule` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_SERVICE_RULE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-service-rule");
+
+/// `web-system-entware-ssh-packages` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PACKAGES: MessageKey =
+    MessageKey::new("web-system-entware-ssh-packages");
+
+/// `web-system-entware-ssh-packages-list` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PACKAGES_LIST: MessageKey =
+    MessageKey::new("web-system-entware-ssh-packages-list");
+
+/// `web-system-entware-ssh-packages-upgradable` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PACKAGES_UPGRADABLE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-packages-upgradable");
+
+/// `web-system-entware-ssh-packages-update` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PACKAGES_UPDATE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-packages-update");
+
+/// `web-system-entware-ssh-package-name` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PACKAGE_NAME: MessageKey =
+    MessageKey::new("web-system-entware-ssh-package-name");
+
+/// `web-system-entware-ssh-install` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_INSTALL: MessageKey =
+    MessageKey::new("web-system-entware-ssh-install");
+
+/// `web-system-entware-ssh-remove` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_REMOVE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-remove");
+
+/// `web-system-entware-ssh-upgrade` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_UPGRADE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-upgrade");
+
+/// `web-system-entware-ssh-version` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_VERSION: MessageKey =
+    MessageKey::new("web-system-entware-ssh-version");
+
+/// `web-system-entware-ssh-new-version` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_NEW_VERSION: MessageKey =
+    MessageKey::new("web-system-entware-ssh-new-version");
+
+/// `web-system-entware-ssh-packages-count` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_PACKAGES_COUNT: MessageKey =
+    MessageKey::new("web-system-entware-ssh-packages-count");
+
+/// `web-system-entware-ssh-services` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_SERVICES: MessageKey =
+    MessageKey::new("web-system-entware-ssh-services");
+
+/// `web-system-entware-ssh-services-list` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_SERVICES_LIST: MessageKey =
+    MessageKey::new("web-system-entware-ssh-services-list");
+
+/// `web-system-entware-ssh-service-name` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_SERVICE_NAME: MessageKey =
+    MessageKey::new("web-system-entware-ssh-service-name");
+
+/// `web-system-entware-ssh-status` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STATUS: MessageKey =
+    MessageKey::new("web-system-entware-ssh-status");
+
+/// `web-system-entware-ssh-start` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_START: MessageKey =
+    MessageKey::new("web-system-entware-ssh-start");
+
+/// `web-system-entware-ssh-stop` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STOP: MessageKey = MessageKey::new("web-system-entware-ssh-stop");
+
+/// `web-system-entware-ssh-restart` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_RESTART: MessageKey =
+    MessageKey::new("web-system-entware-ssh-restart");
+
+/// `web-system-entware-ssh-log` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_LOG: MessageKey = MessageKey::new("web-system-entware-ssh-log");
+
+/// `web-system-entware-ssh-services-count` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_SERVICES_COUNT: MessageKey =
+    MessageKey::new("web-system-entware-ssh-services-count");
+
+/// `web-system-entware-ssh-running` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_RUNNING: MessageKey =
+    MessageKey::new("web-system-entware-ssh-running");
+
+/// `web-system-entware-ssh-stopped` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_STOPPED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-stopped");
+
+/// `web-system-entware-ssh-log-title` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_LOG_TITLE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-log-title");
+
+/// `web-system-entware-ssh-log-empty` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_LOG_EMPTY: MessageKey =
+    MessageKey::new("web-system-entware-ssh-log-empty");
+
+/// `web-system-entware-ssh-job` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_JOB: MessageKey = MessageKey::new("web-system-entware-ssh-job");
+
+/// `web-system-entware-ssh-job-installed` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_JOB_INSTALLED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-job-installed");
+
+/// `web-system-entware-ssh-job-removed` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_JOB_REMOVED: MessageKey =
+    MessageKey::new("web-system-entware-ssh-job-removed");
+
+/// `web-system-entware-ssh-delete-notice` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_DELETE_NOTICE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-delete-notice");
+
+/// `web-system-entware-ssh-confirm-title` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_CONFIRM_TITLE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-confirm-title");
+
+/// `web-system-entware-ssh-confirm-read` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_CONFIRM_READ: MessageKey =
+    MessageKey::new("web-system-entware-ssh-confirm-read");
+
+/// `web-system-entware-ssh-confirm-probe` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_CONFIRM_PROBE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-confirm-probe");
+
+/// `web-system-entware-ssh-confirm-local` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_CONFIRM_LOCAL: MessageKey =
+    MessageKey::new("web-system-entware-ssh-confirm-local");
+
+/// `web-system-entware-ssh-confirm-change` in `web.ftl`.
+pub const WEB_SYSTEM_ENTWARE_SSH_CONFIRM_CHANGE: MessageKey =
+    MessageKey::new("web-system-entware-ssh-confirm-change");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2732] = [
+pub static ALL: [MessageKey; 2833] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -11509,4 +11908,105 @@ pub static ALL: [MessageKey; 2732] = [
     WEB_ADMIN_MCP_MTLS_CA_REPLACE_NOTE,
     WEB_ADMIN_MCP_MTLS_CA_SUBJECTS,
     WEB_ADMIN_MCP_MTLS_CA_UNCHECKED,
+    WEB_SYSTEM_ENTWARE_SSH_TITLE,
+    WEB_SYSTEM_ENTWARE_SSH_INTRO,
+    WEB_SYSTEM_ENTWARE_SSH_STATE,
+    WEB_SYSTEM_ENTWARE_SSH_STATE_NONE,
+    WEB_SYSTEM_ENTWARE_SSH_STATE_PENDING,
+    WEB_SYSTEM_ENTWARE_SSH_STATE_ACTIVE,
+    WEB_SYSTEM_ENTWARE_SSH_STATE_UNREADABLE,
+    WEB_SYSTEM_ENTWARE_SSH_PORT,
+    WEB_SYSTEM_ENTWARE_SSH_PORT_RULE,
+    WEB_SYSTEM_ENTWARE_SSH_PORT_APPLY,
+    WEB_SYSTEM_ENTWARE_SSH_MANAGEMENT,
+    WEB_SYSTEM_ENTWARE_SSH_FINGERPRINT,
+    WEB_SYSTEM_ENTWARE_SSH_ENROLLED_BY,
+    WEB_SYSTEM_ENTWARE_SSH_CHROOT,
+    WEB_SYSTEM_ENTWARE_SSH_CHECK,
+    WEB_SYSTEM_ENTWARE_SSH_CHECK_HELP,
+    WEB_SYSTEM_ENTWARE_SSH_REPIN,
+    WEB_SYSTEM_ENTWARE_SSH_ACTIVE_WARNING,
+    WEB_SYSTEM_ENTWARE_SSH_REVOKE,
+    WEB_SYSTEM_ENTWARE_SSH_REVOKE_HELP,
+    WEB_SYSTEM_ENTWARE_SSH_DISABLE,
+    WEB_SYSTEM_ENTWARE_SSH_DISABLE_HELP,
+    WEB_SYSTEM_ENTWARE_SSH_STEP_TITLE,
+    WEB_SYSTEM_ENTWARE_SSH_STEP_FINGERPRINT,
+    WEB_SYSTEM_ENTWARE_SSH_STEP_CHECK,
+    WEB_SYSTEM_ENTWARE_SSH_STEP_EXPIRES,
+    WEB_SYSTEM_ENTWARE_SSH_STEP_PASSWORD,
+    WEB_SYSTEM_ENTWARE_SSH_STEP_PASSWORD_HELP,
+    WEB_SYSTEM_ENTWARE_SSH_STEP_CONFIRM,
+    WEB_SYSTEM_ENTWARE_SSH_STEP_REPLACE,
+    WEB_SYSTEM_ENTWARE_SSH_STEP_ENROL,
+    WEB_SYSTEM_ENTWARE_SSH_STEP_REPIN,
+    WEB_SYSTEM_ENTWARE_SSH_ENROLLED,
+    WEB_SYSTEM_ENTWARE_SSH_REPINNED,
+    WEB_SYSTEM_ENTWARE_SSH_DEFAULT_PASSWORD,
+    WEB_SYSTEM_ENTWARE_SSH_REVOKED,
+    WEB_SYSTEM_ENTWARE_SSH_DISABLED,
+    WEB_SYSTEM_ENTWARE_SSH_ENABLED_ON,
+    WEB_SYSTEM_ENTWARE_SSH_ENABLED_OFF,
+    WEB_SYSTEM_ENTWARE_SSH_PORT_SET,
+    WEB_SYSTEM_ENTWARE_SSH_UNCONFIRMED,
+    WEB_SYSTEM_ENTWARE_SSH_REPLACE_UNCONFIRMED,
+    WEB_SYSTEM_ENTWARE_SSH_PASSWORD_MISSING,
+    WEB_SYSTEM_ENTWARE_SSH_TICKET_INVALID,
+    WEB_SYSTEM_ENTWARE_SSH_MCP_REFUSED,
+    WEB_SYSTEM_ENTWARE_SSH_HOST_CHANGED,
+    WEB_SYSTEM_ENTWARE_SSH_NOT_ENROLLED,
+    WEB_SYSTEM_ENTWARE_SSH_REPIN_REQUIRED,
+    WEB_SYSTEM_ENTWARE_SSH_HOST_KEY_UNCHANGED,
+    WEB_SYSTEM_ENTWARE_SSH_SLOW,
+    WEB_SYSTEM_ENTWARE_SSH_UNREACHABLE,
+    WEB_SYSTEM_ENTWARE_SSH_NOT_ADMITTED,
+    WEB_SYSTEM_ENTWARE_SSH_AUTH_REJECTED,
+    WEB_SYSTEM_ENTWARE_SSH_SSH_FAILED,
+    WEB_SYSTEM_ENTWARE_SSH_MISMATCH,
+    WEB_SYSTEM_ENTWARE_SSH_MISMATCH_PINNED,
+    WEB_SYSTEM_ENTWARE_SSH_MISMATCH_PRESENTED,
+    WEB_SYSTEM_ENTWARE_SSH_REVOKE_FAILED,
+    WEB_SYSTEM_ENTWARE_SSH_SWITCHED_OFF,
+    WEB_SYSTEM_ENTWARE_SSH_STATE_FAILED,
+    WEB_SYSTEM_ENTWARE_SSH_AUDIT,
+    WEB_SYSTEM_ENTWARE_SSH_VERIFICATION,
+    WEB_SYSTEM_ENTWARE_SSH_FAILED,
+    WEB_SYSTEM_ENTWARE_SSH_PACKAGE_MISSING,
+    WEB_SYSTEM_ENTWARE_SSH_SERVICE_UNKNOWN,
+    WEB_SYSTEM_ENTWARE_SSH_SERVICE_DISABLED,
+    WEB_SYSTEM_ENTWARE_SSH_NAME_RULE,
+    WEB_SYSTEM_ENTWARE_SSH_SERVICE_RULE,
+    WEB_SYSTEM_ENTWARE_SSH_PACKAGES,
+    WEB_SYSTEM_ENTWARE_SSH_PACKAGES_LIST,
+    WEB_SYSTEM_ENTWARE_SSH_PACKAGES_UPGRADABLE,
+    WEB_SYSTEM_ENTWARE_SSH_PACKAGES_UPDATE,
+    WEB_SYSTEM_ENTWARE_SSH_PACKAGE_NAME,
+    WEB_SYSTEM_ENTWARE_SSH_INSTALL,
+    WEB_SYSTEM_ENTWARE_SSH_REMOVE,
+    WEB_SYSTEM_ENTWARE_SSH_UPGRADE,
+    WEB_SYSTEM_ENTWARE_SSH_VERSION,
+    WEB_SYSTEM_ENTWARE_SSH_NEW_VERSION,
+    WEB_SYSTEM_ENTWARE_SSH_PACKAGES_COUNT,
+    WEB_SYSTEM_ENTWARE_SSH_SERVICES,
+    WEB_SYSTEM_ENTWARE_SSH_SERVICES_LIST,
+    WEB_SYSTEM_ENTWARE_SSH_SERVICE_NAME,
+    WEB_SYSTEM_ENTWARE_SSH_STATUS,
+    WEB_SYSTEM_ENTWARE_SSH_START,
+    WEB_SYSTEM_ENTWARE_SSH_STOP,
+    WEB_SYSTEM_ENTWARE_SSH_RESTART,
+    WEB_SYSTEM_ENTWARE_SSH_LOG,
+    WEB_SYSTEM_ENTWARE_SSH_SERVICES_COUNT,
+    WEB_SYSTEM_ENTWARE_SSH_RUNNING,
+    WEB_SYSTEM_ENTWARE_SSH_STOPPED,
+    WEB_SYSTEM_ENTWARE_SSH_LOG_TITLE,
+    WEB_SYSTEM_ENTWARE_SSH_LOG_EMPTY,
+    WEB_SYSTEM_ENTWARE_SSH_JOB,
+    WEB_SYSTEM_ENTWARE_SSH_JOB_INSTALLED,
+    WEB_SYSTEM_ENTWARE_SSH_JOB_REMOVED,
+    WEB_SYSTEM_ENTWARE_SSH_DELETE_NOTICE,
+    WEB_SYSTEM_ENTWARE_SSH_CONFIRM_TITLE,
+    WEB_SYSTEM_ENTWARE_SSH_CONFIRM_READ,
+    WEB_SYSTEM_ENTWARE_SSH_CONFIRM_PROBE,
+    WEB_SYSTEM_ENTWARE_SSH_CONFIRM_LOCAL,
+    WEB_SYSTEM_ENTWARE_SSH_CONFIRM_CHANGE,
 ];

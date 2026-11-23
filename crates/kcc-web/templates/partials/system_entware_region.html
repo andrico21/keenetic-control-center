@@ -144,4 +144,7 @@
     {%- endif %}
   </section>
   {%- endif %}
+  {%- if let Some(section) = ssh %}
+  {{ section }}
+  {%- endif %}
 </div>

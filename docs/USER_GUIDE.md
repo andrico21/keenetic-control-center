@@ -263,6 +263,22 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
   or set it up: a background job installs the missing components (the router restarts),
   sends the installer for the router's architecture (a MIPS router asks which one) and
   checks its log lines. The job leaves the configuration unsaved and offers Save.
+  With `Destructive` on the router, an **SSH access** section manages Entware packages
+  and services over SSH with kcc's own key; every action there asks for the router
+  name. Enrolment has two steps: Check router identity shows the router's SSH host key
+  fingerprint (check it out of band, for example with `ssh-keyscan` and `ssh-keygen -lf`
+  from the local network); then tick that you confirm it and enter the Entware root
+  password, which kcc uses once to install its key and never stores. The default
+  password is named after the enrolment so you can change it. Enrolling an Active
+  router again, or pinning a changed host key, first needs a box ticked: the enrolment
+  is Pending until it succeeds. A host key that differs from the pinned one is refused
+  with both fingerprints shown. Revoke removes kcc's key from the router; Forget here
+  only forgets it in kcc. Nothing works while chroot is on. Once Active, Packages lists
+  installed and upgradable packages and updates, installs, removes or upgrades one;
+  Services lists services, shows a status or the log (masked without `RevealSecrets`),
+  and starts, stops or restarts one. Changes run as jobs and are read back on the
+  router; a list that waits behind a running change says the router is busy. Deleting a
+  router that still authorizes kcc's key warns to revoke it first.
 - **Schedules**: create schedules and their actions.
 - **KeenDNS**: book or drop a name, set the access level, add proxy entries. The
   current access level and proxy entries aren't readable.

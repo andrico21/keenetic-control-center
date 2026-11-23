@@ -2341,6 +2341,7 @@ dependencies = [
  "kcc-i18n",
  "kcc-migrate",
  "kcc-rci",
+ "kcc-ssh",
  "kcc-telemetry",
  "kcc-testkit",
  "rand 0.10.4",

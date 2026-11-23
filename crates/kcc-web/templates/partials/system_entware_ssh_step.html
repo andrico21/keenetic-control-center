@@ -1,0 +1,33 @@
+{#- Step 2 of the enrolment: the probed fingerprint again with how to check it, its ticket, the Entware root password (never filled in) and the confirmations. -#}
+<form class="form" id="entware-ssh-confirm-form" method="post" action="{{ action }}" hx-post="{{ action }}" hx-target="#page-outcome">
+  <h3 class="panel__subtitle">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STEP_TITLE) }}</h3>
+  <dl class="settings">
+    <div class="settings__row">
+      <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STEP_FINGERPRINT) }}</dt>
+      <dd class="settings__value"><code id="entware-ssh-probed">{{ fingerprint }}</code></dd>
+    </div>
+  </dl>
+  <p class="field__help admin-path">{{ check }}</p>
+  <p class="field__help">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STEP_EXPIRES) }}</p>
+  <input type="hidden" name="nonce" value="{{ nonce }}">
+  <input type="hidden" name="fingerprint" value="{{ fingerprint }}">
+  {%- if active %}
+  <p class="notice" data-tone="warning" id="entware-ssh-step-warning">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_ACTIVE_WARNING) }}</p>
+  <div class="check">
+    <input class="check__input" type="checkbox" id="entware-ssh-replace" name="replace_active" value="yes">
+    <label class="check__label" for="entware-ssh-replace">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STEP_REPLACE) }}</label>
+  </div>
+  {%- endif %}
+  <div class="field">
+    <label class="field__label" for="entware-ssh-password">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STEP_PASSWORD) }}</label>
+    <input class="field__input" type="password" id="entware-ssh-password" name="password" autocomplete="off" required aria-describedby="entware-ssh-password-help">
+    <p class="field__help" id="entware-ssh-password-help">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STEP_PASSWORD_HELP) }}</p>
+  </div>
+  <div class="check">
+    <input class="check__input" type="checkbox" id="entware-ssh-confirm" name="fingerprint_confirmed" value="yes" required>
+    <label class="check__label" for="entware-ssh-confirm">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STEP_CONFIRM) }}</label>
+  </div>
+  <div class="form__actions">
+    <button class="button button--danger" type="submit">{% if mode == Mode::Repin %}{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STEP_REPIN) }}{% else %}{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_STEP_ENROL) }}{% endif %}</button>
+  </div>
+</form>

@@ -1,0 +1,11 @@
+{#- The two fingerprints of a host key that differs from the pinned one, after the outcome that says so. -#}
+<dl class="settings" id="entware-ssh-mismatch">
+  <div class="settings__row">
+    <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_MISMATCH_PINNED) }}</dt>
+    <dd class="settings__value"><code>{{ pinned }}</code></dd>
+  </div>
+  <div class="settings__row">
+    <dt class="settings__label">{{ t(keys::WEB_SYSTEM_ENTWARE_SSH_MISMATCH_PRESENTED) }}</dt>
+    <dd class="settings__value"><code>{{ presented }}</code></dd>
+  </div>
+</dl>
