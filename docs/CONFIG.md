@@ -133,10 +133,13 @@ no metrics.
 | `oauth` | string | `"none"` | OAuth sign-in besides API keys: `none`, `kcc` (kcc accounts) or `external` (`[mcp.auth.oidc]`) |
 | `mtls` | string | `"off"` | client certificates: `off` or `optional`; `required` is refused here because this listener also serves the Web UI |
 
-OAuth and client-certificate sign-in are not available yet: a listener whose `oauth` is
-not `none` or whose `mtls` is not `off` does not start. When that comes from values saved
-on the Web, the main listener starts with this file's `[mcp.auth.*]` and
-`[mcp.dedicated]` instead (logged) and a dedicated listener is skipped.
+OAuth sign-in is not available yet: a listener whose `oauth` is not `none` does not
+start. Client certificates (`optional` or `required`) need TLS on the listener and the
+client CA uploaded on the Web (Administration > MCP, stored as `<state>/mcp/mtls-ca.pem`;
+no path is configured anywhere); a listener whose CA file is missing or fails the checks
+does not start. When either comes from values saved on the Web, the main listener starts
+with this file's `[mcp.auth.*]` and `[mcp.dedicated]` instead (logged, and shown on the
+MCP page) and a dedicated listener is skipped.
 
 ### `[mcp.auth.dedicated]`
 
@@ -187,7 +190,7 @@ name `kcc-account`, and a role named by these settings cannot be deleted.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `default_role` | string | unset | role of a client signed in by certificate (the CA is uploaded on the Web) |
+| `default_role` | string | unset | role of a client signed in by certificate; unset means `viewer` (the CA is uploaded on the Web: PEM, at most 64 KiB, one to ten CA certificates) |
 
 ## `[outbound]`
 

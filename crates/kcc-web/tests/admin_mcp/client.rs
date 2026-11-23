@@ -89,7 +89,8 @@ impl Mcp {
             .header(header::ORIGIN, ORIGIN)
             .header("sec-fetch-site", "same-origin")
             .header("hx-request", "true")
-            .header(header::CONTENT_TYPE, kind);
+            .header(header::CONTENT_TYPE, kind)
+            .header(header::CONTENT_LENGTH, body.len());
         if !browser.csrf.is_empty() {
             request = request.header("x-csrf-token", &browser.csrf);
         }

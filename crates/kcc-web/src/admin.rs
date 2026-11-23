@@ -56,6 +56,15 @@ pub trait McpControl: fmt::Debug + Send + Sync {
     /// when this is called; dropping the future does not stop it.
     fn restart(&self, candidate: Candidate) -> McpChange;
 
+    /// Replaces the client CA of the client-certificate sign-in with `pem` in the same
+    /// serialized section, then restarts every listener using it as one unit; a failed
+    /// restart puts the previous CA back and serves the previous listeners again.
+    /// `confirmed` says the actor re-entered the password: while a listener uses client
+    /// certificates, an unconfirmed replacement is refused with
+    /// [`mcp_control::McpRefusal::ConfirmationRequired`].
+    /// The change is queued when this is called; dropping the future does not stop it.
+    fn replace_client_ca(&self, pem: Vec<u8>, confirmed: bool) -> McpChange;
+
     /// How the listeners started; cheap, never waits.
     fn status(&self) -> McpStatus;
 

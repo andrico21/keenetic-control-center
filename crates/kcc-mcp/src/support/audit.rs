@@ -4,7 +4,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use kcc_app::audit::{Actor, ActorKind, Attempt, AuditEvent, receipt::AUDIT_WAIT};
-use rmcp_server_kit::rbac::current_identity;
 use serde_json::Value;
 
 use super::{
@@ -97,10 +96,7 @@ impl Success {
 
 /// The MCP principal of the current call.
 fn actor() -> Actor {
-    Actor::new(
-        ActorKind::Mcp,
-        current_identity().unwrap_or_else(|| "stdio".to_owned()),
-    )
+    Actor::new(ActorKind::Mcp, super::principal::name())
 }
 
 /// Seconds since the Unix epoch.

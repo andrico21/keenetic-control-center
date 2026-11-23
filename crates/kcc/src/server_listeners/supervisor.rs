@@ -18,6 +18,7 @@ use tokio::{
 use super::{
     Command, Status,
     build::{BuildError, Built, Keys, Shared, build},
+    client_ca,
     generation::{Listeners, ShutdownWait, StartError},
     restart,
 };
@@ -287,6 +288,10 @@ impl Supervisor {
             }
             Command::ApplyLive(candidate, reply) => {
                 let result = Box::pin(restart::apply_live(self, &candidate)).await;
+                drop(reply.send(result));
+            }
+            Command::ReplaceClientCa(pem, confirmed, reply) => {
+                let result = Box::pin(client_ca::replace(self, pem, confirmed)).await;
                 drop(reply.send(result));
             }
         }

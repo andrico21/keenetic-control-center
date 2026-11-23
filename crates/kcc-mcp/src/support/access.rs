@@ -21,6 +21,7 @@ use super::{
     call::current_request_id,
     errors::map_workflow,
     gates::{McpGates, of_call},
+    principal,
 };
 use crate::{KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers};
 
@@ -73,7 +74,8 @@ impl KccMcp {
             .is_some_and(|definition| gates.admits(definition))
     }
 
-    /// Resolves the caller to a configured role, or the stdio fallback role.
+    /// Resolves the caller to a configured role, or the stdio fallback role, under its
+    /// namespaced name ([`principal::name`]).
     ///
     /// # Errors
     ///
@@ -86,19 +88,17 @@ impl KccMcp {
                 .find(&self.fallback_role.name)
                 .ok_or(McpFailure::Forbidden)?,
         };
-        Ok(McpIdentity::new(
-            current_identity().unwrap_or_else(|| "stdio".to_owned()),
-            role,
-        ))
+        Ok(McpIdentity::new(principal::name(), role))
     }
 
-    /// Records the use of the caller's API key, at most once a minute per key; stdio
-    /// sessions and calls without a recorder record nothing.
+    /// Records the use of the caller's API key, at most once a minute per key; callers
+    /// signed in otherwise (a client certificate, stdio) and calls without a recorder
+    /// record nothing, so a certificate named like a key never marks that key used.
     // cancel-safe: the state write runs on a blocking thread that completes even if this
     // future is dropped.
     pub(crate) async fn record_key_use(&self) {
-        let (Some(recorder), Some(_role), Some(key)) =
-            (&self.key_use, current_role(), current_identity())
+        let (Some(recorder), true, Some(key)) =
+            (&self.key_use, principal::is_api_key(), current_identity())
         else {
             return;
         };

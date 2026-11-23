@@ -123,7 +123,7 @@ pub(crate) async fn status(
         (state.unix_seconds(), query.until),
     );
     if fragment.ended() {
-        match fresh(&state, locale).await {
+        match fresh(&state, &user).await {
             Ok(region) => fragment.region = Some(region),
             Err(error) => tracing::error!(%error, "MCP settings region could not be read again"),
         }

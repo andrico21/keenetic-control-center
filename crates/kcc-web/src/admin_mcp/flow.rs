@@ -30,7 +30,7 @@ use super::{
 };
 use crate::{
     WebState,
-    admin::mcp_control::McpRefusal,
+    admin::{McpChange, mcp_control::McpRefusal},
     admin_shared::Timestamp,
     authz::CurrentUser,
     errors,
@@ -61,7 +61,7 @@ fn params(candidate: &Candidate) -> Value {
 }
 
 /// The audited name of `kind`.
-const fn name(kind: ListenerKind) -> &'static str {
+pub(crate) const fn name(kind: ListenerKind) -> &'static str {
     match kind {
         ListenerKind::Main => "main",
         ListenerKind::Dedicated | _ => "dedicated",
@@ -110,29 +110,17 @@ pub(crate) async fn submit(
         match result {
             Ok(()) => {
                 let said = Said::new(locale, keys::WEB_ADMIN_MCP_SAVED, None);
-                reply::notice(state, locale, (said, "success"), StatusCode::OK).await
+                reply::notice(state, user, (said, "success"), StatusCode::OK).await
             }
             Err(refusal) => {
                 let said = Said::refusal(locale, refusal);
-                reply::notice(state, locale, (said, "error"), StatusCode::CONFLICT).await
+                reply::notice(state, user, (said, "error"), StatusCode::CONFLICT).await
             }
         }
     } else {
-        let progress = Progress::Restarting(candidate.restart().to_vec());
-        attached.set_progress(progress.clone());
+        let kinds = candidate.restart().to_vec();
         let change = attached.control().restart(candidate);
-        let (state_now, user_now) = (state.clone(), user.clone());
-        drop(tokio::spawn(async move {
-            let result = change.await;
-            audit(&state_now, &user_now, params, outcome(result)).await;
-            attached.set_progress(result.map_or_else(Progress::Refused, |()| Progress::Applied));
-        }));
-        reply::restarting(
-            state,
-            locale,
-            Status::new(locale, &progress, deadline(state)),
-        )
-        .await
+        in_background(state, user, attached, (kinds, change, params)).await
     };
     if posted.password.is_some() {
         respond::close_dialog(answer)
@@ -141,8 +129,31 @@ pub(crate) async fn submit(
     }
 }
 
+/// Awaits `change`, which restarts `kinds`, in a background task; the restart status.
+///
+/// The change is recorded as the page's restart in progress; the task audits `params`
+/// with its outcome and then records how it ended, and the status polls until then.
+// NOT cancel-safe: dropped after the hand-over, the change and its audit run on.
+pub(crate) async fn in_background(
+    state: &WebState,
+    user: &CurrentUser,
+    attached: Arc<Attached>,
+    (kinds, change, params): (Vec<ListenerKind>, McpChange, Value),
+) -> Response {
+    let locale = user.locale();
+    let progress = Progress::Restarting(kinds);
+    attached.set_progress(progress.clone());
+    let (state_now, user_now) = (state.clone(), user.clone());
+    drop(tokio::spawn(async move {
+        let result = change.await;
+        audit(&state_now, &user_now, params, outcome(result)).await;
+        attached.set_progress(result.map_or_else(Progress::Refused, |()| Progress::Applied));
+    }));
+    reply::restarting(state, user, Status::new(locale, &progress, deadline(state))).await
+}
+
 /// The audit outcome of `result`.
-const fn outcome(result: Result<(), McpRefusal>) -> &'static str {
+pub(crate) const fn outcome(result: Result<(), McpRefusal>) -> &'static str {
     match result {
         Ok(()) => "success",
         Err(refusal) => refusal.code(),
@@ -157,7 +168,7 @@ const fn outcome(result: Result<(), McpRefusal>) -> &'static str {
 ///
 /// The error page when the accounts cannot be read.
 // cancel-safe: the check runs whole on a blocking thread; dropped, only its answer is lost.
-async fn confirmed(
+pub(crate) async fn confirmed(
     state: &WebState,
     user: &CurrentUser,
     password: &SecretString,

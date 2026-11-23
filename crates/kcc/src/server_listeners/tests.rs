@@ -4,8 +4,10 @@
 extern crate alloc;
 
 mod client;
+mod client_ca;
 mod dedicated;
 mod fixture;
+mod mtls;
 mod restart;
 mod section;
 mod services;

@@ -7,6 +7,7 @@ use std::fs;
 use axum::http::StatusCode;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use kcc_i18n::keys;
+use rcgen::{BasicConstraints, CertificateParams, IsCa, KeyPair};
 use sha2::{Digest as _, Sha256};
 
 use crate::{
@@ -46,11 +47,12 @@ fn random(count: usize) -> Vec<u8> {
     repeat_with(rand::random::<u8>).take(count).collect()
 }
 
-/// Regression (todo 27): a CA upload is checked for size and PEM shape only.
+/// Regression (todo 27): a CA upload is checked for size and PEM shape.
 ///
 /// It is refused when it is over 64 KiB, not PEM, holds anything besides certificates
 /// (the private key is never echoed), or carries a path field; a certificate bundle
-/// within the limit is stored for its listener.
+/// within the limit is stored for its listener (todo 28: a client CA must also hold CA
+/// certificates, which `mtls.rs` covers).
 #[tokio::test]
 async fn a_ca_upload_is_checked_for_size_and_shape() -> TestResult {
     let fixture = Mcp::plain().await?;
@@ -59,6 +61,12 @@ async fn a_ca_upload_is_checked_for_size_and_shape() -> TestResult {
     let certificate = pem("CERTIFICATE", &random(300));
     let mut oversized = certificate.clone().into_bytes();
     oversized.resize(LIMIT.saturating_add(1), b'\n');
+    let client_ca = CertificateParams::new(Vec::<String>::new())
+        .and_then(|mut params| {
+            params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+            params.self_signed(&KeyPair::generate()?)
+        })?
+        .pem();
     let refused: [Upload<'_>; 5] = [
         (&[("kind", "mtls")], oversized),
         (&[("kind", "mtls")], b"not a certificate".to_vec()),
@@ -68,7 +76,7 @@ async fn a_ca_upload_is_checked_for_size_and_shape() -> TestResult {
         ),
         (
             &[("kind", "mtls"), ("path", "/etc/ssl/ca.pem")],
-            certificate.clone().into_bytes(),
+            client_ca.clone().into_bytes(),
         ),
         (&[("kind", "elsewhere")], certificate.clone().into_bytes()),
     ];
@@ -85,8 +93,11 @@ async fn a_ca_upload_is_checked_for_size_and_shape() -> TestResult {
         !fixture.audit_text().await?.contains("PRIVATE KEY"),
         "no key audited"
     );
-    for (kind, file) in [("mtls", "mtls-ca.pem"), ("oidc", "oidc-ca.pem")] {
-        let mut bundle = certificate.clone().into_bytes();
+    for (kind, file, shape) in [
+        ("mtls", "mtls-ca.pem", &client_ca),
+        ("oidc", "oidc-ca.pem", &certificate),
+    ] {
+        let mut bundle = shape.clone().into_bytes();
         bundle.resize(LIMIT, b'\n');
         let response = fixture
             .upload(UPLOAD, &admin, (&[("kind", kind)], &bundle))
@@ -114,6 +125,47 @@ async fn a_ca_upload_is_checked_for_size_and_shape() -> TestResult {
     assert!(
         !fixture.audit_text().await?.contains(&certificate),
         "no file audited"
+    );
+    Ok(())
+}
+
+/// Regression (todo 28): the upload's body limit refuses a 1 MiB request before the
+/// handler reads it (413, nothing stored or audited), while a client CA padded to the
+/// 64 KiB file limit is still taken.
+#[tokio::test]
+async fn an_upload_over_the_body_limit_is_refused_unread() -> TestResult {
+    let fixture = Mcp::plain().await?;
+    let admin = fixture.login("admin").await?;
+    let client_ca = CertificateParams::new(Vec::<String>::new())
+        .and_then(|mut params| {
+            params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+            params.self_signed(&KeyPair::generate()?)
+        })?
+        .pem()
+        .into_bytes();
+    let mut huge = client_ca.clone();
+    huge.resize(1024 * 1024, b'\n');
+
+    let refused = fixture
+        .upload(UPLOAD, &admin, (&[("kind", "mtls")], &huge))
+        .await?;
+
+    assert_eq!(refused.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    assert!(!fixture.state_file("mcp").join("mtls-ca.pem").exists());
+    assert_eq!(
+        fixture.audited("web.mcp_settings").await?.len(),
+        0,
+        "nothing audited"
+    );
+    let mut largest = client_ca;
+    largest.resize(LIMIT, b'\n');
+    let taken = fixture
+        .upload(UPLOAD, &admin, (&[("kind", "mtls")], &largest))
+        .await?;
+    assert_eq!(taken.status(), StatusCode::OK);
+    assert_eq!(
+        fs::read(fixture.state_file("mcp").join("mtls-ca.pem"))?,
+        largest
     );
     Ok(())
 }

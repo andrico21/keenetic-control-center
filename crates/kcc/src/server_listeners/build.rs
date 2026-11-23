@@ -13,20 +13,20 @@ use kcc_app::{
     persist::StateStore,
     settings::{
         Config, ConfigError, McpConfig,
-        mcp_schema::{DedicatedTls, Endpoint, ListenerAuth, MtlsMode, OauthMode},
+        mcp_schema::{DedicatedTls, Endpoint},
     },
 };
 use kcc_mcp::KccMcp;
 use kcc_web::{WebState, admin::TransportReload, csp::security_headers, web_router};
 use rmcp_server_kit::{
     RmcpServerKitError,
-    auth::{AuthConfig, RateLimitConfig},
+    auth::{AuthConfig, MtlsConfig, RateLimitConfig},
     rbac::RbacPolicy,
     transport::{McpServerConfig, ReadinessCheck, ReloadHandle, Validated},
 };
 use tokio::sync::oneshot;
 
-use super::{health::Probe, name, tls::leaf};
+use super::{health::Probe, sign_in::client_certificates, tls::leaf};
 use crate::{
     server_metrics::{AttachError, Metrics},
     server_tls_dedicated::ensure,
@@ -133,12 +133,15 @@ pub enum BuildError {
     /// The build ended abnormally.
     #[error("the listener build ended abnormally: {0}")]
     Task(String),
-    /// The listener's OAuth or client-certificate sign-in is not available yet.
-    #[error("the {listener} listener's OAuth or client-certificate sign-in is not available")]
+    /// The listener's OAuth sign-in is not available yet.
+    #[error("the {listener} listener's OAuth sign-in is not available")]
     SignInUnavailable {
         /// `main` or `dedicated`.
         listener: &'static str,
     },
+    /// The client CA of the listener's client-certificate sign-in is missing or unusable.
+    #[error("client CA {0}")]
+    ClientCa(String),
 }
 
 impl From<AttachError> for BuildError {
@@ -158,7 +161,8 @@ pub(crate) fn build(
     keys: Keys,
 ) -> Result<Built, BuildError> {
     let (callback, handles) = oneshot::channel();
-    let base = kit_base(shared, keys)?.with_reload_callback(move |handle| {
+    let mtls = client_certificates(shared, settings, kind)?;
+    let base = kit_base(shared, keys, mtls)?.with_reload_callback(move |handle| {
         drop(callback.send(handle));
     });
     let (server, bind, factory, probe) = match kind {
@@ -181,7 +185,6 @@ type Parts = (McpServerConfig, SocketAddr, Factory, Probe);
 
 /// The main listener: `[server]`, the Web UI and its origins, metrics.
 fn main(shared: &Shared, settings: &McpConfig, base: McpServerConfig) -> Result<Parts, BuildError> {
-    sign_in(settings.auth.main, ListenerKind::Main)?;
     let config = &shared.config;
     let tls = match (&config.server.tls_cert_path, &config.server.tls_key_path) {
         (Some(cert), Some(key)) => Some(leaf(cert, key)?),
@@ -221,7 +224,8 @@ fn main(shared: &Shared, settings: &McpConfig, base: McpServerConfig) -> Result<
         Factory::Live(Arc::clone(&shared.live))
     };
     let bind = SocketAddr::new(ip, config.server.listen_port);
-    Ok((server, bind, factory, Probe::new(tls, metrics)))
+    let probe = Probe::new(tls, metrics).with_mtls(settings.auth.main.mtls);
+    Ok((server, bind, factory, probe))
 }
 
 /// The dedicated listener: `/mcp` only, its own address, URL and certificate; no Web UI
@@ -231,7 +235,6 @@ fn dedicated(
     settings: &McpConfig,
     base: McpServerConfig,
 ) -> Result<Parts, BuildError> {
-    sign_in(settings.auth.dedicated, ListenerKind::Dedicated)?;
     let dedicated = &settings.dedicated;
     let server_tls = &shared.config.server;
     let paths = match dedicated.tls {
@@ -265,11 +268,17 @@ fn dedicated(
         )
         .with_security_headers(security_headers(tls.is_some()));
     let factory = Factory::Live(Arc::clone(&shared.live));
-    Ok((server, bind, factory, Probe::new(tls, None)))
+    let probe = Probe::new(tls, None).with_mtls(settings.auth.dedicated.mtls);
+    Ok((server, bind, factory, probe))
 }
 
-/// `[server]` with the API keys, the RBAC policy and the readiness probe.
-fn kit_base(shared: &Shared, keys: Keys) -> Result<McpServerConfig, BuildError> {
+/// `[server]` with the API keys, the client-certificate sign-in `mtls`, the RBAC policy and
+/// the readiness probe.
+fn kit_base(
+    shared: &Shared,
+    keys: Keys,
+    mtls: Option<MtlsConfig>,
+) -> Result<McpServerConfig, BuildError> {
     let entries = match (api_key_entries(&shared.state), keys) {
         (Ok(entries), _) => entries,
         (Err(error), Keys::Required) => return Err(BuildError::Keys(error.to_string())),
@@ -279,25 +288,14 @@ fn kit_base(shared: &Shared, keys: Keys) -> Result<McpServerConfig, BuildError> 
         }
     };
     let base = McpServerConfig::new("placeholder:0", "kcc", env!("CARGO_PKG_VERSION"));
+    let mut auth = AuthConfig::with_keys(entries)
+        .with_rate_limit(RateLimitConfig::new(30).with_pre_auth_burst(10));
+    auth.mtls = mtls;
     Ok(shared
         .config
         .server
         .apply_to_mcp_config(base)?
-        .with_auth(
-            AuthConfig::with_keys(entries)
-                .with_rate_limit(RateLimitConfig::new(30).with_pre_auth_burst(10)),
-        )
+        .with_auth(auth)
         .with_rbac(Arc::new(RbacPolicy::new(&shared.live.load().rbac_config())))
         .with_readiness_check(Arc::clone(&shared.readiness)))
-}
-
-/// Refuses a sign-in method this version cannot enforce, so it is never silently ignored.
-fn sign_in(auth: ListenerAuth, kind: ListenerKind) -> Result<(), BuildError> {
-    if auth.oauth == OauthMode::None && auth.mtls == MtlsMode::Off {
-        Ok(())
-    } else {
-        Err(BuildError::SignInUnavailable {
-            listener: name(kind),
-        })
-    }
 }

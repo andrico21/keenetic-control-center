@@ -174,12 +174,21 @@ pub(crate) struct Facts {
     toolsets: Vec<McpToolset>,
     /// Every role name.
     roles: Vec<String>,
+    /// The roles the signed-in role dominates, which it may name as the client-certificate
+    /// default role.
+    assignable: Vec<String>,
     /// The issuer of kcc's authorization server, or why it has none.
     issuer: Issuer,
     /// The SHA-256 fingerprint of the self-signed certificate, once made.
     fingerprint: Option<String>,
     /// Whether a client CA and an identity provider CA bundle are stored.
     cas: (bool, bool),
+    /// The stored client CA's certificate subjects, or `None` when it does not pass the
+    /// checks.
+    subjects: Option<Vec<String>>,
+    /// The listeners whose client-certificate sign-in is on: replacing the client CA asks
+    /// for the password and restarts them.
+    mtls_users: Vec<ListenerKind>,
     /// The `mcp_settings.json` revision the region shows; every form posts it back.
     revision: u64,
 }

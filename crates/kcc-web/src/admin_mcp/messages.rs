@@ -185,6 +185,9 @@ impl Said {
                 Self::new(locale, keys::WEB_ADMIN_MCP_RESTART_STOPPING, None)
             }
             McpRefusal::Failed => Self::new(locale, keys::WEB_ADMIN_MCP_RESTART_FAILED, None),
+            McpRefusal::ConfirmationRequired => {
+                Self::new(locale, keys::WEB_ADMIN_MCP_MTLS_CA_PASSWORD, None)
+            }
         }
     }
 }

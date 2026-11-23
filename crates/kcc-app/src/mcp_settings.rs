@@ -28,6 +28,7 @@ use crate::{
     },
 };
 
+pub mod client_ca;
 pub mod document;
 pub mod keys;
 mod update;

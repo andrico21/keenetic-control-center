@@ -8,11 +8,14 @@ use std::fs;
 
 use askama::Template;
 use axum::{extract::State, http::HeaderMap, response::Response};
-use kcc_app::mcp_settings::document::McpSettingsDocument;
+use kcc_app::mcp_settings::{
+    client_ca::{self, CaError, mtls_ca_subjects},
+    document::McpSettingsDocument,
+};
 use kcc_i18n::{keys, locale::Locale};
 use tokio::task::spawn_blocking;
 
-use super::{Facts, Progress, pem, status::Status, view::Region};
+use super::{Facts, Progress, pem, status::Status, upload::mtls_users, view::Region};
 use crate::{
     WebState,
     admin_shared::{Tab, TabLink, tabs, unavailable},
@@ -33,7 +36,7 @@ pub(crate) const DIRECTORY: &str = "mcp";
 pub(crate) const CERTIFICATE: &str = "dedicated-cert.pem";
 
 /// The uploaded client CA.
-pub(crate) const MTLS_CA: &str = "mtls-ca.pem";
+pub(crate) const MTLS_CA: &str = client_ca::MTLS_CA;
 
 /// The uploaded CA bundle of the identity provider.
 pub(crate) const OIDC_CA: &str = "oidc-ca.pem";
@@ -69,7 +72,7 @@ pub(crate) async fn page(
         return unavailable(Some(shell));
     }
     let locale = user.locale();
-    match fresh(&state, locale).await {
+    match fresh(&state, &user).await {
         Ok(region) => errors::render(&McpPage {
             tabs: tabs(user.role(), Tab::Mcp),
             status: status_now(&state, locale),
@@ -97,17 +100,21 @@ pub(crate) fn deadline(state: &WebState) -> (u64, u64) {
     (now, now.saturating_add(window))
 }
 
-/// The region read again in `locale`, sent out of band, with the revision it shows read
-/// before the settings so a form never claims a newer revision than its values.
+/// The region read again for `user`, sent out of band.
+///
+/// It is in their locale, offers the roles they may assign, and carries the revision it
+/// shows, read before the settings so a form never claims a newer revision than its
+/// values.
 ///
 /// # Errors
 ///
 /// The settings or the state directory could not be read.
 // cancel-safe: it only reads local state on a blocking thread.
-pub(crate) async fn fresh(state: &WebState, locale: Locale) -> Result<Region, Failure> {
+pub(crate) async fn fresh(state: &WebState, user: &CurrentUser) -> Result<Region, Failure> {
+    let locale = user.locale();
     let admin = state.admin().ok_or("no administration services")?;
     let (store, base) = (admin.state().clone(), admin.mcp().clone());
-    let (revision, effective, (fingerprint, cas)) = spawn_blocking(move || {
+    let (revision, effective, (fingerprint, cas, subjects)) = spawn_blocking(move || {
         let revision = store
             .read::<McpSettingsDocument>()?
             .unwrap_or_default()
@@ -118,19 +125,33 @@ pub(crate) async fn fresh(state: &WebState, locale: Locale) -> Result<Region, Fa
             .ok()
             .and_then(|bytes| pem::fingerprint(&bytes));
         let cas = (dir.join(MTLS_CA).is_file(), dir.join(OIDC_CA).is_file());
-        Ok::<_, Failure>((revision, effective, (fingerprint, cas)))
+        let subjects = match mtls_ca_subjects(&store) {
+            Ok(subjects) => Some(subjects.unwrap_or_default()),
+            Err(CaError::State(error)) => return Err(error.into()),
+            Err(_unchecked) => None,
+        };
+        Ok::<_, Failure>((revision, effective, (fingerprint, cas, subjects)))
     })
     .await??;
+    let roles = state.roles();
+    let actor = user.role();
     let attached = state.mcp().map(Arc::clone);
     let facts = Facts {
         status: attached.as_ref().map(|mcp| mcp.control().status()),
         toolsets: attached
             .as_ref()
             .map_or_default(|mcp| mcp.control().toolsets()),
-        roles: state.roles().iter().map(|role| role.name.clone()).collect(),
+        roles: roles.iter().map(|role| role.name.clone()).collect(),
+        assignable: roles
+            .iter()
+            .filter(|role| actor.dominates(role))
+            .map(|role| role.name.clone())
+            .collect(),
         issuer: admin.server().issuer().clone(),
         fingerprint,
         cas,
+        subjects,
+        mtls_users: mtls_users(effective.settings()),
         revision,
     };
     Ok(Region::new(locale, &effective, facts))

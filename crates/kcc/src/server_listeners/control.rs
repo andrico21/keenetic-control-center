@@ -49,6 +49,19 @@ impl McpControl for WebHandle {
     }
 
     #[inline]
+    fn replace_client_ca(&self, pem: Vec<u8>, confirmed: bool) -> McpChange {
+        let change = self.supervisor.replace_client_ca(pem, confirmed);
+        // cancel-safe: only awaits the supervisor's reply; the change runs there.
+        Box::pin(async move {
+            match change.await {
+                Ok(Restarted::Applied) => Ok(()),
+                Ok(Restarted::Reverted(reason)) => Err(reverted(&reason)),
+                Err(error) => Err(refused(&error)),
+            }
+        })
+    }
+
+    #[inline]
     fn status(&self) -> McpStatus {
         reported(&self.supervisor.status())
     }
@@ -103,9 +116,11 @@ fn refused(error: &ListenerError) -> McpRefusal {
         ListenerError::Apply(_) => McpRefusal::Apply,
         ListenerError::Commit(_) => McpRefusal::Commit,
         ListenerError::ShuttingDown => McpRefusal::ShuttingDown,
-        ListenerError::Settings(_) | ListenerError::RestartRequired | ListenerError::Task(_) => {
-            McpRefusal::Failed
-        }
+        ListenerError::ConfirmationRequired => McpRefusal::ConfirmationRequired,
+        ListenerError::Settings(_)
+        | ListenerError::RestartRequired
+        | ListenerError::Task(_)
+        | ListenerError::ClientCa(_) => McpRefusal::Failed,
     }
 }
 
@@ -141,7 +156,7 @@ fn reverted(reason: &RevertReason) -> McpRefusal {
     reason = "test code is not rendered API documentation"
 )]
 mod tests {
-    use kcc_app::mcp_settings::{ListenerKind, SettingsError};
+    use kcc_app::mcp_settings::{ListenerKind, SettingsError, client_ca::CaError};
     use kcc_mcp::registry::definitions;
     use kcc_web::admin::{
         ReloadError,
@@ -151,8 +166,11 @@ mod tests {
     use super::{offered, refused, reported, reverted};
     use crate::server_listeners::{ListenerError, RevertReason, Status, build::BuildError};
 
-    /// Todo 27: a listener whose sign-in method this build lacks, and one that cannot be
-    /// built otherwise, are told apart per listener; the other refusals keep their class.
+    /// Todo 27: refusals keep their class and listener.
+    ///
+    /// A listener whose sign-in method this build lacks, and one that cannot be built
+    /// otherwise, are told apart per listener; the other refusals keep their class (todo
+    /// 28: an unconfirmed client CA replacement asks for the password).
     #[test]
     fn refusals_keep_their_class_and_listener() {
         let cases = [
@@ -195,6 +213,18 @@ mod tests {
                 McpRefusal::Failed,
             ),
             (ListenerError::Task("join".to_owned()), McpRefusal::Failed),
+            (
+                ListenerError::ConfirmationRequired,
+                McpRefusal::ConfirmationRequired,
+            ),
+            (ListenerError::ClientCa(CaError::NotPem), McpRefusal::Failed),
+            (
+                ListenerError::Build {
+                    listener: "main",
+                    source: BuildError::ClientCa("gone".to_owned()),
+                },
+                McpRefusal::Unusable(ListenerKind::Main),
+            ),
         ];
         for (error, class) in cases {
             assert_eq!(refused(&error), class, "{error}");

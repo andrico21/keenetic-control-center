@@ -4,6 +4,9 @@
 #[cfg(test)]
 #[path = "mcp_settings/ceiling.rs"]
 mod ceiling;
+#[cfg(test)]
+#[path = "mcp_settings/client_ca.rs"]
+mod client_ca;
 
 #[cfg(test)]
 #[expect(

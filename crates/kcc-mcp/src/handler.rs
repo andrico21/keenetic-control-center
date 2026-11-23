@@ -31,7 +31,7 @@ use crate::{
         audit,
         call::next_request_id,
         errors::{failure_error, internal_error},
-        gates, names,
+        gates, names, principal,
         shape::{FailureContext, shape},
         truncate::Shaping,
         validate::{MAX_PATH_CHARS, valid_host, valid_text},
@@ -63,16 +63,20 @@ impl ServerHandler for KccMcp {
         request: CallToolRequestParams,
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
-        self.record_key_use().await;
-        let gates = Arc::new(self.gates_now());
-        if !self.admits(&gates, &request.name) {
-            return Err(ErrorData::invalid_params("tool not found", None));
-        }
-        gates::scoped(
-            gates,
-            self.tool_router
-                .call(ToolCallContext::new(self, request, context)),
-        )
+        let method = principal::of_request(&context);
+        principal::scoped(method, async move {
+            self.record_key_use().await;
+            let gates = Arc::new(self.gates_now());
+            if !self.admits(&gates, &request.name) {
+                return Err(ErrorData::invalid_params("tool not found", None));
+            }
+            gates::scoped(
+                gates,
+                self.tool_router
+                    .call(ToolCallContext::new(self, request, context)),
+            )
+            .await
+        })
         .await
     }
 
@@ -119,7 +123,7 @@ impl ServerHandler for KccMcp {
     async fn read_resource(
         &self,
         request: ReadResourceRequestParams,
-        _context: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResponse, ErrorData> {
         let identity = self.identity().map_err(failure_error)?;
         let uri = request.uri;
@@ -129,8 +133,10 @@ impl ServerHandler for KccMcp {
         {
             valid_host(host).map_err(failure_error)?;
             if authorize(&identity.role, Permission::Read, host).is_err() {
-                let context = FailureContext::new("resources_read", true, Some(host));
-                audit::failure(self, context, &McpFailure::Forbidden, &next_request_id()).await;
+                let failure = FailureContext::new("resources_read", true, Some(host));
+                let request_id = next_request_id();
+                let refused = audit::failure(self, failure, &McpFailure::Forbidden, &request_id);
+                principal::scoped(principal::of_request(&context), refused).await;
                 return Err(failure_error(McpFailure::Forbidden));
             }
             match self.registry.get(host) {

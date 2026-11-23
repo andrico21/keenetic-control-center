@@ -2,6 +2,8 @@
 
 extern crate alloc;
 
+mod wait;
+
 use alloc::{collections::BTreeMap, sync::Arc};
 use core::{
     net::SocketAddr,
@@ -9,7 +11,7 @@ use core::{
     task::{Context, Poll},
     time::Duration,
 };
-use std::{io, net::TcpListener as StdListener};
+use std::io;
 
 use kcc_app::{mcp_settings::ListenerKind, settings::McpConfig};
 use kcc_web::admin::{ReloadError, TransportReload};
@@ -21,10 +23,10 @@ use tokio::{
     net::TcpListener,
     sync::{oneshot, watch},
     task::{JoinHandle, spawn_blocking},
-    time::{Instant, interval},
 };
 use tokio_util::sync::CancellationToken;
 
+use self::wait::wait_free;
 use super::{Listening, Status, build::Built, health::Probe, name};
 use crate::server_error::ServerError;
 
@@ -179,6 +181,14 @@ impl Listeners {
             .map_err(|error: ReloadError| error.to_string())
     }
 
+    /// Every running generation's listener and the settings it was built from.
+    pub(super) fn running(&self) -> Vec<(ListenerKind, McpConfig)> {
+        self.running
+            .iter()
+            .map(|(kind, generation)| (*kind, generation.settings.clone()))
+            .collect()
+    }
+
     /// The `kind` generation's address and health check.
     pub(super) fn probe(&self, kind: ListenerKind) -> Option<(SocketAddr, Probe)> {
         self.running
@@ -306,26 +316,5 @@ impl Generation {
             Ok(served) => served.map_err(|error| error.to_string()),
             Err(aborted) => Err(aborted.to_string()),
         }
-    }
-}
-
-/// Waits at most `window` until `address` can be bound again (a stopped generation's
-/// TLS and metrics listeners close their sockets on their own tasks).
-// cancel-safe: holds no socket across an await.
-async fn wait_free(address: SocketAddr, window: Duration) {
-    let deadline = Instant::now().checked_add(window);
-    let mut ticks = interval(RETRY);
-    loop {
-        match StdListener::bind(address) {
-            Ok(free) => return drop(free),
-            Err(error) if deadline.is_some_and(|end| Instant::now() < end) => {
-                tracing::debug!(%address, %error, "stopped listener's address still in use");
-            }
-            Err(error) => {
-                tracing::warn!(%address, %error, "stopped listener's address still in use; starting anyway");
-                return;
-            }
-        }
-        let _: Instant = ticks.tick().await;
     }
 }

@@ -7,7 +7,7 @@ use alloc::sync::Arc;
 use std::sync::{Mutex, PoisonError};
 
 use kcc_app::{
-    mcp_settings::{Candidate, SettingsError, commit},
+    mcp_settings::{Candidate, SettingsError, client_ca::store_mtls_ca, commit},
     persist::StateStore,
 };
 use kcc_web::admin::{
@@ -28,6 +28,8 @@ pub(crate) struct Stub {
     applied: Mutex<Vec<Candidate>>,
     /// The candidates [`McpControl::restart`] got, in order.
     restarted: Mutex<Vec<Candidate>>,
+    /// Whether each [`McpControl::replace_client_ca`] was confirmed, in order.
+    replaced: Mutex<Vec<bool>>,
 }
 
 impl Stub {
@@ -39,6 +41,7 @@ impl Stub {
             status,
             applied: Mutex::new(Vec::new()),
             restarted: Mutex::new(Vec::new()),
+            replaced: Mutex::new(Vec::new()),
         })
     }
 
@@ -58,6 +61,14 @@ impl Stub {
     /// The candidates restarted so far.
     pub(crate) fn restarted(&self) -> Vec<Candidate> {
         self.restarted
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Whether each client CA replacement so far was confirmed with the password.
+    pub(crate) fn replaced(&self) -> Vec<bool> {
+        self.replaced
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
@@ -92,6 +103,23 @@ impl McpControl for Stub {
 
     fn restart(&self, candidate: Candidate) -> McpChange {
         self.change(&self.restarted, candidate)
+    }
+
+    fn replace_client_ca(&self, pem: Vec<u8>, confirmed: bool) -> McpChange {
+        self.replaced
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(confirmed);
+        let refusal = *self.answer.lock().unwrap_or_else(PoisonError::into_inner);
+        let result = refusal.map_or_else(
+            || {
+                store_mtls_ca(&self.store, &pem)
+                    .map(drop)
+                    .map_err(|_refused| McpRefusal::Failed)
+            },
+            Err,
+        );
+        Box::pin(async move { result })
     }
 
     fn status(&self) -> McpStatus {

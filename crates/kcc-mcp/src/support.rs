@@ -7,6 +7,7 @@ pub(crate) mod call;
 pub(crate) mod errors;
 pub(crate) mod gates;
 pub(crate) mod names;
+pub(crate) mod principal;
 pub(crate) mod raw_change;
 pub(crate) mod route;
 pub(crate) mod scrub;

@@ -37,6 +37,7 @@ url = { workspace = true }
 
 [dev-dependencies]
 kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
+rcgen = { workspace = true, features = ["crypto", "pem", "ring"] }
 rmcp = { workspace = true, features = ["server"] }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "test-util"] }

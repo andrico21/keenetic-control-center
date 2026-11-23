@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 arc-swap = { workspace = true }
+http = "1.5.0"
 kcc-app = { version = "0.1.0", path = "../kcc-app" }
 kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
 kcc-config = { version = "0.1.0", path = "../kcc-config" }

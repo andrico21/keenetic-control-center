@@ -376,9 +376,9 @@ The first release, `0.1.0`, is in preparation and contains:
   certificate, a self-signed one generated once into `<state>/mcp/dedicated-cert.pem` and
   `dedicated-key.pem` (owner-only), or none on loopback; `endpoint = "dedicated"` leaves
   the main listener's `/mcp` without tools. A dedicated listener that cannot start is
-  skipped at start and logged. Until OAuth and client-certificate sign-in are available,
-  a listener whose `oauth` is not `none` or whose `mtls` is not `off` does not start: the
-  main listener then starts with kcc.toml's sign-in settings, the dedicated one is skipped.
+  skipped at start and logged. Until OAuth sign-in is available, a listener whose
+  `oauth` is not `none` does not start: the main listener then starts with kcc.toml's
+  sign-in settings, the dedicated one is skipped.
 - **Live restart of the MCP listeners**: `kcc serve` runs its listeners under a
   supervisor (`kcc::server_listeners::ListenerSupervisor`): a settings change that
   restarts a listener builds and validates the new one first, then stops, serves,
@@ -413,6 +413,22 @@ The first release, `0.1.0`, is in preparation and contains:
   codes (60 s, single use) in memory only; and keeps grants in `mcp_oauth_grants.json`
   (refresh tokens as SHA-256 only, rotated on use, reuse revokes the family; 20 per
   account, 500 in total; a password change ends them).
+
+- **MCP client-certificate sign-in (mTLS)**: `[mcp.auth.main] mtls = "optional"` and
+  `[mcp.auth.dedicated] mtls = "optional" | "required"` admit MCP clients by a
+  certificate from the client CA uploaded on Administration > MCP (PEM, at most 64 KiB,
+  one to ten CA certificates, checked with `x509-parser`; stored as
+  `<state>/mcp/mtls-ca.pem`, `0644`), with `[mcp.auth.mtls] default_role` and the kit's
+  CRL defaults. The page lists the CA's subjects, offers only default roles the
+  administrator's role covers, and asks for the password before replacing a CA in use;
+  the listeners using it then restart, and a failed restart puts the previous CA back.
+  Certificate clients are audited as `mtls:<cn>` and never mark an API key used; the
+  health check verifies that a listener asks for a client certificate and, when it is
+  required, refuses a client without one. A listener whose CA file is missing or fails
+  the checks does not start (main falls back to kcc.toml's sign-in settings). Library:
+  `kcc_app::mcp_settings::client_ca`, `McpControl::replace_client_ca`,
+  `McpRefusal::ConfirmationRequired` (audit outcome `confirmation_required`),
+  `ListenerSupervisor::replace_client_ca`.
 
 ### Changed
 

@@ -422,6 +422,53 @@ per key; failed authentication records nothing. The firmware-update check sends 
 catalog-validated `components check-update` action, which changes no configuration,
 outside the change workflow and without an audit entry.
 
+## MCP client certificates (mTLS)
+
+An MCP listener with TLS can admit clients by a TLS client certificate
+(`[mcp.auth.main|dedicated] mtls`, through rmcp-server-kit). `optional` verifies a
+certificate when one is presented and lets other clients use an API key; `required`
+refuses, during the TLS handshake, every client without a certificate from the uploaded
+CA. `required` is refused on the main listener, which also serves the Web UI: browsers
+without a certificate must keep reaching it.
+
+- **The CA** is uploaded on the Web (Administration > MCP); no path is ever taken from
+  the Web, a state file or kcc.toml. It is checked before it is stored: PEM of at most
+  64 KiB holding one to ten certificates and nothing else (a private key block is
+  refused and never echoed), each a parseable X.509 certificate whose basic constraints
+  mark it as a CA, framed so the MCP listeners' PEM reader loads the same certificates
+  (a file it would read differently is refused when uploaded, not when a listener
+  starts). The validity period is not checked: a CA past it admits no client.
+  It is written to `<state>/mcp/mtls-ca.pem` by renaming a new file over the old one (a
+  symbolic link in its place is replaced, never followed), mode `0644` on Unix:
+  certificates are not secret, and the state directory stays owner-only. The page lists
+  the stored certificates' subjects (escaped).
+- **Replacing the CA** changes who may sign in. While a listener uses client
+  certificates it therefore asks for the administrator's password (a wrong one counts
+  toward the sign-in lockout) and runs in the listener supervisor's serialized section:
+  the CA is stored, every listener using it restarts and is health-checked, and a
+  failure puts the previous CA file back and serves the previous listeners again. While
+  no listener uses it, the upload stores it without a password. Each upload is audited
+  as `web.mcp_settings` with `changed: ["auth.mtls.ca"]`, the restarted listeners and the
+  outcome.
+- **Revocation** uses the kit's CRL defaults: CRL distribution points named by the CA
+  and by client certificates are fetched under the kit's SSRF screening, and a
+  certificate whose CRLs are all unavailable is refused.
+- **Identity**: the kit names the client by the certificate's first non-blank common
+  name (else its first DNS name), letters, digits and `-._@` only. The client gets
+  `[mcp.auth.mtls] default_role` (`viewer` when unset), which the configuring admin's
+  role must cover. Its audit actor is `mcp`/`mtls:<cn>`; API key names cannot contain
+  `:`, so a certificate never passes for a key, and only API-key callers mark a key used
+  (a certificate whose common name equals a key's name does not).
+- **Health check**: kcc holds no client certificate, so its probe presents none and
+  checks the listener's rule instead: an `optional` listener must ask for a certificate
+  and answer `/healthz` without one; a `required` listener must ask and then refuse with
+  the `certificate_required` (or `handshake_failure`) alert; a listener without client
+  certificates must not ask. A listener that does not enforce its rule fails the check
+  and the restart is reverted.
+- **Start-up**: a main listener whose saved settings turn client certificates on while
+  the CA file is missing or fails the checks starts with kcc.toml's sign-in settings and
+  logs why; the MCP page shows the fallback.
+
 ## Audit chain
 
 Root batch completion follows the ordered per-item router responses, including

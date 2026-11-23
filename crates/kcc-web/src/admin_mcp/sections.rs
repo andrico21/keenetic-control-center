@@ -31,7 +31,7 @@ const MTLS: [(&str, MessageKey); 3] = [
 pub(super) fn sections(rows: &Rows<'_>, mcp: &McpConfig, facts: &Facts) -> [Section; 7] {
     let [tools, endpoints] = transport(rows, mcp, facts);
     let [signin_main, signin_dedicated, kcc] = signin(rows, mcp);
-    let [idp, certs] = identity(rows, mcp, &facts.roles);
+    let [idp, certs] = identity(rows, mcp, (&facts.roles, &facts.assignable));
     [
         tools,
         endpoints,
@@ -140,8 +140,14 @@ fn signin(rows: &Rows<'_>, mcp: &McpConfig) -> [Section; 3] {
     ]
 }
 
-/// The identity provider and client certificates.
-fn identity(rows: &Rows<'_>, mcp: &McpConfig, roles: &[String]) -> [Section; 2] {
+/// The identity provider and client certificates; the client-certificate default role
+/// offers only the `assignable` roles (those the signed-in role dominates) and the current
+/// one.
+fn identity(
+    rows: &Rows<'_>,
+    mcp: &McpConfig,
+    (roles, assignable): (&[String], &[String]),
+) -> [Section; 2] {
     let oidc = &mcp.auth.oidc;
     let table = |(first, second), heading, mut entries: Vec<(String, String)>| {
         entries.push((String::new(), String::new()));
@@ -171,6 +177,13 @@ fn identity(rows: &Rows<'_>, mcp: &McpConfig, roles: &[String]) -> [Section; 2] 
         })
         .collect();
     let link = |url: Option<&url::Url>| url.map(ToString::to_string);
+    let default_role = mcp.auth.mtls.default_role.as_deref();
+    let mut defaults = assignable.to_vec();
+    if let Some(current) = default_role
+        && !defaults.iter().any(|role| role == current)
+    {
+        defaults.push(current.to_owned());
+    }
     [
         Section::new(
             "mcp-idp",
@@ -200,11 +213,7 @@ fn identity(rows: &Rows<'_>, mcp: &McpConfig, roles: &[String]) -> [Section; 2] 
         ),
         Section::new(
             "mcp-certs",
-            vec![rows.role(
-                KeyPath::MtlsDefaultRole,
-                mcp.auth.mtls.default_role.as_deref(),
-                roles,
-            )],
+            vec![rows.role(KeyPath::MtlsDefaultRole, default_role, &defaults)],
         ),
     ]
 }

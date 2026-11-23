@@ -3377,7 +3377,8 @@ h3 {
 }
 
 .mcp-fingerprint,
-.mcp-issuer {
+.mcp-issuer,
+.mcp-subjects li {
   overflow-wrap: anywhere;
 }
 

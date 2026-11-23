@@ -7,7 +7,9 @@ use kcc_i18n::{keys, locale::Locale};
 
 use super::{messages::Said, page::fresh, status::Status, view::Region};
 use crate::{
-    WebState, errors,
+    WebState,
+    authz::CurrentUser,
+    errors,
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, respond},
 };
@@ -52,36 +54,30 @@ localized!(Confirm);
 // cancel-safe: it only reads local state on a blocking thread.
 pub(crate) async fn notice(
     state: &WebState,
-    locale: Locale,
+    user: &CurrentUser,
     (said, tone): (Said, &'static str),
     status: StatusCode,
 ) -> Response {
-    answer(state, locale, (Some(said), tone), None, status).await
+    answer(state, user, (Some(said), tone), None, status).await
 }
 
 /// The restart `progress` with the region read again.
 // cancel-safe: it only reads local state on a blocking thread.
-pub(crate) async fn restarting(state: &WebState, locale: Locale, progress: Status) -> Response {
-    answer(
-        state,
-        locale,
-        (None, "info"),
-        Some(progress),
-        StatusCode::OK,
-    )
-    .await
+pub(crate) async fn restarting(state: &WebState, user: &CurrentUser, progress: Status) -> Response {
+    answer(state, user, (None, "info"), Some(progress), StatusCode::OK).await
 }
 
 /// The answer of `notice` and `progress`, as `status`.
 // cancel-safe: it only reads local state on a blocking thread.
 async fn answer(
     state: &WebState,
-    locale: Locale,
+    user: &CurrentUser,
     (notice, tone): (Option<Said>, &'static str),
     progress: Option<Status>,
     status: StatusCode,
 ) -> Response {
-    let region = match fresh(state, locale).await {
+    let locale = user.locale();
+    let region = match fresh(state, user).await {
         Ok(region) => Some(region),
         Err(error) => {
             tracing::error!(%error, "MCP settings region could not be read again");

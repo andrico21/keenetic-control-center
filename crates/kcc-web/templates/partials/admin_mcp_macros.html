@@ -93,6 +93,19 @@
   <span class="field__label">{{ upload.label }}</span>
   <p class="mcp-value">{% if upload.stored %}{{ t(keys::WEB_ADMIN_MCP_CA_STORED) }}{% else %}{{ t(keys::WEB_ADMIN_MCP_CA_NONE) }}{% endif %}</p>
 </div>
+{%- if !upload.subjects.is_empty() %}
+<div class="field">
+  <span class="field__label">{{ t(keys::WEB_ADMIN_MCP_MTLS_CA_SUBJECTS) }}</span>
+  <ul class="mcp-subjects" id="mcp-ca-{{ upload.kind }}-subjects">
+    {%- for subject in upload.subjects %}
+    <li class="mono">{{ subject }}</li>
+    {%- endfor %}
+  </ul>
+</div>
+{%- endif %}
+{%- if upload.unchecked %}
+<p class="notice" data-tone="error" data-message-key="web-admin-mcp-mtls-ca-unchecked">{{ t(keys::WEB_ADMIN_MCP_MTLS_CA_UNCHECKED) }}</p>
+{%- endif %}
 {%- if upload.editable %}
 <form class="form mcp-upload" method="post" action="/ui/admin/mcp/ca" hx-post="/ui/admin/mcp/ca" hx-target="#page-outcome" hx-swap="innerHTML show:top" hx-encoding="multipart/form-data" enctype="multipart/form-data">
   <input type="hidden" name="kind" value="{{ upload.kind }}">
@@ -100,6 +113,13 @@
     <label class="field__label" for="mcp-ca-{{ upload.kind }}">{{ t(keys::WEB_ADMIN_MCP_CA_FILE) }}</label>
     <input class="field__input field__file" id="mcp-ca-{{ upload.kind }}" name="file" type="file" accept=".pem,.crt,application/x-pem-file" required>
   </div>
+  {%- if upload.password %}
+  <p class="panel__note">{{ t(keys::WEB_ADMIN_MCP_MTLS_CA_REPLACE_NOTE) }}</p>
+  <div class="field">
+    <label class="field__label" for="mcp-ca-{{ upload.kind }}-password">{{ t(keys::WEB_ADMIN_MCP_MTLS_CA_PASSWORD_LABEL) }}</label>
+    <input class="field__input" id="mcp-ca-{{ upload.kind }}-password" name="password" type="password" autocomplete="current-password" required>
+  </div>
+  {%- endif %}
   <div class="form__actions">
     <button class="button button--secondary" type="submit">{{ t(keys::WEB_ADMIN_MCP_CA_UPLOAD) }}</button>
   </div>

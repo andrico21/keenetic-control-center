@@ -169,6 +169,14 @@ Two transports serve the same tools ([docs/MCP_TOOLS.md](docs/MCP_TOOLS.md)):
   kcc apikey create claude --role viewer
   ```
 
+- **Client certificates**: over TLS a listener can also admit MCP clients by a
+  certificate from a CA uploaded on the Web (Administration > MCP):
+  `[mcp.auth.main] mtls = "optional"`, or `"required"` on the dedicated listener only
+  (the main listener serves the Web UI). Such a client gets `[mcp.auth.mtls]
+  default_role` and is audited as `mtls:<common name>`. Desktop clients rarely support
+  client certificates, and a browser holding one from that CA may show a certificate
+  picker while `optional` is on.
+
 Claude Code:
 
 ```text

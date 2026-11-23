@@ -20,6 +20,7 @@ kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
 ring = "0.17.14"
 rmcp-server-kit = { workspace = true }
+rustls = { workspace = true }
 secrecy = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
@@ -31,6 +32,7 @@ tokio-util = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true, features = ["std"] }
 url = { workspace = true, features = ["serde"] }
+x509-parser = { version = "0.18.1", default-features = false }
 zeroize = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
@@ -39,6 +41,7 @@ windows-permissions = "0.2.4"
 [dev-dependencies]
 kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
 proptest = { workspace = true }
+rcgen = { workspace = true, features = ["crypto", "pem", "ring"] }
 tracing-subscriber = { workspace = true, features = ["fmt", "std"] }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }

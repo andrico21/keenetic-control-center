@@ -61,6 +61,10 @@ struct Sections {
 
 /// One CA file upload.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "askama view model: each flag switches one block of the upload macro"
+)]
 struct Upload {
     /// The posted kind, `mtls` or `oidc`.
     kind: &'static str,
@@ -70,6 +74,12 @@ struct Upload {
     stored: bool,
     /// Whether a file can be uploaded: the listeners run here.
     editable: bool,
+    /// The stored file's certificate subjects (client CA only).
+    subjects: Vec<String>,
+    /// Whether the stored file does not pass the checks (client CA only).
+    unchecked: bool,
+    /// Whether a replacement asks for the password: a listener uses the client CA.
+    password: bool,
 }
 
 /// The settings region.
@@ -112,11 +122,20 @@ impl Region {
             label: rows.say(label),
             stored,
             editable,
+            subjects: Vec::new(),
+            unchecked: false,
+            password: false,
+        };
+        let mtls_ca = Upload {
+            subjects: facts.subjects.clone().unwrap_or_default(),
+            unchecked: facts.cas.0 && facts.subjects.is_none(),
+            password: !facts.mtls_users.is_empty(),
+            ..upload("mtls", keys::WEB_ADMIN_MCP_MTLS_CA, facts.cas.0)
         };
         Self {
             shell: fragment_shell(locale),
             oob: true,
-            mtls_ca: upload("mtls", keys::WEB_ADMIN_MCP_MTLS_CA, facts.cas.0),
+            mtls_ca,
             idp_ca: upload("oidc", keys::WEB_ADMIN_MCP_IDP_CA, facts.cas.1),
             facts,
             sections: Sections {

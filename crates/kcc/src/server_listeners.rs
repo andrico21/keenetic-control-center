@@ -17,11 +17,13 @@
 )]
 
 pub mod build;
+mod client_ca;
 pub(crate) mod control;
 mod generation;
 mod health;
 mod restart;
 mod revert;
+mod sign_in;
 pub(crate) mod supervisor;
 #[cfg(test)]
 #[expect(
@@ -35,7 +37,7 @@ mod tls;
 
 use core::{fmt, net::SocketAddr};
 
-use kcc_app::mcp_settings::{Candidate, ListenerKind, SettingsError};
+use kcc_app::mcp_settings::{Candidate, ListenerKind, SettingsError, client_ca::CaError};
 use kcc_web::admin::ReloadError;
 use tokio::sync::{mpsc, oneshot, watch};
 
@@ -56,6 +58,13 @@ pub(crate) enum Command {
     Restart(Candidate, oneshot::Sender<Result<Restarted, ListenerError>>),
     /// Applies and saves a candidate that restarts no listener.
     ApplyLive(Candidate, oneshot::Sender<Result<(), ListenerError>>),
+    /// Replaces the client CA (`confirmed`: the password was re-entered) and restarts the
+    /// listeners using it.
+    ReplaceClientCa(
+        Vec<u8>,
+        bool,
+        oneshot::Sender<Result<Restarted, ListenerError>>,
+    ),
 }
 
 /// The result of [`ListenerSupervisor::restart`].
@@ -144,6 +153,13 @@ pub enum ListenerError {
     /// `kcc serve` is stopping; the change did not run or did not finish.
     #[error("kcc serve is stopping")]
     ShuttingDown,
+    /// A listener uses client certificates and the client CA replacement was not confirmed
+    /// with the password; nothing changed.
+    #[error("replacing the client CA in use needs the password")]
+    ConfirmationRequired,
+    /// The client CA could not be checked, stored or put back.
+    #[error("client CA: {0}")]
+    ClientCa(CaError),
 }
 
 /// The listeners of a running `kcc serve`.
@@ -231,6 +247,35 @@ impl ListenerSupervisor {
     ) -> impl Future<Output = Result<(), ListenerError>> + Send + 'static {
         let (reply, result) = oneshot::channel();
         let queued = self.commands.send(Command::ApplyLive(candidate, reply));
+        // cancel-safe: only awaits the reply; the change runs in the supervisor.
+        async move {
+            queued.map_err(|_stopped| ListenerError::ShuttingDown)?;
+            result
+                .await
+                .map_err(|_stopped| ListenerError::ShuttingDown)?
+        }
+    }
+
+    /// Replaces the client CA with `pem` in the same serialized section as
+    /// [`ListenerSupervisor::restart`], then restarts every listener whose
+    /// client-certificate sign-in is on, as one unit; a failed restart puts the previous CA
+    /// back and serves the previous listeners again. `confirmed` says the actor re-entered
+    /// the password, which a replacement needs while a listener uses client certificates.
+    ///
+    /// # Errors
+    ///
+    /// [`ListenerError::ConfirmationRequired`], [`ListenerError::ClientCa`] or a build
+    /// failure when nothing changed; [`ListenerError::ShuttingDown`] as for a restart.
+    #[inline]
+    pub fn replace_client_ca(
+        &self,
+        pem: Vec<u8>,
+        confirmed: bool,
+    ) -> impl Future<Output = Result<Restarted, ListenerError>> + Send + 'static {
+        let (reply, result) = oneshot::channel();
+        let queued = self
+            .commands
+            .send(Command::ReplaceClientCa(pem, confirmed, reply));
         // cancel-safe: only awaits the reply; the change runs in the supervisor.
         async move {
             queued.map_err(|_stopped| ListenerError::ShuttingDown)?;

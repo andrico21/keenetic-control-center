@@ -8602,8 +8602,39 @@ pub const WEB_ADMIN_MCP_SKIPPED: MessageKey = MessageKey::new("web-admin-mcp-ski
 /// `web-admin-mcp-server-link` in `web.ftl`.
 pub const WEB_ADMIN_MCP_SERVER_LINK: MessageKey = MessageKey::new("web-admin-mcp-server-link");
 
+/// `web-admin-mcp-mtls-ca-count` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_CA_COUNT: MessageKey = MessageKey::new("web-admin-mcp-mtls-ca-count");
+
+/// `web-admin-mcp-mtls-ca-unreadable` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_CA_UNREADABLE: MessageKey =
+    MessageKey::new("web-admin-mcp-mtls-ca-unreadable");
+
+/// `web-admin-mcp-mtls-ca-not-ca` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_CA_NOT_CA: MessageKey =
+    MessageKey::new("web-admin-mcp-mtls-ca-not-ca");
+
+/// `web-admin-mcp-mtls-ca-password` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_CA_PASSWORD: MessageKey =
+    MessageKey::new("web-admin-mcp-mtls-ca-password");
+
+/// `web-admin-mcp-mtls-ca-password-label` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_CA_PASSWORD_LABEL: MessageKey =
+    MessageKey::new("web-admin-mcp-mtls-ca-password-label");
+
+/// `web-admin-mcp-mtls-ca-replace-note` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_CA_REPLACE_NOTE: MessageKey =
+    MessageKey::new("web-admin-mcp-mtls-ca-replace-note");
+
+/// `web-admin-mcp-mtls-ca-subjects` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_CA_SUBJECTS: MessageKey =
+    MessageKey::new("web-admin-mcp-mtls-ca-subjects");
+
+/// `web-admin-mcp-mtls-ca-unchecked` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_CA_UNCHECKED: MessageKey =
+    MessageKey::new("web-admin-mcp-mtls-ca-unchecked");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2683] = [
+pub static ALL: [MessageKey; 2691] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -11287,4 +11318,12 @@ pub static ALL: [MessageKey; 2683] = [
     WEB_ADMIN_MCP_FALLBACK,
     WEB_ADMIN_MCP_SKIPPED,
     WEB_ADMIN_MCP_SERVER_LINK,
+    WEB_ADMIN_MCP_MTLS_CA_COUNT,
+    WEB_ADMIN_MCP_MTLS_CA_UNREADABLE,
+    WEB_ADMIN_MCP_MTLS_CA_NOT_CA,
+    WEB_ADMIN_MCP_MTLS_CA_PASSWORD,
+    WEB_ADMIN_MCP_MTLS_CA_PASSWORD_LABEL,
+    WEB_ADMIN_MCP_MTLS_CA_REPLACE_NOTE,
+    WEB_ADMIN_MCP_MTLS_CA_SUBJECTS,
+    WEB_ADMIN_MCP_MTLS_CA_UNCHECKED,
 ];

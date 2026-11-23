@@ -155,7 +155,10 @@ const fn wanted(kind: ListenerKind, settings: &McpConfig) -> bool {
 /// Serves each of `built`, registers it with the reload fan-out (which installs the
 /// current keys and roles) and health-checks it.
 // NOT cancel-safe: as `Listeners::start`.
-async fn serve_new(supervisor: &mut Supervisor, built: Vec<Built>) -> Result<(), RevertReason> {
+pub(super) async fn serve_new(
+    supervisor: &mut Supervisor,
+    built: Vec<Built>,
+) -> Result<(), RevertReason> {
     let reload = Arc::clone(&supervisor.shared.reload);
     let window = supervisor.windows.health;
     for generation in built {

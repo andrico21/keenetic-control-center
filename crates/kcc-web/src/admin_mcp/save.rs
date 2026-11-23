@@ -57,7 +57,7 @@ pub(crate) async fn save(
     };
     if change == McpOverrides::default() {
         let said = Said::new(locale, keys::WEB_ADMIN_MCP_UNCHANGED, None);
-        return reply::notice(&state, locale, (said, "info"), StatusCode::OK).await;
+        return reply::notice(&state, &user, (said, "info"), StatusCode::OK).await;
     }
     let known = attached.control().toolsets();
     let (mcp_base, directory, actor) = (
