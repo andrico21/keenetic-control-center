@@ -519,7 +519,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(cli): Entware SSH enrolment, packages and services
   Recommended task executor category: unspecified-high - CLI commands and secret input
 
-- [ ] 17. MCP: toolset `entware-ssh`
+- [x] 17. MCP: toolset `entware-ssh`
   What to do / Must NOT do:
   - Tools `kcc_entware_packages` (ops `list`, `upgradable`, `update`, `install`, `remove`, `upgrade`) and `kcc_entware_services` (ops `list`, `status`, `start`, `stop`, `restart`, `log`) in toolset `entware-ssh`; both `readOnlyHint=false`, `destructiveHint=true`, permission Destructive, `confirm_risk(Risk::Destructive, confirm)` for every op (D-SSHPERM); results are parsed values only, paged with the existing cursor when over the result cap; reads return their result directly, mutations start a job through the `crates/kcc-mcp/src/domains/write/jobs.rs` pattern and return its id (tests poll the existing job-status tool until it is terminal). No probe, bootstrap, re-pin or revoke tool. Declare the toolset `entware-ssh` with `safety_reducing: true` in the registry metadata of todo 23 (the Web MCP page then asks for the password before enabling it). Regenerate `docs/MCP_TOOLS.md`.
   - Tests (`crates/kcc-mcp/tests/entware_ssh_tools.rs`): absent by default; absent in `read_only` even with the toolset; `DestructiveDisabled` without `allow_destructive`; `ConfirmRequired` without `confirm`; happy install with read-back; every result is a JSON value whose strings come only from parsed names/versions/states (assert no raw-output marker strings from the fake, no password, no key bytes); no tool name contains `probe|bootstrap|repin|revoke` (assert the registry).
