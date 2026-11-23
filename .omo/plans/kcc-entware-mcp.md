@@ -491,7 +491,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(mcp): Entware toolset and storage initialize
   Recommended task executor category: unspecified-high - MCP tools, schemas and gating
 
-- [ ] 15. Web: SSH enrolment, packages, services and the removal notice
+- [x] 15. Web: SSH enrolment, packages, services and the removal notice
   What to do / Must NOT do:
   - On the Entware page add an "SSH access" section (Destructive): enable/disable, port, two-step enrolment (step 1 "Check router identity" runs `probe` and shows the fingerprint with the ticket nonce in a hidden field plus how to check it out of band; step 2 shows the fingerprint again, a password field and "I confirm this fingerprint"; submit runs `bootstrap`), state (Pending/Active), re-pin (same two steps), revoke, disable; a warning when the default password is still in use; a mismatch banner with both fingerprints; a notice when chroot is on.
   - "Packages" and "Services" sections (only when Active): lists, upgradable, update, install (name field), remove, upgrade, service start/stop/restart/status, service log view (masked). All actions Destructive with the kit's confirmation.
@@ -506,7 +506,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(web): Entware SSH enrolment, packages and services
   Recommended task executor category: visual-engineering - Web forms and flows
 
-- [ ] 16. CLI: `kcc entware ssh|packages|services` and the removal notice
+- [x] 16. CLI: `kcc entware ssh|packages|services` and the removal notice
   What to do / Must NOT do:
   - Commands (all `--confirm-destructive <router-id>`): `kcc entware ssh enable [--port N]`, `ssh disable`, `ssh probe` (prints the fingerprint, the ticket nonce and how to check the fingerprint out of band), `ssh bootstrap --ticket <nonce> --fingerprint <SHA256:...> [--password-file F]` (else `KCC_PASSWORD` or a hidden prompt, same sources as `router add`), `ssh repin ...` (same), `ssh revoke`; `kcc entware packages list|upgradable|update|install <name>|remove <name>|upgrade <name>`; `kcc entware services list|status <name>|start <name>|stop <name>|restart <name>|log <name> [--lines N]`. `--json` supported. The ticket comes from the shared `TicketStore` (todo 8), so two invocations by the same actor complete the bootstrap.
   - `kcc router remove` prints the notice before its confirmation when `entware_ssh::active(state, id)` is true.
@@ -695,7 +695,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(web): MCP administration page with locks, password re-entry and live apply
   Recommended task executor category: visual-engineering - admin page with forms, dialogs and status polling (load skill `frontend`)
 
-- [ ] 28. mTLS client certificates
+- [x] 28. mTLS client certificates
   What to do / Must NOT do:
   - `crates/kcc-app/src/mcp_settings.rs`: `store_mtls_ca(store, pem)` validates (<= 64 KiB, 1-10 certificates, each parses with `x509-parser` and has basicConstraints CA) and writes `<state>/mcp/mtls-ca.pem` atomically (0644, not secret); `x509-parser` becomes a direct kcc-app dependency at the locked version.
   - `crates/kcc`: when a listener's `mtls` is `optional` or `required` (and the listener has TLS), its `AuthConfig.mtls = Some(MtlsConfig { ca_cert_path, required, default_role, kit CRL defaults })`; changes restart the listener (todo 26).
@@ -725,7 +725,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | build(deps): rmcp-server-kit oauth feature and ring; RUSTSEC-2023-0071 ignored with reason
   Recommended task executor category: deep-low - supply-chain intake measured first
 
-- [ ] 30. kcc authorization-server core
+- [x] 30. kcc authorization-server core
   What to do / Must NOT do:
   - `crates/kcc-app/src/mcp_auth/` (`pub mod mcp_auth`): `signing.rs` (Ed25519 key generated with `ring` on first enable, PKCS#8 sealed at `<state>/mcp/oauth-signing.sealed` under binding `mcp:oauth-signing` (update the binding module docs); `jwks()` returns `{"keys":[{"kty":"OKP","crv":"Ed25519","x":..,"kid":..,"alg":"EdDSA","use":"sig"}]}`; `mint_access(claims) -> String` builds the compact JWS `base64url(header).base64url(claims).base64url(sig)` with header `{"alg":"EdDSA","typ":"at+jwt","kid":..}`); `clients.rs` (`ClientsDocument` StateDoc `mcp_oauth_clients.json`: id, name, redirect URIs, registered_at, last_grant_at, pre_registered; registration rules and limits of the "Registration" row; purge); `grants.rs` (`GrantsDocument` StateDoc `mcp_oauth_grants.json`: grant/family id, account, client, resource, created, last_used, password fingerprint, revoked; refresh tokens as SHA-256 hashes with expiry and rotation; reuse detection revokes the family; limits 20 per account, 500 total); `pending.rs` (in-memory authorization requests, single use, 10 minutes; codes 60 s single use bound to client, redirect URI, resource, PKCE challenge, account); `verify.rs` (`check_grant(grant_id, account, fingerprint)` used by todo 31's resolver, and `grant_id(token: &SecretString) -> Option<String>` that reads the `kcc_grant` claim from a compact JWS payload with the existing `base64` dependency, for a token the kit already verified; `verify` is a `pub mod` of `mcp_auth`, so callers use `kcc_app::mcp_auth::verify::grant_id` and no `pub use` (denied by the workspace lint `pub_use`, root `Cargo.toml:227`) is needed).
   - All tokens and codes are random 256-bit values (OS RNG), compared in constant time; no `Debug` shows them.
