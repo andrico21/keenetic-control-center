@@ -76,7 +76,7 @@ enum Trigger {
 
 /// A state file's identity on disk.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Version {
+pub(crate) enum Version {
     /// The file does not exist.
     Missing,
     /// The file exists.
@@ -373,7 +373,7 @@ fn key_set(document: ApiKeysDocument) -> KeySet {
 }
 
 /// `path`'s identity on disk.
-fn observe(path: &Path) -> Version {
+pub(crate) fn observe(path: &Path) -> Version {
     match fs::metadata(path) {
         Ok(metadata) => Version::Present {
             inode: inode(&metadata),

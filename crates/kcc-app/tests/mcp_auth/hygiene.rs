@@ -13,7 +13,7 @@ use kcc_app::mcp_auth::{
 use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::json;
 
-use super::{Fixture, RESOURCE, START, TestResult, challenge, verifier};
+use super::{Fixture, LOOPBACK, RESOURCE, START, TestResult, challenge, verifier};
 
 /// The text of every file below `dir`.
 fn files(dir: &Path) -> Result<String, Box<dyn Error>> {
@@ -41,7 +41,7 @@ fn no_debug_output_or_state_file_shows_a_secret() -> TestResult {
     let verifier = verifier()?;
     let target = CodeTarget::new(client.id(), "http://127.0.0.1/cb", RESOURCE);
     let request = AuthorizationRequest::new(&client, target.clone(), challenge(&verifier)?)?;
-    let request_id = fixture.pending.begin(request.clone())?;
+    let request_id = fixture.pending.begin(request.clone(), LOOPBACK)?;
     let code = fixture.pending.issue_code(request.clone(), "alice")?;
     let pending_debug = format!("{:?}", fixture.pending);
     let authorized = fixture.pending.redeem(&code, &target, &verifier)?;

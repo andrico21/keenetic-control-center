@@ -35,8 +35,8 @@ use kcc_telemetry::{logs::runtime::Service as LogService, metrics::instrumentati
 use kcc_web::fleet_updates::ComponentsUpdateCheck;
 
 use crate::{
-    server_error::ServerError, server_migrations::warn_external_password_files,
-    server_outbound::warn_closed_policy,
+    server_error::ServerError, server_mcp_auth::principals::FilePrincipals,
+    server_migrations::warn_external_password_files, server_outbound::warn_closed_policy,
 };
 
 /// How long one MCP Entware SSH read may wait, for example behind a mutation that holds
@@ -235,6 +235,10 @@ impl Services {
             Arc::clone(&self.clock),
         )))
         .with_audit(self.audit.clone())
+        .with_principals(Arc::new(FilePrincipals::new(
+            Arc::clone(&self.accounts),
+            self.state.clone(),
+        )))
         .with_presets(PresetStore::new(self.state.clone(), self.key.duplicate()))
         .with_entware_ssh(Arc::clone(&self.entware_ssh), ENTWARE_READ_LIMIT))
     }

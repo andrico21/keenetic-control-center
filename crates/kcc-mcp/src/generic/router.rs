@@ -31,6 +31,7 @@ use super::{
 use crate::{
     KccMcp, config_tools, domains, migration_tools, preset_tools,
     preset_tools::state::Presets,
+    principals::McpPrincipals,
     registry::definitions::{ToolDescription, enabled, generic, tools},
     support::{
         call::{finish, finish_with_context},
@@ -73,6 +74,7 @@ impl KccMcp {
             roles: RoleSource::new(roles),
             fallback_role,
             key_use: None,
+            principals: None,
             tool_router,
             tool_specs,
             audit: None,
@@ -162,6 +164,15 @@ impl KccMcp {
     #[must_use]
     pub fn with_key_use(mut self, recorder: Arc<KeyUseRecorder>) -> Self {
         self.key_use = Some(recorder);
+        self
+    }
+
+    /// Resolves the account behind every kcc account token through `principals`, on every
+    /// call; without it such tokens are refused.
+    #[inline]
+    #[must_use]
+    pub fn with_principals(mut self, principals: Arc<dyn McpPrincipals>) -> Self {
+        self.principals = Some(principals);
         self
     }
 

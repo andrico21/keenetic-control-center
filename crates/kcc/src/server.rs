@@ -33,6 +33,7 @@ use crate::{
     server_listeners::{
         ListenerSupervisor, build::Shared, control::WebHandle, supervisor::Supervisor,
     },
+    server_mcp_auth::{KccSignIn, authorization_server},
     server_notify::{self, Deps, NotifyHandle, Options},
     server_reload::{hangups, start_watch},
     server_schedules::{self, wiring::start_for_server},
@@ -75,6 +76,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             .with_role_source(services.roles.clone()),
     );
     let updates = crate::server_tasks::refresh_updates(Arc::clone(&services.updates));
+    let oauth = authorization_server(&config, &services);
     let (supervisor, queue, status) = ListenerSupervisor::channel();
     let web_state = if config.web.enabled {
         Some(
@@ -84,7 +86,8 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
                 Arc::clone(&auth_reload),
                 (Arc::new(notify.clone()), schedule_control),
             )?
-            .with_mcp_control(Arc::new(WebHandle::new(supervisor.clone()))),
+            .with_mcp_control(Arc::new(WebHandle::new(supervisor.clone())))
+            .with_oauth(oauth.clone()),
         )
     } else {
         None
@@ -108,6 +111,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         web: web_state,
         live,
         reload: auth_reload,
+        sign_in: oauth.map(|server| Arc::new(KccSignIn::new(server))),
         config,
     };
     let _supervisor = supervisor;

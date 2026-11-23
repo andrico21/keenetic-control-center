@@ -22,7 +22,9 @@ use kcc_app::{
 use secrecy::ExposeSecret as _;
 use serde_json::{Value, json};
 
-use super::{Fixture, ManualClock, RESOURCE, START, TestResult, challenge, random_text, verifier};
+use super::{
+    Fixture, LOOPBACK, ManualClock, RESOURCE, START, TestResult, challenge, random_text, verifier,
+};
 
 /// The registration of `name` with `count` loopback redirect URIs.
 fn registration(name: Option<String>, count: u16) -> ClientRegistration {
@@ -125,10 +127,10 @@ fn pending_requests_and_codes_are_bounded() -> TestResult {
     let request = AuthorizationRequest::new(&client, target.clone(), challenge(&verifier)?)?;
     assert_eq!(MAX_ENTRIES, 1024);
 
-    let first_request = fixture.pending.begin(request.clone())?;
+    let first_request = fixture.pending.begin(request.clone(), LOOPBACK)?;
     let mut newest_request = first_request.clone();
     for _ in 0..MAX_ENTRIES {
-        newest_request = fixture.pending.begin(request.clone())?;
+        newest_request = fixture.pending.begin(request.clone(), LOOPBACK)?;
     }
     assert!(
         fixture
@@ -229,5 +231,26 @@ fn at_most_five_hundred_grants_are_stored() -> TestResult {
         MAX_GRANTS,
         "the expired grant was purged"
     );
+    Ok(())
+}
+
+/// todo 31: Unicode format characters (bidi controls, zero-width characters) are removed
+/// from a client name at registration; a name of nothing else is refused.
+#[test]
+fn format_characters_are_removed_from_client_names() -> TestResult {
+    let fixture = Fixture::new()?;
+    let client = fixture.clients.register(&registration(
+        Some("Claude \u{202e}txt.exe\u{200b}".to_owned()),
+        1,
+    ))?;
+    assert_eq!(client.name(), Some("Claude txt.exe"));
+    assert!(matches!(
+        fixture
+            .clients
+            .register(&registration(Some("\u{2066}\u{2069}".to_owned()), 1)),
+        Err(ClientError::Invalid {
+            field: "client_name"
+        })
+    ));
     Ok(())
 }

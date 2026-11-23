@@ -133,11 +133,15 @@ no metrics.
 | `oauth` | string | `"none"` | OAuth sign-in besides API keys: `none`, `kcc` (kcc accounts) or `external` (`[mcp.auth.oidc]`) |
 | `mtls` | string | `"off"` | client certificates: `off` or `optional`; `required` is refused here because this listener also serves the Web UI |
 
-OAuth sign-in is not available yet: a listener whose `oauth` is not `none` does not
-start. Client certificates (`optional` or `required`) need TLS on the listener and the
+`kcc` lets MCP clients sign in with a kcc account through kcc's own OAuth 2.1
+authorization server (USER_GUIDE "Connect an MCP client with your kcc account"); it needs
+an issuer: `web.public_url` with a DNS name, or a loopback main listener (then
+`http(s)://localhost:<port>`); without one, or with `[web] enabled = false`, a listener
+with `oauth = "kcc"` does not start. `external` is not available yet: such a listener does
+not start. Client certificates (`optional` or `required`) need TLS on the listener and the
 client CA uploaded on the Web (Administration > MCP, stored as `<state>/mcp/mtls-ca.pem`;
 no path is configured anywhere); a listener whose CA file is missing or fails the checks
-does not start. When either comes from values saved on the Web, the main listener starts
+does not start. When any of these comes from values saved on the Web, the main listener starts
 with this file's `[mcp.auth.*]` and `[mcp.dedicated]` instead (logged, and shown on the
 MCP page) and a dedicated listener is skipped.
 

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_OAUTH_CONSENT_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page auth-page oauth-consent">
+  <h1 class="page__title">{{ t(keys::WEB_OAUTH_CONSENT_TITLE) }}</h1>
+  <p class="page__text">{{ t(keys::WEB_OAUTH_CONSENT_TEXT) }}</p>
+  <p class="notice" data-tone="warning" id="oauth-client-unverified">{{ t(keys::WEB_OAUTH_CONSENT_UNVERIFIED) }}</p>
+  <dl class="facts">
+    <div class="facts__row"><dt>{{ t(keys::WEB_OAUTH_CONSENT_CLIENT) }}</dt><dd id="oauth-client-name">{% if let Some(name) = client %}{{ name }}{% else %}{{ t(keys::WEB_OAUTH_CONSENT_NO_NAME) }}{% endif %}</dd></div>
+    <div class="facts__row"><dt>{{ t(keys::WEB_OAUTH_CONSENT_REDIRECT) }}</dt><dd><span class="mono" id="oauth-redirect-host">{{ host }}</span></dd></div>
+    <div class="facts__row"><dt>{{ t(keys::WEB_OAUTH_CONSENT_RESOURCE) }}</dt><dd><span class="mono" id="oauth-resource">{{ resource }}</span></dd></div>
+    <div class="facts__row"><dt>{{ t(keys::WEB_OAUTH_CONSENT_ACCOUNT) }}</dt><dd id="oauth-account">{{ account }}</dd></div>
+    <div class="facts__row"><dt>{{ t(keys::WEB_OAUTH_CONSENT_ROLE) }}</dt><dd id="oauth-role">{{ role }}</dd></div>
+  </dl>
+  <p class="page__text">{{ t(keys::WEB_OAUTH_CONSENT_AUTHORITY) }}</p>
+  <div id="oauth-outcome" role="status"></div>
+  <input type="hidden" id="oauth-request" name="request" value="{{ id }}">
+  <div class="form__actions">
+    <button class="button button--primary" id="oauth-approve" type="button" hx-post="/ui/oauth/consent/approve" hx-include="#oauth-request" hx-target="#oauth-outcome">{{ t(keys::WEB_OAUTH_CONSENT_APPROVE) }}</button>
+    <button class="button button--secondary" id="oauth-deny" type="button" hx-post="/ui/oauth/consent/deny" hx-include="#oauth-request" hx-target="#oauth-outcome">{{ t(keys::WEB_OAUTH_CONSENT_DENY) }}</button>
+  </div>
+</div>
+{%- endblock %}

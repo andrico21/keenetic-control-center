@@ -188,3 +188,38 @@ async fn the_kcc_issuer_follows_the_main_listener() -> TestResult {
     }
     Ok(())
 }
+
+/// Regression (todo 31): kcc sign-in needs an issuer.
+///
+/// With an IP-only main listener the page refuses kcc sign-in for either listener with the
+/// reason and saves nothing; with an issuer the same change goes on to the password.
+#[tokio::test]
+async fn kcc_sign_in_needs_an_issuer() -> TestResult {
+    for (toml, refused) in [
+        ("[server]\nlisten_addr = \"192.0.2.10\"\n", true),
+        ("", false),
+    ] {
+        let fixture = Mcp::build(toml, &[], Some(McpStatus::default())).await?;
+        let admin = fixture.login("admin").await?;
+        for key in ["auth.main.oauth", "auth.dedicated.oauth"] {
+            let (status, answer) = fixture
+                .save(&admin, &[("field", key), (key, "kcc")])
+                .await?;
+            if refused {
+                assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{key}");
+                assert!(
+                    answer.contains(&en(keys::WEB_OAUTH_ISSUER_UNAVAILABLE)),
+                    "{key}: {answer}"
+                );
+            } else {
+                assert_eq!(status, StatusCode::OK, "{key}");
+                assert!(
+                    answer.contains(&en(keys::WEB_ADMIN_MCP_CONFIRM_TITLE)),
+                    "{key}: {answer}"
+                );
+            }
+        }
+        assert!(fixture.settings_bytes()?.is_empty(), "nothing saved");
+    }
+    Ok(())
+}

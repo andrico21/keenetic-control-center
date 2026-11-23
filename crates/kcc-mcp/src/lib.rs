@@ -11,6 +11,7 @@ mod generic;
 mod handler;
 mod migration_tools;
 mod preset_tools;
+pub mod principals;
 mod prompts;
 pub mod registry;
 mod support;
@@ -37,6 +38,7 @@ use rmcp::handler::server::tool::ToolRouter;
 use crate::{
     migration_tools::records::Migrations,
     preset_tools::state::Presets,
+    principals::McpPrincipals,
     registry::definitions::ToolDescription,
     support::{gates::SharedGates, validate::valid_host},
 };
@@ -238,6 +240,9 @@ pub struct KccMcp {
     fallback_role: Role,
     /// Records the last use of each API key.
     key_use: Option<Arc<KeyUseRecorder>>,
+    /// Resolves the account behind a kcc account token on every call; without it such a
+    /// token is refused.
+    principals: Option<Arc<dyn McpPrincipals>>,
     /// The registered tools after the toolset and safety-mode filter.
     tool_router: ToolRouter<Self>,
     /// The registered tools as the coarse RBAC gate sees them.

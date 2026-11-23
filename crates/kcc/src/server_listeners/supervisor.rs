@@ -105,9 +105,13 @@ impl Supervisor {
             Arc::clone(&shared.live),
             Arc::clone(&shared.reload),
         ));
+        let oauth = shared
+            .sign_in
+            .as_ref()
+            .map(|sign_in| Arc::clone(sign_in.server()));
         Self {
             shared,
-            listeners: Listeners::new(status),
+            listeners: Listeners::new(status, oauth),
             apply,
             applied,
             windows: Windows::default(),

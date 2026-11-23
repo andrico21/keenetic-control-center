@@ -408,9 +408,9 @@ The first release, `0.1.0`, is in preparation and contains:
   certificate, a self-signed one generated once into `<state>/mcp/dedicated-cert.pem` and
   `dedicated-key.pem` (owner-only), or none on loopback; `endpoint = "dedicated"` leaves
   the main listener's `/mcp` without tools. A dedicated listener that cannot start is
-  skipped at start and logged. Until OAuth sign-in is available, a listener whose
-  `oauth` is not `none` does not start: the main listener then starts with kcc.toml's
-  sign-in settings, the dedicated one is skipped.
+  skipped at start and logged. A listener whose `oauth` is `external` does not start
+  (another identity provider is not wired yet): the main listener then starts with
+  kcc.toml's sign-in settings, the dedicated one is skipped.
 - **Live restart of the MCP listeners**: `kcc serve` runs its listeners under a
   supervisor (`kcc::server_listeners::ListenerSupervisor`): a settings change that
   restarts a listener builds and validates the new one first, then stops, serves,
@@ -461,6 +461,29 @@ The first release, `0.1.0`, is in preparation and contains:
   `kcc_app::mcp_settings::client_ca`, `McpControl::replace_client_ca`,
   `McpRefusal::ConfirmationRequired` (audit outcome `confirmation_required`),
   `ListenerSupervisor::replace_client_ca`.
+- **Sign in to MCP with a kcc account (OAuth 2.1)**: with `[mcp.auth.main|dedicated]
+  oauth = "kcc"`, kcc is its own authorization server: discovery
+  (`/.well-known/oauth-protected-resource/mcp`, `/.well-known/oauth-authorization-server`),
+  dynamic client registration (`/oauth/register`, public clients only, 10 per address an
+  hour), `/oauth/authorize` (PKCE S256 only, `resource` required, at most 30 requests per
+  address in 10 minutes and 16 pending at once; a full store evicts from the address
+  holding the most), the consent page `/ui/oauth/consent?request=<id>` behind the Web login
+  (client name marked unverified, redirect host, account and role; the login resumes only
+  at a live request), `/oauth/token` (codes 60 s and single use, refresh rotation, reuse
+  revokes the family; answers `no-store`), `/oauth/revoke` and `/oauth/jwks`. The kit
+  validates the EdDSA tokens through an internal JWKS listener on one loopback port of
+  127.0.0.1 and [::1]; every MCP call re-reads the account, the grant and its client, so
+  a role change, a disabled or deleted account, a password change, a revoked grant or a
+  deleted client counts from the next call. Client names lose Unicode format characters
+  (bidi controls) at registration; an oversized protocol request answers `413`
+  `invalid_request`, `no-store`. Audit: `web.oauth_consent`, `mcp.oauth_token_issued`,
+  `mcp.oauth_refresh_reuse`; kcc token callers are `oauth:<account>`, other identity
+  providers `oidc:<name>`. The MCP page refuses kcc sign-in when there is no issuer.
+  Library: `kcc_web::oauth`,
+  `WebState::with_oauth`, `kcc_mcp::principals::McpPrincipals`,
+  `KccMcp::with_principals`; `AccountStanding.must_change_password`;
+  `PendingStore::begin(request, from)` takes the client address,
+  `kcc_app::mcp_auth::pending::source::address_group`.
 
 ### Changed
 

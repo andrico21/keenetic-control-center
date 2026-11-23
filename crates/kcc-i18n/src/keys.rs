@@ -9174,8 +9174,73 @@ pub const WEB_SYSTEM_ENTWARE_SSH_CONFIRM_LOCAL: MessageKey =
 pub const WEB_SYSTEM_ENTWARE_SSH_CONFIRM_CHANGE: MessageKey =
     MessageKey::new("web-system-entware-ssh-confirm-change");
 
+/// `web-oauth-login-note` in `web.ftl`.
+pub const WEB_OAUTH_LOGIN_NOTE: MessageKey = MessageKey::new("web-oauth-login-note");
+
+/// `web-oauth-consent-title` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_TITLE: MessageKey = MessageKey::new("web-oauth-consent-title");
+
+/// `web-oauth-consent-text` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_TEXT: MessageKey = MessageKey::new("web-oauth-consent-text");
+
+/// `web-oauth-consent-unverified` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_UNVERIFIED: MessageKey =
+    MessageKey::new("web-oauth-consent-unverified");
+
+/// `web-oauth-consent-client` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_CLIENT: MessageKey = MessageKey::new("web-oauth-consent-client");
+
+/// `web-oauth-consent-no-name` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_NO_NAME: MessageKey = MessageKey::new("web-oauth-consent-no-name");
+
+/// `web-oauth-consent-redirect` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_REDIRECT: MessageKey = MessageKey::new("web-oauth-consent-redirect");
+
+/// `web-oauth-consent-resource` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_RESOURCE: MessageKey = MessageKey::new("web-oauth-consent-resource");
+
+/// `web-oauth-consent-account` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_ACCOUNT: MessageKey = MessageKey::new("web-oauth-consent-account");
+
+/// `web-oauth-consent-role` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_ROLE: MessageKey = MessageKey::new("web-oauth-consent-role");
+
+/// `web-oauth-consent-authority` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_AUTHORITY: MessageKey = MessageKey::new("web-oauth-consent-authority");
+
+/// `web-oauth-consent-approve` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_APPROVE: MessageKey = MessageKey::new("web-oauth-consent-approve");
+
+/// `web-oauth-consent-deny` in `web.ftl`.
+pub const WEB_OAUTH_CONSENT_DENY: MessageKey = MessageKey::new("web-oauth-consent-deny");
+
+/// `web-oauth-error-title` in `web.ftl`.
+pub const WEB_OAUTH_ERROR_TITLE: MessageKey = MessageKey::new("web-oauth-error-title");
+
+/// `web-oauth-error-client` in `web.ftl`.
+pub const WEB_OAUTH_ERROR_CLIENT: MessageKey = MessageKey::new("web-oauth-error-client");
+
+/// `web-oauth-error-redirect` in `web.ftl`.
+pub const WEB_OAUTH_ERROR_REDIRECT: MessageKey = MessageKey::new("web-oauth-error-redirect");
+
+/// `web-oauth-error-request` in `web.ftl`.
+pub const WEB_OAUTH_ERROR_REQUEST: MessageKey = MessageKey::new("web-oauth-error-request");
+
+/// `web-oauth-error-busy` in `web.ftl`.
+pub const WEB_OAUTH_ERROR_BUSY: MessageKey = MessageKey::new("web-oauth-error-busy");
+
+/// `web-oauth-error-expired` in `web.ftl`.
+pub const WEB_OAUTH_ERROR_EXPIRED: MessageKey = MessageKey::new("web-oauth-error-expired");
+
+/// `web-oauth-error-account` in `web.ftl`.
+pub const WEB_OAUTH_ERROR_ACCOUNT: MessageKey = MessageKey::new("web-oauth-error-account");
+
+/// `web-oauth-issuer-unavailable` in `web.ftl`.
+pub const WEB_OAUTH_ISSUER_UNAVAILABLE: MessageKey =
+    MessageKey::new("web-oauth-issuer-unavailable");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2833] = [
+pub static ALL: [MessageKey; 2854] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -12009,4 +12074,25 @@ pub static ALL: [MessageKey; 2833] = [
     WEB_SYSTEM_ENTWARE_SSH_CONFIRM_PROBE,
     WEB_SYSTEM_ENTWARE_SSH_CONFIRM_LOCAL,
     WEB_SYSTEM_ENTWARE_SSH_CONFIRM_CHANGE,
+    WEB_OAUTH_LOGIN_NOTE,
+    WEB_OAUTH_CONSENT_TITLE,
+    WEB_OAUTH_CONSENT_TEXT,
+    WEB_OAUTH_CONSENT_UNVERIFIED,
+    WEB_OAUTH_CONSENT_CLIENT,
+    WEB_OAUTH_CONSENT_NO_NAME,
+    WEB_OAUTH_CONSENT_REDIRECT,
+    WEB_OAUTH_CONSENT_RESOURCE,
+    WEB_OAUTH_CONSENT_ACCOUNT,
+    WEB_OAUTH_CONSENT_ROLE,
+    WEB_OAUTH_CONSENT_AUTHORITY,
+    WEB_OAUTH_CONSENT_APPROVE,
+    WEB_OAUTH_CONSENT_DENY,
+    WEB_OAUTH_ERROR_TITLE,
+    WEB_OAUTH_ERROR_CLIENT,
+    WEB_OAUTH_ERROR_REDIRECT,
+    WEB_OAUTH_ERROR_REQUEST,
+    WEB_OAUTH_ERROR_BUSY,
+    WEB_OAUTH_ERROR_EXPIRED,
+    WEB_OAUTH_ERROR_ACCOUNT,
+    WEB_OAUTH_ISSUER_UNAVAILABLE,
 ];

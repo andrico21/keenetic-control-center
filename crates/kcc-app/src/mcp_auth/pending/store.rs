@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use alloc::sync::Arc;
-use core::fmt;
+use core::{fmt, net::IpAddr};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use secrecy::{ExposeSecret as _, SecretString};
@@ -12,6 +12,7 @@ use sha2::{Digest as _, Sha256};
 use super::{
     AuthorizationRequest, AuthorizedCode, CODE_LIFETIME_SECONDS, CodeRefusal, CodeTarget, Entries,
     Entry, MAX_ENTRIES, PendingError, PendingStore, REQUEST_LIFETIME_SECONDS,
+    source::{evicted, source_of},
 };
 use crate::{
     accounts::Clock,
@@ -40,13 +41,24 @@ impl PendingStore {
         }
     }
 
-    /// Holds `request` and answers its id (256 random bits, 43 base64url characters).
+    /// Holds `request`, sent from the client address `from`, and answers its id (256
+    /// random bits, 43 base64url characters).
+    ///
+    /// Only a keyed hash of `from`'s address group is kept, in memory. That source holds
+    /// at most [`MAX_ENTRIES_PER_SOURCE`](super::MAX_ENTRIES_PER_SOURCE) requests (its
+    /// oldest gives way); at [`MAX_ENTRIES`] the oldest request of the source holding the
+    /// most gives way.
     ///
     /// # Errors
     ///
     /// [`PendingError::Random`] when the OS RNG fails.
     #[inline]
-    pub fn begin(&self, request: AuthorizationRequest) -> Result<SecretString, PendingError> {
+    pub fn begin(
+        &self,
+        request: AuthorizationRequest,
+        from: IpAddr,
+    ) -> Result<SecretString, PendingError> {
+        let source = source_of(from)?;
         let id = new_secret()?;
         let now = self.clock.unix_seconds();
         let entry = Entry {
@@ -54,13 +66,16 @@ impl PendingStore {
             created_at: now,
             request,
             account: None,
+            source: Some(source),
         };
-        hold(
-            &mut self.lock().requests,
-            entry,
-            now,
-            REQUEST_LIFETIME_SECONDS,
-        );
+        let mut entries = self.lock();
+        let held = &mut entries.requests;
+        held.retain(|old| live(old, now, REQUEST_LIFETIME_SECONDS));
+        if let Some(index) = evicted(held, &source) {
+            drop(held.remove(index));
+        }
+        held.push(entry);
+        drop(entries);
         Ok(id)
     }
 
@@ -110,6 +125,7 @@ impl PendingStore {
             created_at: now,
             request,
             account: Some(account.to_owned()),
+            source: None,
         };
         hold(&mut self.lock().codes, entry, now, CODE_LIFETIME_SECONDS);
         Ok(code)
@@ -164,8 +180,8 @@ impl PendingStore {
     }
 }
 
-/// Adds `entry` to `held` after dropping the expired ones and, at [`MAX_ENTRIES`], the
-/// oldest.
+/// Adds the code `entry` to `held` after dropping the expired ones and, at
+/// [`MAX_ENTRIES`], the oldest.
 fn hold(held: &mut Vec<Entry>, entry: Entry, now: u64, lifetime: u64) {
     held.retain(|old| live(old, now, lifetime));
     if held.len() >= MAX_ENTRIES {

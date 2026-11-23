@@ -46,6 +46,10 @@ In memory only, lost on restart: Web sessions (each holds a SHA-256 fingerprint 
 account's stored password hash, which lets kcc end it when the password changes), the live traffic history (30 minutes),
 poller caches, Web UI preset drafts, MCP migration plans and transient MCP presets.
 
+Pending MCP authorization requests, their codes and the per-address registration and
+authorization counters live in memory only and are lost on restart; no IP address of an
+MCP client is written anywhere.
+
 ## What kcc never stores
 
 - Plaintext web account passwords or API keys.

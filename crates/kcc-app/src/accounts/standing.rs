@@ -49,6 +49,8 @@ pub struct AccountStanding {
     pub role: String,
     /// Whether login is administratively disabled.
     pub disabled: bool,
+    /// Whether the account must choose a new password before anything else.
+    pub must_change_password: bool,
     /// The password's fingerprint; `None` when the stored hash cannot be opened, which
     /// no session matches.
     pub fingerprint: Option<PasswordFingerprint>,
@@ -68,6 +70,7 @@ pub(super) fn all(store: &AccountStore) -> Result<BTreeMap<String, AccountStandi
             let standing = AccountStanding {
                 role: account.role.clone(),
                 disabled: account.disabled,
+                must_change_password: account.must_change_password,
                 fingerprint: opened(store, account),
             };
             (account.username.clone(), standing)

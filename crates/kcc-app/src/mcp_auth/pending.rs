@@ -4,8 +4,11 @@
 //! lives [`CODE_LIFETIME_SECONDS`], is redeemed once (a refused attempt consumes it too)
 //! and only with its own client, redirect URI, resource and PKCE S256 verifier. Request
 //! ids and codes are kept as SHA-256 digests, found by a constant-time scan of every
-//! entry; at most [`MAX_ENTRIES`] of each are held, the oldest giving way.
+//! entry; at most [`MAX_ENTRIES`] of each are held. When the requests are full, the
+//! oldest request of the source (client address group) holding the most gives way, and
+//! one source holds at most [`MAX_ENTRIES_PER_SOURCE`]; the oldest code gives way.
 
+pub mod source;
 mod store;
 
 extern crate alloc;
@@ -27,6 +30,8 @@ pub const REQUEST_LIFETIME_SECONDS: u64 = 600;
 pub const CODE_LIFETIME_SECONDS: u64 = 60;
 /// Most requests, and most codes, held at once.
 pub const MAX_ENTRIES: usize = 1024;
+/// Most requests one source (an address, or an IPv6 /64) holds at once.
+pub const MAX_ENTRIES_PER_SOURCE: usize = 16;
 /// Longest `state`, in characters.
 const MAX_STATE_CHARS: usize = 512;
 /// Length of an S256 challenge.
@@ -300,6 +305,8 @@ struct Entry {
     request: AuthorizationRequest,
     /// The consenting account, for a code.
     account: Option<String>,
+    /// The keyed hash of the requesting address group, for a request.
+    source: Option<[u8; 32]>,
 }
 
 /// The held requests and codes.

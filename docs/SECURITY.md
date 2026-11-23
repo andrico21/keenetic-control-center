@@ -472,6 +472,77 @@ without a certificate must keep reaching it.
   the CA file is missing or fails the checks starts with kcc.toml's sign-in settings and
   logs why; the MCP page shows the fallback.
 
+## MCP sign-in with kcc accounts (OAuth 2.1)
+
+With `[mcp.auth.main|dedicated] oauth = "kcc"`, kcc is an OAuth 2.1 authorization server
+for its own MCP listeners (RFC 6749, 7591, 7636, 8252, 8414, 8707, 9068, 9207, 9700,
+9728).
+
+- **Issuer**: `web.public_url` when its host is a DNS name, else `http(s)://localhost:<port>`
+  of a loopback main listener; no issuer otherwise (and none without the Web UI), and the
+  MCP page then refuses kcc sign-in. While no listener uses kcc sign-in, every OAuth route
+  answers 404.
+- **Clients** are public (no secret), registered without authentication: at most 10 per
+  address an hour (memory only), 50 in all (admin-registered ones count), names of at most
+  64 characters shown as unverified, at most 5 redirect URIs: loopback `http` (any port),
+  `https` exactly, or reverse-domain private-use schemes; `javascript:`, `data:`, `file:` and
+  other `http` are refused. `logo_uri` and `client_uri` are never fetched.
+- **Authorization requests** need a registered client and one of its exact redirect URIs;
+  otherwise the browser gets an error page and is never redirected. PKCE S256 only (`plain`
+  is refused), `resource` must be an MCP URL of a listener using kcc sign-in, `state` is
+  echoed and `iss` is added to every answer. Requests live 10 minutes in memory, at most
+  1024; one address (an IPv6 /64 counts as one) may open 30 per 10 minutes and holds at
+  most 16 at once (its oldest gives way). When the store is full, the oldest request of the
+  address holding the most gives way, so a flood from many addresses evicts the flooders'
+  requests first. Only a keyed hash of the address, under a random per-process key, is
+  kept, in memory. An attacker controlling at least 1024 distinct addresses (or /64s) can
+  still evict a pending request (the store is bounded); the 10-minute lifetime and the
+  per-address limit bound the damage, and the client then starts the sign-in again.
+  Unicode format characters (bidi controls, zero-width characters) are removed from a
+  client's name at registration.
+- **Consent** needs a Web session: without one the login page carries the request id,
+  and the login resumes only at a live request (never a URL). Approve and deny are
+  same-origin htmx POSTs with the session's CSRF token, under the pages' CSP with
+  `frame-ancestors 'none'` and `no-store`. The account must be enabled and need not change
+  its password, checked when the page opens, at the approval and again when the code is
+  redeemed (a code is valid 60 seconds and once; it is bound to the client, redirect URI,
+  resource, PKCE challenge and the password it was approved with). Decisions are audited
+  as `web.oauth_consent`.
+- **Tokens**: access tokens are EdDSA JWTs (`typ: at+jwt`) with `iss`, `sub` (the
+  account), `aud` (the resource), `client_id`, `scope: "mcp"`, `kcc_grant`, `exp` (15
+  minutes by default); the signing key is sealed under the master key and never rotated
+  (BACKLOG). Refresh tokens are opaque, stored as SHA-256 only and rotated on every use;
+  using a rotated one again revokes its whole family and is audited as
+  `mcp.oauth_refresh_reuse`. Token answers are `Cache-Control: no-store`, `Pragma:
+  no-cache`, the answer to an oversized protocol request (`413`, `invalid_request`)
+  included; issuance is audited as `mcp.oauth_token_issued` (account, client, grant; no
+  token). No token, code, verifier or signing key reaches a log, an audit entry, an error
+  or a page.
+- **Validation**: rmcp-server-kit validates every token (issuer, audience, EdDSA only, a
+  subject required, expiry) with keys from kcc's internal JWKS listener: plain HTTP on
+  one port of both 127.0.0.1 and [::1] (`localhost` resolves to both, so no other local
+  process can answer the kit's fetch; five ports are tried, else kcc sign-in is refused
+  and logged), serving `GET /jwks` only.
+- **Per-call authority**: a kcc token grants nothing by itself. Its kit role
+  `kcc-account` is reserved (no API key, certificate or other provider can hold it); on
+  every MCP call kcc re-reads `users.json`, `mcp_oauth_grants.json` and
+  `mcp_oauth_clients.json` when they changed on disk and requires the grant to exist and
+  not be revoked, its client to be still registered, the account to exist, be
+  enabled, need not change its password and have the password the grant was issued with.
+  The call then runs with the account's current role (tools, router scope, list) and kcc
+  refuses a tool that role does not grant. A refusal answers `forbidden` until the
+  token expires (then 401). Callers are audited as `oauth:<account>`.
+- **Revocation latency**: a revoked grant, a deleted client or account, a disabled
+  account, a role or password change binds the very next call; an issued access token
+  stays valid at the kit until it expires, but every call it makes is refused.
+- **Known limits**: a code used twice is refused, but the grant already issued from it is
+  not revoked (RFC 9700 recommends it); reuse detection keeps 16 rotated refresh token
+  hashes per grant, so an older one is just unknown; the 50-client limit counts
+  admin-registered clients, so registrations from many addresses can fill it for up to
+  24 hours; an account that must change its password cannot resume a pending request after
+  changing it (the client starts again). Browser-based clients are refused by the kit's
+  Origin check on `/oauth/token`.
+
 ## Audit chain
 
 Root batch completion follows the ordered per-item router responses, including

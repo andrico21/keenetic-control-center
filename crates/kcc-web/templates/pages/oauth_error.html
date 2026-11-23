@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_OAUTH_ERROR_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page auth-page">
+  <h1 class="page__title">{{ t(keys::WEB_OAUTH_ERROR_TITLE) }}</h1>
+  <p class="notice" data-tone="error" id="oauth-error" data-message-key="{{ said().id() }}">{{ t(said()) }}</p>
+  <p><a class="button button--primary" href="/ui/">{{ t(keys::WEB_ERROR_HOME) }}</a></p>
+</div>
+{%- endblock %}

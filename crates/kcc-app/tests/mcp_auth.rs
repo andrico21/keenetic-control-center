@@ -14,6 +14,7 @@ extern crate alloc;
 use alloc::sync::Arc;
 use core::{
     error::Error,
+    net::{IpAddr, Ipv4Addr},
     sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
@@ -45,6 +46,8 @@ mod grants;
 mod hygiene;
 #[path = "mcp_auth/limits.rs"]
 mod limits;
+#[path = "mcp_auth/pending_flood.rs"]
+mod pending_flood;
 #[path = "mcp_auth/redirects.rs"]
 mod redirects;
 #[path = "mcp_auth/signing.rs"]
@@ -58,6 +61,8 @@ const START: u64 = 1_800_000_000;
 const REFRESH_TTL: Duration = Duration::from_hours(7 * 24);
 /// The resource every fixture grant is for.
 const RESOURCE: &str = "https://kcc.example/mcp";
+/// The client address of a fixture's authorization requests.
+const LOOPBACK: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
 /// A clock the test moves by hand.
 #[derive(Debug)]

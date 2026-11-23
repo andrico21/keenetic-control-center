@@ -7,7 +7,10 @@ use alloc::sync::Arc;
 use core::str::FromStr as _;
 
 use axum::{Form, extract::State, http::StatusCode, response::Response};
-use kcc_app::mcp_settings::{Candidate, SettingsError, document::McpOverrides, keys::KeyPath};
+use kcc_app::{
+    mcp_settings::{Candidate, SettingsError, document::McpOverrides, keys::KeyPath},
+    settings::mcp_schema::OauthMode,
+};
 use kcc_i18n::keys;
 use tokio::task::{JoinError, spawn_blocking};
 
@@ -19,7 +22,7 @@ use super::{
     reply,
 };
 use crate::{
-    WebState, admin_shared::unavailable, authz::CurrentUser, errors,
+    WebState, admin::issuer::Issuer, admin_shared::unavailable, authz::CurrentUser, errors,
     page_kit::context::fragment_shell,
 };
 
@@ -142,6 +145,11 @@ async fn handed(
         {
             plan_refused(user, &SettingsError::SettingsChanged)
         }
+        Ok(Ok(candidate)) if kcc_without_issuer(state, &candidate) => {
+            let locale = user.locale();
+            let said = Said::new(locale, keys::WEB_OAUTH_ISSUER_UNAVAILABLE, None);
+            reply::refused(locale, said, StatusCode::UNPROCESSABLE_ENTITY)
+        }
         Ok(Ok(candidate)) => submit(state, user, (attached, candidate), posted).await,
         Ok(Err(error)) => plan_refused(user, &error),
         Err(error) => errors::internal(&error, fragment_shell(user.locale())),
@@ -173,4 +181,19 @@ fn plan_refused(user: &CurrentUser, error: &SettingsError) -> Response {
         || errors::internal(error, fragment_shell(locale)),
         |said| reply::refused(locale, said, status),
     )
+}
+
+/// Whether `candidate` turns kcc sign-in on for a listener while kcc's authorization server
+/// has no issuer (no DNS public URL and no loopback main listener, or no Web UI).
+fn kcc_without_issuer(state: &WebState, candidate: &Candidate) -> bool {
+    let issuer_missing = state
+        .admin()
+        .is_some_and(|admin| !matches!(admin.server().issuer(), Issuer::Url(_)));
+    let auth = &candidate.effective().settings().auth;
+    let turned_on = |key: KeyPath, mode: OauthMode| {
+        mode == OauthMode::Kcc && candidate.changed().contains(&key)
+    };
+    issuer_missing
+        && (turned_on(KeyPath::MainOauth, auth.main.oauth)
+            || turned_on(KeyPath::DedicatedOauth, auth.dedicated.oauth))
 }

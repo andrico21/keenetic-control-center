@@ -22,7 +22,9 @@ impl ClientStore {
         Self { state, clock }
     }
 
-    /// Registers a client after purging unused ones.
+    /// Registers a client after purging unused ones. Unicode format characters (bidi
+    /// controls, zero-width characters) are removed from its name first, so a name cannot
+    /// read differently than it is.
     ///
     /// # Errors
     ///
@@ -31,11 +33,15 @@ impl ClientStore {
     /// [`ClientError::TooMany`] at [`MAX_CLIENTS`]; a storage or RNG failure.
     #[inline]
     pub fn register(&self, registration: &ClientRegistration) -> Result<Client, ClientError> {
-        check(registration)?;
+        let name = registration
+            .name
+            .as_deref()
+            .map(|name| name.chars().filter(|symbol| !is_format(*symbol)).collect());
+        check(name.as_deref(), &registration.redirect_uris)?;
         let now = self.clock.unix_seconds();
         let client = Client {
             id: new_id()?,
-            name: registration.name.clone(),
+            name,
             redirect_uris: registration.redirect_uris.clone(),
             registered_at: now,
             last_grant_at: None,
@@ -100,26 +106,55 @@ fn live_clients(state: &StateStore, now: u64) -> Result<BTreeSet<String>, StateE
         .live_clients(now))
 }
 
-/// Checks the name and every redirect URI of `registration`.
+/// Whether `symbol` is a Unicode format character (general category `Cf`, Unicode 16).
+const fn is_format(symbol: char) -> bool {
+    matches!(
+        symbol,
+        '\u{ad}'
+            | '\u{600}'..='\u{605}'
+            | '\u{61c}'
+            | '\u{6dd}'
+            | '\u{70f}'
+            | '\u{890}'..='\u{891}'
+            | '\u{8e2}'
+            | '\u{180e}'
+            | '\u{200b}'..='\u{200f}'
+            | '\u{202a}'..='\u{202e}'
+            | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{206f}'
+            | '\u{feff}'
+            | '\u{fff9}'..='\u{fffb}'
+            | '\u{110bd}'
+            | '\u{110cd}'
+            | '\u{13430}'..='\u{1343f}'
+            | '\u{1bca0}'..='\u{1bca3}'
+            | '\u{1d173}'..='\u{1d17a}'
+            | '\u{e0001}'
+            | '\u{e0020}'..='\u{e007f}'
+    )
+}
+
+/// Checks the client `name` (format characters removed) and every one of
+/// `redirect_uris`.
 ///
 /// # Errors
 ///
 /// As [`ClientStore::register`].
-fn check(registration: &ClientRegistration) -> Result<(), ClientError> {
-    if let Some(name) = &registration.name {
-        let chars = name.chars().count();
-        if !(1..=MAX_NAME_CHARS).contains(&chars) || name.chars().any(char::is_control) {
+fn check(name: Option<&str>, redirect_uris: &[String]) -> Result<(), ClientError> {
+    if let Some(text) = name {
+        let chars = text.chars().count();
+        if !(1..=MAX_NAME_CHARS).contains(&chars) || text.chars().any(char::is_control) {
             return Err(ClientError::Invalid {
                 field: "client_name",
             });
         }
     }
-    if !(1..=MAX_REDIRECT_URIS).contains(&registration.redirect_uris.len()) {
+    if !(1..=MAX_REDIRECT_URIS).contains(&redirect_uris.len()) {
         return Err(ClientError::Invalid {
             field: "redirect_uris",
         });
     }
-    for (index, uri) in registration.redirect_uris.iter().enumerate() {
+    for (index, uri) in redirect_uris.iter().enumerate() {
         redirect_refusal(uri).map_or(Ok(()), |reason| {
             Err(ClientError::RedirectUri { index, reason })
         })?;

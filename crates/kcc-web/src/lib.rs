@@ -137,6 +137,7 @@ pub mod errors;
 pub mod fleet;
 pub mod fleet_updates;
 pub mod nav;
+pub mod oauth;
 pub mod page;
 pub mod session;
 pub mod sse;
@@ -193,6 +194,7 @@ mod net_wifi_settings;
 mod net_wifi_stations;
 mod net_wifi_tables;
 mod network;
+mod oauth_consent;
 mod overview;
 mod page_kit;
 mod pages;
@@ -243,6 +245,7 @@ use crate::{
     admin_scheduled::ScheduleControl,
     admin_shared::Admin,
     fleet::{Fleet, FleetServices},
+    oauth::OAuthServer,
     session::{CookieSecurity, SessionStore, account::StandingsError},
     sse::StreamLimiter,
 };
@@ -289,6 +292,8 @@ pub struct WebState {
     schedules: Option<Arc<dyn ScheduleControl>>,
     /// The running MCP listeners, when attached with [`WebState::with_mcp_control`].
     mcp: Option<Arc<admin_mcp::Attached>>,
+    /// kcc's authorization server, when attached with [`WebState::with_oauth`].
+    oauth: Option<Arc<OAuthServer>>,
     /// Command explorer and console services.
     advanced: Arc<advanced::Services>,
     /// The routers' catalog facts, shared by every page that validates a request.
@@ -363,6 +368,7 @@ impl WebState {
             notify: None,
             schedules: None,
             mcp: None,
+            oauth: None,
             advanced: Arc::new(advanced::Services::new(None)),
             facts: Arc::default(),
             log_feeds: LogFeeds::default(),
@@ -510,6 +516,21 @@ impl WebState {
     pub fn with_mcp_control(mut self, control: Arc<dyn McpControl>) -> Self {
         self.mcp = Some(Arc::new(admin_mcp::Attached::new(control)));
         self
+    }
+
+    /// Serves kcc's authorization server (`None`: no issuer, every OAuth route answers
+    /// 404); its routes answer 404 as well while no listener signs in with kcc.
+    #[inline]
+    #[must_use]
+    pub fn with_oauth(mut self, server: Option<Arc<OAuthServer>>) -> Self {
+        self.oauth = server;
+        self
+    }
+
+    /// kcc's authorization server, when attached.
+    #[must_use]
+    pub(crate) fn oauth(&self) -> Option<Arc<OAuthServer>> {
+        self.oauth.clone()
     }
 
     /// The running MCP listeners and the page's restart progress, when attached.
@@ -675,6 +696,8 @@ pub fn web_router(state: WebState) -> Router {
         .route("/ui/account/password", post(auth::change_password))
         .route("/ui/account/locale", post(auth::change_locale))
         .route("/ui/logout", post(auth::logout))
+        .route("/ui/oauth/consent/approve", post(oauth_consent::approve))
+        .route("/ui/oauth/consent/deny", post(oauth_consent::deny))
         .merge(admin_routes())
         .merge(advanced::routes())
         .merge(system_general::routes())
@@ -703,6 +726,7 @@ pub fn web_router(state: WebState) -> Router {
     let public = Router::new()
         .route(assets::ROUTE, get(assets::serve))
         .route("/ui/login", get(auth::login_page).post(auth::login))
+        .route("/ui/oauth/consent", get(oauth_consent::page))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             csrf::middleware,
@@ -710,11 +734,13 @@ pub fn web_router(state: WebState) -> Router {
     let bounded = Router::new()
         .merge(public)
         .merge(protected)
+        .merge(oauth::routes())
         .layer(middleware::from_fn(brackets::budget));
     Router::new()
         .merge(bounded)
         .merge(streams)
         .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
+        .layer(middleware::from_fn(oauth::oversized))
         .merge(dns_vpn::uploads(&state))
         .merge(mcp_uploads(&state))
         .merge(config_page::wiring::routes(&state))

@@ -10,6 +10,7 @@ pub(crate) mod names;
 pub(crate) mod plain;
 pub(crate) mod principal;
 pub(crate) mod raw_change;
+pub(crate) mod resources;
 pub(crate) mod route;
 pub(crate) mod scrub;
 pub(crate) mod shape;

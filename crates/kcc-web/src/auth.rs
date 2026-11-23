@@ -55,6 +55,10 @@ pub(crate) struct LoginForm {
     username: String,
     /// Plaintext password, immediately moved into `SecretString`.
     password: String,
+    /// The pending authorization request the sign-in resumes at; followed only when it
+    /// names a live one, so it can never send the browser elsewhere.
+    #[serde(default)]
+    consent: Option<String>,
 }
 
 impl fmt::Debug for LoginForm {
@@ -62,11 +66,12 @@ impl fmt::Debug for LoginForm {
         let Self {
             username,
             password: _,
+            consent: _,
         } = self;
         f.debug_struct("LoginForm")
             .field("username", username)
             .field("password", &"[redacted]")
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -101,15 +106,23 @@ struct Failed {
     client: Option<IpAddr>,
     /// Submitted name, or the fixed marker for an invalid one.
     username: String,
+    /// The live authorization request the form resumes at, kept for the next attempt.
+    consent: Option<String>,
 }
 
 impl Failed {
-    /// The sign-in `username` refused for the browser holding `id` at `client`.
-    const fn new(id: Option<SessionId>, client: Option<IpAddr>, username: String) -> Self {
+    /// The sign-in `username` refused for the browser holding `id` at `client`, resuming
+    /// at the live request `consent`.
+    fn new(
+        (id, client): (Option<SessionId>, Option<IpAddr>),
+        username: String,
+        consent: Option<String>,
+    ) -> Self {
         Self {
             id,
             client,
             username,
+            consent,
         }
     }
 }
@@ -145,6 +158,8 @@ struct LoginPage {
     error: String,
     /// Re-rendered account name.
     username: String,
+    /// The live authorization request the sign-in resumes at.
+    consent: Option<String>,
 }
 
 localized!(LoginPage);
@@ -168,21 +183,33 @@ struct AccountPage {
 localized!(AccountPage);
 
 /// `GET /ui/login`: renders login or the closed first-run instruction.
-// cancel-safe: it reads the account store and the session table; a session change happens whole
-// under one lock.
+// cancel-safe: as `login_view`.
 pub(crate) async fn login_page(
     State(state): State<WebState>,
     client: Option<Extension<ClientIp>>,
     headers: HeaderMap,
 ) -> Response {
+    login_view(&state, client, &headers, None).await
+}
+
+/// Renders login (resuming at the live authorization request `consent` once signed in)
+/// or the closed first-run instruction.
+// cancel-safe: it reads the account store and the session table; a session change happens whole
+// under one lock.
+pub(crate) async fn login_view(
+    state: &WebState,
+    client: Option<Extension<ClientIp>>,
+    headers: &HeaderMap,
+    consent: Option<String>,
+) -> Response {
     let server_error = |error: &dyn Display| {
-        errors::internal(error, prefs::shell(&headers, state.default_locale()))
+        errors::internal(error, prefs::shell(headers, state.default_locale()))
     };
-    let has_admin = match has_admin(&state).await {
+    let has_admin = match has_admin(state).await {
         Ok(value) => value,
         Err(error) => return server_error(&error),
     };
-    let existing = SessionStore::id_from_headers(&headers, state.cookie_security());
+    let existing = SessionStore::id_from_headers(headers, state.cookie_security());
     let session = match existing.as_ref() {
         Some(id) => state
             .sessions()
@@ -202,15 +229,16 @@ pub(crate) async fn login_page(
             Err(error) => return server_error(&error),
         },
     };
-    let shell = prefs::shell(&headers, state.default_locale())
+    let shell = prefs::shell(headers, state.default_locale())
         .with_csrf_token(anonymous.csrf_token().to_owned());
     let mut response = errors::render(&LoginPage {
         shell,
         no_admin: !has_admin,
         error: String::new(),
         username: String::new(),
+        consent,
     });
-    if let Err(error) = set_session_cookie(&mut response, &state, &id) {
+    if let Err(error) = set_session_cookie(&mut response, state, &id) {
         return server_error(&error);
     }
     response
@@ -230,6 +258,7 @@ pub(crate) async fn login(
         errors::internal(error, prefs::shell(&headers, state.default_locale()))
     };
     let old_id = SessionStore::id_from_headers(&headers, state.cookie_security());
+    let consent = resumable(&state, form.consent.as_deref());
     let username = match validate_username(&form.username) {
         Ok(()) => form.username,
         Err(_invalid) => INVALID_USERNAME_ACTOR.to_owned(),
@@ -274,15 +303,18 @@ pub(crate) async fn login(
             let landing = match password_change_required(&state, &username).await {
                 Ok(true) => {
                     state.sessions().require_password_change(&id).await;
-                    PASSWORD_CHANGE_PAGE
+                    PASSWORD_CHANGE_PAGE.to_owned()
                 }
-                Ok(false) => "/ui/",
+                Ok(false) => consent.map_or_else(
+                    || "/ui/".to_owned(),
+                    |request| format!("{CONSENT_PAGE}{request}"),
+                ),
                 Err(error) => {
                     state.sessions().invalidate(&id).await;
                     return server_error(&error);
                 }
             };
-            let mut response = go_to(&headers, landing);
+            let mut response = go_to(&headers, &landing);
             if let Err(error) = set_session_cookie(&mut response, &state, &id) {
                 return server_error(&error);
             }
@@ -291,18 +323,18 @@ pub(crate) async fn login(
         Authentication::Invalid | Authentication::Disabled => {
             drop(reading);
             let failed = Failed::new(
-                old_id,
-                client.map(|Extension(resolved)| resolved.ip),
+                (old_id, client.map(|Extension(resolved)| resolved.ip)),
                 username,
+                consent,
             );
             login_failure(&state, &headers, failed, "invalid").await
         }
         Authentication::Locked { until: _ } => {
             drop(reading);
             let failed = Failed::new(
-                old_id,
-                client.map(|Extension(resolved)| resolved.ip),
+                (old_id, client.map(|Extension(resolved)| resolved.ip)),
                 username,
+                consent,
             );
             login_failure(&state, &headers, failed, "locked").await
         }
@@ -462,6 +494,7 @@ async fn login_failure(
         id,
         client,
         username,
+        consent,
     } = failed;
     if let Err(error) = audit(state, &username, "web.login", outcome).await {
         return server_error(&error);
@@ -492,6 +525,7 @@ async fn login_failure(
             no_admin: false,
             error: refusal,
             username: shown,
+            consent,
         }),
     )
         .into_response();
@@ -499,6 +533,19 @@ async fn login_failure(
         return server_error(&error);
     }
     response
+}
+
+/// Where a sign-in resumes an authorization request: `CONSENT_PAGE` plus the request id.
+pub(crate) const CONSENT_PAGE: &str = "/ui/oauth/consent?request=";
+
+/// `consent` when it names a live pending authorization request; anything else (a URL,
+/// a path, an expired or unknown id) is dropped, so a sign-in never follows it.
+fn resumable(state: &WebState, consent: Option<&str>) -> Option<String> {
+    let id = consent?;
+    state
+        .oauth()
+        .filter(|server| server.is_live_request(id))
+        .map(|_server| id.to_owned())
 }
 
 /// Reads the first-run state away from the async executor.
@@ -707,6 +754,7 @@ mod tests {
         let form = LoginForm {
             username: "alice".to_owned(),
             password: password.clone(),
+            consent: None,
         };
 
         let debug = format!("{form:?}");

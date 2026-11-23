@@ -160,6 +160,7 @@ impl Fixture {
             metrics: Some(Metrics::new(exporter, metrics)),
             live: Arc::clone(&live),
             reload: Arc::clone(&reload),
+            sign_in: None,
             config,
         });
         let (supervisor, queue, status) = ListenerSupervisor::channel();

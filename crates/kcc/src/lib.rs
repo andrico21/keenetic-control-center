@@ -14,6 +14,7 @@ pub mod server;
 pub mod server_error;
 pub mod server_listeners;
 pub mod server_live;
+mod server_mcp_auth;
 mod server_metrics;
 mod server_migrations;
 mod server_notify;

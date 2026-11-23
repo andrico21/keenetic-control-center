@@ -5,7 +5,7 @@ use core::slice::from_ref;
 
 use kcc_app::{
     audit::{Actor, ActorKind},
-    permissions::Permission,
+    permissions::{KCC_ACCOUNT_ROLE, Permission, Role},
     registry::authorize,
     workflow::ChangeSet,
 };
@@ -74,14 +74,49 @@ impl KccMcp {
             .is_some_and(|definition| gates.admits(definition))
     }
 
+    /// The tools the caller may list: the visible ones, and for a kcc account token only
+    /// those its account's current role grants.
+    ///
+    /// # Errors
+    ///
+    /// `forbidden` when a kcc account token's account or grant does not stand.
+    pub(crate) fn listed_tools(&self, http_identity: bool) -> Result<Vec<Tool>, McpFailure> {
+        let mut tools = self.visible_tools(http_identity);
+        if principal::is_kcc_account() {
+            let identity = self.identity()?;
+            tools.retain(|tool| self.permits(&identity.role, &tool.name));
+        }
+        Ok(tools)
+    }
+
+    /// Whether `role` holds the coarse permission of the tool `name`, the gate the kit's
+    /// RBAC applies to every caller but a kcc account token; a tool kcc does not define is
+    /// refused.
+    pub(crate) fn permits(&self, role: &Role, name: &str) -> bool {
+        self.definitions
+            .iter()
+            .find(|definition| definition.name == name)
+            .is_some_and(|definition| role.grants(definition.permission))
+    }
+
     /// Resolves the caller to a configured role, or the stdio fallback role, under its
-    /// namespaced name ([`principal::name`]).
+    /// namespaced name ([`principal::name`]). A kcc account token gets its account's
+    /// current role, resolved when the request started.
     ///
     /// # Errors
     ///
     /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(crate) fn identity(&self) -> Result<McpIdentity, McpFailure> {
         let role = match current_role() {
+            Some(name) if name == KCC_ACCOUNT_ROLE => {
+                let current = principal::account_role()
+                    .ok_or(McpFailure::Forbidden)?
+                    .map_err(|refusal| {
+                        tracing::warn!(%refusal, "kcc account token refused");
+                        McpFailure::Forbidden
+                    })?;
+                self.roles.find(&current).ok_or(McpFailure::Forbidden)?
+            }
             Some(name) => self.roles.find(&name).ok_or(McpFailure::Forbidden)?,
             None => self
                 .roles

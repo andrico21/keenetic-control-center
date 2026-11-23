@@ -12,6 +12,7 @@ mod restart;
 mod section;
 mod services;
 mod shutdown;
+mod sign_in;
 mod startup;
 
 use alloc::sync::Arc;

@@ -2,6 +2,7 @@
 
 extern crate alloc;
 
+mod reload;
 mod wait;
 
 use alloc::{collections::BTreeMap, sync::Arc};
@@ -14,7 +15,10 @@ use core::{
 use std::io;
 
 use kcc_app::{mcp_settings::ListenerKind, settings::McpConfig};
-use kcc_web::admin::{ReloadError, TransportReload};
+use kcc_web::{
+    admin::TransportReload,
+    oauth::{Activation, OAuthServer},
+};
 use rmcp_server_kit::{
     RmcpServerKitError,
     transport::{ReloadHandle, serve_with_listener},
@@ -22,13 +26,13 @@ use rmcp_server_kit::{
 use tokio::{
     net::TcpListener,
     sync::{oneshot, watch},
-    task::{JoinHandle, spawn_blocking},
+    task::JoinHandle,
 };
 use tokio_util::sync::CancellationToken;
 
 use self::wait::wait_free;
 use super::{Listening, Status, build::Built, health::Probe, name};
-use crate::server_error::ServerError;
+use crate::{server_error::ServerError, server_mcp_auth::united};
 
 /// The pause between two binds of an address still in use.
 pub(super) const RETRY: Duration = Duration::from_millis(100);
@@ -49,6 +53,8 @@ struct Generation {
     task: Option<JoinHandle<Result<(), RmcpServerKitError>>>,
     /// Its reload handle, until registered.
     handles: Option<oneshot::Receiver<ReloadHandle>>,
+    /// What it accepts as a kcc sign-in listener.
+    activation: Option<Activation>,
 }
 
 impl Drop for Generation {
@@ -92,15 +98,23 @@ pub(super) struct Listeners {
     counter: u64,
     /// Reports the running generations.
     status: watch::Sender<Status>,
+    /// kcc's authorization server, active exactly while a running generation signs in
+    /// with kcc.
+    oauth: Option<Arc<OAuthServer>>,
 }
 
 impl Listeners {
-    /// No generation yet; `status` receives every change.
-    pub(super) const fn new(status: watch::Sender<Status>) -> Self {
+    /// No generation yet; `status` receives every change, `oauth` serves the kcc sign-in
+    /// listeners among them.
+    pub(super) const fn new(
+        status: watch::Sender<Status>,
+        oauth: Option<Arc<OAuthServer>>,
+    ) -> Self {
         Self {
             running: BTreeMap::new(),
             counter: 0,
             status,
+            oauth,
         }
     }
 
@@ -116,6 +130,7 @@ impl Listeners {
         let listener = TcpListener::bind(at.unwrap_or(built.bind))
             .await
             .map_err(StartError::Bind)?;
+        self.activate(built.activation.as_ref());
         let (ready, listening) = oneshot::channel();
         let token = CancellationToken::new();
         let factory = built.factory;
@@ -134,8 +149,10 @@ impl Listeners {
                 Some(token),
             ))),
             handles: Some(built.handles),
+            activation: built.activation,
         };
         let Ok(address) = listening.await else {
+            self.activate(None);
             return Err(StartError::Serve(
                 generation.join().await.err().unwrap_or_default(),
             ));
@@ -144,41 +161,6 @@ impl Listeners {
         drop(self.running.insert(built.kind, generation));
         self.report();
         Ok(address)
-    }
-
-    /// Installs the current keys and roles into the `kind` generation and registers it
-    /// with `reload`, waiting at most `window` for its handle.
-    ///
-    /// # Errors
-    ///
-    /// The kit handed out no handle in time, or the keys or roles could not be installed.
-    // cancel-safe: dropped while waiting, the handle is kept for the next call.
-    pub(super) async fn register(
-        &mut self,
-        kind: ListenerKind,
-        reload: &Arc<TransportReload>,
-        window: Duration,
-    ) -> Result<(), String> {
-        let generation = self
-            .running
-            .get_mut(&kind)
-            .ok_or_else(|| "the listener is not running".to_owned())?;
-        let receiver = generation
-            .handles
-            .as_mut()
-            .ok_or_else(|| "the listener is registered already".to_owned())?;
-        let handle = tokio::time::timeout(window, receiver)
-            .await
-            .map_err(|_elapsed| "no reload handle in time".to_owned())?
-            .map_err(|_stopped| {
-                "the listener stopped before it handed out its reload handle".to_owned()
-            })?;
-        generation.handles = None;
-        let fan_out = Arc::clone(reload);
-        spawn_blocking(move || fan_out.register(kind, handle))
-            .await
-            .map_err(|error| error.to_string())?
-            .map_err(|error: ReloadError| error.to_string())
     }
 
     /// Every running generation's listener and the settings it was built from.
@@ -300,6 +282,20 @@ impl Listeners {
             status.main = main;
             status.dedicated = dedicated;
         });
+        self.activate(None);
+    }
+
+    /// Activates kcc's authorization server for the running kcc sign-in generations and
+    /// `starting` (a generation about to serve, so that its first client finds the routes),
+    /// or deactivates it when there is none.
+    fn activate(&self, starting: Option<&Activation>) {
+        if let Some(oauth) = &self.oauth {
+            let running = self
+                .running
+                .values()
+                .filter_map(|generation| generation.activation.as_ref());
+            oauth.activate(united(running.chain(starting)));
+        }
     }
 }
 

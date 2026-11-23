@@ -17,17 +17,25 @@ use kcc_app::{
     },
 };
 use kcc_mcp::KccMcp;
-use kcc_web::{WebState, admin::TransportReload, csp::security_headers, web_router};
+use kcc_web::{
+    WebState, admin::TransportReload, csp::security_headers, oauth::Activation, web_router,
+};
 use rmcp_server_kit::{
     RmcpServerKitError,
     auth::{AuthConfig, MtlsConfig, RateLimitConfig},
+    oauth::OAuthConfig,
     rbac::RbacPolicy,
     transport::{McpServerConfig, ReadinessCheck, ReloadHandle, Validated},
 };
 use tokio::sync::oneshot;
 
-use super::{health::Probe, sign_in::client_certificates, tls::leaf};
+use super::{
+    health::Probe,
+    sign_in::{client_certificates, kcc_tokens},
+    tls::leaf,
+};
 use crate::{
+    server_mcp_auth::KccSignIn,
     server_metrics::{AttachError, Metrics},
     server_tls_dedicated::ensure,
     server_tls_key::readable,
@@ -49,6 +57,8 @@ pub(crate) struct Shared {
     pub(crate) live: Arc<ArcSwap<KccMcp>>,
     /// The key and role reload fan-out.
     pub(crate) reload: Arc<TransportReload>,
+    /// kcc sign-in; `None` when kcc's authorization server has no issuer.
+    pub(crate) sign_in: Option<Arc<KccSignIn>>,
 }
 
 /// Whether a build may run without the API keys.
@@ -96,6 +106,8 @@ pub(crate) struct Built {
     pub(crate) probe: Probe,
     /// Receives its reload handle once it serves.
     pub(crate) handles: oneshot::Receiver<ReloadHandle>,
+    /// What it accepts as a kcc sign-in listener; `None` without kcc sign-in.
+    pub(crate) activation: Option<Activation>,
 }
 
 /// Why a generation could not be built.
@@ -162,7 +174,8 @@ pub(crate) fn build(
 ) -> Result<Built, BuildError> {
     let (callback, handles) = oneshot::channel();
     let mtls = client_certificates(shared, settings, kind)?;
-    let base = kit_base(shared, keys, mtls)?.with_reload_callback(move |handle| {
+    let (oauth, activation) = kcc_tokens(shared, settings, kind)?.unzip();
+    let base = kit_base(shared, keys, (mtls, oauth))?.with_reload_callback(move |handle| {
         drop(callback.send(handle));
     });
     let (server, bind, factory, probe) = match kind {
@@ -177,6 +190,7 @@ pub(crate) fn build(
         factory,
         probe,
         handles,
+        activation,
     })
 }
 
@@ -272,12 +286,12 @@ fn dedicated(
     Ok((server, bind, factory, probe))
 }
 
-/// `[server]` with the API keys, the client-certificate sign-in `mtls`, the RBAC policy and
-/// the readiness probe.
+/// `[server]` with the API keys, the client-certificate sign-in `mtls`, the kcc token
+/// sign-in `oauth`, the RBAC policy and the readiness probe.
 fn kit_base(
     shared: &Shared,
     keys: Keys,
-    mtls: Option<MtlsConfig>,
+    (mtls, oauth): (Option<MtlsConfig>, Option<OAuthConfig>),
 ) -> Result<McpServerConfig, BuildError> {
     let entries = match (api_key_entries(&shared.state), keys) {
         (Ok(entries), _) => entries,
@@ -291,6 +305,7 @@ fn kit_base(
     let mut auth = AuthConfig::with_keys(entries)
         .with_rate_limit(RateLimitConfig::new(30).with_pre_auth_burst(10));
     auth.mtls = mtls;
+    auth.oauth = oauth;
     Ok(shared
         .config
         .server

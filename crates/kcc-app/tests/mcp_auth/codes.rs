@@ -12,7 +12,7 @@ use kcc_app::mcp_auth::{
 };
 use secrecy::{ExposeSecret as _, SecretString};
 
-use super::{Fixture, RESOURCE, TestResult, challenge, random_text, verifier};
+use super::{Fixture, LOOPBACK, RESOURCE, TestResult, challenge, random_text, verifier};
 
 /// A code for `account` on `client`'s first redirect and the verifier it needs.
 fn code(
@@ -222,8 +222,8 @@ fn a_pending_request_lives_ten_minutes_and_is_taken_once() -> TestResult {
         .with_state(Some("opaque-state"))?;
     assert_eq!(REQUEST_LIFETIME_SECONDS, 600);
 
-    let id = fixture.pending.begin(request.clone())?;
-    let other = fixture.pending.begin(request.clone())?;
+    let id = fixture.pending.begin(request.clone(), LOOPBACK)?;
+    let other = fixture.pending.begin(request.clone(), LOOPBACK)?;
     assert_eq!(id.expose_secret().len(), 43, "256 bits in base64url");
     assert_ne!(id.expose_secret(), other.expose_secret());
     fixture.clock.advance(599);

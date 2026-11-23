@@ -430,9 +430,37 @@ sessions get a loosening). Listener and sign-in changes restart the listener the
 the page shows "Restarting" and then the outcome; if the new listener cannot start, the
 previous one serves again, the settings file stays as it was and the page says why. A
 restart of the main listener interrupts the Web UI for at most `server.shutdown_timeout`
-plus 10 seconds. OAuth and client-certificate sign-in are not available in this build
-yet: choosing them reverts with that reason. CA files are uploaded as PEM files of at most 64 KiB; nothing on the page
+plus 10 seconds. Sign-in with another identity provider (`external`) is not available in
+this build yet: choosing it reverts with that reason. kcc sign-in needs an issuer; without
+one (no DNS name in `web.public_url` and a non-loopback main listener, or the Web UI off)
+the page refuses it and says why. CA files are uploaded as PEM files of at most 64 KiB; nothing on the page
 takes a file path.
+
+### Connect an MCP client with your kcc account
+
+When an administrator sets **Sign-in > OAuth** of a listener to **kcc** on
+Administration > MCP, MCP clients sign in with a kcc account instead of an API key. Add the
+server with exactly the URL the MCP page shows for that listener (for example
+`http://localhost:8443/mcp`). The loopback spellings of the same port (`127.0.0.1`,
+`localhost`, `[::1]`) and the listener's public URL are accepted too; any other address is
+refused as an unknown resource:
+
+```text
+claude mcp add --transport http kcc http://localhost:8443/mcp
+```
+
+The client registers itself, then opens your browser on kcc's sign-in page. Sign in with
+your kcc account; the consent page then shows the name the client gave (marked
+**unverified**: any program can choose any name), the host the browser returns to, your
+account and your role. **Allow** only when you started this connection. The client then
+calls MCP with your account's current role: a role change, a disabled account, a password
+change or a revoked connection applies to its next call. An account that must change its
+password is sent to the account page first and cannot connect clients until it has.
+
+With kcc's own or another private CA on an `https` listener, Node-based clients such as
+Claude Code need the CA: `NODE_EXTRA_CA_CERTS=/path/to/ca.pem claude`. Native clients
+(Claude Code, Codex, Cursor, VS Code) sign in this way; browser-based clients, such as the
+MCP Inspector's web UI, are refused at `/oauth/token` by the server's Origin check.
 
 ### Administration > Notifications
 

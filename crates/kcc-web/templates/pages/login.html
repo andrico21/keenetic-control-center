@@ -7,9 +7,15 @@
   <p class="page__text">{{ t(keys::WEB_NO_ADMIN_TEXT) }}</p>
   <p><code>{{ t(keys::WEB_NO_ADMIN_COMMAND) }}</code></p>
   {%- else %}
+  {%- if consent.is_some() %}
+  <p class="notice" data-tone="info" id="login-oauth-note">{{ t(keys::WEB_OAUTH_LOGIN_NOTE) }}</p>
+  {%- endif %}
   <form class="form" method="post" action="/ui/login" hx-post="/ui/login" hx-target="body" hx-push-url="true">
     {{ ui::field("login-username", "username", t(keys::WEB_LOGIN_USERNAME), username, "", "text", "username") }}
     {{ ui::field("login-password", "password", t(keys::WEB_LOGIN_PASSWORD), "", error, "password", "current-password") }}
+    {%- if let Some(request) = consent %}
+    <input type="hidden" name="consent" value="{{ request }}">
+    {%- endif %}
     <button class="button button--primary" type="submit">{{ t(keys::WEB_LOGIN_SUBMIT) }}</button>
   </form>
   {%- endif %}
