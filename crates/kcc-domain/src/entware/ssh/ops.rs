@@ -10,6 +10,7 @@
 //! audit entry records the output's byte count and SHA-256, never the output.
 
 pub mod job;
+pub mod names;
 mod packages;
 mod services;
 mod session;

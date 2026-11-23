@@ -22,7 +22,7 @@ schemars = "1.2.3"
 secrecy = { workspace = true, features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-tokio = { workspace = true, features = ["rt", "sync"] }
+tokio = { workspace = true, features = ["rt", "sync", "time"] }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]

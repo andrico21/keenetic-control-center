@@ -146,7 +146,7 @@ mod tests {
             ]
         );
         assert!(all.iter().filter(|tool| tool.toolset == "core").count() <= 25);
-        assert!(all.len() <= 70, "{} tools registered", all.len());
+        assert!(all.len() <= 72, "{} tools registered", all.len());
     }
 
     /// Capture `dns-secure`, dry-run without a single target write, refuse an unconfirmed

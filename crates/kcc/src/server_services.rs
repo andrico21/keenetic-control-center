@@ -9,6 +9,7 @@
 extern crate alloc;
 
 use alloc::sync::Arc;
+use core::time::Duration;
 
 use kcc_app::{
     accounts::{AccountStore, Clock, SystemClock},
@@ -27,6 +28,7 @@ use kcc_app::{
     settings::{Config, McpConfig},
     workflow::ChangeWorkflow,
 };
+use kcc_domain::entware::ssh::SshServices;
 use kcc_mcp::KccMcp;
 use kcc_migrate::presets::store::PresetStore;
 use kcc_telemetry::{logs::runtime::Service as LogService, metrics::instrumentation::SelfMetrics};
@@ -36,6 +38,10 @@ use crate::{
     server_error::ServerError, server_migrations::warn_external_password_files,
     server_outbound::warn_closed_policy,
 };
+
+/// How long one MCP Entware SSH read may wait, for example behind a mutation that holds
+/// the router's SSH session.
+const ENTWARE_READ_LIMIT: Duration = Duration::from_secs(90);
 
 /// Process role selecting which runtime-owned background services are started.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -88,6 +94,9 @@ pub(crate) struct Services {
     pub(crate) metrics: Option<Arc<SelfMetrics>>,
     /// Router log collectors and sink workers, when `[logs] enabled`.
     pub(crate) logs: Option<LogService>,
+    /// Entware SSH services: one session pool and the sealed SSH state, shared by every
+    /// surface.
+    pub(crate) entware_ssh: Arc<SshServices>,
 }
 
 impl Services {
@@ -162,6 +171,13 @@ impl Services {
         )
         .await?;
         let logs = Self::start_logs(mode, config, &core.registry, metrics.clone()).await?;
+        let entware_ssh = Arc::new(SshServices::new(
+            Arc::clone(&core.workflow),
+            Arc::clone(&core.registry),
+            core.audit.clone(),
+            &core.key,
+            Arc::clone(&clock),
+        ));
         let updates = Arc::new(ComponentsUpdateCheck::new(
             Arc::clone(&core.registry),
             Arc::clone(&poller),
@@ -183,6 +199,7 @@ impl Services {
             updates,
             metrics,
             logs,
+            entware_ssh,
         })
     }
 
@@ -218,7 +235,8 @@ impl Services {
             Arc::clone(&self.clock),
         )))
         .with_audit(self.audit.clone())
-        .with_presets(PresetStore::new(self.state.clone(), self.key.duplicate())))
+        .with_presets(PresetStore::new(self.state.clone(), self.key.duplicate()))
+        .with_entware_ssh(Arc::clone(&self.entware_ssh), ENTWARE_READ_LIMIT))
     }
 }
 

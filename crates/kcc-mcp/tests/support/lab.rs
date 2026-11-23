@@ -115,7 +115,7 @@ pub struct Lab {
 }
 
 /// Every toolset; a lab session starts with all of them.
-pub(crate) const TOOLSETS: [&str; 9] = [
+pub(crate) const TOOLSETS: [&str; 10] = [
     "core",
     "network-write",
     "vpn",
@@ -125,6 +125,7 @@ pub(crate) const TOOLSETS: [&str; 9] = [
     "presets",
     "raw",
     "entware",
+    "entware-ssh",
 ];
 
 /// An administrator with every permission on every router.

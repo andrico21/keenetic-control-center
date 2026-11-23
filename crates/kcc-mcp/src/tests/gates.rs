@@ -71,7 +71,7 @@ fn default_config_and_tool_registry_respect_caps() {
         .filter(|definition| definition.toolset == "core")
         .count();
     assert!(core_count <= 25);
-    assert!(tools().len() <= 70);
+    assert!(tools().len() <= 72);
 }
 
 #[test]

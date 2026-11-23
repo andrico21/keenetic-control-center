@@ -10,7 +10,7 @@ use kcc_app::{
 use kcc_domain::entware::ssh::{
     SshServices,
     error::EntwareError,
-    ops::job::{self, Mutation, Request},
+    ops::job::{self, Cancelled, Mutation, Request},
 };
 use serde_json::json;
 use tokio::time::timeout;
@@ -101,5 +101,44 @@ async fn a_job_without_destructive_is_refused_before_it_starts() -> TestResult {
         "{outcome:?}"
     );
     assert!(events.try_recv().is_err(), "no job event");
+    Ok(())
+}
+
+/// Todo 17: a job cancelled before its command was sent ends `cancelled` with a message
+/// saying nothing changed, and the fake received no SSH command at all.
+///
+/// The runner's worker only runs when this current-thread test yields; the cancellation
+/// follows the start without a yield, so it lands before the job's first step.
+#[tokio::test]
+async fn a_job_cancelled_before_its_command_sends_nothing() -> TestResult {
+    let rig = Rig::start().await?;
+    let jobs = rig.harness().fixture().jobs().await?;
+    let request = Request::new(
+        rig.harness().context().clone(),
+        ROUTER.to_owned(),
+        rig.harness().alice().clone(),
+        rig.harness().admin().clone(),
+    );
+    let before = rig.commands()?;
+    let services = shared(&rig);
+    let id = job::start(
+        &jobs,
+        services,
+        request,
+        Mutation::Install(package("htop")?),
+    )
+    .await?;
+    jobs.cancel(&id).await?;
+    timeout(LIMIT, jobs.ended(&id)).await?;
+    let record = jobs.get(&id)?;
+    assert_eq!(
+        (record.status, record.message),
+        (
+            JobStatus::Cancelled,
+            Some(Cancelled::BeforeSend.to_string())
+        )
+    );
+    assert_eq!(rig.commands()?, before);
+    assert!(!rig.harness().ssh()?.installed().contains_key("htop"));
     Ok(())
 }

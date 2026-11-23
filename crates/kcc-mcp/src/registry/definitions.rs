@@ -66,6 +66,11 @@ pub(crate) const TOOLSETS: &[(ToolsetInfo, &str)] = &[
         false,
         "Entware over the router API: status, drives, the guided setup job and the opkg settings.",
     ),
+    entry(
+        "entware-ssh",
+        true,
+        "Entware packages and services over the enrolled router's pinned SSH session; every operation, reads included, is destructive.",
+    ),
 ];
 
 /// Every toolset, in documentation order.
@@ -215,7 +220,7 @@ pub(crate) fn generic() -> Vec<ToolDescription> {
         ),
         ToolDescription::single(
             "kcc_job_cancel",
-            "Cancel a running background job",
+            "Cancel a running background job; Entware jobs need the destructive permission on the router",
             "core",
             Permission::Write,
             (false, false, true),

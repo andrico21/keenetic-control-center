@@ -44,8 +44,8 @@ async fn generic_tools_are_listed_as_defined() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Todo 23: every tool belongs to a toolset the lookup knows, and only `raw` among the
-/// existing toolsets reduces safety when turned on.
+/// Todo 23: every tool belongs to a toolset the lookup knows, and only `raw` and (todo 17)
+/// `entware-ssh` reduce safety when turned on.
 #[test]
 fn every_tool_names_a_known_toolset_and_raw_reduces_safety() -> Result<(), Box<dyn Error>> {
     for definition in tools() {
@@ -53,7 +53,7 @@ fn every_tool_names_a_known_toolset_and_raw_reduces_safety() -> Result<(), Box<d
             .ok_or_else(|| format!("{} names an unknown toolset", definition.name))?;
         assert_eq!(
             info.safety_reducing,
-            info.name == "raw",
+            matches!(info.name, "raw" | "entware-ssh"),
             "safety metadata of {}",
             info.name
         );

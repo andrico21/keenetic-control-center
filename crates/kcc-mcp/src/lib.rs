@@ -18,7 +18,7 @@ mod support;
 mod tests;
 
 use alloc::sync::Arc;
-use core::fmt;
+use core::{fmt, time::Duration};
 
 use kcc_app::{
     api_key_use::KeyUseRecorder,
@@ -31,6 +31,7 @@ use kcc_app::{
     settings::{McpConfig, PrivacyConfig},
     workflow::ChangeWorkflow,
 };
+use kcc_domain::entware::ssh::SshServices;
 use rmcp::handler::server::tool::ToolRouter;
 
 use crate::{
@@ -247,6 +248,9 @@ pub struct KccMcp {
     migrations: Arc<Migrations>,
     /// The encrypted preset store.
     presets: Arc<Presets>,
+    /// The Entware SSH services behind the `entware-ssh` toolset, with the bound of one
+    /// read; absent, its tools answer `internal`.
+    entware_ssh: Option<(Arc<SshServices>, Duration)>,
 }
 
 impl fmt::Debug for KccMcp {

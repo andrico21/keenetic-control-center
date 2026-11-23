@@ -23,7 +23,7 @@ The first release, `0.1.0`, is in preparation and contains:
   settings copy, a nine-step migration wizard, a command explorer with RCI and CLI
   consoles, and administration of users, roles, API keys, the audit log and the
   server. Six languages and light and dark themes.
-- **MCP server** over Streamable HTTP with API keys and over stdio: 70 tools in nine
+- **MCP server** over Streamable HTTP with API keys and over stdio: 72 tools in ten
   toolsets, role and router-scope checks, destructive-operation gates, secret
   redaction and optional client pseudonymization.
 - **CLI** covering router profiles, reads and writes of every domain, raw validated
@@ -66,6 +66,12 @@ The first release, `0.1.0`, is in preparation and contains:
   installer chosen only by `arch`, `chroot`, `timezone`, `initrc`, `dns_override` inside
   the recovery bracket, `remove`); `kcc_storage_write` gains `initialize` and the input
   `acknowledge_entware_drive` for `eject` and `initialize` of the Entware drive.
+- **MCP toolset `entware-ssh`** (off by default, safety-reducing): `kcc_entware_packages`
+  (`list`, `upgradable`, `update`, `install`, `remove`, `upgrade`) and
+  `kcc_entware_services` (`list`, `status`, `start`, `stop`, `restart`, `log`) over the
+  enrolled router's pinned SSH session; every operation, reads included, needs
+  `Destructive`, `allow_destructive` and `confirm: true`, mutations run as jobs, results
+  are parsed values without control characters, paged with `cursor`; no enrolment tool.
 
 - **Entware SSH enrolment** (library): a probe shows the router's Entware host key with
   a single-use five-minute ticket; a bootstrap with the confirmed fingerprint and the
@@ -1056,6 +1062,13 @@ The first release, `0.1.0`, is in preparation and contains:
   `opkg timezone https://...` to the router; it now refuses such a name as an invalid CLI
   token before any request, on the Web, in the CLI and over MCP, where the same check runs
   before the router is contacted.
+- **`kcc_job_cancel` needs `Destructive` for Entware jobs, and a late cancellation says the
+  command ran.** A role with only `Write` could mark a running `entware.ssh.*` or
+  `entware.setup` job cancelled; it now gets `forbidden`. An Entware SSH job cancelled
+  before its command is sent changes nothing; cancelled after, it ends `cancelled` with a
+  message that the command ran to its end. Versions and log levels in `entware-ssh`
+  results keep at most 128 characters and log messages 1024, with `"cut": true` on the
+  item, so one oversized package no longer stops paging.
 
 - **kcc can create its state on Windows.** Creating the state directory or any owner-only
   file failed with "The parameter is incorrect" (Windows error 87). The entry now gets the

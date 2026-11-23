@@ -1,6 +1,7 @@
 //! Construction and the macro-generated RMCP router of the generic tools.
 
 use alloc::sync::Arc;
+use core::time::Duration;
 
 use arc_swap::ArcSwap;
 use kcc_app::{
@@ -14,6 +15,7 @@ use kcc_app::{
     settings::{McpConfig, PrivacyConfig},
     workflow::ChangeWorkflow,
 };
+use kcc_domain::entware::ssh::SshServices;
 use kcc_migrate::presets::store::PresetStore;
 use rmcp::{
     handler::server::{tool::ToolRouter, wrapper::Parameters},
@@ -76,6 +78,7 @@ impl KccMcp {
             audit: None,
             migrations: Arc::default(),
             presets: Arc::default(),
+            entware_ssh: None,
         }
     }
 
@@ -167,6 +170,17 @@ impl KccMcp {
     #[must_use]
     pub fn with_presets(mut self, store: PresetStore) -> Self {
         self.presets = Arc::new(Presets::new(store));
+        self
+    }
+
+    /// Attaches the Entware SSH services the `entware-ssh` toolset runs on, shared with the
+    /// other surfaces (one session per router); a read that has not finished within
+    /// `read_limit` (for example behind a long mutation holding the router's session) is
+    /// answered `conflict`.
+    #[inline]
+    #[must_use]
+    pub fn with_entware_ssh(mut self, services: Arc<SshServices>, read_limit: Duration) -> Self {
+        self.entware_ssh = Some((services, read_limit));
         self
     }
 

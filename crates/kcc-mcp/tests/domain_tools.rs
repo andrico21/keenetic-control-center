@@ -119,7 +119,7 @@ mod tests {
         let all = tools();
         let core = all.iter().filter(|tool| tool.toolset == "core").count();
         assert!(core <= 25, "core has {core} tools");
-        assert!(all.len() <= 70, "{} tools registered", all.len());
+        assert!(all.len() <= 72, "{} tools registered", all.len());
         for merged in [
             "kcc_internet_read",
             "kcc_storage_read",

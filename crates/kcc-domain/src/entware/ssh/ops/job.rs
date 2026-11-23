@@ -7,10 +7,7 @@ use kcc_app::{
     jobs::{JobContext, JobProgress, JobRunner, JobTarget},
     permissions::Role,
 };
-use kcc_ssh::{
-    grammar::{PackageName, ServiceName},
-    parse::ServiceState,
-};
+use kcc_ssh::grammar::{PackageName, ServiceName};
 use serde_json::{Value, json};
 
 use super::{ActionExit, PackageChange, ServiceOutcome, ServiceVerb};
@@ -33,6 +30,20 @@ pub enum Mutation {
     Upgrade(PackageName),
     /// [`super::service_action`].
     Service(ServiceName, ServiceVerb),
+}
+
+/// Why a cancelled mutation job ended: the text of its final record.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+#[non_exhaustive]
+pub enum Cancelled {
+    /// The job was cancelled before its command was sent: nothing changed.
+    #[error("Entware command cancelled before it was sent; nothing was changed")]
+    BeforeSend,
+    /// The cancellation arrived after the command was sent: the command ran to its end.
+    #[error(
+        "cancellation arrived after the Entware command was sent: the command ran to its end on the router; read the package or service state back"
+    )]
+    AfterSend,
 }
 
 /// Who runs a mutation job on which router, owned by the job.
@@ -109,8 +120,12 @@ const fn audited(mutation: &Mutation) -> Action {
 /// Runs `mutation` for `request`; on success the read-back is the job's last structured
 /// progress, on failure the error text (which carries no output) is the job's message.
 ///
+/// A job cancelled before it starts sends nothing ([`Cancelled::BeforeSend`]); a
+/// cancellation that arrives later lets the command run to its end, and a successful job
+/// then ends with its read-back and [`Cancelled::AfterSend`].
+///
 /// # Errors
-/// The operation's error text.
+/// The operation's error text, or the [`Cancelled`] text.
 // NOT cancel-safe: dropped while a command runs, the router may finish the mutation.
 async fn run(
     services: Arc<SshServices>,
@@ -118,6 +133,9 @@ async fn run(
     mutation: Mutation,
     context: JobContext,
 ) -> Result<(), String> {
+    if context.cancellation().is_cancelled() {
+        return Err(Cancelled::BeforeSend.to_string());
+    }
     let caller = Caller::new(&request.router_id, &request.actor, &request.role);
     let (shared, router) = (services.as_ref(), &request.router);
     let detail = match mutation {
@@ -142,6 +160,9 @@ async fn run(
         context.structured_progress(JobProgress::Structured(value));
     }
     context.progress(100);
+    if context.cancellation().is_cancelled() {
+        return Err(Cancelled::AfterSend.to_string());
+    }
     Ok(())
 }
 
@@ -156,11 +177,7 @@ fn change_value(change: &PackageChange) -> Value {
 
 /// A service outcome as JSON.
 fn outcome_value(outcome: &ServiceOutcome) -> Value {
-    let state = match outcome.state {
-        ServiceState::Running => "running",
-        ServiceState::Stopped => "stopped",
-        _ => "unknown",
-    };
+    let state = super::names::state_word(outcome.state);
     let exit = match outcome.exit {
         ActionExit::Done => json!("done"),
         ActionExit::AlreadyStopped => json!("already_stopped"),

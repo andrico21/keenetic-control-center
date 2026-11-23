@@ -9,7 +9,7 @@ use kcc_domain::{
 };
 
 use super::{
-    entware,
+    entware, entware_ssh,
     inventory::{READ_TOOLS, WRITE_TOOLS},
     read::read_ops,
     write::dispatch::write_ops,
@@ -165,5 +165,9 @@ pub(crate) fn descriptions() -> Vec<ToolDescription> {
             )
             .with_ops(ops.to_vec())
         });
-    reads.chain(writes).chain(entware::descriptions()).collect()
+    reads
+        .chain(writes)
+        .chain(entware::descriptions())
+        .chain(entware_ssh::descriptions())
+        .collect()
 }

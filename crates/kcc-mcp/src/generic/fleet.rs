@@ -249,6 +249,16 @@ pub(crate) fn job_status(server: &KccMcp, input: &JobInput) -> Result<Value, Mcp
     })
 }
 
+/// The permission that cancels a job of `kind`: `Destructive` for the Entware jobs,
+/// which only that permission may start, `Write` for every other job.
+fn cancel_permission(kind: &str) -> Permission {
+    if kind.starts_with("entware.") {
+        Permission::Destructive
+    } else {
+        Permission::Write
+    }
+}
+
 /// Cancels one job the caller may write.
 ///
 /// # Errors
@@ -263,10 +273,12 @@ pub(crate) async fn job_cancel(server: &KccMcp, input: JobInput) -> Result<Value
         tracing::warn!(job = input.id, error = ?error, "MCP job lookup failed");
         McpFailure::InvalidArguments
     })?;
+    let needed = cancel_permission(&record.kind);
     match &record.router {
-        Some(router) => authorize(&identity.role, Permission::Write, router)
-            .map_err(|_error| McpFailure::Forbidden)?,
-        None if !identity.role.grants(Permission::Write) => {
+        Some(router) => {
+            authorize(&identity.role, needed, router).map_err(|_error| McpFailure::Forbidden)?;
+        }
+        None if !identity.role.grants(needed) => {
             return Err(McpFailure::Forbidden);
         }
         None => {}

@@ -201,7 +201,9 @@ Cursor (`.cursor/mcp.json`):
 Write tools appear only when the role allows them and the toolset is enabled in
 `[mcp] toolsets`. Destructive tools, and raw changes to management settings, also need
 `[mcp] allow_destructive = true` and `confirm: true` in the call; this server switch
-stays required even for a role that holds `Destructive`. While `kcc serve` runs, the
+stays required even for a role that holds `Destructive`. The `entware-ssh` toolset (Entware
+packages and services over SSH) counts every operation, reads included, as destructive;
+the SSH enrolment itself is never offered over MCP. While `kcc serve` runs, the
 `[mcp]` settings can also be changed on the Web (Administration > MCP, permission
 ManageMcp): a value set there wins over kcc.toml, an environment variable or
 `[mcp] locked` wins over the Web, and a change that reduces safety asks for the

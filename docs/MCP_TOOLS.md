@@ -63,7 +63,7 @@ Registered by default: fleet, catalog, jobs, configuration state and the main re
 | `kcc_catalog_describe` | read | yes | no | - | Return the JSON Schema for one router command |
 | `kcc_rci_read` | read | yes | no | - | Run a catalog-validated read-only RCI request |
 | `kcc_job_status` | read | yes | no | - | Read a background job status |
-| `kcc_job_cancel` | write | no | no | - | Cancel a running background job |
+| `kcc_job_cancel` | write | no | no | - | Cancel a running background job; Entware jobs need the destructive permission on the router |
 | `kcc_config_state` | read | yes | no | - | Read unsaved state, fail-safe state, and the last change |
 | `kcc_config_save` | save | no | no | - | Explicitly save the router running configuration |
 | `kcc_system_read` | read | yes | no | `version`, `system`, `clock_date`, `ntp_status`, `system_mode`, `internet_status`, `ping_check`, `storage_media`, `storage_usb`, `schedules` | Read system identity, clock, NTP, mode, internet status, storage and schedules |
@@ -184,4 +184,13 @@ Entware over the router API: status, drives, the guided setup job and the opkg s
 | `kcc_entware_read` | read | yes | no | `status`, `settings`, `drives` | Read whether Entware can run (components, architecture), its opkg settings, and the drives it can use or initialize |
 | `kcc_entware_write` | write | no | yes | `setup`, `chroot`, `timezone`, `initrc`, `dns_override`, `remove` | Start the Entware setup job on a drive (arch is required when the status reports mips_ambiguous), change the opkg chroot, time zone, init script or DNS override, or remove Entware; never saves |
 
-Total: 70 tools.
+## Toolset `entware-ssh` (2 tools)
+
+Entware packages and services over the enrolled router's pinned SSH session; every operation, reads included, is destructive.
+
+| Tool | Permission | Read-only | Destructive | Operations | Description |
+|---|---|---|---|---|---|
+| `kcc_entware_packages` | destructive | no | yes | `list`, `upgradable`, `update`, `install`, `remove`, `upgrade` | List installed or upgradable Entware packages, or update the package lists, install, remove or upgrade one package over the router's pinned SSH session; mutations run as jobs; every operation is destructive |
+| `kcc_entware_services` | destructive | no | yes | `list`, `status`, `start`, `stop`, `restart`, `log` | List Entware services, read one's state or its log records (none found and a log the router answers as text both read as no records), or start, stop or restart it over the router's pinned SSH session; actions run as jobs; every operation is destructive |
+
+Total: 72 tools.

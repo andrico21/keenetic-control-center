@@ -5,6 +5,7 @@ mod common;
 pub(crate) mod dispatch;
 mod dns;
 pub(super) mod entware;
+pub(super) mod entware_ssh;
 mod filtering;
 mod housekeeping;
 mod interfaces;
