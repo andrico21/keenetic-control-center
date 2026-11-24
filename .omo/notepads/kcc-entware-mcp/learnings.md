@@ -221,3 +221,8 @@ New for this plan:
 - Prefix mutants of an account match need BOTH directions pinned (`olga` vs `olgab`, revoke each): `starts_with(account)` and `account.starts_with(..)` survive a one-directional test.
 - `clippy::too_long_first_doc_paragraph` (nursery) fires on 3-line first paragraphs of test docs: write a one-line first sentence, then a blank `///` line.
 - The mutation loop waited mostly for build slots: 33 runs (30 mutants) took ~85 min of wall time with ~1-3 min of actual work each.
+
+## [2026-11-24] Todo 33 second fix round (e33g) learnings
+- New `kcc-app/tests/mcp_settings/anchored.rs` pins the anchored-role ceiling: enabling a dedicated listener already set to `oauth = external` / `mtls = required` (kcc.toml or override) is a re-point (mid refused, admin ok, a change leaving it off is not); the commit re-checks the ANCHORED roles (a mapped role grown, or a missing one created, between plan and commit -> `ProviderAbove`).
+- It also pins the legit flows: an unrelated key (`max_result_bytes`, `toolsets`) passes while the provider with an admin map is in use; anchored roles come from the AFTER state (emptying an admin mapping + re-pointing in one request passes); an unknown mapping target is skipped (documented residual).
+- Mutants N06, N01c, N07, N02, N04 each killed by exactly its new test (`--test mcp_settings`, exit 101, 43-44 passed); `provider.rs` helpers are `pub(crate)` so sibling test modules reuse them instead of copying.
