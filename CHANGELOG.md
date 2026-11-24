@@ -393,7 +393,7 @@ The first release, `0.1.0`, is in preparation and contains:
   `mcp_settings.json` (schema 1) and are resolved per key as environment, locked kcc.toml
   key, state file, kcc.toml, default; `kcc serve` and `kcc mcp stdio` read MCP settings
   only through that resolver. A role the MCP settings name cannot be deleted. Each MCP
-  toolset carries a `safety_reducing` flag (`raw`). Library: `remove_unheld` and
+  toolset carries a `safety_reducing` flag (`raw` and `entware-ssh`). Library: `remove_unheld` and
   `holder_counts` take the set of roles the MCP settings hold.
 - **New library crate `kcc-ssh`** (no user-visible change yet): SSH to a router's Entware
   only to policy-admitted addresses, with a mandatory pinned ed25519 host key, one
