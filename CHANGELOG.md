@@ -109,7 +109,9 @@ The first release, `0.1.0`, is in preparation and contains:
   (with the household DNS warning), removes Entware, and runs the guided setup as a job
   that ends by offering Save, never saving itself. The storage page offers Prepare for
   Entware (`media initialize ext4`) and asks a second time before it ejects or
-  initializes the drive Entware runs from.
+  initializes the drive Entware runs from. The Web setup form no longer pre-selects
+  internal storage (or any drive): the user picks one, and a setup without a drive is
+  refused before anything reaches the router.
 - **Entware package and service operations** (library): list, upgradable, update,
   install, remove and upgrade packages, and list, check, start, stop and restart services
   over the pinned key-only SSH session, each needing `Destructive`; mutations hold the

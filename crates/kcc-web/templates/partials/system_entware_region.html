@@ -103,13 +103,13 @@
         <legend class="field__label">{{ t(keys::WEB_SYSTEM_ENTWARE_DRIVE) }}</legend>
         {%- for drive in drives %}
         <div class="check">
-          <input class="check__input" type="radio" id="entware-drive-{{ loop.index }}" name="drive" value="{{ drive.arg }}"{% if loop.first %} checked{% endif %} aria-describedby="entware-drive-{{ loop.index }}-help">
+          <input class="check__input" type="radio" id="entware-drive-{{ loop.index }}" name="drive" value="{{ drive.arg }}" aria-describedby="entware-drive-{{ loop.index }}-help">
           <label class="check__label mono" for="entware-drive-{{ loop.index }}">{{ drive.arg }}</label>
           <p class="field__help" id="entware-drive-{{ loop.index }}-help">{{ drive.details }}</p>
         </div>
         {%- endfor %}
         <div class="check">
-          <input class="check__input" type="radio" id="entware-drive-internal" name="drive" value="internal"{% if drives.is_empty() %} checked{% endif %} aria-describedby="entware-internal-help">
+          <input class="check__input" type="radio" id="entware-drive-internal" name="drive" value="internal" aria-describedby="entware-internal-help">
           <label class="check__label" for="entware-drive-internal">{{ t(keys::WEB_SYSTEM_ENTWARE_INTERNAL) }}</label>
           <p class="field__help" id="entware-internal-help">{{ t(keys::WEB_SYSTEM_ENTWARE_INTERNAL_WARNING) }}</p>
         </div>

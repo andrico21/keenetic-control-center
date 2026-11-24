@@ -20,11 +20,15 @@ use crate::support::{
 };
 
 /// The aarch64 installer of the closed table, independent of the code under test.
-const AARCH64_URL: &str =
+pub(crate) const AARCH64_URL: &str =
     "https://bin.entware.net/aarch64-k3.10/installer/aarch64-installer.tar.gz";
 
 /// Everything the job stream at `stream` sends until it is done.
-async fn followed(fixture: &Fixture, browser: &Browser, stream: &str) -> TestResult<String> {
+pub(crate) async fn followed(
+    fixture: &Fixture,
+    browser: &Browser,
+    stream: &str,
+) -> TestResult<String> {
     let mut body = fixture
         .get(stream, browser)
         .await?

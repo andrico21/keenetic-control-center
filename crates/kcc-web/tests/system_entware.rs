@@ -145,3 +145,13 @@ mod setup;
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 #[path = "system_entware/drives.rs"]
 mod drives;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "system_entware/choice.rs"]
+mod choice;
