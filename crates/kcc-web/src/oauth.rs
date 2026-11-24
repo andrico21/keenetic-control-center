@@ -256,19 +256,24 @@ pub(crate) fn routes() -> Router<WebState> {
         .route("/oauth/revoke", post(register::revoke))
 }
 
-/// Answers a protocol request the body limit refused (`413`) as the token endpoint
-/// answers every refusal: `invalid_request`, never stored or cached.
+/// Answers a refused protocol request as the token endpoint answers every refusal.
+///
+/// A `413` (body limit) or `405` (method; axum adds its `Allow` header outside every
+/// layer) on an `/oauth/` path becomes `invalid_request`, never stored or cached.
 // cancel-safe: only maps the inner response.
-pub(crate) async fn oversized(request: Request, next: Next) -> Response {
+pub(crate) async fn plain_errors(request: Request, next: Next) -> Response {
     let protocol = request.uri().path().starts_with("/oauth/");
     let response = next.run(request).await;
-    if protocol && response.status() == StatusCode::PAYLOAD_TOO_LARGE {
-        return token::no_store(
-            StatusCode::PAYLOAD_TOO_LARGE,
-            json!({"error": "invalid_request"}),
-        );
+    let status = response.status();
+    if !protocol
+        || !matches!(
+            status,
+            StatusCode::PAYLOAD_TOO_LARGE | StatusCode::METHOD_NOT_ALLOWED
+        )
+    {
+        return response;
     }
-    response
+    token::no_store(status, json!({"error": "invalid_request"}))
 }
 
 /// The active server of `state`; `None` while there is none (every route answers 404).

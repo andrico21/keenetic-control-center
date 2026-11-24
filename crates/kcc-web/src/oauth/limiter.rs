@@ -111,6 +111,35 @@ mod tests {
         assert!(limiter.admit(first), "the window passed");
     }
 
+    /// Regression (todo 31, N18): every address of one IPv6 /64 shares one allowance,
+    /// another /64 has its own, and an IPv4-mapped IPv6 address shares its IPv4
+    /// address's allowance.
+    #[test]
+    fn a_slash_64_and_a_mapped_address_share_one_allowance() {
+        let limiter = AuthorizeLimiter::new(Arc::new(Manual::default()));
+        let address = |block: u16, host: u16| {
+            IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, block, 0xffff, 0, 0, host))
+        };
+        let window = u16::try_from(AUTHORIZATIONS_PER_WINDOW).unwrap_or(u16::MAX);
+        let one_block = (1..=window.saturating_add(1))
+            .filter(|host| limiter.admit(address(1, *host)))
+            .count();
+        assert_eq!(
+            one_block, AUTHORIZATIONS_PER_WINDOW,
+            "one /64, one allowance"
+        );
+        assert!(limiter.admit(address(2, 1)), "another /64 has its own");
+
+        let v4 = Ipv4Addr::new(198, 51, 100, 20);
+        let plain = (1..AUTHORIZATIONS_PER_WINDOW)
+            .filter(|_| limiter.admit(IpAddr::V4(v4)))
+            .count();
+        assert_eq!(plain, AUTHORIZATIONS_PER_WINDOW.saturating_sub(1));
+        assert!(limiter.admit(IpAddr::V6(v4.to_ipv6_mapped())), "the 30th");
+        assert!(!limiter.admit(IpAddr::V4(v4)), "the 31st, mapped or not");
+        assert!(!limiter.admit(IpAddr::V6(v4.to_ipv6_mapped())));
+    }
+
     /// Regression (todo 31): at most 4096 addresses are tracked; a new one beyond them is
     /// refused while they are.
     #[test]

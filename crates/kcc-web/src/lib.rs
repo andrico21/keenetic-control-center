@@ -741,7 +741,7 @@ pub fn web_router(state: WebState) -> Router {
         .merge(bounded)
         .merge(streams)
         .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
-        .layer(middleware::from_fn(oauth::oversized))
+        .layer(middleware::from_fn(oauth::plain_errors))
         .merge(dns_vpn::uploads(&state))
         .merge(mcp_uploads(&state))
         .merge(config_page::wiring::routes(&state))

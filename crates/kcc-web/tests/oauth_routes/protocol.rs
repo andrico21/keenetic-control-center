@@ -1,5 +1,5 @@
 //! Todo 31: the protocol routes' refusals: prefixed redirect URIs of an `https` client,
-//! confidential or implicit registrations, and an oversized token request.
+//! confidential or implicit registrations, oversized requests and wrong methods.
 
 #[cfg(test)]
 #[expect(
@@ -15,7 +15,8 @@ mod tests {
 
     use axum::{
         body::Body,
-        http::{Request, StatusCode, header},
+        http::{Method, Request, StatusCode, header},
+        response::Response,
     };
     use kcc_app::mcp_auth::clients::{ClientRegistration, ClientStore, ClientsDocument};
     use serde_json::{Value, json};
@@ -116,34 +117,112 @@ mod tests {
         Ok(())
     }
 
-    /// Todo 31 (413 without `Pragma`): a 3 MB token request is refused as
-    /// `invalid_request` with `413`, `Cache-Control: no-store` and `Pragma: no-cache`.
+    /// Asserts `answer` is the token endpoint's refusal: `status`, `Cache-Control:
+    /// no-store`, `Pragma: no-cache` and, unless `bodiless`, `invalid_request`.
+    async fn refused_as_token_refusal(
+        answer: Response,
+        status: StatusCode,
+        label: &str,
+        bodiless: bool,
+    ) -> TestResult {
+        assert_eq!(answer.status(), status, "{label}");
+        assert_eq!(
+            header_text(&answer, "cache-control").as_deref(),
+            Some("no-store"),
+            "{label}"
+        );
+        assert_eq!(
+            header_text(&answer, "pragma").as_deref(),
+            Some("no-cache"),
+            "{label}"
+        );
+        if !bodiless {
+            let refusal: Value = serde_json::from_str(&text(answer).await?)?;
+            assert_eq!(
+                refusal.get("error").and_then(Value::as_str),
+                Some("invalid_request"),
+                "{label}"
+            );
+        }
+        Ok(())
+    }
+
+    /// Todo 31 (413 without `Pragma`, N16): a 3 MB request to the token, registration or
+    /// revocation endpoint is refused as `invalid_request` with `413`, `Cache-Control:
+    /// no-store` and `Pragma: no-cache`.
     #[tokio::test]
     async fn an_oversized_token_request_is_never_stored() -> TestResult {
         let harness = Harness::new("client")?;
-        let body = format!(
-            "grant_type=refresh_token&refresh_token={}",
-            "a".repeat(3 << 20)
-        );
-        let answer = harness
-            .send(
-                Request::post("/oauth/token")
-                    .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
-                    .header(header::CONTENT_LENGTH, body.len())
-                    .body(Body::from(body))?,
+        let filler = "a".repeat(3 << 20);
+        for (path, content_type, body) in [
+            (
+                "/oauth/token",
+                "application/x-www-form-urlencoded",
+                format!("grant_type=refresh_token&refresh_token={filler}"),
+            ),
+            (
+                "/oauth/register",
+                "application/json",
+                json!({"client_name": filler, "redirect_uris": ["http://127.0.0.1:9/cb"]})
+                    .to_string(),
+            ),
+            (
+                "/oauth/revoke",
+                "application/x-www-form-urlencoded",
+                format!("client_id=x&token={filler}"),
+            ),
+        ] {
+            let answer = harness
+                .send(
+                    Request::post(path)
+                        .header(header::CONTENT_TYPE, content_type)
+                        .header(header::CONTENT_LENGTH, body.len())
+                        .body(Body::from(body))?,
+                )
+                .await?;
+            refused_as_token_refusal(answer, StatusCode::PAYLOAD_TOO_LARGE, path, false).await?;
+        }
+        Ok(())
+    }
+
+    /// Todo 31 (405 without `Pragma`): a method a protocol route does not take is refused
+    /// with `405`, its `Allow` header, `Cache-Control: no-store`, `Pragma: no-cache` and
+    /// `invalid_request`.
+    #[tokio::test]
+    async fn a_wrong_method_is_never_stored() -> TestResult {
+        let harness = Harness::new("client")?;
+        for (method, path, allow) in [
+            (Method::GET, "/oauth/token", "POST"),
+            (Method::PUT, "/oauth/token", "POST"),
+            (Method::DELETE, "/oauth/token", "POST"),
+            (Method::HEAD, "/oauth/token", "POST"),
+            (Method::GET, "/oauth/register", "POST"),
+            (Method::GET, "/oauth/revoke", "POST"),
+            (Method::POST, "/oauth/jwks", "GET,HEAD"),
+            (Method::POST, "/oauth/authorize", "GET,HEAD"),
+        ] {
+            let label = format!("{method} {path}");
+            let answer = harness
+                .send(
+                    Request::builder()
+                        .method(method.clone())
+                        .uri(path)
+                        .body(Body::empty())?,
+                )
+                .await?;
+            assert_eq!(
+                header_text(&answer, "allow").as_deref(),
+                Some(allow),
+                "{label}"
+            );
+            refused_as_token_refusal(
+                answer,
+                StatusCode::METHOD_NOT_ALLOWED,
+                &label,
+                method == Method::HEAD,
             )
             .await?;
-        assert_eq!(answer.status(), StatusCode::PAYLOAD_TOO_LARGE);
-        assert_eq!(
-            header_text(&answer, "cache-control").as_deref(),
-            Some("no-store")
-        );
-        assert_eq!(header_text(&answer, "pragma").as_deref(), Some("no-cache"));
-        let refusal: Value = serde_json::from_str(&text(answer).await?)?;
-        assert_eq!(
-            refusal.get("error").and_then(Value::as_str),
-            Some("invalid_request")
-        );
+        }
         Ok(())
     }
 }

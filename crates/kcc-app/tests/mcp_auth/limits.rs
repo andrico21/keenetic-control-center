@@ -254,3 +254,49 @@ fn format_characters_are_removed_from_client_names() -> TestResult {
     ));
     Ok(())
 }
+
+/// todo 31 (N13, N14): every format character (`Cf`) range is removed from a client name.
+///
+/// Both ends of every range and every single format character: LRM/RLM, the bidi
+/// embeddings, overrides and isolates, the zero-width characters, the BOM, the soft
+/// hyphen, the Arabic letter mark and the tag characters among them.
+#[test]
+fn every_format_character_range_is_removed_from_client_names() -> TestResult {
+    let ranges: [[u32; 2]; 21] = [
+        [0xad, 0xad],
+        [0x600, 0x605],
+        [0x61c, 0x61c],
+        [0x6dd, 0x6dd],
+        [0x70f, 0x70f],
+        [0x890, 0x891],
+        [0x8e2, 0x8e2],
+        [0x180e, 0x180e],
+        [0x200b, 0x200f],
+        [0x202a, 0x202e],
+        [0x2060, 0x2064],
+        [0x2066, 0x206f],
+        [0xfeff, 0xfeff],
+        [0xfff9, 0xfffb],
+        [0x110bd, 0x110bd],
+        [0x110cd, 0x110cd],
+        [0x13430, 0x1343f],
+        [0x1bca0, 0x1bca3],
+        [0x1d173, 0x1d17a],
+        [0xe0001, 0xe0001],
+        [0xe0020, 0xe007f],
+    ];
+    let mut name = String::new();
+    for range in ranges {
+        for point in range {
+            name.push(char::from_u32(point).ok_or("a scalar value")?);
+        }
+    }
+    for point in [0x200e, 0x200f, 0x202a, 0x2069, 0xe0021, 0xe0041] {
+        name.push(char::from_u32(point).ok_or("a scalar value")?);
+    }
+    name.push('x');
+    let fixture = Fixture::new()?;
+    let client = fixture.clients.register(&registration(Some(name), 1))?;
+    assert_eq!(client.name(), Some("x"));
+    Ok(())
+}

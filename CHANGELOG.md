@@ -487,7 +487,8 @@ The first release, `0.1.0`, is in preparation and contains:
   a role change, a disabled or deleted account, a password change, a revoked grant or a
   deleted client counts from the next call. Client names lose Unicode format characters
   (bidi controls) at registration; an oversized protocol request answers `413`
-  `invalid_request`, `no-store`. Audit: `web.oauth_consent`, `mcp.oauth_token_issued`,
+  `invalid_request`, `no-store`, and a wrong method on an `/oauth/*` route `405` with its
+  `Allow` header, `invalid_request`, `no-store`. Audit: `web.oauth_consent`, `mcp.oauth_token_issued`,
   `mcp.oauth_refresh_reuse`; kcc token callers are `oauth:<account>`, other identity
   providers `oidc:<name>`. The MCP page refuses kcc sign-in when there is no issuer.
   Library: `kcc_web::oauth`,
