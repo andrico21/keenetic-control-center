@@ -62,6 +62,19 @@ impl McpControl for WebHandle {
     }
 
     #[inline]
+    fn replace_idp_ca(&self, pem: Vec<u8>, confirmed: bool) -> McpChange {
+        let change = self.supervisor.replace_idp_ca(pem, confirmed);
+        // cancel-safe: only awaits the supervisor's reply; the change runs there.
+        Box::pin(async move {
+            match change.await {
+                Ok(Restarted::Applied) => Ok(()),
+                Ok(Restarted::Reverted(reason)) => Err(reverted(&reason)),
+                Err(error) => Err(refused(&error)),
+            }
+        })
+    }
+
+    #[inline]
     fn status(&self) -> McpStatus {
         reported(&self.supervisor.status())
     }
@@ -120,7 +133,8 @@ fn refused(error: &ListenerError) -> McpRefusal {
         ListenerError::Settings(_)
         | ListenerError::RestartRequired
         | ListenerError::Task(_)
-        | ListenerError::ClientCa(_) => McpRefusal::Failed,
+        | ListenerError::ClientCa(_)
+        | ListenerError::IdpCa(_) => McpRefusal::Failed,
     }
 }
 

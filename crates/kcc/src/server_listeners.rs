@@ -23,7 +23,7 @@ mod generation;
 mod health;
 mod restart;
 mod revert;
-mod sign_in;
+pub mod sign_in;
 pub(crate) mod supervisor;
 #[cfg(test)]
 #[expect(
@@ -41,7 +41,7 @@ use kcc_app::mcp_settings::{Candidate, ListenerKind, SettingsError, client_ca::C
 use kcc_web::admin::ReloadError;
 use tokio::sync::{mpsc, oneshot, watch};
 
-use self::build::BuildError;
+use self::{build::BuildError, client_ca::Anchor};
 
 /// Queues MCP settings changes for the running listeners of `kcc serve`; cheap to clone.
 #[derive(Clone)]
@@ -58,9 +58,10 @@ pub(crate) enum Command {
     Restart(Candidate, oneshot::Sender<Result<Restarted, ListenerError>>),
     /// Applies and saves a candidate that restarts no listener.
     ApplyLive(Candidate, oneshot::Sender<Result<(), ListenerError>>),
-    /// Replaces the client CA (`confirmed`: the password was re-entered) and restarts the
+    /// Replaces a trust anchor (`confirmed`: the password was re-entered) and restarts the
     /// listeners using it.
-    ReplaceClientCa(
+    ReplaceCa(
+        Anchor,
         Vec<u8>,
         bool,
         oneshot::Sender<Result<Restarted, ListenerError>>,
@@ -153,13 +154,16 @@ pub enum ListenerError {
     /// `kcc serve` is stopping; the change did not run or did not finish.
     #[error("kcc serve is stopping")]
     ShuttingDown,
-    /// A listener uses client certificates and the client CA replacement was not confirmed
-    /// with the password; nothing changed.
-    #[error("replacing the client CA in use needs the password")]
+    /// A listener uses the client CA or the identity provider's CA bundle and its
+    /// replacement was not confirmed with the password; nothing changed.
+    #[error("replacing a CA in use needs the password")]
     ConfirmationRequired,
     /// The client CA could not be checked, stored or put back.
     #[error("client CA: {0}")]
     ClientCa(CaError),
+    /// The identity provider's CA bundle could not be checked, stored or put back.
+    #[error("identity provider CA bundle: {0}")]
+    IdpCa(CaError),
 }
 
 /// The listeners of a running `kcc serve`.
@@ -272,10 +276,36 @@ impl ListenerSupervisor {
         pem: Vec<u8>,
         confirmed: bool,
     ) -> impl Future<Output = Result<Restarted, ListenerError>> + Send + 'static {
+        self.replace_ca(Anchor::Client, pem, confirmed)
+    }
+
+    /// Replaces the identity provider's CA bundle with `pem` as
+    /// [`ListenerSupervisor::replace_client_ca`] replaces the client CA, restarting every
+    /// listener whose `oauth` is `external`.
+    ///
+    /// # Errors
+    ///
+    /// As [`ListenerSupervisor::replace_client_ca`], with [`ListenerError::IdpCa`].
+    #[inline]
+    pub fn replace_idp_ca(
+        &self,
+        pem: Vec<u8>,
+        confirmed: bool,
+    ) -> impl Future<Output = Result<Restarted, ListenerError>> + Send + 'static {
+        self.replace_ca(Anchor::IdentityProvider, pem, confirmed)
+    }
+
+    /// Queues the replacement of `anchor` with `pem`.
+    fn replace_ca(
+        &self,
+        anchor: Anchor,
+        pem: Vec<u8>,
+        confirmed: bool,
+    ) -> impl Future<Output = Result<Restarted, ListenerError>> + Send + 'static {
         let (reply, result) = oneshot::channel();
         let queued = self
             .commands
-            .send(Command::ReplaceClientCa(pem, confirmed, reply));
+            .send(Command::ReplaceCa(anchor, pem, confirmed, reply));
         // cancel-safe: only awaits the reply; the change runs in the supervisor.
         async move {
             queued.map_err(|_stopped| ListenerError::ShuttingDown)?;

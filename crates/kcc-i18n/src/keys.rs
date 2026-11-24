@@ -9559,8 +9559,32 @@ pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_SCHEME: MessageKey =
 pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_UNPARSABLE: MessageKey =
     MessageKey::new("web-admin-mcp-connections-redirect-unparsable");
 
+/// `web-admin-mcp-oidc-ca-password` in `web.ftl`.
+pub const WEB_ADMIN_MCP_OIDC_CA_PASSWORD: MessageKey =
+    MessageKey::new("web-admin-mcp-oidc-ca-password");
+
+/// `web-admin-mcp-oidc-ca-replace-note` in `web.ftl`.
+pub const WEB_ADMIN_MCP_OIDC_CA_REPLACE_NOTE: MessageKey =
+    MessageKey::new("web-admin-mcp-oidc-ca-replace-note");
+
+/// `web-admin-mcp-oidc-ca-subjects` in `web.ftl`.
+pub const WEB_ADMIN_MCP_OIDC_CA_SUBJECTS: MessageKey =
+    MessageKey::new("web-admin-mcp-oidc-ca-subjects");
+
+/// `web-admin-mcp-oidc-ca-unchecked` in `web.ftl`.
+pub const WEB_ADMIN_MCP_OIDC_CA_UNCHECKED: MessageKey =
+    MessageKey::new("web-admin-mcp-oidc-ca-unchecked");
+
+/// `web-admin-mcp-oidc-role-above` in `web.ftl`.
+pub const WEB_ADMIN_MCP_OIDC_ROLE_ABOVE: MessageKey =
+    MessageKey::new("web-admin-mcp-oidc-role-above");
+
+/// `web-admin-mcp-mtls-role-above` in `web.ftl`.
+pub const WEB_ADMIN_MCP_MTLS_ROLE_ABOVE: MessageKey =
+    MessageKey::new("web-admin-mcp-mtls-role-above");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2943] = [
+pub static ALL: [MessageKey; 2949] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -12504,4 +12528,10 @@ pub static ALL: [MessageKey; 2943] = [
     WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_HTTP,
     WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_SCHEME,
     WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_UNPARSABLE,
+    WEB_ADMIN_MCP_OIDC_CA_PASSWORD,
+    WEB_ADMIN_MCP_OIDC_CA_REPLACE_NOTE,
+    WEB_ADMIN_MCP_OIDC_CA_SUBJECTS,
+    WEB_ADMIN_MCP_OIDC_CA_UNCHECKED,
+    WEB_ADMIN_MCP_OIDC_ROLE_ABOVE,
+    WEB_ADMIN_MCP_MTLS_ROLE_ABOVE,
 ];

@@ -7,6 +7,7 @@ mod client;
 mod client_ca;
 mod dedicated;
 mod fixture;
+mod idp;
 mod mtls;
 mod restart;
 mod section;

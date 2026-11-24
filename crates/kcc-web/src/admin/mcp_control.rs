@@ -68,9 +68,9 @@ pub enum McpRefusal {
     /// `kcc serve` is stopping; the change did not run or did not finish.
     #[error("kcc serve is stopping")]
     ShuttingDown,
-    /// A listener uses client certificates, so replacing the client CA needs the password;
-    /// nothing changed.
-    #[error("replacing the client CA in use needs the password")]
+    /// A listener uses the CA file (client certificates or the identity provider), so
+    /// replacing it needs the password; nothing changed.
+    #[error("replacing a CA file in use needs the password")]
     ConfirmationRequired,
 }
 

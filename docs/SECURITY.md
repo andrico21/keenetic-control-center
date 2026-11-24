@@ -223,7 +223,12 @@ role may use it, and the RBAC layer always holds it with every tool on every rou
 MCP clients signed in with a kcc account, whose own role is checked on every call. A role
 the MCP settings name (`stdio_role`, `[mcp.auth.mtls] default_role`, an OIDC mapping
 target) must be one the configuring admin's role covers, and cannot be deleted while
-named. A scheduled action also needs
+named. Whoever decides where those identities come from must cover every role they get,
+not only the roles the change names: re-pointing the identity provider (issuer, audience,
+JWKS URL, role claim), switching a listener to it or replacing its CA bundle needs a role
+covering every mapping target (kcc.toml mappings included), and switching a listener to
+client certificates or replacing the client CA needs a role covering the certificates'
+role. A scheduled action also needs
 the permissions of the action itself on its router, when it is created and again when it
 runs: a policy switch needs Write; a backup needs Write; a reboot needs Destructive; a
 preset needs Read, Migrate, Write and Save on the target router, plus Read and Migrate
@@ -554,6 +559,45 @@ for its own MCP listeners (RFC 6749, 7591, 7636, 8252, 8414, 8707, 9068, 9207, 9
   24 hours; an account that must change its password cannot resume a pending request after
   changing it (the client starts again). Browser-based clients are refused by the kit's
   Origin check on `/oauth/token`.
+
+## MCP sign-in with another identity provider (OIDC resource server)
+
+- **Mode**: kcc is only a resource server. The provider of `[mcp.auth.oidc]` registers
+  clients, signs users in and asks for consent; kcc never proxies its endpoints. A
+  listener's `oauth` is `kcc` or `external`, never both. The protected-resource metadata
+  names the provider's issuer as the authorization server.
+- **Token validation** is the kit's: the signature with a key from the provider's JWKS
+  (fetched over https, at most once every 10 seconds on an unknown key id, cached for 10
+  minutes; an unreachable JWKS refuses the token), `iss` equal to the issuer, `aud` equal
+  to the audience (strict: `azp` alone does not count), `exp` and `nbf`, and a `sub`.
+  Only asymmetric algorithms can be allowed (`ES256`, `ES384`, `EdDSA`, `RS*`, `PS*`);
+  `HS*` and `none` are refused when configured and never accepted in a token, so a token
+  keyed with the public key (algorithm confusion) fails. A token whose group or scope maps
+  to no role is refused (401).
+- **Roles**: every mapping target must be a role the configuring admin's role covers
+  (permissions and routers), as for the client-certificate role; a claim value or scope
+  may be mapped only once, because the first match would win. A token's role comes from
+  whoever controls the provider, so changing the issuer, audience, JWKS URL or role claim,
+  switching a listener to the provider, or uploading its CA bundle is refused unless the
+  acting role covers every role the mappings name, also mappings it did not write (for
+  example kcc.toml's); the same holds for the client CA and the certificates' role.
+- **SSRF**: the JWKS host is resolved when a listener is built; a private, loopback,
+  link-local, CGNAT, unique-local or internal-suffix address refuses the listener unless
+  `ssrf_allow_hosts` or `ssrf_allow_cidrs` admit it, and a cloud metadata address is
+  always refused. Those two keys exist only in kcc.toml: the Web, MCP and state files
+  cannot set them. The kit screens every fetch and redirect again.
+- **CA bundle**: the provider's CA bundle decides which certificate the JWKS fetch trusts
+  and so which tokens are valid. It is uploaded on the Web only (no path anywhere),
+  checked like the client CA (at most 64 KiB, one to ten CA certificates, framed as the
+  kit reads them; a refused file is never written) and stored as
+  `<state>/mcp/oidc-ca.pem` beside the built-in roots. While a listener signs in with the
+  provider, replacing it asks for the administrator's password and restarts those
+  listeners in the supervisor's serialized section; a failure puts the previous bundle
+  back before the previous listeners serve again. Audited as `web.mcp_settings` with
+  `changed: ["auth.oidc.ca"]`.
+- **Identity**: callers are audited as `oidc:<preferred_username>` (else the subject),
+  with every byte other than ASCII letters, digits and `-._@` written as `%XX`, cut to 64
+  bytes; the token is never logged or audited.
 
 ## Audit chain
 

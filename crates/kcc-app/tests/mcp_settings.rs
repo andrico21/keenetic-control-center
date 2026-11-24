@@ -2,11 +2,20 @@
 //! ceiling, safety-reducing changes, and concurrent saves.
 
 #[cfg(test)]
+#[path = "mcp_settings/anchored.rs"]
+mod anchored;
+#[cfg(test)]
 #[path = "mcp_settings/ceiling.rs"]
 mod ceiling;
 #[cfg(test)]
 #[path = "mcp_settings/client_ca.rs"]
 mod client_ca;
+#[cfg(test)]
+#[path = "mcp_settings/idp_ca.rs"]
+mod idp_ca;
+#[cfg(test)]
+#[path = "mcp_settings/provider.rs"]
+mod provider;
 
 #[cfg(test)]
 #[expect(

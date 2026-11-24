@@ -425,16 +425,27 @@ A change that reduces safety (destructive tools on, read-only off, a toolset mar
 provider setting, a non-loopback dedicated listener) asks for your password first; a
 wrong password counts toward the sign-in lockout, and a lockout leaves your current
 session signed in. A role you name must be one whose permissions and routers you hold.
+The same holds for the roles a sign-in source hands out: changing the identity provider's
+issuer, audience, JWKS URL or role claim, switching a listener to it, or uploading its CA
+bundle needs a role that covers every role its mappings name (even mappings from
+kcc.toml), and switching a listener to client certificates or uploading the client CA
+needs a role that covers `[mcp.auth.mtls] default_role` (`viewer` when unset). The page
+refuses the change, before asking for the password, and names the role.
 Tool settings apply at once (open MCP sessions get a tightening at their next call, new
 sessions get a loosening). Listener and sign-in changes restart the listener they affect:
 the page shows "Restarting" and then the outcome; if the new listener cannot start, the
 previous one serves again, the settings file stays as it was and the page says why. A
 restart of the main listener interrupts the Web UI for at most `server.shutdown_timeout`
-plus 10 seconds. Sign-in with another identity provider (`external`) is not available in
-this build yet: choosing it reverts with that reason. kcc sign-in needs an issuer; without
+plus 10 seconds. Sign-in with another identity provider (`external`) needs the issuer,
+audience and JWKS URL of **Identity provider** (see "Use your identity provider" below);
+without them, or with a JWKS host on a private address kcc.toml does not admit, the restart
+reverts with the reason. kcc sign-in needs an issuer; without
 one (no DNS name in `web.public_url` and a non-loopback main listener, or the Web UI off)
-the page refuses it and says why. CA files are uploaded as PEM files of at most 64 KiB; nothing on the page
-takes a file path.
+the page refuses it and says why. CA files are uploaded as PEM files of at most 64 KiB
+holding one to ten CA certificates; nothing on the page takes a file path. Replacing the
+client CA while a listener uses client certificates, or the identity provider's CA bundle
+while a listener signs in with the provider, asks for your password and restarts those
+listeners; if they cannot start with the new file, the previous file is put back.
 
 ### Connect an MCP client with your kcc account
 
@@ -497,6 +508,49 @@ A revocation or deletion needs `--confirm-destructive` naming what goes, or that
 on a terminal; `--yes` does not stand in for it. Exit codes: 10 without ManageMcp or the
 confirmation, 4 for a malformed id, 2 when there is nothing to revoke or delete. A running
 `kcc serve` applies them at the client's next MCP call.
+### Use your identity provider
+
+A listener whose **Sign-in > OAuth** is **External identity provider** accepts access
+tokens of your own OpenID Connect provider (Keycloak, Authentik and similar) besides API
+keys. kcc is only the resource server: the provider registers the MCP clients, signs the
+users in and asks for their consent, and kcc checks each token and maps it to a kcc role.
+The protected-resource metadata of the listener names the provider as the authorization
+server, so MCP clients go there to sign in.
+
+A Keycloak example (realm `home`, kcc reachable as `https://kcc.example.net`):
+
+1. **Client registration.** Under Realm settings > Client registration, allow the MCP
+   clients to register themselves (anonymous dynamic client registration, limited by the
+   trusted-hosts policy to the hosts your clients run on), or create a public client with
+   the client's redirect URI by hand.
+2. **Audience.** Add a client scope with an **Audience** mapper whose included custom
+   audience is `kcc-mcp`, and make it a default scope of the MCP clients. Every token kcc
+   accepts must name this audience.
+3. **Groups.** Add a **Group Membership** mapper (claim name `groups`, full group path
+   off) to the same scope, and put the users in groups such as `kcc-admins`.
+4. **Signing key.** kcc accepts the algorithms you list; an `ES256` (or `EdDSA`) realm key
+   is a good choice.
+
+On Administration > MCP, **Identity provider**:
+
+- **Issuer**: `https://keycloak.example.net/realms/home` (exactly as the provider writes
+  it into `iss`; a bare host gains a trailing `/`);
+- **Audience**: `kcc-mcp`;
+- **JWKS URL**: `https://keycloak.example.net/realms/home/protocol/openid-connect/certs`;
+- **Role claim**: `groups`, with the rows `kcc-admins` -> `operator` and so on (or leave
+  the role claim empty and map scopes to roles);
+- **Signing algorithms**: `ES256`;
+- **CA bundle**: upload the provider's CA when its certificate is not from a public CA.
+
+Then set **Sign-in > OAuth** of the listener to **External identity provider**. A mapped
+role must be one whose permissions and routers you hold, and so must every role already
+mapped when you change the provider, switch a listener to it or upload its CA bundle; a
+token without a mapped group or
+scope, for another audience or issuer, expired, without a subject, or signed with another
+algorithm or key is refused. A provider on a private, loopback or link-local address is
+refused unless `[mcp.auth.oidc] ssrf_allow_hosts` or `ssrf_allow_cidrs` in kcc.toml admit
+it (the Web cannot set them). The audit log names such a caller `oidc:<preferred_username>`
+(or its subject), with characters other than letters, digits and `-._@` written as `%XX`.
 
 ### Administration > Notifications
 

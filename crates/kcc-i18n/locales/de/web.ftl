@@ -2545,3 +2545,10 @@ web-admin-mcp-connections-redirect-userinfo = ein Benutzername oder Passwort ist
 web-admin-mcp-connections-redirect-http = einfaches http ist nur zu 127.0.0.1, [::1] oder localhost erlaubt.
 web-admin-mcp-connections-redirect-scheme = verwenden Sie http, https oder ein App-Schema in umgekehrter Domain-Reihenfolge.
 web-admin-mcp-connections-redirect-unparsable = sie ist keine absolute URI.
+web-admin-mcp-oidc-ca-password = Ein Listener meldet über den Identitätsanbieter an: Geben Sie Ihr Passwort ein, um dessen CA-Bündel zu ersetzen.
+web-admin-mcp-oidc-ca-replace-note = Ein Listener meldet über den Identitätsanbieter an. Das Ersetzen seines CA-Bündels verlangt Ihr Passwort und startet die Listener neu, die es verwenden.
+web-admin-mcp-oidc-ca-subjects = Zertifikate im CA-Bündel des Identitätsanbieters
+web-admin-mcp-oidc-ca-unchecked = Das gespeicherte CA-Bündel des Identitätsanbieters besteht die Prüfungen nicht. Laden Sie es erneut hoch.
+
+web-admin-mcp-oidc-role-above = Token des Identitätsanbieters erhalten über eine Zuordnung die Rolle { $value }, und Ihre Rolle hat nicht alle ihre Berechtigungen und Router. Nur eine Rolle, die jede zugeordnete Rolle abdeckt, darf Aussteller, Zielgruppe, JWKS-URL oder Rollen-Claim des Anbieters ändern, einen Listener auf ihn umstellen oder sein CA-Bündel ersetzen.
+web-admin-mcp-mtls-role-above = Client-Zertifikate melden sich mit der Rolle { $value } an, und Ihre Rolle hat nicht alle ihre Berechtigungen und Router. Nur eine Rolle, die sie abdeckt, darf einen Listener auf Client-Zertifikate umstellen oder die Client-CA ersetzen.

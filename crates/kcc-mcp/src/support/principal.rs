@@ -127,9 +127,31 @@ fn named(method: Option<AuthMethod>, account: Option<String>, identity: String) 
     match (method, account) {
         (Some(AuthMethod::MtlsCertificate), _) => format!("mtls:{identity}"),
         (Some(AuthMethod::OAuthJwt), Some(subject)) => format!("oauth:{subject}"),
-        (Some(AuthMethod::OAuthJwt), None) => format!("oidc:{identity}"),
+        (Some(AuthMethod::OAuthJwt), None) => format!("oidc:{}", escaped(&identity)),
         (Some(AuthMethod::BearerToken | _) | None, _) => identity,
     }
+}
+
+/// `name` with every byte outside ASCII letters, digits and `-._@` written as `%XX`.
+///
+/// An identity provider's `preferred_username` is free text: the escaping keeps markup,
+/// line breaks and look-alike letters out of the audit log while distinct names stay
+/// distinct.
+fn escaped(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    for byte in name.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'@') {
+            out.push(char::from(byte));
+        } else {
+            out.push('%');
+            for nibble in [byte >> 4_u8, byte & 0x0f] {
+                out.extend(
+                    char::from_digit(u32::from(nibble), 16).map(|digit| digit.to_ascii_uppercase()),
+                );
+            }
+        }
+    }
+    out
 }
 
 /// Whether the caller signed in with an API key.
@@ -174,5 +196,17 @@ mod tests {
             named(Some(AuthMethod::BearerToken), account(), "alice".to_owned()),
             "alice"
         );
+    }
+
+    /// Regression (todo 33): another provider's free-text name is escaped, so markup, line
+    /// breaks and `%` never reach the audit log raw and distinct names stay distinct.
+    #[test]
+    fn a_provider_name_is_escaped() {
+        let oidc = |name: &str| named(Some(AuthMethod::OAuthJwt), None, name.to_owned());
+        assert_eq!(oidc("alice.b-c_d@example"), "oidc:alice.b-c_d@example");
+        assert_eq!(oidc("<script>"), "oidc:%3Cscript%3E");
+        assert_eq!(oidc("a\nb"), "oidc:a%0Ab");
+        assert_eq!(oidc("%3C"), "oidc:%253C");
+        assert_eq!(oidc("\u{43a}"), "oidc:%D0%BA");
     }
 }

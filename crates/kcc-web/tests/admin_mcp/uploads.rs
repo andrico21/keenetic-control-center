@@ -52,7 +52,8 @@ fn random(count: usize) -> Vec<u8> {
 /// It is refused when it is over 64 KiB, not PEM, holds anything besides certificates
 /// (the private key is never echoed), or carries a path field; a certificate bundle
 /// within the limit is stored for its listener (todo 28: a client CA must also hold CA
-/// certificates, which `mtls.rs` covers).
+/// certificates, which `mtls.rs` covers; todo 33: so must the identity provider's bundle,
+/// so a certificate block of random bytes is refused for it too).
 #[tokio::test]
 async fn a_ca_upload_is_checked_for_size_and_shape() -> TestResult {
     let fixture = Mcp::plain().await?;
@@ -67,7 +68,7 @@ async fn a_ca_upload_is_checked_for_size_and_shape() -> TestResult {
             params.self_signed(&KeyPair::generate()?)
         })?
         .pem();
-    let refused: [Upload<'_>; 5] = [
+    let refused: [Upload<'_>; 6] = [
         (&[("kind", "mtls")], oversized),
         (&[("kind", "mtls")], b"not a certificate".to_vec()),
         (
@@ -79,6 +80,7 @@ async fn a_ca_upload_is_checked_for_size_and_shape() -> TestResult {
             client_ca.clone().into_bytes(),
         ),
         (&[("kind", "elsewhere")], certificate.clone().into_bytes()),
+        (&[("kind", "oidc")], certificate.clone().into_bytes()),
     ];
     for (fields, bytes) in refused {
         let response = fixture.upload(UPLOAD, &admin, (fields, &bytes)).await?;
@@ -95,7 +97,7 @@ async fn a_ca_upload_is_checked_for_size_and_shape() -> TestResult {
     );
     for (kind, file, shape) in [
         ("mtls", "mtls-ca.pem", &client_ca),
-        ("oidc", "oidc-ca.pem", &certificate),
+        ("oidc", "oidc-ca.pem", &client_ca),
     ] {
         let mut bundle = shape.clone().into_bytes();
         bundle.resize(LIMIT, b'\n');

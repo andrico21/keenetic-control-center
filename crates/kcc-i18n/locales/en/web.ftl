@@ -2545,3 +2545,10 @@ web-admin-mcp-connections-redirect-userinfo = a user name or password is not all
 web-admin-mcp-connections-redirect-http = plain http is allowed only to 127.0.0.1, [::1] or localhost.
 web-admin-mcp-connections-redirect-scheme = use http, https or an app scheme in reverse domain order.
 web-admin-mcp-connections-redirect-unparsable = it is not an absolute URI.
+web-admin-mcp-oidc-ca-password = A listener signs in with the identity provider: enter your password to replace its CA bundle.
+web-admin-mcp-oidc-ca-replace-note = A listener signs in with the identity provider. Replacing its CA bundle asks for your password and restarts the listeners that use it.
+web-admin-mcp-oidc-ca-subjects = Certificates in the identity provider's CA bundle
+web-admin-mcp-oidc-ca-unchecked = The stored CA bundle of the identity provider does not pass the checks. Upload it again.
+
+web-admin-mcp-oidc-role-above = Tokens of the identity provider get the role { $value } through a mapping, and your role does not hold all of its permissions and routers. Only a role that covers every mapped role may change the provider's issuer, audience, JWKS URL or role claim, switch a listener to it or replace its CA bundle.
+web-admin-mcp-mtls-role-above = Client certificates sign in with the role { $value }, and your role does not hold all of its permissions and routers. Only a role that covers it may switch a listener to client certificates or replace the client CA.

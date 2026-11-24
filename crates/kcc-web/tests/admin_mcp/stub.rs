@@ -7,7 +7,12 @@ use alloc::sync::Arc;
 use std::sync::{Mutex, PoisonError};
 
 use kcc_app::{
-    mcp_settings::{Candidate, SettingsError, client_ca::store_mtls_ca, commit},
+    mcp_settings::{
+        Candidate, SettingsError,
+        client_ca::{CaError, store_mtls_ca},
+        commit,
+        idp_ca::store_oidc_ca,
+    },
     persist::StateStore,
 };
 use kcc_web::admin::{
@@ -30,6 +35,8 @@ pub(crate) struct Stub {
     restarted: Mutex<Vec<Candidate>>,
     /// Whether each [`McpControl::replace_client_ca`] was confirmed, in order.
     replaced: Mutex<Vec<bool>>,
+    /// Whether each [`McpControl::replace_idp_ca`] was confirmed, in order.
+    replaced_idp: Mutex<Vec<bool>>,
 }
 
 impl Stub {
@@ -42,6 +49,7 @@ impl Stub {
             applied: Mutex::new(Vec::new()),
             restarted: Mutex::new(Vec::new()),
             replaced: Mutex::new(Vec::new()),
+            replaced_idp: Mutex::new(Vec::new()),
         })
     }
 
@@ -72,6 +80,36 @@ impl Stub {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
+    }
+
+    /// Whether each identity provider CA bundle replacement so far was confirmed.
+    pub(crate) fn replaced_idp(&self) -> Vec<bool> {
+        self.replaced_idp
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Records `confirmed` in `log` and stores `pem` with `store`, or answers the refusal.
+    fn store_ca(
+        &self,
+        log: &Mutex<Vec<bool>>,
+        (pem, confirmed): (&[u8], bool),
+        store: fn(&StateStore, &[u8]) -> Result<Vec<String>, CaError>,
+    ) -> McpChange {
+        log.lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(confirmed);
+        let refusal = *self.answer.lock().unwrap_or_else(PoisonError::into_inner);
+        let result = refusal.map_or_else(
+            || {
+                store(&self.store, pem)
+                    .map(drop)
+                    .map_err(|_refused| McpRefusal::Failed)
+            },
+            Err,
+        );
+        Box::pin(async move { result })
     }
 
     /// Records `candidate` in `log` and answers it.
@@ -106,20 +144,11 @@ impl McpControl for Stub {
     }
 
     fn replace_client_ca(&self, pem: Vec<u8>, confirmed: bool) -> McpChange {
-        self.replaced
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push(confirmed);
-        let refusal = *self.answer.lock().unwrap_or_else(PoisonError::into_inner);
-        let result = refusal.map_or_else(
-            || {
-                store_mtls_ca(&self.store, &pem)
-                    .map(drop)
-                    .map_err(|_refused| McpRefusal::Failed)
-            },
-            Err,
-        );
-        Box::pin(async move { result })
+        self.store_ca(&self.replaced, (&pem, confirmed), store_mtls_ca)
+    }
+
+    fn replace_idp_ca(&self, pem: Vec<u8>, confirmed: bool) -> McpChange {
+        self.store_ca(&self.replaced_idp, (&pem, confirmed), store_oidc_ca)
     }
 
     fn status(&self) -> McpStatus {

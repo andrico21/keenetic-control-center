@@ -150,11 +150,25 @@ fn loaded_as_read(pem: &[u8], contents: &[&[u8]]) -> Result<(), CaError> {
 /// The [`CaError`] of the check; [`CaError::State`] when the file cannot be written.
 #[inline]
 pub fn store_mtls_ca(store: &StateStore, pem: &[u8]) -> Result<Vec<String>, CaError> {
+    stored_as(store, MTLS_CA, pem)
+}
+
+/// Checks `pem` ([`check_mtls_ca`]) and stores it as `name` in the MCP directory,
+/// replacing the previous file atomically; the subjects of its certificates.
+///
+/// # Errors
+///
+/// As [`store_mtls_ca`].
+pub(super) fn stored_as(
+    store: &StateStore,
+    name: &str,
+    pem: &[u8],
+) -> Result<Vec<String>, CaError> {
     let subjects = check_mtls_ca(pem)?;
-    let _lock = store.lock(MTLS_CA)?;
+    let _lock = store.lock(name)?;
     let dir = store.dir().join(DIRECTORY);
     create_private_dir(&dir)?;
-    publish(&dir, pem)?;
+    publish(&dir, name, pem)?;
     Ok(subjects)
 }
 
@@ -166,14 +180,28 @@ pub fn store_mtls_ca(store: &StateStore, pem: &[u8]) -> Result<Vec<String>, CaEr
 /// [`CaError::State`] when the file cannot be written or removed.
 #[inline]
 pub fn restore_mtls_ca(store: &StateStore, previous: Option<&[u8]>) -> Result<(), CaError> {
-    let _lock = store.lock(MTLS_CA)?;
+    restored_as(store, MTLS_CA, previous)
+}
+
+/// Puts `previous` back as the file `name` of the MCP directory unchecked, or removes it
+/// when there was none.
+///
+/// # Errors
+///
+/// As [`restore_mtls_ca`].
+pub(super) fn restored_as(
+    store: &StateStore,
+    name: &str,
+    previous: Option<&[u8]>,
+) -> Result<(), CaError> {
+    let _lock = store.lock(name)?;
     let dir = store.dir().join(DIRECTORY);
     match previous {
-        Some(bytes) => publish(&dir, bytes)?,
-        None => match fs::remove_file(dir.join(MTLS_CA)) {
+        Some(bytes) => publish(&dir, name, bytes)?,
+        None => match fs::remove_file(dir.join(name)) {
             Ok(()) => sync_dir(&dir)?,
             Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(error) => return Err(io_error(&dir.join(MTLS_CA), error).into()),
+            Err(error) => return Err(io_error(&dir.join(name), error).into()),
         },
     }
     Ok(())
@@ -186,11 +214,19 @@ pub fn restore_mtls_ca(store: &StateStore, previous: Option<&[u8]>) -> Result<()
 /// [`CaError::State`] when the file cannot be read.
 #[inline]
 pub fn read_mtls_ca(store: &StateStore) -> Result<Option<Vec<u8>>, CaError> {
-    let path = mtls_ca_path(store);
-    match fs::read(&path) {
+    read_as(&mtls_ca_path(store))
+}
+
+/// The file at `path` as it is; `None` when it does not exist.
+///
+/// # Errors
+///
+/// [`CaError::State`] when the file cannot be read.
+pub(super) fn read_as(path: &Path) -> Result<Option<Vec<u8>>, CaError> {
+    match fs::read(path) {
         Ok(bytes) => Ok(Some(bytes)),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(io_error(&path, error).into()),
+        Err(error) => Err(io_error(path, error).into()),
     }
 }
 
@@ -207,20 +243,20 @@ pub fn mtls_ca_subjects(store: &StateStore) -> Result<Option<Vec<String>>, CaErr
 }
 
 /// Writes `bytes` to a new temporary file in `dir`, makes it world-readable, syncs it and
-/// renames it over the CA file, then syncs `dir`; the temporary file is removed again when
-/// a step fails.
+/// renames it over the file `name`, then syncs `dir`; the temporary file is removed again
+/// when a step fails.
 ///
 /// # Errors
 ///
 /// [`StateError::Io`].
-fn publish(dir: &Path, bytes: &[u8]) -> Result<(), StateError> {
-    let temp = dir.join(format!(".{MTLS_CA}.tmp"));
+fn publish(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), StateError> {
+    let temp = dir.join(format!(".{name}.tmp"));
     match fs::remove_file(&temp) {
         Ok(()) => {}
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
         Err(error) => return Err(io_error(&temp, error)),
     }
-    let target = dir.join(MTLS_CA);
+    let target = dir.join(name);
     let mut file = create_private_file(&temp)?;
     let written = file
         .write_all(bytes)

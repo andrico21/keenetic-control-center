@@ -176,6 +176,10 @@ Two transports serve the same tools ([docs/MCP_TOOLS.md](docs/MCP_TOOLS.md)):
   default_role` and is audited as `mtls:<common name>`. Desktop clients rarely support
   client certificates, and a browser holding one from that CA may show a certificate
   picker while `optional` is on.
+- **Your identity provider**: a listener with `[mcp.auth.main] oauth = "external"`
+  accepts the access tokens of an OpenID Connect provider (Keycloak, Authentik and
+  similar) configured in `[mcp.auth.oidc]`; its groups or scopes map to kcc roles and
+  callers are audited as `oidc:<name>` ([docs/USER_GUIDE.md](docs/USER_GUIDE.md)).
 
 Claude Code:
 

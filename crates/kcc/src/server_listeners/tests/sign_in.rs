@@ -16,21 +16,19 @@ use super::{
     TestResult,
     fixture::{Fixture, Setup},
 };
-use crate::server_listeners::{build::BuildError, sign_in::kcc_tokens};
+use crate::server_listeners::{build::BuildError, sign_in::tokens};
 
-/// Todo 31 (S1): `oauth = "external"` refuses the listener build with
-/// [`BuildError::SignInUnavailable`]; it is never silently ignored.
+/// Todo 31 (S1), todo 33: `oauth = "external"` without a usable identity provider (the
+/// fixture configures none) refuses the listener build with
+/// [`BuildError::IdentityProvider`]; it is never silently ignored.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn an_external_identity_provider_is_refused() -> TestResult {
     let fixture = Fixture::start(Setup::default()).await?;
     let mut settings = fixture.saved()?;
     settings.auth.main.oauth = OauthMode::External;
-    let built = kcc_tokens(&fixture.shared, &settings, ListenerKind::Main);
+    let built = tokens(&fixture.shared, &settings, ListenerKind::Main);
     assert!(
-        matches!(
-            built,
-            Err(BuildError::SignInUnavailable { listener: "main" })
-        ),
+        matches!(built, Err(BuildError::IdentityProvider(_))),
         "{built:?}"
     );
     fixture.stop().await??;
@@ -53,7 +51,7 @@ async fn kcc_sign_in_without_the_web_ui_is_refused() -> TestResult {
     assert!(fixture.shared.sign_in.is_none(), "so serve has no sign-in");
     let mut settings = fixture.saved()?;
     settings.auth.main.oauth = OauthMode::Kcc;
-    let built = kcc_tokens(&fixture.shared, &settings, ListenerKind::Main);
+    let built = tokens(&fixture.shared, &settings, ListenerKind::Main);
     assert!(
         matches!(
             built,

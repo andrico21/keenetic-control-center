@@ -65,6 +65,14 @@ pub trait McpControl: fmt::Debug + Send + Sync {
     /// The change is queued when this is called; dropping the future does not stop it.
     fn replace_client_ca(&self, pem: Vec<u8>, confirmed: bool) -> McpChange;
 
+    /// Replaces the identity provider's CA bundle with `pem` as
+    /// [`McpControl::replace_client_ca`] replaces the client CA: the bundle decides which
+    /// certificate the JWKS fetch trusts, so while a listener signs in with the identity
+    /// provider an unconfirmed replacement is refused with
+    /// [`mcp_control::McpRefusal::ConfirmationRequired`], and those listeners restart.
+    /// The change is queued when this is called; dropping the future does not stop it.
+    fn replace_idp_ca(&self, pem: Vec<u8>, confirmed: bool) -> McpChange;
+
     /// How the listeners started; cheap, never waits.
     fn status(&self) -> McpStatus;
 

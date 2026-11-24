@@ -98,3 +98,23 @@ mod uploads;
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 #[path = "admin_mcp/mtls.rs"]
 mod mtls;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "admin_mcp/oidc.rs"]
+mod oidc;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "admin_mcp/ceiling.rs"]
+mod ceiling;

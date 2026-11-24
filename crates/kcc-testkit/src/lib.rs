@@ -39,6 +39,7 @@ pub mod entware_install;
 pub mod entware_ssh;
 mod failsafe;
 pub mod fake_elasticsearch;
+pub mod fake_idp;
 pub mod fake_loki;
 pub mod fake_telegram;
 pub mod firmware_update;

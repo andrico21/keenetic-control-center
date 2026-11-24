@@ -183,12 +183,12 @@ pub(crate) struct Facts {
     fingerprint: Option<String>,
     /// Whether a client CA and an identity provider CA bundle are stored.
     cas: (bool, bool),
-    /// The stored client CA's certificate subjects, or `None` when it does not pass the
-    /// checks.
-    subjects: Option<Vec<String>>,
-    /// The listeners whose client-certificate sign-in is on: replacing the client CA asks
-    /// for the password and restarts them.
-    mtls_users: Vec<ListenerKind>,
+    /// The stored client CA's and identity provider CA bundle's certificate subjects, each
+    /// `None` when the file does not pass the checks.
+    subjects: (Option<Vec<String>>, Option<Vec<String>>),
+    /// The listeners using the client CA and the identity provider CA bundle: replacing
+    /// either asks for the password and restarts its listeners.
+    users: (Vec<ListenerKind>, Vec<ListenerKind>),
     /// The `mcp_settings.json` revision the region shows; every form posts it back.
     revision: u64,
 }

@@ -9,6 +9,7 @@ use super::{
     Candidate, ListenerKind, McpBase, SettingsError,
     document::{McpOverrides, McpSettingsDocument},
     keys::{self, KeyPath},
+    sources::{self, TrustAnchor},
 };
 use crate::{
     permissions::{Permission, Role, load_roles},
@@ -47,6 +48,9 @@ pub(super) struct Ceiling {
     named: BTreeSet<String>,
     /// Roles the change names for a purpose they did not have; the actor must cover each.
     added: BTreeSet<String>,
+    /// Roles a sign-in source hands out whose origin the change decides; the actor must
+    /// cover each that is configured.
+    anchored: BTreeSet<(TrustAnchor, String)>,
 }
 
 impl Ceiling {
@@ -55,7 +59,8 @@ impl Ceiling {
     /// # Errors
     ///
     /// [`SettingsError::ActorRevoked`], [`SettingsError::UnknownRole`],
-    /// [`SettingsError::RoleAbove`] or a roles failure.
+    /// [`SettingsError::RoleAbove`], [`SettingsError::ProviderAbove`],
+    /// [`SettingsError::CertificatesAbove`] or a roles failure.
     pub(super) fn check(&self, store: &StateStore) -> Result<(), SettingsError> {
         let roles = load_roles(store)?;
         let actor = find(&roles, &self.actor)
@@ -70,8 +75,43 @@ impl Ceiling {
                 return Err(SettingsError::RoleAbove { name: name.clone() });
             }
         }
+        for (anchor, named) in &self.anchored {
+            if find(&roles, named).is_some_and(|role| !actor.dominates(role)) {
+                let name = named.clone();
+                return Err(match anchor {
+                    TrustAnchor::ClientCa => SettingsError::CertificatesAbove { name },
+                    TrustAnchor::IdentityProvider => SettingsError::ProviderAbove { name },
+                });
+            }
+        }
         Ok(())
     }
+
+    /// The check of `actor` replacing the CA of `anchor` under `mcp`: it decides whose
+    /// identities `anchor` admits, so the actor must cover every role `anchor` hands out.
+    pub(super) fn of_anchor(actor: &Role, mcp: &McpConfig, anchor: TrustAnchor) -> Self {
+        Self {
+            actor: actor.name.clone(),
+            named: BTreeSet::new(),
+            added: BTreeSet::new(),
+            anchored: anchored(mcp, [anchor]),
+        }
+    }
+}
+
+/// The roles each of `anchors` hands out under `mcp`, paired with it.
+fn anchored(
+    mcp: &McpConfig,
+    anchors: impl IntoIterator<Item = TrustAnchor>,
+) -> BTreeSet<(TrustAnchor, String)> {
+    anchors
+        .into_iter()
+        .flat_map(|anchor| {
+            sources::roles(mcp, anchor)
+                .into_iter()
+                .map(move |name| (anchor, name))
+        })
+        .collect()
 }
 
 /// Plans `request` on the current `mcp_settings.json` without writing it.
@@ -124,10 +164,14 @@ pub(super) fn plan(
     let after = base.resolve(&document.overrides)?;
     let added = added_roles(&before.mcp, &after.mcp);
     named.extend(added.iter().cloned());
+    let repointed = [TrustAnchor::IdentityProvider, TrustAnchor::ClientCa]
+        .into_iter()
+        .filter(|anchor| sources::repointed(&before.mcp, &after.mcp, *anchor));
     let ceiling = Ceiling {
         actor: actor.name.clone(),
         named,
         added,
+        anchored: anchored(&after.mcp, repointed),
     };
     ceiling.check(store)?;
     let roles = load_roles(store)?;

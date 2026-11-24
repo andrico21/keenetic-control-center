@@ -419,8 +419,8 @@ The first release, `0.1.0`, is in preparation and contains:
   certificate, a self-signed one generated once into `<state>/mcp/dedicated-cert.pem` and
   `dedicated-key.pem` (owner-only), or none on loopback; `endpoint = "dedicated"` leaves
   the main listener's `/mcp` without tools. A dedicated listener that cannot start is
-  skipped at start and logged. A listener whose `oauth` is `external` does not start
-  (another identity provider is not wired yet): the main listener then starts with
+  skipped at start and logged. A listener whose `oauth` cannot be built (for example
+  `external` without an issuer) does not start: the main listener then starts with
   kcc.toml's sign-in settings, the dedicated one is skipped.
 - **Live restart of the MCP listeners**: `kcc serve` runs its listeners under a
   supervisor (`kcc::server_listeners::ListenerSupervisor`): a settings change that
@@ -496,6 +496,33 @@ The first release, `0.1.0`, is in preparation and contains:
   `KccMcp::with_principals`; `AccountStanding.must_change_password`;
   `PendingStore::begin(request, from)` takes the client address,
   `kcc_app::mcp_auth::pending::source::address_group`.
+  `KccMcp::with_principals`; `AccountStanding.must_change_password`.
+- **External OIDC identity provider for MCP** (resource-server mode): a listener with
+  `oauth = "external"` accepts the access tokens of `[mcp.auth.oidc]`'s provider, validated
+  by the kit (issuer, audience, allowed algorithms, expiry and not-before, a subject
+  required, keys from the provider's JWKS); the groups or scopes map to kcc roles, and the
+  protected-resource metadata names the provider as the authorization server. A JWKS host
+  on a private, loopback or link-local address refuses the listener unless kcc.toml's
+  `ssrf_allow_hosts`/`ssrf_allow_cidrs` admit it. The provider's CA bundle
+  (`<state>/mcp/oidc-ca.pem`) is checked like the client CA, and replacing it while a
+  listener uses it asks for the password and restarts those listeners, putting the
+  previous bundle back when they cannot start. `allowed_algorithms` refuses `HS*`, `none`
+  and unknown names, and a claim value or scope mapped twice is refused. Callers are
+  audited as `oidc:<name>` with characters other than letters, digits and `-._@` written
+  as `%XX`. Library: `kcc_web::admin::McpControl::replace_idp_ca`,
+  `ListenerSupervisor::replace_idp_ca`, `kcc_app::mcp_settings::idp_ca`,
+  `kcc::server_listeners::sign_in::external::ProviderRefusal`; test fake
+  `kcc_testkit::fake_idp::FakeIdp` (ES256 and EdDSA, no RSA).
+- **Sign-in sources stay under the configuring role.** Changing the identity provider's
+  issuer, audience, JWKS URL or role claim, switching a listener to it, or uploading its
+  CA bundle now needs a role covering every role its mappings name (kcc.toml mappings
+  included), and switching a listener to client certificates or uploading the client CA
+  needs a role covering `[mcp.auth.mtls] default_role` (`viewer` when unset). Before, a
+  `ManageMcp` role below `admin` could point an existing `admin` mapping at a provider or CA
+  it controls. New refusals `SettingsError::ProviderAbove` and
+  `SettingsError::CertificatesAbove`, `kcc_app::mcp_settings::sources::TrustAnchor` and
+  `McpBase::check_ca_ceiling`; `allowed_algorithms` with spaces around a name and an
+  issuer or JWKS URL with a user name or password are now refused by kcc's checks too.
 
 ### Changed
 

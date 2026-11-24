@@ -31,7 +31,7 @@ use tokio::sync::oneshot;
 
 use super::{
     health::Probe,
-    sign_in::{client_certificates, kcc_tokens},
+    sign_in::{client_certificates, external::ProviderRefusal, tokens},
     tls::leaf,
 };
 use crate::{
@@ -154,6 +154,9 @@ pub enum BuildError {
     /// The client CA of the listener's client-certificate sign-in is missing or unusable.
     #[error("client CA {0}")]
     ClientCa(String),
+    /// The listener's identity provider sign-in (`oauth = "external"`) cannot run.
+    #[error("identity provider: {0}")]
+    IdentityProvider(ProviderRefusal),
 }
 
 impl From<AttachError> for BuildError {
@@ -174,7 +177,7 @@ pub(crate) fn build(
 ) -> Result<Built, BuildError> {
     let (callback, handles) = oneshot::channel();
     let mtls = client_certificates(shared, settings, kind)?;
-    let (oauth, activation) = kcc_tokens(shared, settings, kind)?.unzip();
+    let (oauth, activation) = tokens(shared, settings, kind)?;
     let base = kit_base(shared, keys, (mtls, oauth))?.with_reload_callback(move |handle| {
         drop(callback.send(handle));
     });
@@ -286,8 +289,8 @@ fn dedicated(
     Ok((server, bind, factory, probe))
 }
 
-/// `[server]` with the API keys, the client-certificate sign-in `mtls`, the kcc token
-/// sign-in `oauth`, the RBAC policy and the readiness probe.
+/// `[server]` with the API keys, the client-certificate sign-in `mtls`, the token sign-in
+/// `oauth`, the RBAC policy and the readiness probe.
 fn kit_base(
     shared: &Shared,
     keys: Keys,

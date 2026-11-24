@@ -135,6 +135,12 @@ impl Said {
                 named(keys::WEB_ADMIN_MCP_ERROR_ROLE_UNKNOWN, name)
             }
             SettingsError::RoleAbove { name } => named(keys::WEB_ADMIN_MCP_ERROR_ROLE_ABOVE, name),
+            SettingsError::ProviderAbove { name } => {
+                named(keys::WEB_ADMIN_MCP_OIDC_ROLE_ABOVE, name)
+            }
+            SettingsError::CertificatesAbove { name } => {
+                named(keys::WEB_ADMIN_MCP_MTLS_ROLE_ABOVE, name)
+            }
             SettingsError::ActorRevoked { name: _ } => {
                 Self::new(locale, keys::WEB_ADMIN_MCP_ERROR_ACTOR, None)
             }

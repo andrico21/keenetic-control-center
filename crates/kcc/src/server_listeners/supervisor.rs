@@ -294,8 +294,8 @@ impl Supervisor {
                 let result = Box::pin(restart::apply_live(self, &candidate)).await;
                 drop(reply.send(result));
             }
-            Command::ReplaceClientCa(pem, confirmed, reply) => {
-                let result = Box::pin(client_ca::replace(self, pem, confirmed)).await;
+            Command::ReplaceCa(anchor, pem, confirmed, reply) => {
+                let result = Box::pin(client_ca::replace(self, anchor, pem, confirmed)).await;
                 drop(reply.send(result));
             }
         }

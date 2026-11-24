@@ -2,7 +2,7 @@
 //! the self-signed certificate, the uploaded CA files and the restart status.
 
 use askama::Template;
-use kcc_app::mcp_settings::Effective;
+use kcc_app::mcp_settings::{Effective, ListenerKind};
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use super::{Control, Facts, Row, rows::Rows, sections::sections};
@@ -59,12 +59,12 @@ struct Sections {
     certs: Section,
 }
 
+/// Whether a CA file is stored, its subjects (`None`: it fails the checks) and the
+/// listeners using it.
+type CaFacts<'facts> = (bool, &'facts Option<Vec<String>>, &'facts Vec<ListenerKind>);
+
 /// One CA file upload.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "askama view model: each flag switches one block of the upload macro"
-)]
 struct Upload {
     /// The posted kind, `mtls` or `oidc`.
     kind: &'static str,
@@ -74,12 +74,15 @@ struct Upload {
     stored: bool,
     /// Whether a file can be uploaded: the listeners run here.
     editable: bool,
-    /// The stored file's certificate subjects (client CA only).
+    /// The stored file's certificate subjects.
     subjects: Vec<String>,
-    /// Whether the stored file does not pass the checks (client CA only).
-    unchecked: bool,
-    /// Whether a replacement asks for the password: a listener uses the client CA.
-    password: bool,
+    /// What the subjects list is.
+    subjects_label: String,
+    /// The notice shown when the stored file does not pass the checks, and its key; `None`
+    /// when it passes.
+    unchecked: Option<(String, &'static str)>,
+    /// Why a replacement asks for the password, when it does: a listener uses the file.
+    password: Option<String>,
 }
 
 /// The settings region.
@@ -117,26 +120,45 @@ impl Region {
             idp,
             certs,
         ] = sections(&rows, effective.settings(), &facts).map(|section| section.saving(editable));
-        let upload = |kind, label, stored| Upload {
-            kind,
-            label: rows.say(label),
-            stored,
-            editable,
-            subjects: Vec::new(),
-            unchecked: false,
-            password: false,
+        let upload = |kind, file: [MessageKey; 4], (stored, subjects, users): CaFacts<'_>| {
+            let [label, listed, unchecked, note] = file;
+            Upload {
+                kind,
+                label: rows.say(label),
+                stored,
+                editable,
+                subjects: subjects.clone().unwrap_or_default(),
+                subjects_label: rows.say(listed),
+                unchecked: (stored && subjects.is_none())
+                    .then(|| (rows.say(unchecked), unchecked.id())),
+                password: (!users.is_empty()).then(|| rows.say(note)),
+            }
         };
-        let mtls_ca = Upload {
-            subjects: facts.subjects.clone().unwrap_or_default(),
-            unchecked: facts.cas.0 && facts.subjects.is_none(),
-            password: !facts.mtls_users.is_empty(),
-            ..upload("mtls", keys::WEB_ADMIN_MCP_MTLS_CA, facts.cas.0)
-        };
+        let mtls_ca = upload(
+            "mtls",
+            [
+                keys::WEB_ADMIN_MCP_MTLS_CA,
+                keys::WEB_ADMIN_MCP_MTLS_CA_SUBJECTS,
+                keys::WEB_ADMIN_MCP_MTLS_CA_UNCHECKED,
+                keys::WEB_ADMIN_MCP_MTLS_CA_REPLACE_NOTE,
+            ],
+            (facts.cas.0, &facts.subjects.0, &facts.users.0),
+        );
+        let idp_ca = upload(
+            "oidc",
+            [
+                keys::WEB_ADMIN_MCP_IDP_CA,
+                keys::WEB_ADMIN_MCP_OIDC_CA_SUBJECTS,
+                keys::WEB_ADMIN_MCP_OIDC_CA_UNCHECKED,
+                keys::WEB_ADMIN_MCP_OIDC_CA_REPLACE_NOTE,
+            ],
+            (facts.cas.1, &facts.subjects.1, &facts.users.1),
+        );
         Self {
             shell: fragment_shell(locale),
             oob: true,
             mtls_ca,
-            idp_ca: upload("oidc", keys::WEB_ADMIN_MCP_IDP_CA, facts.cas.1),
+            idp_ca,
             facts,
             sections: Sections {
                 tools,

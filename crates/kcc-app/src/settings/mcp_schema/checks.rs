@@ -1,8 +1,14 @@
 //! The `[mcp]` rules serde cannot express.
 
+extern crate alloc;
+
+use alloc::collections::BTreeSet;
+
 use url::Host;
 
-use super::{DedicatedListenerConfig, DedicatedTls, McpAuthConfig, McpConfig, MtlsMode};
+use super::{
+    DedicatedListenerConfig, DedicatedTls, McpAuthConfig, McpConfig, MtlsMode, OidcConfig,
+};
 use crate::{
     mcp_settings::keys::KeyPath,
     permissions::KCC_ACCOUNT_ROLE,
@@ -139,6 +145,11 @@ fn validate_auth(auth: &McpAuthConfig) -> Result<(), ConfigError> {
                 "must be an https URL whose host is a name, not an IP address",
             ));
         }
+        if let Some(url) = configured
+            && (!url.username().is_empty() || url.password().is_some())
+        {
+            return Err(invalid(field, "must not carry a user name or password"));
+        }
     }
     let empty = |text: &str| text.trim().is_empty();
     if oidc.audience.as_deref().is_some_and(empty)
@@ -157,6 +168,53 @@ fn validate_auth(auth: &McpAuthConfig) -> Result<(), ConfigError> {
             "mcp.auth.oidc",
             "audience, role_claim, algorithm names and mapping entries must not be empty",
         ));
+    }
+    validate_oidc_lists(oidc)
+}
+
+/// The asymmetric signing algorithms an identity provider may be allowed: never `HS*` or
+/// `none`.
+const ASYMMETRIC: [&str; 9] = [
+    "ES256", "ES384", "EdDSA", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512",
+];
+
+/// Checks the algorithm names and that no claim value or scope is mapped twice.
+///
+/// The provider's first matching mapping wins, so a duplicate could hide a role above the
+/// ceiling behind one an admin may set.
+///
+/// # Errors
+///
+/// [`ConfigError::Invalid`] naming the field.
+fn validate_oidc_lists(oidc: &OidcConfig) -> Result<(), ConfigError> {
+    if oidc.allowed_algorithms.iter().any(|name| {
+        !ASYMMETRIC
+            .iter()
+            .any(|known| known.eq_ignore_ascii_case(name))
+    }) {
+        return Err(invalid(
+            "mcp.auth.oidc.allowed_algorithms",
+            "names an algorithm other than ES256, ES384, EdDSA, RS256, RS384, RS512, PS256, PS384 or PS512",
+        ));
+    }
+    let claims: Vec<&str> = oidc
+        .role_mappings
+        .iter()
+        .map(|mapping| mapping.claim_value.as_str())
+        .collect();
+    let scopes: Vec<&str> = oidc
+        .scopes
+        .iter()
+        .map(|mapping| mapping.scope.as_str())
+        .collect();
+    for (field, values) in [
+        ("mcp.auth.oidc.role_mappings", claims),
+        ("mcp.auth.oidc.scopes", scopes),
+    ] {
+        let unique: BTreeSet<&str> = values.iter().copied().collect();
+        if unique.len() != values.len() {
+            return Err(invalid(field, "maps the same value twice"));
+        }
     }
     Ok(())
 }

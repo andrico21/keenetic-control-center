@@ -1,12 +1,15 @@
 //! `POST /ui/admin/mcp/ca`: the client CA or the identity provider's CA bundle.
 //!
-//! The file of at most 64 KiB is checked here: the identity provider's bundle for its PEM
-//! shape (it is stored at once), the client CA as the client-certificate sign-in takes it
-//! (one to ten CA certificates). The client CA goes to the running listeners, which store
-//! it in their serialized section; while a listener uses client certificates, replacing it
-//! reduces safety (it changes who may sign in), so the form carries the account's password
-//! and the listeners using it restart, polled like a settings restart. The upload takes no
-//! path and nothing of the file reaches a page or the log.
+//! The file of at most 64 KiB is checked here as the listeners take it (one to ten CA
+//! certificates), for both kinds. It goes to the running listeners, which store it in
+//! their serialized section. Both files are trust anchors: the client CA decides who may
+//! sign in with a certificate, the identity provider's bundle which certificate the JWKS
+//! fetch trusts, and so which tokens are valid. Only a role that covers every role those
+//! identities get (the certificates' role, the provider's mapping targets) may replace
+//! either file, before any password is asked. While a listener uses the file, replacing
+//! it reduces safety, so the form carries the account's password and the listeners using
+//! it restart, polled like a settings restart. The upload takes no path and nothing of the
+//! file reaches a page or the log.
 
 extern crate alloc;
 
@@ -23,11 +26,15 @@ use axum::{
 };
 use kcc_app::{
     mcp_settings::{
-        ListenerKind,
+        ListenerKind, SettingsError,
         client_ca::{CaError, check_mtls_ca},
+        idp_ca::check_oidc_ca,
+        sources::TrustAnchor,
     },
-    persist::{create_private_dir, write_atomic},
-    settings::{McpConfig, mcp_schema::MtlsMode},
+    settings::{
+        McpConfig,
+        mcp_schema::{MtlsMode, OauthMode},
+    },
 };
 use kcc_i18n::{bundle::MessageKey, keys};
 use secrecy::SecretString;
@@ -38,8 +45,8 @@ use super::{
     Attached,
     flow::{audit, confirmed, in_background, name, outcome},
     messages::Said,
-    page::{DIRECTORY, Failure, OIDC_CA},
-    pem, reply,
+    page::Failure,
+    reply,
 };
 use crate::{
     WebState, admin_shared::unavailable, authz::CurrentUser, errors,
@@ -51,9 +58,6 @@ pub(crate) const FILE_LIMIT: usize = 64 * 1024;
 
 /// The largest upload request: the file and its multipart framing.
 pub(crate) const BODY_LIMIT: usize = FILE_LIMIT.saturating_add(0x4000);
-
-/// The audited key of a client CA upload.
-const MTLS_KEY: &str = "auth.mtls.ca";
 
 /// Why an upload is refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,6 +85,40 @@ enum Kind {
     Oidc,
 }
 
+impl Kind {
+    /// The key the audit entry names as changed.
+    const fn audited(self) -> &'static str {
+        match self {
+            Self::Mtls => "auth.mtls.ca",
+            Self::Oidc => "auth.oidc.ca",
+        }
+    }
+
+    /// Why the password is needed, when a listener uses the file.
+    const fn password_needed(self) -> MessageKey {
+        match self {
+            Self::Mtls => keys::WEB_ADMIN_MCP_MTLS_CA_PASSWORD,
+            Self::Oidc => keys::WEB_ADMIN_MCP_OIDC_CA_PASSWORD,
+        }
+    }
+
+    /// The sign-in source whose identities the file admits.
+    const fn anchor(self) -> TrustAnchor {
+        match self {
+            Self::Mtls => TrustAnchor::ClientCa,
+            Self::Oidc => TrustAnchor::IdentityProvider,
+        }
+    }
+
+    /// The listeners of `mcp` using the file.
+    fn users(self, mcp: &McpConfig) -> Vec<ListenerKind> {
+        match self {
+            Self::Mtls => mtls_users(mcp),
+            Self::Oidc => oidc_users(mcp),
+        }
+    }
+}
+
 /// The fields of an upload.
 struct Upload {
     /// Which file.
@@ -91,68 +129,55 @@ struct Upload {
     password: Option<SecretString>,
 }
 
-/// `POST /ui/admin/mcp/ca`: checks the file and stores it as the kind's CA.
-// NOT cancel-safe: dropped after the hand-over to the listeners or the write, the change runs on
-// unaudited.
+/// `POST /ui/admin/mcp/ca`: checks the file and hands it to the listeners as the kind's
+/// CA.
+// NOT cancel-safe: dropped after the hand-over to the listeners, the change runs on unaudited.
 pub(crate) async fn upload(
     State(state): State<WebState>,
     user: CurrentUser,
     multipart: Result<Multipart, MultipartRejection>,
 ) -> Response {
-    let (Some(admin), Some(attached)) = (state.admin(), state.mcp()) else {
+    let (Some(_admin), Some(attached)) = (state.admin(), state.mcp()) else {
         return unavailable(None);
     };
-    let locale = user.locale();
     let read = match multipart {
         Ok(fields) => read(fields).await,
         Err(_rejection) => Err(Refusal::Fields),
     };
-    let upload = match read.and_then(checked) {
-        Ok(upload) => upload,
-        Err(refusal) => return refused(&user, refusal),
-    };
-    if upload.kind == Kind::Mtls {
-        return client_ca(&state, &user, Arc::clone(attached), upload).await;
+    match read.and_then(checked) {
+        Ok(upload) => replaced(&state, &user, Arc::clone(attached), upload).await,
+        Err(refusal) => refused(&user, refusal),
     }
-    let _changes = admin.lock().await;
-    let dir = admin.state().dir().join(DIRECTORY);
-    let written = spawn_blocking(move || {
-        create_private_dir(&dir)?;
-        write_atomic(&dir, OIDC_CA, &upload.bytes)
-    })
-    .await;
-    match written {
-        Ok(Ok(())) => {}
-        Ok(Err(error)) => return errors::internal(&error, fragment_shell(locale)),
-        Err(error) => return errors::internal(&error, fragment_shell(locale)),
-    }
-    let params = json!({ "changed": ["auth.oidc.ca"], "restarted": [] });
-    audit(&state, &user, params, "success").await;
-    let said = Said::new(locale, keys::WEB_ADMIN_MCP_CA_SAVED, None);
-    reply::notice(&state, &user, (said, "success"), StatusCode::OK).await
 }
 
-/// Hands the checked client CA to the listeners: after the password when a listener uses
-/// client certificates (then those listeners restart in the background), at once
-/// otherwise.
+/// Hands the checked file to the listeners once the acting role covers its roles.
+///
+/// Those are the roles the file lets sign in. Then the password when a listener uses it
+/// (and those listeners restart in the background), at once otherwise.
 // NOT cancel-safe: dropped after the hand-over, the change runs on unaudited.
-async fn client_ca(
+async fn replaced(
     state: &WebState,
     user: &CurrentUser,
     attached: Arc<Attached>,
     upload: Upload,
 ) -> Response {
     let locale = user.locale();
-    let users = match users_now(state).await {
-        Ok(users) => users,
+    let users = match users_now(state, user, upload.kind).await {
+        Ok(Ok(users)) => users,
+        Ok(Err(refusal)) => {
+            return Said::plan(locale, &refusal).map_or_else(
+                || errors::internal(&refusal, fragment_shell(locale)),
+                |said| reply::refused(locale, said, StatusCode::UNPROCESSABLE_ENTITY),
+            );
+        }
         Err(error) => return errors::internal(&*error, fragment_shell(locale)),
     };
     let restarted: Vec<&str> = users.iter().map(|kind| name(*kind)).collect();
-    let params = json!({ "changed": [MTLS_KEY], "restarted": restarted });
+    let params = json!({ "changed": [upload.kind.audited()], "restarted": restarted });
     let in_use = !users.is_empty();
     if in_use {
         let Some(password) = &upload.password else {
-            let said = Said::new(locale, keys::WEB_ADMIN_MCP_MTLS_CA_PASSWORD, None);
+            let said = Said::new(locale, upload.kind.password_needed(), None);
             return reply::refused(locale, said, StatusCode::UNPROCESSABLE_ENTITY);
         };
         match confirmed(state, user, password).await {
@@ -164,9 +189,12 @@ async fn client_ca(
             Err(answer) => return answer.into_response(),
         }
     }
-    let change = attached
-        .control()
-        .replace_client_ca(upload.bytes.to_vec(), in_use);
+    let control = attached.control();
+    let pem = upload.bytes.to_vec();
+    let change = match upload.kind {
+        Kind::Mtls => control.replace_client_ca(pem, in_use),
+        Kind::Oidc => control.replace_idp_ca(pem, in_use),
+    };
     if in_use {
         return in_background(state, user, attached, (users, change, params)).await;
     }
@@ -184,17 +212,32 @@ async fn client_ca(
     }
 }
 
-/// The listeners whose client-certificate sign-in is on in the effective settings.
+/// The listeners using the `kind` file in the effective settings, or why `user` may not
+/// replace it.
+///
+/// The file decides whose identities sign in, so the acting role must cover every role
+/// they get.
 ///
 /// # Errors
 ///
-/// The settings cannot be read.
+/// The administration services are missing or the blocking task failed.
 // cancel-safe: it only reads local state on a blocking thread.
-async fn users_now(state: &WebState) -> Result<Vec<ListenerKind>, Failure> {
+async fn users_now(
+    state: &WebState,
+    user: &CurrentUser,
+    kind: Kind,
+) -> Result<Result<Vec<ListenerKind>, SettingsError>, Failure> {
     let admin = state.admin().ok_or("no administration services")?;
-    let (store, base) = (admin.state().clone(), admin.mcp().clone());
-    let effective = spawn_blocking(move || base.effective(&store)).await??;
-    Ok(mtls_users(effective.settings()))
+    let (store, base, actor) = (
+        admin.state().clone(),
+        admin.mcp().clone(),
+        user.role().clone(),
+    );
+    Ok(spawn_blocking(move || {
+        base.check_ca_ceiling(&store, &actor, kind.anchor())?;
+        Ok(kind.users(base.effective(&store)?.settings()))
+    })
+    .await?)
 }
 
 /// The listeners of `mcp` whose client-certificate sign-in is on.
@@ -204,6 +247,18 @@ pub(crate) fn mtls_users(mcp: &McpConfig) -> Vec<ListenerKind> {
         users.push(ListenerKind::Main);
     }
     if mcp.dedicated.enabled && mcp.auth.dedicated.mtls != MtlsMode::Off {
+        users.push(ListenerKind::Dedicated);
+    }
+    users
+}
+
+/// The listeners of `mcp` that sign in with the identity provider (`oauth = "external"`).
+pub(crate) fn oidc_users(mcp: &McpConfig) -> Vec<ListenerKind> {
+    let mut users = Vec::new();
+    if mcp.auth.main.oauth == OauthMode::External {
+        users.push(ListenerKind::Main);
+    }
+    if mcp.dedicated.enabled && mcp.auth.dedicated.oauth == OauthMode::External {
         users.push(ListenerKind::Dedicated);
     }
     users
@@ -272,22 +327,17 @@ fn checked(
     if bytes.len() > FILE_LIMIT {
         return Err(Refusal::TooLarge);
     }
-    match kind {
-        Kind::Mtls => {
-            let _subjects = check_mtls_ca(&bytes).map_err(|error| match error {
-                CaError::TooLarge => Refusal::TooLarge,
-                CaError::Count { found } => Refusal::Count(found),
-                CaError::Unparsable { index } => Refusal::Unreadable(index.saturating_add(1)),
-                CaError::NotCa { index } => Refusal::NotCa(index.saturating_add(1)),
-                CaError::NotPem | CaError::OtherBlock | CaError::State(_) | _ => Refusal::NotPem,
-            })?;
-        }
-        Kind::Oidc => {
-            if pem::certificates(&bytes).is_none() {
-                return Err(Refusal::NotPem);
-            }
-        }
-    }
+    let check = match kind {
+        Kind::Mtls => check_mtls_ca,
+        Kind::Oidc => check_oidc_ca,
+    };
+    let _subjects = check(&bytes).map_err(|error| match error {
+        CaError::TooLarge => Refusal::TooLarge,
+        CaError::Count { found } => Refusal::Count(found),
+        CaError::Unparsable { index } => Refusal::Unreadable(index.saturating_add(1)),
+        CaError::NotCa { index } => Refusal::NotCa(index.saturating_add(1)),
+        CaError::NotPem | CaError::OtherBlock | CaError::State(_) | _ => Refusal::NotPem,
+    })?;
     Ok(Upload {
         kind,
         bytes,

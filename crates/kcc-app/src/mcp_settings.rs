@@ -19,6 +19,7 @@ use crate::{
     mcp_settings::{
         document::{McpOverrides, McpSettingsDocument},
         keys::KeyPath,
+        sources::TrustAnchor,
     },
     permissions::{PermissionError, Role, RolesDocument},
     persist::{Edit, StateDoc as _, StateError, StateStore},
@@ -30,7 +31,9 @@ use crate::{
 
 pub mod client_ca;
 pub mod document;
+pub mod idp_ca;
 pub mod keys;
+pub mod sources;
 mod update;
 
 /// Where an effective value comes from.
@@ -128,6 +131,23 @@ pub enum SettingsError {
     /// The acting role does not hold every permission or router of the named role.
     #[error("role {name:?} is above the acting role")]
     RoleAbove {
+        /// The refused name.
+        name: String,
+    },
+    /// The identity provider's tokens get this role through a mapping, the acting role does
+    /// not cover it, and the change decides whose tokens those are (the provider's issuer,
+    /// audience, JWKS URL or role claim, a listener now signing in with it, or its CA
+    /// bundle).
+    #[error("role {name:?} is mapped from the identity provider and is above the acting role")]
+    ProviderAbove {
+        /// The refused name.
+        name: String,
+    },
+    /// Client certificates get this role, the acting role does not cover it, and the change
+    /// decides which certificates those are (a listener now accepting them, or the client
+    /// CA).
+    #[error("role {name:?} is the client certificates' role and is above the acting role")]
+    CertificatesAbove {
         /// The refused name.
         name: String,
     },
@@ -337,7 +357,9 @@ impl McpBase {
     /// [`SettingsError::ActorRevoked`] when the current definition of `actor` is missing or
     /// lacks `ManageMcp`, [`SettingsError::EnvSet`], [`SettingsError::Locked`],
     /// [`SettingsError::UnknownToolset`], [`SettingsError::UnknownRole`],
-    /// [`SettingsError::RoleAbove`], [`SettingsError::Invalid`],
+    /// [`SettingsError::RoleAbove`], [`SettingsError::ProviderAbove`] or
+    /// [`SettingsError::CertificatesAbove`] when the change re-points a sign-in source
+    /// whose roles `actor` does not cover, [`SettingsError::Invalid`],
     /// [`SettingsError::RevisionExhausted`], or a state failure.
     #[inline]
     pub fn plan_update(
@@ -363,8 +385,9 @@ impl McpBase {
     /// [`SettingsError::ActorRevoked`] as for [`McpBase::plan_update`],
     /// [`SettingsError::UnknownRole`] or [`SettingsError::RoleAbove`] when the value that
     /// applies again names a role for a new purpose that is missing or above `actor`,
-    /// [`SettingsError::Invalid`], [`SettingsError::RevisionExhausted`], or a state
-    /// failure.
+    /// [`SettingsError::ProviderAbove`] or [`SettingsError::CertificatesAbove`] as for
+    /// [`McpBase::plan_update`], [`SettingsError::Invalid`],
+    /// [`SettingsError::RevisionExhausted`], or a state failure.
     #[inline]
     pub fn reset(
         &self,
@@ -378,6 +401,28 @@ impl McpBase {
             update::Request::Reset { actor, key },
             &|_name| Some(false),
         )
+    }
+
+    /// Checks that `actor` may replace the CA of `anchor` (the client CA or the identity
+    /// provider's CA bundle): that CA decides whose identities sign in, so `actor` must
+    /// cover every role `anchor` hands out under the effective settings, whether or not a
+    /// listener uses it now.
+    ///
+    /// # Errors
+    ///
+    /// [`SettingsError::ActorRevoked`] when the current definition of `actor` is missing or
+    /// lacks `ManageMcp`, [`SettingsError::ProviderAbove`] or
+    /// [`SettingsError::CertificatesAbove`] naming a role above `actor`, or a state or
+    /// roles failure.
+    #[inline]
+    pub fn check_ca_ceiling(
+        &self,
+        store: &StateStore,
+        actor: &Role,
+        anchor: TrustAnchor,
+    ) -> Result<(), SettingsError> {
+        let effective = self.effective(store)?;
+        update::Ceiling::of_anchor(actor, effective.settings(), anchor).check(store)
     }
 
     /// Resolves the settings with `overrides` as the state file's values.

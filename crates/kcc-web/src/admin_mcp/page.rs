@@ -11,11 +11,17 @@ use axum::{extract::State, http::HeaderMap, response::Response};
 use kcc_app::mcp_settings::{
     client_ca::{self, CaError, mtls_ca_subjects},
     document::McpSettingsDocument,
+    idp_ca::{self, oidc_ca_subjects},
 };
 use kcc_i18n::{keys, locale::Locale};
 use tokio::task::spawn_blocking;
 
-use super::{Facts, Progress, pem, status::Status, upload::mtls_users, view::Region};
+use super::{
+    Facts, Progress, pem,
+    status::Status,
+    upload::{mtls_users, oidc_users},
+    view::Region,
+};
 use crate::{
     WebState,
     admin_shared::{Tab, TabLink, tabs, unavailable},
@@ -39,7 +45,7 @@ pub(crate) const CERTIFICATE: &str = "dedicated-cert.pem";
 pub(crate) const MTLS_CA: &str = client_ca::MTLS_CA;
 
 /// The uploaded CA bundle of the identity provider.
-pub(crate) const OIDC_CA: &str = "oidc-ca.pem";
+pub(crate) const OIDC_CA: &str = idp_ca::OIDC_CA;
 
 /// The MCP settings page.
 #[derive(Template)]
@@ -128,11 +134,10 @@ pub(crate) async fn fresh(state: &WebState, user: &CurrentUser) -> Result<Region
             .ok()
             .and_then(|bytes| pem::fingerprint(&bytes));
         let cas = (dir.join(MTLS_CA).is_file(), dir.join(OIDC_CA).is_file());
-        let subjects = match mtls_ca_subjects(&store) {
-            Ok(subjects) => Some(subjects.unwrap_or_default()),
-            Err(CaError::State(error)) => return Err(error.into()),
-            Err(_unchecked) => None,
-        };
+        let subjects = (
+            checked(mtls_ca_subjects(&store))?,
+            checked(oidc_ca_subjects(&store))?,
+        );
         Ok::<_, Failure>((revision, effective, (fingerprint, cas, subjects)))
     })
     .await??;
@@ -154,8 +159,25 @@ pub(crate) async fn fresh(state: &WebState, user: &CurrentUser) -> Result<Region
         fingerprint,
         cas,
         subjects,
-        mtls_users: mtls_users(effective.settings()),
+        users: (
+            mtls_users(effective.settings()),
+            oidc_users(effective.settings()),
+        ),
         revision,
     };
     Ok(Region::new(locale, &effective, facts))
+}
+
+/// The subjects of a stored CA file, empty when none is stored, `None` when it fails the
+/// checks.
+///
+/// # Errors
+///
+/// The file could not be read.
+fn checked(read: Result<Option<Vec<String>>, CaError>) -> Result<Option<Vec<String>>, Failure> {
+    match read {
+        Ok(subjects) => Ok(Some(subjects.unwrap_or_default())),
+        Err(CaError::State(error)) => Err(error.into()),
+        Err(_unchecked) => Ok(None),
+    }
 }

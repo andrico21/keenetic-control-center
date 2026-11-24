@@ -137,8 +137,11 @@ no metrics.
 authorization server (USER_GUIDE "Connect an MCP client with your kcc account"); it needs
 an issuer: `web.public_url` with a DNS name, or a loopback main listener (then
 `http(s)://localhost:<port>`); without one, or with `[web] enabled = false`, a listener
-with `oauth = "kcc"` does not start. `external` is not available yet: such a listener does
-not start. Client certificates (`optional` or `required`) need TLS on the listener and the
+with `oauth = "kcc"` does not start. `external` accepts the tokens of the identity provider
+of `[mcp.auth.oidc]` (USER_GUIDE "Use your identity provider"); a listener with it does not
+start without `issuer`, `audience` and `jwks_uri`, with a JWKS host that resolves to a
+private, loopback or link-local address the `ssrf_allow_*` keys do not admit, or with a
+stored CA bundle that fails the checks. Client certificates (`optional` or `required`) need TLS on the listener and the
 client CA uploaded on the Web (Administration > MCP, stored as `<state>/mcp/mtls-ca.pem`;
 no path is configured anywhere); a listener whose CA file is missing or fails the checks
 does not start. When any of these comes from values saved on the Web, the main listener starts
@@ -169,12 +172,15 @@ MCP page) and a dedicated listener is skipped.
 | `role_claim` | string | unset | claim holding role values (for example `realm_access.roles`); scopes are mapped when unset |
 | `role_mappings` | array of tables | `[]` | claim value to kcc role, see below |
 | `scopes` | array of tables | `[]` | scope to kcc role, see below |
-| `allowed_algorithms` | list of strings | `[]` | accepted signing algorithms; empty means the kit's default set |
+| `allowed_algorithms` | list of strings | `[]` | accepted signing algorithms (`ES256`, `ES384`, `EdDSA`, `RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`); empty means all of them; `HS*` and `none` are refused |
 | `ssrf_allow_hosts` | list of strings | `[]` | private host names the provider may resolve to; this file only, never the Web |
 | `ssrf_allow_cidrs` | list of CIDRs | `[]` | private networks the provider may resolve to; this file only, never the Web |
 
 A mapped role (and `stdio_role`, `[mcp.auth.mtls] default_role`) must not be the reserved
-name `kcc-account`, and a role named by these settings cannot be deleted.
+name `kcc-account`, and a role named by these settings cannot be deleted. A claim value or
+scope may be mapped only once. A token must carry a subject (`sub`). The provider's CA
+bundle, when its certificate is not from a public CA, is uploaded on the Web (stored as
+`<state>/mcp/oidc-ca.pem`, checked like the client CA; no path is configured anywhere).
 
 ### `[[mcp.auth.oidc.role_mappings]]`
 

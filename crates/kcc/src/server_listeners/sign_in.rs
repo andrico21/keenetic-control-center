@@ -1,8 +1,7 @@
 //! A listener's sign-in methods for its kit configuration.
 //!
-//! Client certificates over the uploaded client CA, and kcc account tokens
-//! (`oauth = "kcc"`); another identity provider (`oauth = "external"`) is refused until it
-//! is wired.
+//! Client certificates over the uploaded client CA, kcc account tokens (`oauth = "kcc"`)
+//! and another identity provider's tokens (`oauth = "external"`, [`external`]).
 
 use core::fmt::Display;
 use std::fs;
@@ -25,6 +24,8 @@ use super::{
     build::{BuildError, Shared},
     name,
 };
+
+pub mod external;
 
 /// The `kind` listener's client-certificate sign-in; `None` when off.
 ///
@@ -61,17 +62,18 @@ pub(super) fn client_certificates(
         .map_err(|error| unusable(&error))
 }
 
-/// The `kind` listener's kcc token sign-in and what it accepts; `None` when its `oauth`
-/// is `none`.
+/// The `kind` listener's token sign-in: the kit's OAuth configuration and, for kcc
+/// tokens, what kcc's authorization server accepts; both `None` when its `oauth` is
+/// `none`.
 ///
 /// `kcc` needs kcc's authorization server (an issuer) and the internal JWKS listener;
-/// `external` is refused: this version cannot enforce it, so it is never silently
-/// ignored. A refusal's reason is logged.
-pub(super) fn kcc_tokens(
+/// `external` needs a usable identity provider ([`external::provider`]). A refusal's
+/// reason is logged.
+pub(super) fn tokens(
     shared: &Shared,
     settings: &McpConfig,
     kind: ListenerKind,
-) -> Result<Option<(OAuthConfig, Activation)>, BuildError> {
+) -> Result<(Option<OAuthConfig>, Option<Activation>), BuildError> {
     let listener = name(kind);
     let refused = |reason: &dyn Display| {
         tracing::warn!(listener, %reason, "kcc sign-in refused");
@@ -82,17 +84,26 @@ pub(super) fn kcc_tokens(
         ListenerKind::Dedicated | _ => settings.auth.dedicated.oauth,
     };
     match mode {
-        OauthMode::None => Ok(None),
+        OauthMode::None => Ok((None, None)),
         OauthMode::Kcc => {
             let sign_in = shared
                 .sign_in
                 .as_ref()
                 .ok_or_else(|| refused(&"kcc's authorization server has no issuer"))?;
-            sign_in
+            let (oauth, activation) = sign_in
                 .listener(&shared.config, settings, kind)
-                .map(Some)
-                .map_err(|reason| refused(&reason))
+                .map_err(|reason| refused(&reason))?;
+            Ok((Some(oauth), Some(activation)))
         }
-        OauthMode::External | _ => Err(refused(&"an external identity provider is not wired")),
+        OauthMode::External | _ => external::provider(
+            &shared.state,
+            settings,
+            &shared.config.mcp.auth.oidc,
+        )
+        .map(|oauth| (Some(oauth), None))
+        .map_err(|refusal| {
+            tracing::warn!(listener, reason = %refusal, "identity provider sign-in refused");
+            BuildError::IdentityProvider(refusal)
+        }),
     }
 }
