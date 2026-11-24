@@ -33,20 +33,11 @@
 # rmcp 3.10.0, rmcp-server-kit 3.21.1 and schemars 1.2.3 also require it, so removing
 # kcc's own use would not clear the notice. No upstream fix exists. Owner decision
 # 2026-11-18, review by 2027-02-18.
-# RUSTSEC-2026-0592: url 2.5.8 Url::origin() overflows the stack on a nested blob: URL
-# (a process abort). The fix is in url >= 2.5.9, published 2026-11-20, but it is inside
-# the 3-day global-min-publish-age cooldown until 2026-11-23, so the lockfile cannot take
-# it yet. Exposure is limited: kcc calls Url::origin() only on admin-entered values
-# (public_url in kcc-app settings, RouterUrl in kcc-rci) and rmcp-server-kit 3.21.1 calls
-# it on certificate-revocation URLs only when mTLS revocation is configured, so no
-# unauthenticated network input reaches it. Owner decision 2026-11-22, TEMPORARY: remove
-# when `cargo update -p url` lands (review by 2026-11-24).
 ignore = [
     "RUSTSEC-2023-0071",
     "RUSTSEC-2026-0387",
     "RUSTSEC-2026-0542",
     "RUSTSEC-2026-0543",
-    "RUSTSEC-2026-0592",
 ]
 
 # No `path` here: cargo-audit does not expand `~` in this file and would clone into
