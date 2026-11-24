@@ -790,7 +790,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(serve,testkit): external OIDC identity provider for MCP in resource-server mode
   Recommended task executor category: unspecified-high - kit OAuth wiring and a fake IdP
 
-- [ ] 34. Web Entware setup must not pre-select internal storage (final-wave finding F3-1, class (e))
+- [x] 34. Web Entware setup must not pre-select internal storage (final-wave finding F3-1, class (e))
   What to do / Must NOT do:
   - Finding (reproduced by reviewer F3, `.omo/evidence/F3-kcc-entware-mcp.md`, section "F3-1"): `crates/kcc-web/templates/partials/system_entware_region.html:112` renders the `internal` drive radio with `checked` whenever no drive is eligible, so "Set up Entware" plus the router name installs Entware on the router's untested internal flash (`storage:/`) without an explicit choice. This violates the adopted default "Disk argument: ... `storage:/` (internal UBIFS) only when the user explicitly chooses it" (this plan, todo 10) and IS-2. The CLI and MCP already need the word `internal` typed.
   - Remove the pre-selection: no drive radio is checked when only internal storage is offered; the handler `crates/kcc-web/src/system_pages/entware_setup.rs` must refuse an empty `drive` with a clear localized message (check that the existing `WEB_SYSTEM_ENTWARE_DRIVE_NOT_ELIGIBLE` text is understandable for "choose a drive"; add a new key in six locales only if it is not); the destructive confirmation names the chosen drive if that is a small change, otherwise leave it for BACKLOG (reviewer item B-4).
