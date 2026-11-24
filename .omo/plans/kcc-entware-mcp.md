@@ -774,7 +774,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(web,cli): MCP connections and clients management
   Recommended task executor category: unspecified-high - admin list pages and CLI over the grant store
 
-- [ ] 33. External OIDC identity provider (resource-server mode)
+- [x] 33. External OIDC identity provider (resource-server mode)
   What to do / Must NOT do:
   - `crates/kcc-testkit/src/fake_idp.rs`: `FakeIdp` serving only a JWKS at `https://localhost:<port>/jwks` with an rcgen certificate (`rcgen`, `ring`, `rustls` and `tokio-rustls` become kcc-testkit dependencies at their locked versions, `Cargo.lock`; no deny or vet change), issuing ES256 or EdDSA tokens signed with `ring` with configurable `iss`, `aud`, `sub`, `preferred_username`, `exp`, groups claim and scope; no RSA.
   - `crates/kcc`: for a listener with `oauth = "external"`, the kit `OAuthConfig` from the effective OIDC settings (issuer, audience, `jwks_uri`, `role_claim` + `role_mappings` or `scopes`, `allowed_algorithms`, optional IdP CA bundle stored at `<state>/mcp/oidc-ca.pem` from the Web upload, `ssrf_allowlist` only from kcc.toml), `authorization_servers = [issuer]` so MCP clients go to the IdP; changes restart the listener (todo 26). Mapping targets above the configuring admin's role are refused (todo 23 rule).
