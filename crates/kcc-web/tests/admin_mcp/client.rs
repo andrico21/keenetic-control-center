@@ -1,13 +1,13 @@
 //! A signed-in browser on the MCP settings page: its requests and what it reads back.
 
-use core::fmt::Write as _;
+use core::{fmt::Write as _, time::Duration};
 
 use axum::{
     body::Body,
     http::{Method, Request, StatusCode, header},
     response::Response,
 };
-use tokio::task::yield_now;
+use tokio::{task::yield_now, time::timeout};
 use tower::ServiceExt as _;
 
 use crate::{
@@ -27,6 +27,9 @@ const BOUNDARY: &str = "kcc-mcp-boundary";
 
 /// Marks the status fragment while it keeps polling.
 pub(crate) const POLLING: &str = "every 2s";
+
+/// Real time a restart may take to end: the restart's audit entry waits at most 30 s.
+const RESTART_BOUND: Duration = Duration::from_secs(60);
 
 /// A signed-in browser: its session cookie and CSRF token.
 pub(crate) struct Browser {
@@ -145,17 +148,24 @@ impl Mcp {
         self.post_body(path, browser, (&kind, body)).await
     }
 
-    /// The status fragment as `browser` once it stops polling; the stand-in answers at
-    /// once, so the restart's task ends after a few turns of the runtime.
+    /// The status fragment as `browser` once it stops polling, or an error after
+    /// [`RESTART_BOUND`] of real time.
+    ///
+    /// The stand-in answers at once, but the restart's task ends only after its audit
+    /// entry is written on the blocking pool, which a loaded machine delays by any number
+    /// of turns of this runtime: the wait is bounded by time, not by turns.
     pub(crate) async fn settled(&self, browser: &Browser) -> TestResult<String> {
-        for _round in 0..1000_u32 {
-            let fragment = self.html(&status_path(), browser).await?;
-            if !fragment.contains(POLLING) {
-                return Ok(fragment);
+        let polled = timeout(RESTART_BOUND, async {
+            loop {
+                let fragment = self.html(&status_path(), browser).await?;
+                if !fragment.contains(POLLING) {
+                    return Ok(fragment);
+                }
+                yield_now().await;
             }
-            yield_now().await;
-        }
-        Err("the restart never ended".into())
+        })
+        .await;
+        polled.map_err(|_elapsed| "the restart never ended")?
     }
 
     /// Signs `username` in.
