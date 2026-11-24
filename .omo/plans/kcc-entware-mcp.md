@@ -563,7 +563,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | test(kcc): owner-run Entware live suites behind the live contract
   Recommended task executor category: unspecified-low - live suite scaffolding following an existing pattern
 
-- [ ] 21. Latest-version recheck and gate G1
+- [x] 21. Latest-version recheck and gate G1
   What to do / Must NOT do:
   - Re-run D-LATEST for both workspaces: `cargo update --dry-run --verbose` (output to `.omo/evidence/task-21-dry-*.txt`, then `! grep -E '^\s+(Updating|Adding|Removing|Downgrading) [A-Za-z0-9_-]+ v'`); raise semver-incompatible direct requirements that passed the cooldown (russh included); plain `cargo update`; `check_dep_reqs.py` exit 0; vet with targeted exemptions; deny/clippy duplicate lists and reasons accurate.
   - Confirm the D-RSA ignore is still needed (`cargo audit` without it reports RUSTSEC-2023-0071 only through `rsa` 0.9 from `jsonwebtoken` 11) and that its reason and review date are present in `deny.toml` and `.cargo/audit.toml`; add `jsonwebtoken` 12 to the overlay's held-back list if it is still held by the kit; `cargo tree -e features -i rmcp-server-kit` shows no `test-helpers`.
