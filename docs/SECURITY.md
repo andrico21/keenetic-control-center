@@ -74,6 +74,8 @@ never its value.
   `<state>/router-ssh/` as `<id>.sealed` (enrolment record, `router:<id>:ssh-state`),
   `<id>.key.sealed` (kcc's private key, `router:<id>:ssh-key`) and `<id>.ticket.sealed`
   (single-use probe ticket, `router:<id>:ssh-ticket`), and router removal deletes them.
+  The signing key of kcc's own MCP sign-in (Ed25519) is sealed as
+  `<state>/mcp/oauth-signing.sealed` (`mcp:oauth-signing`) and never rotated.
   A migration that changes the management password of a Web UI or CLI router seals the
   new password the same way.
 - **Sealed state of earlier builds is not readable.** kcc has no deployments to carry
@@ -430,6 +432,151 @@ per key; failed authentication records nothing. The firmware-update check sends 
 catalog-validated `components check-update` action, which changes no configuration,
 outside the change workflow and without an audit entry.
 
+## Entware and SSH to the router
+
+Entware runs software as root on the router, so what kcc may do there is held tighter
+than what it may do over the RCI API. No part of it has run against a real router yet
+([BACKLOG.md](BACKLOG.md)).
+
+**Over the RCI API.** Reading Entware's status needs `Read`. Chroot, the Entware time
+zone and DNS override need `Write`; the drive setting (setup and removal), the startup
+script (`opkg initrc`, a script the router runs as root from the drive) and initializing
+a drive need `Destructive`. Ejecting or initializing the drive Entware runs from is
+refused until acknowledged. The guided setup is one write job that never saves, and the
+installer comes from a closed table chosen by kcc (the MCP `setup` takes an architecture,
+never a URL or a path). Migrations and presets never copy the router's
+Entware settings.
+
+**What kcc sends over SSH.** kcc reaches Entware's SSH server (dropbear) only through
+`kcc-ssh`, in one shape:
+
+- The address comes from the outbound policy, and only from `allowed_networks` or an
+  admitted loopback ([CONFIG.md](CONFIG.md)); a connection is never made to an address the
+  policy did not admit.
+- A host key is mandatory. kcc pins one ed25519 key per router and ends the handshake,
+  before any authentication, when the router presents another (byte for byte). Such a
+  refusal is audited as `entware.ssh.hostkey_mismatch` with both fingerprints and shows
+  both on the Web page.
+- The commands are a closed set: `opkg` list, update, install, remove and upgrade,
+  init-script list and `start|stop|restart|check`, and adding and removing kcc's own
+  `authorized_keys` line. Every argument is parsed by a token grammar (a package name is
+  `[a-z0-9][a-z0-9+._-]{0,63}`, a service is `S` and two digits and a name); no function
+  takes command text. An install, removal, upgrade or service action names only a package
+  or service the same session listed first, and is read back afterwards.
+- One session per router and four in all; connect, sign-in, read and mutation time out
+  after 5, 10, 30 and 600 seconds; a command's output is cut at 256 KiB, parsed into
+  values and never stored: the audit records its byte count and SHA-256 only.
+- `Destructive` on the router is needed for every SSH operation, reads included, because
+  each one signs in as root on the router. The Web, the CLI and MCP check it before any
+  router or SSH contact, and MCP also needs `allow_destructive = true` and `confirm:
+  true`. The router's `opkg chroot` must be off: chroot moves the paths kcc relies on, so
+  kcc refuses every SSH action that contacts the router while it is on.
+
+**Enrolment.** The first connection could be answered by anything on the network, so kcc
+never trusts the first key it sees. The enrolment has two separate steps:
+
+1. A **probe** (`Destructive`) connects, reads the router's ed25519 host key without
+   authenticating, and returns its `SHA256:` fingerprint and a ticket. The ticket is a
+   256-bit random nonce sealed under the master key (`<state>/router-ssh/<id>.ticket.sealed`),
+   bound to the router, the SSH port and the acting account, valid for 5 minutes, and one
+   per router: a new probe replaces it. The administrator must compare the fingerprint
+   **out of band**: from a trusted computer in the router's local network connect with
+   `ssh -p <port> root@<router>` and compare the fingerprint it shows (without signing
+   in), or run `ssh-keyscan -t ed25519 -p <port> <router> | ssh-keygen -lf -`, or read the
+   key on the router itself with `dropbearkey -y -f
+   /opt/etc/dropbear/dropbear_ed25519_host_key`. If the drive also holds the public key as
+   `/opt/etc/dropbear/dropbear_ed25519_host_key.pub`, running `ssh-keygen -lf` on a copy
+   of it shows the same fingerprint; whether Entware's dropbear writes that file is not
+   verified ([BACKLOG.md](BACKLOG.md)).
+2. The **bootstrap** presents the ticket, the fingerprint the administrator confirmed and
+   the Entware root password. kcc redeems the ticket (expiry, port, account, nonce, then
+   the confirmed fingerprint must match), pins exactly the host key the ticket holds, and
+   never re-reads it from the network, so the key pinned is the one that was compared. It
+   then generates a new ed25519 key, saves it sealed (`<id>.key.sealed`) and the enrolment
+   as Pending, signs in once with the password, adds the key to
+   `/opt/etc/dropbear/authorized_keys` as `<key> kcc:<router id>` (replacing any older kcc
+   line for that router, and keeping every other key byte for byte), signs in again with
+   the key alone to prove it works, and marks the enrolment Active. From then on kcc uses
+   the key only; the password is never used again.
+
+A ticket is consumed by every redeem attempt, a refused one included (wrong
+fingerprint, wrong account, expired). So another account holding `Destructive` can make
+the owner of a ticket probe again by redeeming it wrongly; that fails closed (nothing is
+pinned) and costs a repeat of the probe. A changed host key (a reinstalled Entware) is
+pinned the same way with **re-pin**, which also needs a ticket and the password; changing
+the router's address in kcc clears the pin and needs a new probe and bootstrap. Enrolling
+an Active router again, or re-pinning, saves the new key and marks the enrolment Pending
+before the router is contacted, so one wrong password or an unreachable router leaves it
+Pending and SSH operations stop until a new probe and bootstrap succeed (`disable`
+always works).
+
+**The password.** The Entware root password reaches kcc only over TLS or loopback
+([Secrets in transit](#secrets-in-transit)). It travels in a secret string that is moved
+into the one password session and wiped with it, and is never stored, logged, audited or
+shown again. It is not wiped everywhere: russh copies it into a plain `String` for its
+authentication request and does not zeroize that copy when it drops it, and the Web form
+buffers that carried the typed password are not zeroized (as for the login form). A
+process memory dump during an enrolment can therefore contain it. The CLI never takes it
+as an argument: `--password-file`, `KCC_PASSWORD` or a hidden prompt.
+
+**MCP.** The enrolment steps are never offered over MCP; an MCP caller is refused before
+any contact, so the Entware password cannot pass through a model. The `entware-ssh` tools
+need an enrolled router, `Destructive`, `allow_destructive` and `confirm: true`, and every
+call is audited as `entware.ssh.<operation>`. MCP reports every SSH failure as
+`router_unreachable` (host key mismatch and rejected sign-in included); the audit entry
+keeps the exact reason.
+
+**Revoking.** **Revoke** removes kcc's line from the router's `authorized_keys` first
+and then the local files, and fails with the record kept when the router cannot be
+reached or refuses the key. **Disable** (`Forget here`) only deletes the local key and
+pin; the router keeps kcc's line until someone removes it there. Removing the router in
+kcc deletes the local SSH files and warns while the router still authorizes kcc's key.
+
+**Two protections, two audiences.** The router's fail-safe timer protects kcc's access:
+the DNS override change is a management change, so it runs under the timer and the router
+restores its saved configuration if kcc loses it. It does not protect the household:
+DNS override hands port 53 to a DNS server in Entware, and when that server does not run,
+every device at home loses name resolution while kcc is still connected and nothing rolls
+back. The Web page and the CLI therefore warn beside the control. The Web page also warns
+that removing Entware stops the router's DNS filter when that filter uses the `opkg`
+engine.
+
+**Known limits.** The shared masker that hides secrets in a service's log records is the
+config-text masker: for a role without `RevealSecrets` it leaves forms such as
+`password=<value>` visible, because it masks `wpa-psk`, `ns3` and `user ... password
+md5`. Sealed SSH files are read without a size limit and a ticket's expiry uses the wall
+clock, so a clock stepped back extends it. Changing the SSH port or switching SSH management
+on or off is not audited, and an audit write failure in the SSH flows is logged and does
+not change the step's result. A dropped request can leave a
+command's audit entry unwritten. Planting kcc's `authorized_keys.kcc` temporary file as a
+symbolic link needs root on the drive, so it crosses no boundary. See
+[BACKLOG.md](BACKLOG.md).
+
+## Administering MCP settings
+
+The MCP page (permission `ManageMcp`, held by `admin` only by default) is how listeners,
+sign-in methods and tools change while `kcc serve` runs; `kcc mcp settings show` prints
+the values and where each comes from.
+
+- **Who wins**: per key an environment variable, then a key listed in `[mcp] locked`, then
+  the value saved on the Web (`mcp_settings.json`), then `kcc.toml`, then the default. A
+  locked key and an environment value are read-only on the page. Values that decide
+  where a request may go (`ssrf_allow_hosts`, `ssrf_allow_cidrs`) exist only in
+  `kcc.toml`, and no CA, certificate or key is ever named by a path.
+- **Password re-entry**: a change that reduces safety (destructive tools on, read-only
+  off, a toolset marked as reducing safety on, stdio on or a stronger stdio role, an
+  OAuth method on, client certificates added or `required` dropped, any identity provider
+  setting, the certificate role, longer token lifetimes, plain HTTP or a non-loopback
+  address on the dedicated listener) asks for the administrator's password again. A wrong
+  password counts toward the sign-in lockout; a lockout ends no session.
+- **Role ceiling**: a role the settings name, or a sign-in source hands out, must be one
+  the acting role covers; the page refuses before it asks for the password. A reset to
+  `kcc.toml` carries the same ceiling for the value that applies again.
+- **Applying**: a listener change builds the new listener first, health-checks it and
+  reverts on any failure; the settings file is written only after that. A change is audited
+  as `web.mcp_settings` with the changed key names, the restarted listeners and the
+  outcome: key names, not values.
+
 ## MCP client certificates (mTLS)
 
 An MCP listener with TLS can admit clients by a TLS client certificate
@@ -460,13 +607,20 @@ without a certificate must keep reaching it.
   outcome.
 - **Revocation** uses the kit's CRL defaults: CRL distribution points named by the CA
   and by client certificates are fetched under the kit's SSRF screening, and a
-  certificate whose CRLs are all unavailable is refused.
+  certificate whose CRLs are all unavailable is refused. A certificate with no
+  distribution point, under a CA that names none, is never revocation-checked: a CA
+  without CRL points cannot revoke a certificate it issued, short of replacing the CA.
 - **Identity**: the kit names the client by the certificate's first non-blank common
-  name (else its first DNS name), letters, digits and `-._@` only. The client gets
+  name (else its first DNS name); the name may hold only letters (Unicode ones included),
+  digits and `-._@`, and a certificate whose name has other characters gets no identity
+  (the request then falls back to an API key and answers 401 without one). The client gets
   `[mcp.auth.mtls] default_role` (`viewer` when unset), which the configuring admin's
   role must cover. Its audit actor is `mcp`/`mtls:<cn>`; API key names cannot contain
   `:`, so a certificate never passes for a key, and only API-key callers mark a key used
-  (a certificate whose common name equals a key's name does not).
+  (a certificate whose common name equals a key's name does not). An audit actor id is cut
+  at 64 bytes, `mtls:` included, so two certificates whose names share a 59-byte prefix
+  are audited alike, and look-alike Unicode letters stay inside the `mtls:` namespace
+  without being told apart from their twins.
 - **Health check**: kcc holds no client certificate, so its probe presents none and
   checks the listener's rule instead: an `optional` listener must ask for a certificate
   and answer `/healthz` without one; a `required` listener must ask and then refuse with
@@ -539,10 +693,9 @@ for its own MCP listeners (RFC 6749, 7591, 7636, 8252, 8414, 8707, 9068, 9207, 9
   token expires (then 401). Callers are audited as `oauth:<account>`.
 - **Revocation latency**: a revoked grant, a deleted client or account, a disabled
   account, a role or password change binds the very next call; an issued access token
-  stays valid at the kit until it expires, but every call it makes is refused.
-- **Revocation latency**: a revoked grant, a disabled account, a role or password change
-  binds the very next call; an issued access token stays valid at the kit until it
-  expires, but every call it makes is refused. An administrator holding `ManageMcp`
+  stays valid at the kit until it expires (an access token is a signed JWT and cannot be
+  recalled), but every call it makes is refused, and its refresh token stops working at
+  once. An administrator holding `ManageMcp`
   revokes grants (one, or every grant of an account) and deletes clients on
   Administration > MCP > Connections or with `kcc mcp connections revoke|revoke-account`
   and `kcc mcp clients delete`, also while another process runs `kcc serve`: a deleted
@@ -551,14 +704,25 @@ for its own MCP listeners (RFC 6749, 7591, 7636, 8252, 8414, 8707, 9068, 9207, 9
   These pages and commands never show a token or a stored hash, and cannot change a
   grant's account or role; they are audited as `web.mcp_grant_revoke`,
   `web.mcp_client_delete`, `web.mcp_client_register`, `cli.mcp_grant_revoke` and
-  `cli.mcp_client_delete` with the account and ids only.
+  `cli.mcp_client_delete` with the account and ids only. A `ManageMcp` holder may revoke
+  the grants of any account, an administrator's included: revoking only removes access, so
+  no role comparison applies.
 - **Known limits**: a code used twice is refused, but the grant already issued from it is
   not revoked (RFC 9700 recommends it); reuse detection keeps 16 rotated refresh token
   hashes per grant, so an older one is just unknown; the 50-client limit counts
   admin-registered clients, so registrations from many addresses can fill it for up to
   24 hours; an account that must change its password cannot resume a pending request after
   changing it (the client starts again). Browser-based clients are refused by the kit's
-  Origin check on `/oauth/token`.
+  Origin check on `/oauth/token`. The authorization limiter bounds requests per address, so
+  an attacker with 1024 or more distinct addresses (or IPv6 /64 networks) can still evict
+  a pending request. `/oauth/token` checks a refreshed grant's resource against the running
+  listeners after rotating its token: if a listener stopped serving that resource, the client
+  gets `invalid_target`, never receives the rotated token, and its grant is dead until it
+  expires or is revoked. Deleting an account does not revoke its grants: kcc refuses their
+  calls, but the Connections tab keeps listing them under the old name until they are
+  revoked there (`kcc mcp connections revoke-account <user>`). A grant issued at the same
+  moment its client is deleted can be listed under the bare client id until revoked, though
+  its calls are refused. An open MCP session on a listener that restarts is dropped.
 
 ## MCP sign-in with another identity provider (OIDC resource server)
 
@@ -597,7 +761,39 @@ for its own MCP listeners (RFC 6749, 7591, 7636, 8252, 8414, 8707, 9068, 9207, 9
   `changed: ["auth.oidc.ca"]`.
 - **Identity**: callers are audited as `oidc:<preferred_username>` (else the subject),
   with every byte other than ASCII letters, digits and `-._@` written as `%XX`, cut to 64
-  bytes; the token is never logged or audited.
+  bytes; the token is never logged or audited. The name is not unique: it is the
+  provider's free-text claim, so two users the provider gives the same
+  `preferred_username` are audited alike, and so are two long names that share their first
+  64 bytes. The role comes from the claim or scope mapping, not from this name.
+- **Algorithms**: an empty `allowed_algorithms` means every algorithm the kit accepts,
+  RSA ones (`RS*`, `PS*`) included, because Keycloak signs with RS256 by default; list
+  `ES256` or `EdDSA` to refuse RSA-signed tokens. See "Signature algorithms and accepted
+  advisories" below.
+- **Known limits**: a mapping to a role that does not exist yet is skipped by the role
+  ceiling (it grants nothing today), so creating a role under that name later would hand
+  it to the provider's users without anyone checking the provider again; the Web checks
+  the CA upload ceiling once, against the roles at that moment, and the supervisor stores
+  the file without an actor, so a role change in the milliseconds between the two is not
+  re-checked (settings changes re-check at commit); the kit trusts the uploaded bundle in
+  addition to the built-in roots, so a publicly trusted certificate for the provider's host
+  is accepted too; the JWKS host is resolved when the listener is built and a host that
+  does not resolve then passes that screen (the kit screens every fetch, so the first fetch
+  fails closed); a provider whose `iss` has no trailing slash on a bare host never matches,
+  because the issuer is kept as a URL, which adds one.
+
+## Signature algorithms and accepted advisories
+
+kcc signs its own MCP access tokens with Ed25519 through `ring` and the kit verifies them;
+for an external provider the kit verifies RSA, ECDSA and EdDSA signatures with the
+provider's public keys. Enabling the kit's `oauth` feature brings `jsonwebtoken` 11 and
+with it two advisories that `deny.toml` and `.cargo/audit.toml` ignore with an owner
+decision dated 2026-11-22 and a review by 2027-02-18: RUSTSEC-2023-0071 (`rsa` 0.9.10,
+the Marvin timing attack, which needs private-key operations) and RUSTSEC-2026-0387
+(`crypto-bigint` 0.5.5, timing variability, reached only through ECDSA). Neither applies:
+kcc and the kit only verify with public keys, so no private RSA or ECDSA operation runs.
+The fix needs a kit release on `jsonwebtoken` 12 ([BACKLOG.md](BACKLOG.md)).
+`humantime` and `chrono` are two unmaintained notices ignored by an earlier owner decision
+(2026-11-18), with the same review date.
 
 ## Audit chain
 

@@ -523,6 +523,22 @@ The first release, `0.1.0`, is in preparation and contains:
   `SettingsError::CertificatesAbove`, `kcc_app::mcp_settings::sources::TrustAnchor` and
   `McpBase::check_ca_ceiling`; `allowed_algorithms` with spaces around a name and an
   issuer or JWKS URL with a user name or password are now refused by kcc's checks too.
+- **Owner-run Entware live suites** (tests only): `live_entware_probe` (read-only: `show
+  media`, `show components list`, `show rc` `opkg`, `show version`, `kcc entware status` and the
+  shape of one log record), `live_entware_setup` (installs Entware on the spare drive
+  `KCC_LIVE_ENTWARE_DRIVE`, never saves, records the installer's log lines) and
+  `live_entware_ssh` (enrols kcc's key on port 222, then 22, lists, installs and removes
+  `KCC_LIVE_ENTWARE_PACKAGE` (default `nano`), checks one service and always revokes the
+  key) in `crates/kcc/tests/live_entware.rs`, with hermetic proofs of their refusals. They
+  follow the live env contract in `AGENTS.md`; each writes an anonymized capture and a
+  missing variable logs `live-skip:<reason>`. No router has run them yet
+  (`docs/BACKLOG.md`).
+- **Dependencies for MCP sign-in**: rmcp-server-kit's `oauth` feature and `ring` (kcc's own
+  Ed25519 token signing). The feature brings `jsonwebtoken` 11, and with it `rsa` 0.9.10
+  (RUSTSEC-2023-0071) and `crypto-bigint` 0.5.5 (RUSTSEC-2026-0387), which `deny.toml` and
+  `.cargo/audit.toml` ignore with a reason, an owner decision of 2026-11-22 and a review by
+  2027-02-18: kcc and the kit only verify signatures with public keys. Remove the ignores
+  when the kit moves to `jsonwebtoken` 12 (`docs/SECURITY.md`, `docs/BACKLOG.md`).
 
 ### Changed
 

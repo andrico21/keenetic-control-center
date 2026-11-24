@@ -226,7 +226,9 @@ catalog and known router inventories, not a hardware-verified fact.
   tied to the source device.
 - **Entware**: the router's `opkg disk`, `opkg chroot`, `opkg dns-override`, `opkg initrc`,
   `opkg timezone` and `opkg object-group` lines describe the source's own Entware
-  installation. Presets don't capture them either.
+  installation, so a migration reports them as skipped hardware settings and presets
+  don't capture them. To run Entware on the target, set it up there (`kcc entware setup`,
+  [USER_GUIDE.md](USER_GUIDE.md) System > Entware).
 - **Embedded save commands**: the plan never contains a save; finishing is your choice.
 
 ### Realm-bound passwords

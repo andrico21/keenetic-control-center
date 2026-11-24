@@ -26,6 +26,12 @@ directories 0700 and files 0600 on Unix. "Encrypted" means sealed with the maste
 | Telegram notification settings: on/off, language, client-detail switch, events, chats (id, label, topic, silent) | `notify.json` | plain JSON | until changed |
 | Telegram delivery state: when the bot token was set or refused, chats Telegram refused, the newest firmware version notified per router | `notify_state.json` | plain JSON, no client data | until changed |
 | Telegram bot token | `notify/telegram.token.sealed` | encrypted with the master key, `notify:telegram` as associated data | until replaced or removed |
+| Entware SSH enrolment of a router: whether SSH management is on, the port, Pending or Active, the router host it was pinned for, the pinned host key and its fingerprint, when and by whom it was enrolled; no password, no private key | `router-ssh/<id>.sealed` | encrypted with the master key, `router:<id>:ssh-state` as associated data | until Revoke, Forget here or router removal |
+| kcc's own SSH private key for a router (ed25519, made at enrolment) | `router-ssh/<id>.key.sealed` | encrypted with the master key, `router:<id>:ssh-key` as associated data | until Revoke, Forget here or router removal |
+| SSH probe ticket: nonce, the probed host key and fingerprint, port, who probed, expiry | `router-ssh/<id>.ticket.sealed` | encrypted with the master key, `router:<id>:ssh-ticket` as associated data | valid 5 minutes; deleted by a redeem attempt (a refused one too), replaced by a new probe, deleted with the router |
+| MCP settings changed on the Web: the `[mcp]` values (toolsets, listeners, sign-in methods, identity provider issuer, audience, JWKS URL and role mappings, certificate role); no secret | `mcp_settings.json` | plain JSON | until reset to kcc.toml |
+| Uploaded client CA and identity provider CA bundle (certificates, not secrets) | `mcp/mtls-ca.pem`, `mcp/oidc-ca.pem` | plain PEM, mode 0644 on Unix | until replaced |
+| Dedicated MCP listener's self-signed certificate and private key (when `tls = "self_signed"`) | `mcp/dedicated-cert.pem`, `mcp/dedicated-key.pem` | plain PEM, owner-only | for the life of the state directory |
 | MCP OAuth clients: client id, the name the client gave (unverified), redirect URIs, registration and last grant times, whether an admin registered it; no IP address | `mcp_oauth_clients.json` | plain JSON | a registered client without a live grant is purged 24 h after its registration or last grant; an admin-registered one until deleted |
 | MCP OAuth grants: grant id, account, client, resource, creation and last token times, revoked flag, SHA-256 hashes of the current and up to 16 rotated refresh tokens, a hash of the account's password fingerprint; no access token, code or IP address | `mcp_oauth_grants.json` | plain JSON, hashes only | until the grant is revoked or its refresh token expires, then removed at the next grant |
 | MCP OAuth signing key (Ed25519) | `mcp/oauth-signing.sealed` | encrypted with the master key, `mcp:oauth-signing` as associated data | for the life of the state directory |
@@ -41,6 +47,14 @@ a crash is moved, unchanged, to `audit.jsonl.torn-<unix-ts>` in the state direct
 kept until you delete it), and the audit log records its name and size, never its content.
 Deleting the oldest rotated files by hand is indistinguishable from retention
 pruning: the chain proves the integrity of what is kept, not that nothing older ever existed.
+
+kcc keeps no list of a router's Entware packages or services, no SSH output and no
+Entware log record: they are read from the router when asked, shown, and dropped. Two
+places name a package or service: the audit log records an SSH operation's name, the
+package or service it named, the outcome and the output's byte count and SHA-256, never
+the output; and the job record of an install or removal (`jobs/` above) names the package
+until it is pruned. The Entware root password typed
+to enrol is used once and never stored.
 
 In memory only, lost on restart: Web sessions (each holds a SHA-256 fingerprint of its
 account's stored password hash, which lets kcc end it when the password changes), the live traffic history (30 minutes),
@@ -61,6 +75,12 @@ MCP client is written anywhere.
 ## What leaves the host
 
 - **Router requests** go only to router addresses your outbound policy admits.
+- **SSH to Entware** (opt-in per router, after an administrator enrols kcc) goes only to
+  the router's own address on its SSH port, if the outbound policy admits it.
+- **MCP sign-in** with your identity provider fetches the provider's signing keys (JWKS)
+  from the https address you configured, and a listener that checks client certificates
+  may fetch the certificate revocation lists their CA names; both go through the kit's
+  outbound screening. kcc sign-in sends nothing out.
 - **Log forwarding** (off by default) sends router log records to the sinks you
   configure. See below.
 - **Prometheus metrics** (off by default) expose router metrics to whoever can reach the
@@ -98,6 +118,12 @@ forwards these results to its model provider, whose retention policy then applie
   written inside free text, such as a log line, can't be recognised and stays. The
   pseudonym is `client-` and 16 hex digits of a keyed hash whose random key lives only in
   the running process: it's stable until kcc restarts and different afterwards.
+- The `entware` and `entware-ssh` toolsets return Entware's status, drives and settings,
+  and package names and versions, service names and states, and the router log records of
+  one service (masked without `RevealSecrets`). A package name can say what the household
+  runs (a VPN server, a torrent client); the `entware-ssh` tools need `Destructive` and the
+  server switch, but their results go to the model provider like any other. Enrolment, and
+  with it the Entware password, is never reachable from MCP.
 - Limit exposure with a narrow role and router scope for the API key, and fewer
   toolsets.
 

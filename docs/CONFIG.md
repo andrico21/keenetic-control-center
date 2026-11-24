@@ -101,6 +101,16 @@ proxies; kcc refuses to start otherwise.
 No setting turns MCP authentication off: API keys always work on every listener, and
 `kcc mcp stdio` stays the only unauthenticated (local) path.
 
+The toolsets `entware` and `entware-ssh` are the only Entware settings in this file.
+Entware has no `kcc.toml` keys of its own: the SSH enrolment (port, pinned host key, kcc's
+key, enabled flag) is state kept by the Web UI and the CLI, sealed under `router-ssh/` in
+the state directory ([SECURITY.md](SECURITY.md)). `entware` (status, settings and drives,
+the guided setup job, the `opkg` settings, removal) is off by default and does not reduce
+safety; its writes need `Write` or `Destructive` on the router. `entware-ssh` (Entware
+packages and services over SSH) reduces safety: every one of its tools, reads included,
+needs `Destructive`, `allow_destructive = true` and `confirm: true`, and enrolment is never
+offered over MCP.
+
 ### `[mcp.dedicated]`
 
 | Key | Type | Default | Meaning |
@@ -113,8 +123,10 @@ No setting turns MCP authentication off: API keys always work on every listener,
 
 `self_signed` generates the certificate once, for `localhost`, `bind` and the host of
 `public_url`, into `dedicated-cert.pem` and `dedicated-key.pem` (owner-only) below
-`mcp/` in the state directory. The dedicated listener serves `/mcp` only: no Web UI and
-no metrics.
+`mcp/` in the state directory. The certificate keeps the names it was made for: after you
+change `bind` or `public_url`, delete both files there and the next start of the dedicated
+listener makes a new pair. The dedicated listener serves `/mcp` only: no Web UI and no
+metrics.
 
 ### `[mcp.auth]`
 
@@ -231,6 +243,13 @@ every run; a running `kcc serve` applies a changed `[outbound]` section after a 
 A router URL may name an IPv4 or bracketed IPv6 literal (`http://[fd00::1]`), which is
 checked as an address. Router and log sink connections ignore the `HTTP_PROXY`,
 `HTTPS_PROXY` and `ALL_PROXY` environment variables and always connect directly.
+
+SSH to a router's Entware (`kcc entware ssh`, the SSH section of System > Entware and the
+`entware-ssh` tools) is admitted more narrowly than the router's HTTP API: kcc dials only
+the router's own host, on the SSH port set for that router (222 by default), and only an
+address inside `allowed_networks`, or a loopback address with `allow_loopback = true`. A
+router admitted by `allowed_suffixes` alone gets no SSH connection. No other `[outbound]`
+key applies.
 
 ## `[state]`
 

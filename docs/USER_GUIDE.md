@@ -253,32 +253,11 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
   removals, commit (a background job that reboots the router). The job completes only
   after the router went down and came back with every queued change in place, and fails
   when the router comes back without them or does not restart within 15 minutes.
-- **Storage**: attached media; eject; Prepare for Entware (wipes the medium and creates
-  swap and an ext4 partition, KeeneticOS 5.1). Ejecting or initializing the drive Entware
-  runs from asks a second time.
-- **Entware**: whether the router can run Entware and why not, its components,
-  architecture, settings and drives. Change chroot (SSH management stops while it is
-  on), the time zone, the startup script and DNS override (inside the fail-safe timer:
-  the household then resolves names only through Entware's DNS server), remove Entware,
-  or set it up: a background job installs the missing components (the router restarts),
-  sends the installer for the router's architecture (a MIPS router asks which one) and
-  checks its log lines. The job leaves the configuration unsaved and offers Save.
-  With `Destructive` on the router, an **SSH access** section manages Entware packages
-  and services over SSH with kcc's own key; every action there asks for the router
-  name. Enrolment has two steps: Check router identity shows the router's SSH host key
-  fingerprint (check it out of band, for example with `ssh-keyscan` and `ssh-keygen -lf`
-  from the local network); then tick that you confirm it and enter the Entware root
-  password, which kcc uses once to install its key and never stores. The default
-  password is named after the enrolment so you can change it. Enrolling an Active
-  router again, or pinning a changed host key, first needs a box ticked: the enrolment
-  is Pending until it succeeds. A host key that differs from the pinned one is refused
-  with both fingerprints shown. Revoke removes kcc's key from the router; Forget here
-  only forgets it in kcc. Nothing works while chroot is on. Once Active, Packages lists
-  installed and upgradable packages and updates, installs, removes or upgrades one;
-  Services lists services, shows a status or the log (masked without `RevealSecrets`),
-  and starts, stops or restarts one. Changes run as jobs and are read back on the
-  router; a list that waits behind a running change says the router is busy. Deleting a
-  router that still authorizes kcc's key warns to revoke it first.
+- **Storage**: attached media; eject; Prepare for Entware (see below). Ejecting or
+  initializing the drive Entware runs from asks a second time.
+- **Entware**: whether the router can run Entware, its settings, and its drives; the
+  guided setup, the SSH access and the packages and services are described under
+  [System > Entware](#system--entware) below.
 - **Schedules**: create schedules and their actions.
 - **KeenDNS**: book or drop a name, set the access level, add proxy entries. The
   current access level and proxy entries aren't readable.
@@ -289,6 +268,105 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
 - **Diagnostics**: ping and traceroute as background jobs with live output and Stop; a
   running diagnostic asks the router for its progress every half second. Only the user who
   started a job, or an admin, can follow or stop it.
+
+### System > Entware
+
+Entware is an optional package system that runs from a drive on the router. The page
+(`/ui/r/<router>/system/entware`) starts with whether the router can run it: it cannot
+without the router's USB and storage components, or when no Entware installer exists for
+its architecture, and the page says which. It then lists the `opkg` and `ext` components,
+the architecture, the settings (drive, startup script, time zone, chroot, DNS override)
+and the drives. kcc has not yet run any of this on a real router (see
+[BACKLOG.md](BACKLOG.md)).
+
+**Drive preparation.** Entware needs a drive with an ext2, ext3 or ext4 filesystem. On
+**Storage**, **Prepare for Entware** (the permission `Destructive`, then the router name
+typed) wipes a medium the router can initialize and creates a swap and an ext4 partition.
+The router does it in the background (the command reference says KeeneticOS 5.01 and
+later): reload the page after a
+few minutes. `kcc storage initialize <media> --confirm-destructive <router-id>` waits for
+the ext4 partition, at most 10 minutes. Ejecting or initializing the drive Entware runs
+from asks a second time (`--entware-ok` on the command line; without it exit code 10).
+
+**Guided setup.** Choose a drive (or, with the router's own warning that it is untested,
+the internal storage) and Set up Entware. A MIPS router that reports only `mips` asks
+which installer to use, `mipsel` or `mips`; kcc refuses the wrong choice. Setup needs
+`Destructive`, no unsaved changes and no running fail-safe timer. It runs as a job: it
+installs the missing `opkg` and `ext` components (the router restarts), starts the
+installer once, follows the installer's five steps in the router log and checks the drive
+setting, in at most 15 minutes. The job never saves: it ends by offering Save. The
+command line is `kcc entware setup --drive <label>:/ [--arch aarch64|mipsel|mips]
+--confirm-destructive <router-id>` (`--drive` takes `<label>:/` or `<uuid>:/` from `kcc
+entware status`, or `internal`; anything else is refused with exit code 4 before the
+router is asked).
+
+**Settings.** Chroot, time zone and DNS override need `Write`, the startup script and
+Remove Entware need `Destructive`. While **chroot** is on, Entware's start scripts run
+with `/opt` as their root and kcc refuses every SSH action that contacts the router.
+**DNS override** frees the router's DNS port 53 for a DNS server inside Entware and runs under the fail-safe timer:
+while it is on, every device at home resolves names only through that server, so nobody
+can open websites if it does not run. The page also says when the router's DNS filter
+uses the `opkg` engine, which stops with Entware. **Remove Entware** clears the drive
+setting; the files stay on the drive. On the command line: `kcc entware set
+chroot|dns-override on|off`, `set timezone auto|<name>`, `set initrc <path under /opt/>`
+and `kcc entware remove` (`--yes` for dns-override, `--confirm-destructive <router-id>`
+for initrc and remove).
+
+**SSH access.** For packages and services kcc signs in to Entware's SSH server with a key
+of its own. The section shows once Entware runs from a drive, and only to a role with
+`Destructive` on the router (a direct request from any other role gets 403); every action in it asks for the router name (`--confirm-destructive
+<router-id>` on the command line, reads included). kcc's outbound policy must admit the
+router's address for SSH (`[outbound] allowed_networks`). The enrolment has two steps:
+
+1. **Check router identity** (`kcc entware ssh probe`). kcc connects to the SSH port
+   (222 unless you set another; `kcc entware ssh enable --port <n>`), reads the router's
+   ed25519 host key without signing in, and shows its `SHA256:` fingerprint and a ticket.
+   Compare the fingerprint out of band before you go on: from a trusted computer in the
+   router's local network run `ssh -p <port> root@<router>` and read the fingerprint it
+   shows (then stop at the password prompt), or `ssh-keyscan -t ed25519 -p <port> <router>
+   | ssh-keygen -lf -`, or read it on the router with `dropbearkey -y -f
+   /opt/etc/dropbear/dropbear_ed25519_host_key` (or run `ssh-keygen -lf` on a copy of
+   `dropbear_ed25519_host_key.pub` from the drive, if the file exists). The ticket is valid for 5 minutes, for one
+   attempt, for you and this router and port.
+2. **Enrol** (`kcc entware ssh bootstrap --ticket <t> --fingerprint <SHA256:...>`). Tick
+   that you confirm the fingerprint and enter the Entware root password; on the command
+   line the password comes from `--password-file`, else `KCC_PASSWORD`, else a hidden
+   prompt, never from an argument. kcc uses it once to install its key in the router's
+   `authorized_keys` and never stores it; from then on kcc signs in with the key only. A
+   warning appears when the password is still Entware's default (`keenetic`): change it
+   on the router.
+
+The page shows the state: **Not enrolled**, **Pending** (kcc's key is not confirmed yet)
+or **Active**, with the pinned fingerprint and who enrolled it. Enrolling an Active router
+again, or pinning a changed host key (**Check the new host key**, `kcc entware ssh repin`),
+first needs a box ticked (`--yes` on the command line): kcc saves a new key and marks the
+enrolment Pending before it contacts the router, so a wrong password or an unreachable
+router leaves it Pending and the package and service actions stop until a new check and
+enrolment succeed. A host key that differs from the pinned one is refused before any
+password is sent, with both fingerprints shown, and audited as
+`entware.ssh.hostkey_mismatch`. A change of the router's address clears the pin: check and
+enrol again. **Revoke kcc's key** removes kcc's line from the router and then the local
+state; **Forget here** (`kcc entware ssh disable`) forgets the key and pin on this side
+only, and the router keeps kcc's key line until someone removes it there. **SSH
+management** off keeps the enrolment but stops all SSH actions. Deleting a router that
+still authorizes kcc's key warns you to revoke it first. Enrolment is Web and CLI only:
+MCP can never enrol.
+
+**Packages and services.** Once Active, **Packages** lists installed and upgradable
+packages and updates the package lists, installs, removes or upgrades one package.
+**Services** lists the init scripts in `/opt/etc/init.d` (named like `S51dropbear`),
+shows whether one runs or its log records (masked without `RevealSecrets`), and starts,
+stops or restarts one. A package name is lowercase letters, digits and `+ . _ -`, at most
+64 characters, and kcc acts only on packages and services the same session listed. Changes
+run as jobs and are read back on the router; kcc holds one SSH session per router and
+four in all, so a list that waits behind a running change says the router is busy (after
+25 seconds), and a change may take up to 10 minutes. On the command line:
+`kcc entware packages list|upgradable|update|install|remove|upgrade` (the last three take
+a package name) and `kcc entware services list|status|start|stop|restart|log` (all but
+`list` take a service name; `log` takes `--lines N`, 1 to 1000, default 50). Every operation
+is audited as `entware.ssh.*` with the router, the actor and the outcome, never the
+output. The same operations over MCP are the `entware-ssh` toolset
+([MCP_TOOLS.md](MCP_TOOLS.md)); [SECURITY.md](SECURITY.md) describes the trust model.
 
 ## Configuration and backups
 
@@ -420,11 +498,13 @@ of a certificate). Under each value the page says where it comes from: an enviro
 variable or `[mcp] locked` makes it read-only; "Overridden on the Web" offers a reset to
 kcc.toml.
 
-A change that reduces safety (destructive tools on, read-only off, a toolset marked
-"Reduces safety", stdio on or a stronger stdio role, a sign-in method, an identity
-provider setting, a non-loopback dedicated listener) asks for your password first; a
-wrong password counts toward the sign-in lockout, and a lockout leaves your current
-session signed in. A role you name must be one whose permissions and routers you hold.
+A change that reduces safety (destructive tools on, read-only off, turning on a toolset
+marked "Reduces safety" (`raw`, `entware-ssh`), stdio on or a stronger stdio role, an
+OAuth sign-in method, adding client certificates or dropping `required`, any identity
+provider setting, the role of a client certificate, longer token lifetimes, plain HTTP on
+the dedicated listener, a non-loopback dedicated listener) asks for your password first;
+resetting the toolsets back to kcc.toml never asks. A wrong password counts toward the
+sign-in lockout, and a lockout leaves your current session signed in. A role you name must be one whose permissions and routers you hold.
 The same holds for the roles a sign-in source hands out: changing the identity provider's
 issuer, audience, JWKS URL or role claim, switching a listener to it, or uploading its CA
 bundle needs a role that covers every role its mappings name (even mappings from
@@ -551,6 +631,39 @@ algorithm or key is refused. A provider on a private, loopback or link-local add
 refused unless `[mcp.auth.oidc] ssrf_allow_hosts` or `ssrf_allow_cidrs` in kcc.toml admit
 it (the Web cannot set them). The audit log names such a caller `oidc:<preferred_username>`
 (or its subject), with characters other than letters, digits and `-._@` written as `%XX`.
+
+### Client certificates
+
+An MCP listener with TLS can admit clients by a TLS client certificate instead of a key or
+a sign-in. kcc does not issue certificates: bring a CA you run (or an existing one) and
+the certificates it signs.
+
+1. Make sure the listener has TLS: the `[server]` certificate for the main listener, or
+   the dedicated listener's `tls` (`main` or `self_signed`; plain `none` cannot ask for
+   certificates).
+2. On Administration > MCP, **Client certificates**, upload the CA as a PEM file (at most
+   64 KiB, one to ten CA certificates, nothing else). The page lists the stored
+   certificates' subjects. Choose the **Role of a client certificate** (`[mcp.auth.mtls]
+   default_role`, `viewer` when unset): it must be a role whose permissions and routers you
+   hold.
+3. Under **Sign-in**, set **Main listener client certificates** or **Dedicated listener
+   client certificates** to **Optional** (a certificate signs in, other clients still use
+   an API key or OAuth) or, on the dedicated listener only, **Required** (the TLS handshake refuses a client without a
+   certificate from this CA, API key holders included). The listener restarts and kcc
+   checks that it enforces the rule; if it does not, the previous settings serve again.
+4. Point the MCP client at the listener's `/mcp` URL with its certificate and key.
+
+kcc names the caller after the certificate's first common name (else its first DNS name;
+the name may hold only letters, digits and `-._@`, else the certificate signs nobody in)
+and audits it as `mtls:<name>`. A client
+that sends both a certificate and a key is treated as the certificate. Revocation uses the
+CRLs the CA and the certificate name; a certificate whose CRLs cannot be fetched is
+refused, and one with no CRL distribution point under a CA without one is never checked.
+Replacing the CA while a listener uses client certificates asks for your password and
+restarts those listeners. Desktop MCP clients rarely support client certificates. On the
+main listener, which also serves this Web UI, **Optional** can make a browser that holds
+a certificate from this CA show a certificate picker, and a browser that offers a
+certificate from another CA is refused at the handshake, the sign-in page included.
 
 ### Administration > Notifications
 

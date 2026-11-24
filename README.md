@@ -8,8 +8,11 @@ workflow:
   and Wi-Fi, routing, NAT, firewall, DNS, VPN, system pages, configuration backups,
   presets, migration between routers, a command explorer, user, role and API-key
   administration, Telegram notifications and weekly scheduled actions (client policy
-  switch, preset, backup, reboot);
-- an **MCP server** (Streamable HTTP with API keys, or stdio) for AI assistants;
+  switch, preset, backup, reboot), Entware (drive preparation, guided setup and, over
+  SSH, its packages and services) and the administration of MCP sign-in, connections and
+  listeners;
+- an **MCP server** (Streamable HTTP, signed in with API keys, kcc accounts, your own
+  identity provider or client certificates, or stdio) for AI assistants;
 - a **command-line interface** (`kcc --help`).
 
 kcc is unofficial and is not affiliated with Keenetic Limited or Netcraze.
@@ -154,6 +157,34 @@ picks `auto`, `ndw2`, `ndw4`, `token` or `digest`. On `router edit`, `--new-pass
 drops the read-only login; changing the URL, login or TLS pin needs the password or
 token again in the same command and drops the read-only login unless it is given again.
 
+## Entware
+
+Entware is a package system that runs from a drive on Keenetic and Netcraze routers.
+Whether a router can run it, and why not, is on System > Entware and in `kcc entware
+status`. kcc prepares the drive, installs Entware and, if you allow it, manages its
+packages and services:
+
+```text
+kcc entware status
+kcc storage initialize Media0 --confirm-destructive <router-id>
+kcc entware setup --drive <label>:/ --confirm-destructive <router-id>
+kcc entware set chroot off
+kcc entware ssh probe --confirm-destructive <router-id>
+kcc entware packages install nano --confirm-destructive <router-id>
+kcc entware services restart S51dropbear --confirm-destructive <router-id>
+```
+
+Preparing a drive wipes it, and the guided setup is a background job that restarts the
+router and leaves the configuration unsaved until you save it. Packages and services are
+reached over SSH, which kcc does not use until an administrator holding `Destructive` on
+the router enrols it: kcc reads the router's Entware host key, you compare its
+fingerprint out of band, and the Entware root password then installs kcc's own key and
+is never stored. Nothing over SSH works while `opkg chroot` is on. The same actions are
+on the Web UI (System > Entware) and over MCP in the `entware` and `entware-ssh`
+toolsets (the SSH tools need `Destructive` on the router; enrolment is never offered
+over MCP). The trust model is in [docs/SECURITY.md](docs/SECURITY.md) and the
+page-by-page steps in [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
+
 ## MCP for AI assistants
 
 Two transports serve the same tools ([docs/MCP_TOOLS.md](docs/MCP_TOOLS.md)):
@@ -169,6 +200,19 @@ Two transports serve the same tools ([docs/MCP_TOOLS.md](docs/MCP_TOOLS.md)):
   kcc apikey create claude --role viewer
   ```
 
+- **kcc accounts**: a listener with `[mcp.auth.main] oauth = "kcc"` lets an MCP client
+  sign in through your browser with a kcc account. kcc is its own OAuth 2.1
+  authorization server: the client registers itself, you approve it on a consent page,
+  and every MCP call runs with the account's current role, so a role change, a disabled
+  account or a revoked connection applies at the client's next call. It needs an issuer,
+  that is a DNS name in `[web] public_url` or a loopback main listener (then
+  `localhost`); an IP address alone does not work. Connections are listed and revoked
+  on Administration > MCP > Connections and with `kcc mcp connections`
+  ([docs/USER_GUIDE.md](docs/USER_GUIDE.md)).
+- **A dedicated port**: `[mcp.dedicated] enabled = true` runs a second listener that
+  serves `/mcp` only (no Web UI, no metrics), by default on `127.0.0.1:8444`, with its
+  own sign-in methods in `[mcp.auth.dedicated]`; `[mcp] endpoint` picks `main`,
+  `dedicated` or `both` as the listener that serves MCP.
 - **Client certificates**: over TLS a listener can also admit MCP clients by a
   certificate from a CA uploaded on the Web (Administration > MCP):
   `[mcp.auth.main] mtls = "optional"`, or `"required"` on the dedicated listener only
@@ -180,6 +224,8 @@ Two transports serve the same tools ([docs/MCP_TOOLS.md](docs/MCP_TOOLS.md)):
   accepts the access tokens of an OpenID Connect provider (Keycloak, Authentik and
   similar) configured in `[mcp.auth.oidc]`; its groups or scopes map to kcc roles and
   callers are audited as `oidc:<name>` ([docs/USER_GUIDE.md](docs/USER_GUIDE.md)).
+
+API keys work on every listener whatever else is switched on; no setting turns them off.
 
 Claude Code:
 
@@ -291,6 +337,32 @@ The threat model is in [docs/SECURITY.md](docs/SECURITY.md).
   `server.shutdown_timeout` plus 10 seconds (Web sessions stay signed in), and open MCP
   sessions on that listener drop. Its `rmcp_server_kit_*` metrics restart from zero; the
   `kcc_*` series continue.
+- Revoking a kcc sign-in connection, disabling an account or changing its role or
+  password cannot recall an access token already issued (it is a signed token that lives
+  15 minutes by default); kcc refuses every call that token makes from the next call on,
+  and the client's refresh stops at once.
+- Signing in with a kcc account needs an issuer: a DNS name in `[web] public_url`, or a
+  loopback main listener, which uses `localhost`. With only an IP address the MCP page
+  refuses it and says why.
+- Desktop MCP clients rarely support client certificates. On a main listener with
+  `mtls = "optional"`, a browser that holds a certificate from the uploaded CA may show
+  a certificate picker when it opens the Web UI, and a browser that presents a
+  certificate from another CA is refused during the TLS handshake, the sign-in page
+  included. If browsers hold such certificates, keep client certificates off the main
+  listener: the dedicated listener serves no Web UI.
+- Browser-based MCP clients, such as the web UI of the MCP Inspector, cannot sign in
+  with a kcc account: the server refuses them at `/oauth/token` by the Origin check.
+  Native clients (Claude Code, Codex, Cursor, VS Code) are not affected.
+- Entware, its SSH enrolment, packages and services, and the sign-in methods above have
+  been run only against the fake router, a fake Entware SSH server and local fake
+  identity providers; no real router has run them yet. The owner-run suites
+  `live_entware_probe`, `live_entware_setup` and `live_entware_ssh` check the Entware
+  facts on a test router, and [docs/BACKLOG.md](docs/BACKLOG.md) lists what stays
+  unverified.
+- Entware management over SSH is opt-in per router: nothing connects until an
+  administrator with `Destructive` enrols kcc (Web or CLI only, never MCP), the host key
+  is pinned from then on, and kcc refuses every SSH action while `opkg chroot` is on,
+  because chroot changes the paths kcc relies on.
 
 [CHANGELOG.md](CHANGELOG.md) lists what exists today.
 
@@ -306,6 +378,7 @@ The threat model is in [docs/SECURITY.md](docs/SECURITY.md).
 - [docs/MONITORING.md](docs/MONITORING.md) and [docs/METRICS.md](docs/METRICS.md):
   Prometheus metrics, dashboards, alerts and log forwarding.
 - [docs/FIRMWARE.md](docs/FIRMWARE.md): firmware support tiers.
+- [docs/BACKLOG.md](docs/BACKLOG.md): what is unverified on hardware and the open follow-ups.
 - [docs/I18N.md](docs/I18N.md): languages and translation workflow.
 - [CONTRIBUTING.md](CONTRIBUTING.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 

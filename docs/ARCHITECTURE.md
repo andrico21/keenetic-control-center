@@ -17,9 +17,9 @@ the command catalog and the test tiers.
 | `kcc-telemetry` | Prometheus exporter and router log collection and forwarding |
 | `kcc-i18n` | every user-visible string in en, ru, uk, de, be and kk |
 | `kcc-web` | the Web UI (axum, askama templates, htmx). Shared kits: `page_kit` (`submit`, `form`, `confirm`, `respond`, `request`) runs every write page, `crate::table` renders every table, `crate::wizard` is the one engine of the migration wizard and the preset runs |
-| `kcc-mcp` | the MCP server: tool registry, toolsets, argument validation, result shaping |
-| `kcc-ssh` | SSH to a router's Entware: policy-admitted addresses, pinned ed25519 host key, session limits, the closed typed Entware command set and its output parsers |
-| `kcc-testkit` | the fake router, fake log sinks, fixtures and the capture tool |
+| `kcc-mcp` | the MCP server: tool registry, toolsets, argument validation, result shaping, and the per-call principal seam (`principals`) that decides who a kcc account token speaks for |
+| `kcc-ssh` | SSH to a router's Entware: policy-admitted addresses (`OutboundPolicy::admit_ssh` in `kcc-rci`), pinned ed25519 host key, session limits (one per router, four in all), the closed typed Entware command set and its output parsers. `kcc-domain` runs its commands; `kcc-web` and `kcc` use its names and errors and build the session pool |
+| `kcc-testkit` | the fake router (with Entware state), a fake Entware SSH server, a fake OpenID Connect provider, fake Telegram and log sinks, fixtures and the capture tool |
 | `kcc` | the binary: CLI, `serve`, `mcp stdio`, privilege floor |
 | `xtask/` | a separate workspace with project gates and generators |
 
@@ -39,8 +39,9 @@ kcc <command> ──┴──────── CLI ──────┤
                          kcc-rci session ── outbound policy ──► router
 ```
 
-- `kcc serve` runs one HTTP listener (rmcp-server-kit) that carries MCP on `/mcp`, the
-  Web UI under `/ui`, and `/healthz`, `/readyz`, `/version`. It holds the state
+- `kcc serve` runs a main HTTP listener (rmcp-server-kit) that carries MCP on `/mcp`, the
+  Web UI under `/ui`, and `/healthz`, `/readyz`, `/version`; with `[mcp.dedicated]` it also
+  runs an MCP-only listener beside it. It holds the state
   directory's server lock, so only one server runs per state directory. A state watcher
   (`crates/kcc/src/state_watch.rs`) checks `api_keys.json` and `users.json` every 2 s, so a
   key revoked or an account changed by the CLI reaches the running server without a
@@ -55,7 +56,36 @@ kcc <command> ──┴──────── CLI ──────┤
   The core of kcc's own OAuth authorization server is `kcc_app::mcp_auth`: the sealed
   Ed25519 signing key and JWKS, the client registry, in-memory consent requests and
   codes, rotating refresh grants and the per-call grant check, all synchronous over the
-  state directory.
+  state directory. Its HTTP surface lives in `kcc-web`: `kcc_web::oauth` serves the
+  discovery documents, `/oauth/register`, `/oauth/authorize`, `/oauth/token`,
+  `/oauth/revoke` and `/oauth/jwks`, and `oauth_consent` the consent page behind the Web
+  login. It is mounted on a listener only while that listener's `oauth` is `kcc`; with
+  none, every `/oauth/*` route answers 404.
+  The kit validates every kcc token (issuer, audience, EdDSA, expiry) with keys it fetches
+  from an **internal JWKS listener** (`crates/kcc/src/server_mcp_auth/jwks.rs`): plain
+  HTTP on one port of both `127.0.0.1` and `[::1]`, `GET /jwks` only, started once per
+  process. A kcc token grants nothing by itself: on every call the kit's reserved role
+  `kcc-account` hands the request to `kcc-mcp`, which asks `McpPrincipals`
+  (`crates/kcc/src/server_mcp_auth/principals.rs`) whether the grant, its client and the
+  account still stand and which role the account holds now. That implementation re-reads
+  `users.json`, `mcp_oauth_grants.json` and `mcp_oauth_clients.json` when their inode,
+  modification time or size changed, so a revocation or a role change binds the next
+  call. A token of an external identity provider (`oauth = "external"`) skips all of
+  this: the kit validates it against the provider's JWKS and maps its claim or scope to a
+  role from `[mcp.auth.oidc]`, built by `server_listeners/sign_in/external.rs`. The other callers are named `oauth:<account>`, `oidc:<name>`,
+  `mtls:<cn>` or the API key's name in the audit log.
+- **Entware over SSH.** The Web UI (`system_pages/entware_ssh*`), the CLI
+  (`cli/dom_entware_ssh*`) and the `entware-ssh` MCP tools all call `kcc_domain::entware::ssh`:
+  the enrolment lifecycle (probe, bootstrap, re-pin, revoke, disable) and the package and
+  service operations. The domain reads the enrolment from `kcc_app::entware_ssh` (sealed
+  record, key and single-use ticket under `<state>/router-ssh/`), gets an admitted address
+  from the outbound policy, and runs one typed `EntwareCommand` at a time through
+  `kcc_ssh::SshPool` over a session pinned to the router's ed25519 host key. A mutation
+  holds the router's write lease or runs as a job and is read back; every flow appends an
+  `entware.ssh.*` audit entry. `kcc-ssh` is a library with no state of its own, and
+  `kcc-mcp` never depends on it: MCP calls the domain. The Web UI, the CLI and MCP each build
+  their own session pool, so the limit of one session per router holds per front end, not
+  per process.
 - `kcc mcp stdio` and CLI runs share the same state directory without that lock;
   per-file locks, per-router leases and the audit append lock keep them consistent.
 - One shared **poller** issues all periodic router reads. Web live views and the
@@ -243,4 +273,6 @@ Tests fail when a committed copy differs from what its generator produces.
   [FIRMWARE.md](FIRMWARE.md) with the code.
 - **Live**: `crates/kcc/tests/live_*.rs`, ignored by default, run only with the
   `KCC_LIVE_*` variables set and only against routers marked `test_device = true` whose
-  serial is allow-listed. A missing variable logs `live-skip:<reason>`.
+  serial is allow-listed. A missing variable logs `live-skip:<reason>`. The Entware suites
+  are `live_entware_probe`, `live_entware_setup` and `live_entware_ssh` in
+  `crates/kcc/tests/live_entware.rs` ([BACKLOG.md](BACKLOG.md)).
