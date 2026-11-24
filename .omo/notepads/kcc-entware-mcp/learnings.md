@@ -226,3 +226,8 @@ New for this plan:
 - New `kcc-app/tests/mcp_settings/anchored.rs` pins the anchored-role ceiling: enabling a dedicated listener already set to `oauth = external` / `mtls = required` (kcc.toml or override) is a re-point (mid refused, admin ok, a change leaving it off is not); the commit re-checks the ANCHORED roles (a mapped role grown, or a missing one created, between plan and commit -> `ProviderAbove`).
 - It also pins the legit flows: an unrelated key (`max_result_bytes`, `toolsets`) passes while the provider with an admin map is in use; anchored roles come from the AFTER state (emptying an admin mapping + re-pointing in one request passes); an unknown mapping target is skipped (documented residual).
 - Mutants N06, N01c, N07, N02, N04 each killed by exactly its new test (`--test mcp_settings`, exit 101, 43-44 passed); `provider.rs` helpers are `pub(crate)` so sibling test modules reuse them instead of copying.
+
+## [2026-11-25] eflake2 (CI flake admin_mcp apply::an_applied_restart_shows_the_new_values)
+- Mechanism: `Mcp::settled` waited 1000 GET+yield_now rounds (~0.26 s) while the restart task ends only after its audit append (spawn_blocking + fsync); an audit write slower than ~0.26 s failed it ("the restart never ended"): forced with a delay in the writer closure, 200 ms passes 10/10, 300 ms fails 10/10.
+- Fix: test-only, `tokio::time::timeout(60 s real time, loop { GET; yield_now })` in `crates/kcc-web/tests/admin_mcp/client.rs`; 0 failures in 800 one-test runs (idle, 4 CPU burners, taskset+nice, fsync I/O) and 30 binary runs under load.
+- Rule: never bound a wait for background work by a count of runtime turns; anything that crosses the blocking pool or the disk needs a real-time bound (timeout around the poll loop).
