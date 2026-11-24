@@ -30,7 +30,7 @@
 # fix exists. Owner decision 2026-11-18, review by 2027-02-18.
 # RUSTSEC-2026-0543: chrono is unmaintained (a notice, not a vulnerability).
 # kcc uses it directly (kcc-telemetry for parsing and formatting log timestamps);
-# rmcp 3.10.0, rmcp-server-kit 3.21.1 and schemars 1.2.3 also require it, so removing
+# rmcp 3.11.0, rmcp-server-kit 3.21.1 and schemars 1.2.3 also require it, so removing
 # kcc's own use would not clear the notice. No upstream fix exists. Owner decision
 # 2026-11-18, review by 2027-02-18.
 ignore = [

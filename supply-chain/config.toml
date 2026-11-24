@@ -175,7 +175,7 @@ version = "6.3.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.bytes]]
-version = "1.12.1"
+version = "1.12.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.caps]]
@@ -187,7 +187,7 @@ version = "0.2.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.cc]]
-version = "1.11.2"
+version = "1.11.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.cfg-if]]
@@ -211,7 +211,7 @@ version = "0.5.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.clap]]
-version = "4.6.8"
+version = "4.6.9"
 criteria = "safe-to-deploy"
 
 [[exemptions.clap_builder]]
@@ -223,7 +223,7 @@ version = "4.6.12"
 criteria = "safe-to-deploy"
 
 [[exemptions.clap_derive]]
-version = "4.6.8"
+version = "4.6.9"
 criteria = "safe-to-deploy"
 
 [[exemptions.clap_lex]]
@@ -239,7 +239,7 @@ version = "4.6.9"
 criteria = "safe-to-deploy"
 
 [[exemptions.compression-codecs]]
-version = "0.4.47"
+version = "0.4.48"
 criteria = "safe-to-deploy"
 
 [[exemptions.compression-core]]
@@ -579,15 +579,15 @@ version = "1.0.19"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff]]
-version = "1.0.0"
+version = "1.0.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff-core]]
-version = "1.0.0"
+version = "1.0.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff-static]]
-version = "1.0.0"
+version = "1.0.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff-tzdb]]
@@ -799,7 +799,7 @@ version = "0.6.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.pin-project-lite]]
-version = "0.2.17"
+version = "0.2.18"
 criteria = "safe-to-deploy"
 
 [[exemptions.pkcs1]]
@@ -927,11 +927,11 @@ version = "1.0.27"
 criteria = "safe-to-deploy"
 
 [[exemptions.regex-automata]]
-version = "0.4.18"
+version = "0.4.19"
 criteria = "safe-to-deploy"
 
 [[exemptions.regex-syntax]]
-version = "0.8.11"
+version = "0.8.12"
 criteria = "safe-to-deploy"
 
 [[exemptions.reqwest]]
@@ -951,11 +951,11 @@ version = "0.17.11"
 criteria = "safe-to-deploy"
 
 [[exemptions.rmcp]]
-version = "3.10.0"
+version = "3.11.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.rmcp-macros]]
-version = "3.10.0"
+version = "3.11.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.rmcp-server-kit]]
@@ -1163,7 +1163,7 @@ version = "0.4.12"
 criteria = "safe-to-deploy"
 
 [[exemptions.smallvec]]
-version = "1.16.5"
+version = "1.16.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.socket2]]
@@ -1267,7 +1267,7 @@ version = "0.7.20"
 criteria = "safe-to-deploy"
 
 [[exemptions.toml]]
-version = "1.2.1+spec-1.1.0"
+version = "1.2.2+spec-1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.toml_datetime]]
@@ -1275,11 +1275,11 @@ version = "1.1.3+spec-1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.toml_edit]]
-version = "0.25.19+spec-1.1.0"
+version = "0.25.20+spec-1.1.0"
 criteria = "safe-to-run"
 
 [[exemptions.toml_parser]]
-version = "1.1.5+spec-1.1.0"
+version = "1.1.6+spec-1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.toml_writer]]
@@ -1342,6 +1342,10 @@ criteria = "safe-to-deploy"
 version = "2.10.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.unicode-general-category]]
+version = "1.1.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.unicode-ident]]
 version = "1.0.27"
 criteria = "safe-to-deploy"
@@ -1367,7 +1371,7 @@ version = "0.9.5"
 criteria = "safe-to-deploy"
 
 [[exemptions.walkdir]]
-version = "2.5.0"
+version = "2.5.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.wasi]]
@@ -1535,11 +1539,11 @@ version = "0.8.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.zerocopy]]
-version = "0.8.63"
+version = "0.8.64"
 criteria = "safe-to-deploy"
 
 [[exemptions.zerocopy-derive]]
-version = "0.8.63"
+version = "0.8.64"
 criteria = "safe-to-deploy"
 
 [[exemptions.zerofrom]]
@@ -1548,6 +1552,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.zerofrom-derive]]
 version = "0.1.8"
+criteria = "safe-to-deploy"
+
+[[exemptions.zeroize]]
+version = "1.9.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.zeroize_derive]]

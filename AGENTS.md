@@ -21,7 +21,7 @@ on the narrowest item. `cargo xtask allow-gate` enforces this.
 
 Gate G0 (every Rust change leaves it green, run from the repo root):
 
-1. `cargo +nightly-2026-10-03 fmt --all -- --check`
+1. `cargo +nightly-2026-11-21 fmt --all -- --check`
 2. `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 3. `cargo test --workspace --all-features`
 4. `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features`

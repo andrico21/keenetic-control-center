@@ -59,7 +59,7 @@ version = "5.0.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.bytes]]
-version = "1.12.1"
+version = "1.12.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.cbc]]
@@ -67,7 +67,7 @@ version = "0.2.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.cc]]
-version = "1.11.2"
+version = "1.11.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.cfg-if]]
@@ -79,7 +79,7 @@ version = "0.5.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.clap]]
-version = "4.6.8"
+version = "4.6.9"
 criteria = "safe-to-deploy"
 
 [[exemptions.clap_builder]]
@@ -87,7 +87,7 @@ version = "4.6.7"
 criteria = "safe-to-deploy"
 
 [[exemptions.clap_derive]]
-version = "4.6.8"
+version = "4.6.9"
 criteria = "safe-to-deploy"
 
 [[exemptions.clap_lex]]
@@ -175,15 +175,15 @@ version = "1.0.19"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff]]
-version = "1.0.0"
+version = "1.0.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff-core]]
-version = "1.0.0"
+version = "1.0.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff-static]]
-version = "1.0.0"
+version = "1.0.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.libc]]
@@ -315,7 +315,7 @@ version = "2.0.21"
 criteria = "safe-to-deploy"
 
 [[exemptions.toml]]
-version = "1.2.1+spec-1.1.0"
+version = "1.2.2+spec-1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.toml_datetime]]
@@ -323,7 +323,7 @@ version = "1.1.3+spec-1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.toml_parser]]
-version = "1.1.5+spec-1.1.0"
+version = "1.1.6+spec-1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.toml_writer]]
@@ -412,6 +412,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.winnow]]
 version = "1.0.5"
+criteria = "safe-to-deploy"
+
+[[exemptions.zeroize]]
+version = "1.9.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.zlib-rs]]

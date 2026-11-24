@@ -15,7 +15,7 @@
   `kcc`. `xtask/` is a separate workspace with lint tables equal to the root profile.
 - **Toolchain:** edition 2024, `rust-version = "1.100.0"` (root and `xtask/`),
   `unsafe_code = "forbid"`. No `rust-toolchain.toml`; CI pins `1.100.0`. Formatting uses
-  the dated nightly `nightly-2026-10-03` (`rustfmt.toml` sets
+  the dated nightly `nightly-2026-11-21` (`rustfmt.toml` sets
   `imports_granularity`/`group_imports`); MSRV is checked with
   `cargo +1.100.0 build --workspace --all-features`.
 - **CI:** `.github/workflows/ci.yml` (jobs fmt, clippy, test, rustdoc, deny, audit, vet,
@@ -101,17 +101,21 @@
    dependency be the version `cargo update` selects. Both workspaces (`/` and `xtask/`)
    now resolve with a plain `cargo update` under the cooldown, every crates.io
    requirement is written as its locked version, and a `cargo update --dry-run --verbose`
-   changes nothing. Held back on 2026-11-20 (checked 09:37 UTC), all inside the
-   cooldown unless named: bytes 1.12.2, clap/clap_derive 4.6.9,
-   jiff/jiff-core/jiff-static 1.0.1, pin-project-lite 0.2.18, regex-automata 0.4.19,
-   regex-syntax 0.8.12, rmcp/rmcp-macros 3.11.0, smallvec 1.16.6, zeroize 1.9.2;
-   matchit 0.8.6 is held by axum 0.8.9's `matchit = "=0.8.4"`; `jsonwebtoken` 12 is held
-   by rmcp-server-kit 3.21.1's `jsonwebtoken` 11 (added 2026-11-20, owner decisions
-   D-AUTH, D-MERGE). Repeat the check at least monthly (core Section 12).
+   changes nothing. Held back on 2026-11-24 (checked 12:36 UTC), all inside the
+   cooldown unless named: anyhow 1.0.105, async-compression 0.4.53,
+   brotli-decompressor 6.4.0, crc32fast 1.5.6, hashbrown 0.17.2, hyper 1.13.0,
+   jiff/jiff-static 1.0.3 and jiff-core 1.0.2, rangemap 1.9.0 (`xtask/`),
+   russh 0.65.3/0.65.4, zlib-rs 0.6.9; matchit 0.8.6 is held by axum 0.8.9's
+   `matchit = "=0.8.4"`; crypto-common 0.1.7 requires `generic-array = "=0.14.7"` while
+   0.14.9 is locked; `jsonwebtoken` 12 is held by rmcp-server-kit 3.21.1 (the newest kit
+   release), which requires `jsonwebtoken` 11; that requirement is why the D-RSA and
+   D-RSA2 advisory ignores in `deny.toml` and `.cargo/audit.toml` stay (added 2026-11-20,
+   owner decisions D-AUTH, D-MERGE, D-RSA, D-RSA2). Repeat the check at least monthly
+   (core Section 12).
 4. **Rust versions in workflow files are unquoted** (opened 2026-11-14, resolved
    2026-11-18). Core Section 11 (Tooling) asks to quote every Rust version in YAML.
    `ci.yml`, `container.yml` and `release.yml` now quote every toolchain
-   (`toolchain: "1.100.0"`, `toolchain: "nightly-2026-10-03"`); keep any new pin quoted.
+   (`toolchain: "1.100.0"`, `toolchain: "nightly-2026-11-21"`); keep any new pin quoted.
 5. **No `Cache-Control` on the kit's own routes** (opened 2026-11-16, open). The
    http-services rule on response headers wants `Cache-Control: no-store` on every
    authenticated response. kcc turns the kit's `Cache-Control` off in
