@@ -217,21 +217,10 @@ impl Fixture {
         Ok(read_entries(&self.state_dir())?)
     }
 
-    /// Every byte of every file under the state directory.
+    /// Every byte of every state file under the state directory; `*.lock` files are left
+    /// out, they hold no state and Windows refuses to read one a live server holds.
     pub(crate) fn state_bytes(&self) -> TestResult<Vec<u8>> {
-        let mut bytes = Vec::new();
-        let mut pending = vec![self.state_dir()];
-        while let Some(dir) = pending.pop() {
-            for entry in fs::read_dir(dir)? {
-                let path = entry?.path();
-                if path.is_dir() {
-                    pending.push(path);
-                } else {
-                    bytes.extend(fs::read(path)?);
-                }
-            }
-        }
-        Ok(bytes)
+        bytes_below(&self.state_dir())
     }
 
     /// `kcc serve --config <config>`, on Linux behind a 1 MiB main-thread stack, the size
@@ -303,5 +292,43 @@ impl Fixture {
             )
         })?;
         Ok(server)
+    }
+}
+
+/// Every byte of every file below `root`, lock files left out.
+fn bytes_below(root: &Path) -> TestResult<Vec<u8>> {
+    let mut bytes = Vec::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        for entry in fs::read_dir(dir)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                pending.push(path);
+                continue;
+            }
+            if path.extension().is_none_or(|extension| extension != "lock") {
+                bytes.extend(fs::read(path)?);
+            }
+        }
+    }
+    Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TestResult, bytes_below, fs};
+
+    /// Todo 31: a lock file (held and unreadable on Windows) never reaches the scan; the
+    /// state file does.
+    #[test]
+    fn lock_files_are_left_out_of_the_state_bytes() -> TestResult {
+        let directory = tempfile::tempdir()?;
+        fs::write(directory.path().join("state.json"), b"state-content")?;
+        fs::write(directory.path().join("x.lock"), b"lock-marker")?;
+        let bytes = bytes_below(directory.path())?;
+        let text = String::from_utf8(bytes)?;
+        assert!(text.contains("state-content"), "{text}");
+        assert!(!text.contains("lock-marker"), "{text}");
+        Ok(())
     }
 }
