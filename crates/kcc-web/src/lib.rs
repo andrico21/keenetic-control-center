@@ -151,6 +151,7 @@ mod blocking;
 mod admin_audit;
 mod admin_keys;
 mod admin_mcp;
+mod admin_mcp_connections;
 mod admin_roles;
 mod admin_server;
 mod admin_shared;
@@ -834,6 +835,26 @@ fn admin_routes() -> Router<WebState> {
         .route(
             "/ui/admin/mcp/certificate",
             get(admin_mcp::certificate::download),
+        )
+        .route(
+            admin_mcp_connections::PAGE,
+            get(admin_mcp_connections::page),
+        )
+        .route(
+            "/ui/admin/mcp/connections/revoke",
+            post(admin_mcp_connections::changes::revoke),
+        )
+        .route(
+            "/ui/admin/mcp/connections/revoke-account",
+            post(admin_mcp_connections::changes::revoke_account),
+        )
+        .route(
+            "/ui/admin/mcp/clients",
+            post(admin_mcp_connections::register::register),
+        )
+        .route(
+            "/ui/admin/mcp/clients/delete",
+            post(admin_mcp_connections::changes::delete_client),
         )
 }
 

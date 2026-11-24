@@ -13,6 +13,8 @@
 //! - [`grants`]: one grant per consented connection in `mcp_oauth_grants.json`, with its
 //!   rotating refresh token kept as a SHA-256 hash; reuse of a rotated token revokes the
 //!   whole family (RFC 9700 4.14).
+//! - [`connections`]: the administrator's view of the live grants, revoking them and
+//!   deleting a client with its grants.
 //! - [`verify`]: the per-call check of a grant and the reading of the `kcc_grant` claim.
 //!
 //! Every token, code and request id is 32 bytes from the OS RNG; ids are 64 lowercase
@@ -23,6 +25,7 @@
 //! async callers run it on a blocking thread.
 
 pub mod clients;
+pub mod connections;
 pub mod grants;
 pub mod pending;
 pub mod signing;

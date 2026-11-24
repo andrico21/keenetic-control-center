@@ -7,12 +7,13 @@ use kcc_i18n::{keys, locale::Locale};
 
 use super::{
     accounts, api_keys,
-    args::{Cli, Command, LocalCommand, McpCommand},
+    args::{Cli, Command, LocalCommand},
     args_domains::DomainCommand,
+    args_mcp::McpCommand,
     context::{Ctx, Globals},
     dom_jobs, domains,
     exit::{Exit, Failure, Outcome},
-    fleet, migrate, notify,
+    fleet, mcp, migrate, notify,
     output::Out,
     persist, preset, rci, routers, scheduled, tls,
 };
@@ -44,6 +45,7 @@ pub async fn run(cli: Cli) -> u8 {
         Command::Mcp(McpCommand::Stdio) => {
             return server_code(server::run_stdio(cli.config).await, out);
         }
+        Command::Mcp(command) => mcp_command(command, globals, out).await,
         Command::Completions { shell } => tls::completions(shell),
         Command::Local(command) => local(command, globals, out).await,
         Command::Domain(command) => domain(command, globals, out).await,
@@ -134,6 +136,14 @@ fn local(command: LocalCommand, globals: Globals, out: Out) -> Boxed<'static> {
             Box::pin(async move { scheduled::run(&Ctx::open(globals, out)?, sub).await })
         }
     }
+}
+
+/// Runs one `kcc mcp` command other than `stdio`.
+///
+/// The returned future fails with the command's failure and its exit code.
+// NOT cancel-safe: see `run`.
+fn mcp_command(command: McpCommand, globals: Globals, out: Out) -> Boxed<'static> {
+    Box::pin(async move { mcp::run(&Ctx::open(globals, out)?, command).await })
 }
 
 /// Runs one curated domain command.

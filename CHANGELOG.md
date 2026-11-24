@@ -130,6 +130,17 @@ The first release, `0.1.0`, is in preparation and contains:
   and every action asks for the router name. The router removal dialog warns while the
   router still authorizes kcc's SSH key line.
 
+- **MCP connections and clients**: Administration > MCP gains a Connections tab
+  (`ManageMcp`) listing the grants of kcc sign-in by account and client and the registered
+  clients with the places taken out of 50; it revokes one grant or every grant of an
+  account, deletes a client together with its grants and pre-registers a client under the
+  dynamic registration rules and limit. The CLI gains `kcc mcp settings show` (values and
+  sources, `--json`), `kcc mcp connections list|revoke|revoke-account` and `kcc mcp
+  clients list|delete` (`--confirm-destructive <id>`; exit 10, 4 or 2 on refusal). A
+  change reaches a running server at the next MCP call; audited as `web.mcp_grant_revoke`,
+  `web.mcp_client_delete`, `web.mcp_client_register`, `cli.mcp_grant_revoke` and
+  `cli.mcp_client_delete`, ids only.
+
 - **MCP error code `router_mode_unknown`**: a management change is refused, with nothing
   sent, when the router reports neither a system mode kcc knows nor a `fail-safe`
   timer in `show last-change`. Every surface now picks the recovery mechanism with the same

@@ -171,6 +171,18 @@ impl Effective {
         self.mcp
     }
 
+    /// Every Web-managed key's value, as overrides that set each of them; an optional
+    /// key kcc.toml and the Web leave unset stays unset.
+    #[inline]
+    #[must_use]
+    pub fn values(&self) -> McpOverrides {
+        let mut values = McpOverrides::default();
+        for key in KeyPath::ALL {
+            keys::pick(&self.mcp, *key, &mut values);
+        }
+        values
+    }
+
     /// Where the value of `key` comes from.
     #[inline]
     #[must_use]

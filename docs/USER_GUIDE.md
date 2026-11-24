@@ -462,6 +462,42 @@ Claude Code need the CA: `NODE_EXTRA_CA_CERTS=/path/to/ca.pem claude`. Native cl
 (Claude Code, Codex, Cursor, VS Code) sign in this way; browser-based clients, such as the
 MCP Inspector's web UI, are refused at `/oauth/token` by the server's Origin check.
 
+### Connections and clients
+
+Administration > MCP has a second tab, **Connections** (`/ui/admin/mcp/connections`,
+permission ManageMcp). It lists the MCP clients signed in with a kcc account by account:
+the client's name (unverified), the host the browser returns to, when it connected, when it
+last got a token and the MCP server it is for. **Revoke** ends one connection, **Revoke
+all** every connection of an account (type the account name to confirm); the client's very
+next MCP call is refused and its tokens can no longer be refreshed. The account and its
+role are not changed here, and no token is ever shown.
+
+**Registered clients** lists every client with its redirect URIs, who registered it and
+its connections, and how many of the 50 places are taken. **Delete** removes a client and
+revokes its connections. **Register a client** is for an MCP client that cannot register
+itself: a name and one to five redirect URIs (http to `127.0.0.1`, `[::1]` or `localhost`,
+https, or an app scheme such as `com.example.app:/callback`), under the same rules and the
+same limit as clients that register themselves; a client registered here is never removed
+for being unused.
+
+The same from the command line, with the `[cli] role` holding ManageMcp:
+
+```text
+kcc mcp settings show
+kcc mcp connections list
+kcc mcp connections revoke <grant-id> --confirm-destructive <grant-id>
+kcc mcp connections revoke-account <user> --confirm-destructive <user>
+kcc mcp clients list
+kcc mcp clients delete <client-id> --confirm-destructive <client-id>
+```
+
+`kcc mcp settings show` prints every `[mcp]` value the MCP page manages with where it comes
+from (environment, kcc.toml locked, Web, kcc.toml, default); `--json` prints one document.
+A revocation or deletion needs `--confirm-destructive` naming what goes, or that name typed
+on a terminal; `--yes` does not stand in for it. Exit codes: 10 without ManageMcp or the
+confirmation, 4 for a malformed id, 2 when there is nothing to revoke or delete. A running
+`kcc serve` applies them at the client's next MCP call.
+
 ### Administration > Notifications
 
 `/ui/admin/notifications` sets up the Telegram bot kcc sends notifications through.

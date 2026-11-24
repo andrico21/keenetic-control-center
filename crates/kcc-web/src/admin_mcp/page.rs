@@ -49,6 +49,8 @@ struct McpPage {
     shell: Shell,
     /// Administration tabs.
     tabs: Vec<TabLink>,
+    /// Whether this is the connections tab of the MCP area (for the shared sub-tabs).
+    connections: bool,
     /// The restart status.
     status: Status,
     /// Every section.
@@ -75,6 +77,7 @@ pub(crate) async fn page(
     match fresh(&state, &user).await {
         Ok(region) => errors::render(&McpPage {
             tabs: tabs(user.role(), Tab::Mcp),
+            connections: false,
             status: status_now(&state, locale),
             region: region.inline(),
             shell,

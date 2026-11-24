@@ -911,6 +911,114 @@ pub const CLI_COL_UPGRADE: MessageKey = MessageKey::new("cli-col-upgrade");
 pub const CLI_ROUTER_REMOVE_SSH_ACTIVE: MessageKey =
     MessageKey::new("cli-router-remove-ssh-active");
 
+/// `cli-mcp-not-set` in `cli.ftl`.
+pub const CLI_MCP_NOT_SET: MessageKey = MessageKey::new("cli-mcp-not-set");
+
+/// `cli-mcp-col-key` in `cli.ftl`.
+pub const CLI_MCP_COL_KEY: MessageKey = MessageKey::new("cli-mcp-col-key");
+
+/// `cli-mcp-col-value` in `cli.ftl`.
+pub const CLI_MCP_COL_VALUE: MessageKey = MessageKey::new("cli-mcp-col-value");
+
+/// `cli-mcp-col-source` in `cli.ftl`.
+pub const CLI_MCP_COL_SOURCE: MessageKey = MessageKey::new("cli-mcp-col-source");
+
+/// `cli-mcp-source-env` in `cli.ftl`.
+pub const CLI_MCP_SOURCE_ENV: MessageKey = MessageKey::new("cli-mcp-source-env");
+
+/// `cli-mcp-source-locked` in `cli.ftl`.
+pub const CLI_MCP_SOURCE_LOCKED: MessageKey = MessageKey::new("cli-mcp-source-locked");
+
+/// `cli-mcp-source-state` in `cli.ftl`.
+pub const CLI_MCP_SOURCE_STATE: MessageKey = MessageKey::new("cli-mcp-source-state");
+
+/// `cli-mcp-source-toml` in `cli.ftl`.
+pub const CLI_MCP_SOURCE_TOML: MessageKey = MessageKey::new("cli-mcp-source-toml");
+
+/// `cli-mcp-source-default` in `cli.ftl`.
+pub const CLI_MCP_SOURCE_DEFAULT: MessageKey = MessageKey::new("cli-mcp-source-default");
+
+/// `cli-mcp-grant-id-invalid` in `cli.ftl`.
+pub const CLI_MCP_GRANT_ID_INVALID: MessageKey = MessageKey::new("cli-mcp-grant-id-invalid");
+
+/// `cli-mcp-client-id-invalid` in `cli.ftl`.
+pub const CLI_MCP_CLIENT_ID_INVALID: MessageKey = MessageKey::new("cli-mcp-client-id-invalid");
+
+/// `cli-mcp-grant-unknown` in `cli.ftl`.
+pub const CLI_MCP_GRANT_UNKNOWN: MessageKey = MessageKey::new("cli-mcp-grant-unknown");
+
+/// `cli-mcp-account-no-grants` in `cli.ftl`.
+pub const CLI_MCP_ACCOUNT_NO_GRANTS: MessageKey = MessageKey::new("cli-mcp-account-no-grants");
+
+/// `cli-mcp-client-unknown` in `cli.ftl`.
+pub const CLI_MCP_CLIENT_UNKNOWN: MessageKey = MessageKey::new("cli-mcp-client-unknown");
+
+/// `cli-mcp-revoked` in `cli.ftl`.
+pub const CLI_MCP_REVOKED: MessageKey = MessageKey::new("cli-mcp-revoked");
+
+/// `cli-mcp-revoked-account` in `cli.ftl`.
+pub const CLI_MCP_REVOKED_ACCOUNT: MessageKey = MessageKey::new("cli-mcp-revoked-account");
+
+/// `cli-mcp-client-deleted` in `cli.ftl`.
+pub const CLI_MCP_CLIENT_DELETED: MessageKey = MessageKey::new("cli-mcp-client-deleted");
+
+/// `cli-mcp-connections-none` in `cli.ftl`.
+pub const CLI_MCP_CONNECTIONS_NONE: MessageKey = MessageKey::new("cli-mcp-connections-none");
+
+/// `cli-mcp-clients-none` in `cli.ftl`.
+pub const CLI_MCP_CLIENTS_NONE: MessageKey = MessageKey::new("cli-mcp-clients-none");
+
+/// `cli-mcp-clients-count` in `cli.ftl`.
+pub const CLI_MCP_CLIENTS_COUNT: MessageKey = MessageKey::new("cli-mcp-clients-count");
+
+/// `cli-mcp-pre-registered` in `cli.ftl`.
+pub const CLI_MCP_PRE_REGISTERED: MessageKey = MessageKey::new("cli-mcp-pre-registered");
+
+/// `cli-mcp-dynamic` in `cli.ftl`.
+pub const CLI_MCP_DYNAMIC: MessageKey = MessageKey::new("cli-mcp-dynamic");
+
+/// `cli-mcp-confirm-missing` in `cli.ftl`.
+pub const CLI_MCP_CONFIRM_MISSING: MessageKey = MessageKey::new("cli-mcp-confirm-missing");
+
+/// `cli-mcp-confirm-type` in `cli.ftl`.
+pub const CLI_MCP_CONFIRM_TYPE: MessageKey = MessageKey::new("cli-mcp-confirm-type");
+
+/// `cli-mcp-col-grant` in `cli.ftl`.
+pub const CLI_MCP_COL_GRANT: MessageKey = MessageKey::new("cli-mcp-col-grant");
+
+/// `cli-mcp-col-account` in `cli.ftl`.
+pub const CLI_MCP_COL_ACCOUNT: MessageKey = MessageKey::new("cli-mcp-col-account");
+
+/// `cli-mcp-col-client` in `cli.ftl`.
+pub const CLI_MCP_COL_CLIENT: MessageKey = MessageKey::new("cli-mcp-col-client");
+
+/// `cli-mcp-col-redirect` in `cli.ftl`.
+pub const CLI_MCP_COL_REDIRECT: MessageKey = MessageKey::new("cli-mcp-col-redirect");
+
+/// `cli-mcp-col-created` in `cli.ftl`.
+pub const CLI_MCP_COL_CREATED: MessageKey = MessageKey::new("cli-mcp-col-created");
+
+/// `cli-mcp-col-last-used` in `cli.ftl`.
+pub const CLI_MCP_COL_LAST_USED: MessageKey = MessageKey::new("cli-mcp-col-last-used");
+
+/// `cli-mcp-col-resource` in `cli.ftl`.
+pub const CLI_MCP_COL_RESOURCE: MessageKey = MessageKey::new("cli-mcp-col-resource");
+
+/// `cli-mcp-col-id` in `cli.ftl`.
+pub const CLI_MCP_COL_ID: MessageKey = MessageKey::new("cli-mcp-col-id");
+
+/// `cli-mcp-col-name` in `cli.ftl`.
+pub const CLI_MCP_COL_NAME: MessageKey = MessageKey::new("cli-mcp-col-name");
+
+/// `cli-mcp-col-kind` in `cli.ftl`.
+pub const CLI_MCP_COL_KIND: MessageKey = MessageKey::new("cli-mcp-col-kind");
+
+/// `cli-mcp-col-registered` in `cli.ftl`.
+pub const CLI_MCP_COL_REGISTERED: MessageKey = MessageKey::new("cli-mcp-col-registered");
+
+/// `cli-mcp-col-connections` in `cli.ftl`.
+pub const CLI_MCP_COL_CONNECTIONS: MessageKey = MessageKey::new("cli-mcp-col-connections");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -9239,8 +9347,220 @@ pub const WEB_OAUTH_ERROR_ACCOUNT: MessageKey = MessageKey::new("web-oauth-error
 pub const WEB_OAUTH_ISSUER_UNAVAILABLE: MessageKey =
     MessageKey::new("web-oauth-issuer-unavailable");
 
+/// `web-admin-mcp-connections-area` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_AREA: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-area");
+
+/// `web-admin-mcp-connections-settings-tab` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_SETTINGS_TAB: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-settings-tab");
+
+/// `web-admin-mcp-connections-tab` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_TAB: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-tab");
+
+/// `web-admin-mcp-connections-title` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_TITLE: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-title");
+
+/// `web-admin-mcp-connections-text` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_TEXT: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-text");
+
+/// `web-admin-mcp-connections-grants` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_GRANTS: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-grants");
+
+/// `web-admin-mcp-connections-grants-empty` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_GRANTS_EMPTY: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-grants-empty");
+
+/// `web-admin-mcp-connections-revoke-all` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REVOKE_ALL: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-revoke-all");
+
+/// `web-admin-mcp-connections-client` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_CLIENT: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-client");
+
+/// `web-admin-mcp-connections-host` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_HOST: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-host");
+
+/// `web-admin-mcp-connections-created` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_CREATED: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-created");
+
+/// `web-admin-mcp-connections-last-used` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_LAST_USED: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-last-used");
+
+/// `web-admin-mcp-connections-resource` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_RESOURCE: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-resource");
+
+/// `web-admin-mcp-connections-unnamed` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_UNNAMED: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-unnamed");
+
+/// `web-admin-mcp-connections-revoke` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REVOKE: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-revoke");
+
+/// `web-admin-mcp-connections-clients` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_CLIENTS: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-clients");
+
+/// `web-admin-mcp-connections-count` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_COUNT: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-count");
+
+/// `web-admin-mcp-connections-clients-empty` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_CLIENTS_EMPTY: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-clients-empty");
+
+/// `web-admin-mcp-connections-redirects` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECTS: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-redirects");
+
+/// `web-admin-mcp-connections-kind` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_KIND: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-kind");
+
+/// `web-admin-mcp-connections-registered-at` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REGISTERED_AT: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-registered-at");
+
+/// `web-admin-mcp-connections-count-head` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_COUNT_HEAD: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-count-head");
+
+/// `web-admin-mcp-connections-pre-registered` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_PRE_REGISTERED: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-pre-registered");
+
+/// `web-admin-mcp-connections-dynamic` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_DYNAMIC: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-dynamic");
+
+/// `web-admin-mcp-connections-delete` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_DELETE: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-delete");
+
+/// `web-admin-mcp-connections-register-title` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REGISTER_TITLE: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-register-title");
+
+/// `web-admin-mcp-connections-register-text` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REGISTER_TEXT: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-register-text");
+
+/// `web-admin-mcp-connections-error-full` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_ERROR_FULL: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-error-full");
+
+/// `web-admin-mcp-connections-name` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_NAME: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-name");
+
+/// `web-admin-mcp-connections-name-help` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_NAME_HELP: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-name-help");
+
+/// `web-admin-mcp-connections-redirects-help` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECTS_HELP: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-redirects-help");
+
+/// `web-admin-mcp-connections-register` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REGISTER: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-register");
+
+/// `web-admin-mcp-connections-revoke-title` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REVOKE_TITLE: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-revoke-title");
+
+/// `web-admin-mcp-connections-revoke-text` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REVOKE_TEXT: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-revoke-text");
+
+/// `web-admin-mcp-connections-revoke-all-title` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REVOKE_ALL_TITLE: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-revoke-all-title");
+
+/// `web-admin-mcp-connections-revoke-all-text` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REVOKE_ALL_TEXT: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-revoke-all-text");
+
+/// `web-admin-mcp-connections-delete-title` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_DELETE_TITLE: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-delete-title");
+
+/// `web-admin-mcp-connections-delete-text` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_DELETE_TEXT: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-delete-text");
+
+/// `web-admin-mcp-connections-revoked` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REVOKED: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-revoked");
+
+/// `web-admin-mcp-connections-revoked-all` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REVOKED_ALL: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-revoked-all");
+
+/// `web-admin-mcp-connections-deleted` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_DELETED: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-deleted");
+
+/// `web-admin-mcp-connections-registered` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REGISTERED: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-registered");
+
+/// `web-admin-mcp-connections-error-name` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_ERROR_NAME: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-error-name");
+
+/// `web-admin-mcp-connections-error-count` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_ERROR_COUNT: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-error-count");
+
+/// `web-admin-mcp-connections-error-redirect` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_ERROR_REDIRECT: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-error-redirect");
+
+/// `web-admin-mcp-connections-redirect-long` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_LONG: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-redirect-long");
+
+/// `web-admin-mcp-connections-redirect-characters` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_CHARACTERS: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-redirect-characters");
+
+/// `web-admin-mcp-connections-redirect-wildcard` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_WILDCARD: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-redirect-wildcard");
+
+/// `web-admin-mcp-connections-redirect-fragment` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_FRAGMENT: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-redirect-fragment");
+
+/// `web-admin-mcp-connections-redirect-userinfo` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_USERINFO: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-redirect-userinfo");
+
+/// `web-admin-mcp-connections-redirect-http` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_HTTP: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-redirect-http");
+
+/// `web-admin-mcp-connections-redirect-scheme` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_SCHEME: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-redirect-scheme");
+
+/// `web-admin-mcp-connections-redirect-unparsable` in `web.ftl`.
+pub const WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_UNPARSABLE: MessageKey =
+    MessageKey::new("web-admin-mcp-connections-redirect-unparsable");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2854] = [
+pub static ALL: [MessageKey; 2943] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -9528,6 +9848,42 @@ pub static ALL: [MessageKey; 2854] = [
     CLI_COL_VERSION,
     CLI_COL_UPGRADE,
     CLI_ROUTER_REMOVE_SSH_ACTIVE,
+    CLI_MCP_NOT_SET,
+    CLI_MCP_COL_KEY,
+    CLI_MCP_COL_VALUE,
+    CLI_MCP_COL_SOURCE,
+    CLI_MCP_SOURCE_ENV,
+    CLI_MCP_SOURCE_LOCKED,
+    CLI_MCP_SOURCE_STATE,
+    CLI_MCP_SOURCE_TOML,
+    CLI_MCP_SOURCE_DEFAULT,
+    CLI_MCP_GRANT_ID_INVALID,
+    CLI_MCP_CLIENT_ID_INVALID,
+    CLI_MCP_GRANT_UNKNOWN,
+    CLI_MCP_ACCOUNT_NO_GRANTS,
+    CLI_MCP_CLIENT_UNKNOWN,
+    CLI_MCP_REVOKED,
+    CLI_MCP_REVOKED_ACCOUNT,
+    CLI_MCP_CLIENT_DELETED,
+    CLI_MCP_CONNECTIONS_NONE,
+    CLI_MCP_CLIENTS_NONE,
+    CLI_MCP_CLIENTS_COUNT,
+    CLI_MCP_PRE_REGISTERED,
+    CLI_MCP_DYNAMIC,
+    CLI_MCP_CONFIRM_MISSING,
+    CLI_MCP_CONFIRM_TYPE,
+    CLI_MCP_COL_GRANT,
+    CLI_MCP_COL_ACCOUNT,
+    CLI_MCP_COL_CLIENT,
+    CLI_MCP_COL_REDIRECT,
+    CLI_MCP_COL_CREATED,
+    CLI_MCP_COL_LAST_USED,
+    CLI_MCP_COL_RESOURCE,
+    CLI_MCP_COL_ID,
+    CLI_MCP_COL_NAME,
+    CLI_MCP_COL_KIND,
+    CLI_MCP_COL_REGISTERED,
+    CLI_MCP_COL_CONNECTIONS,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,
@@ -12095,4 +12451,57 @@ pub static ALL: [MessageKey; 2854] = [
     WEB_OAUTH_ERROR_EXPIRED,
     WEB_OAUTH_ERROR_ACCOUNT,
     WEB_OAUTH_ISSUER_UNAVAILABLE,
+    WEB_ADMIN_MCP_CONNECTIONS_AREA,
+    WEB_ADMIN_MCP_CONNECTIONS_SETTINGS_TAB,
+    WEB_ADMIN_MCP_CONNECTIONS_TAB,
+    WEB_ADMIN_MCP_CONNECTIONS_TITLE,
+    WEB_ADMIN_MCP_CONNECTIONS_TEXT,
+    WEB_ADMIN_MCP_CONNECTIONS_GRANTS,
+    WEB_ADMIN_MCP_CONNECTIONS_GRANTS_EMPTY,
+    WEB_ADMIN_MCP_CONNECTIONS_REVOKE_ALL,
+    WEB_ADMIN_MCP_CONNECTIONS_CLIENT,
+    WEB_ADMIN_MCP_CONNECTIONS_HOST,
+    WEB_ADMIN_MCP_CONNECTIONS_CREATED,
+    WEB_ADMIN_MCP_CONNECTIONS_LAST_USED,
+    WEB_ADMIN_MCP_CONNECTIONS_RESOURCE,
+    WEB_ADMIN_MCP_CONNECTIONS_UNNAMED,
+    WEB_ADMIN_MCP_CONNECTIONS_REVOKE,
+    WEB_ADMIN_MCP_CONNECTIONS_CLIENTS,
+    WEB_ADMIN_MCP_CONNECTIONS_COUNT,
+    WEB_ADMIN_MCP_CONNECTIONS_CLIENTS_EMPTY,
+    WEB_ADMIN_MCP_CONNECTIONS_REDIRECTS,
+    WEB_ADMIN_MCP_CONNECTIONS_KIND,
+    WEB_ADMIN_MCP_CONNECTIONS_REGISTERED_AT,
+    WEB_ADMIN_MCP_CONNECTIONS_COUNT_HEAD,
+    WEB_ADMIN_MCP_CONNECTIONS_PRE_REGISTERED,
+    WEB_ADMIN_MCP_CONNECTIONS_DYNAMIC,
+    WEB_ADMIN_MCP_CONNECTIONS_DELETE,
+    WEB_ADMIN_MCP_CONNECTIONS_REGISTER_TITLE,
+    WEB_ADMIN_MCP_CONNECTIONS_REGISTER_TEXT,
+    WEB_ADMIN_MCP_CONNECTIONS_ERROR_FULL,
+    WEB_ADMIN_MCP_CONNECTIONS_NAME,
+    WEB_ADMIN_MCP_CONNECTIONS_NAME_HELP,
+    WEB_ADMIN_MCP_CONNECTIONS_REDIRECTS_HELP,
+    WEB_ADMIN_MCP_CONNECTIONS_REGISTER,
+    WEB_ADMIN_MCP_CONNECTIONS_REVOKE_TITLE,
+    WEB_ADMIN_MCP_CONNECTIONS_REVOKE_TEXT,
+    WEB_ADMIN_MCP_CONNECTIONS_REVOKE_ALL_TITLE,
+    WEB_ADMIN_MCP_CONNECTIONS_REVOKE_ALL_TEXT,
+    WEB_ADMIN_MCP_CONNECTIONS_DELETE_TITLE,
+    WEB_ADMIN_MCP_CONNECTIONS_DELETE_TEXT,
+    WEB_ADMIN_MCP_CONNECTIONS_REVOKED,
+    WEB_ADMIN_MCP_CONNECTIONS_REVOKED_ALL,
+    WEB_ADMIN_MCP_CONNECTIONS_DELETED,
+    WEB_ADMIN_MCP_CONNECTIONS_REGISTERED,
+    WEB_ADMIN_MCP_CONNECTIONS_ERROR_NAME,
+    WEB_ADMIN_MCP_CONNECTIONS_ERROR_COUNT,
+    WEB_ADMIN_MCP_CONNECTIONS_ERROR_REDIRECT,
+    WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_LONG,
+    WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_CHARACTERS,
+    WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_WILDCARD,
+    WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_FRAGMENT,
+    WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_USERINFO,
+    WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_HTTP,
+    WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_SCHEME,
+    WEB_ADMIN_MCP_CONNECTIONS_REDIRECT_UNPARSABLE,
 ];

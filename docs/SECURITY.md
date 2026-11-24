@@ -535,6 +535,18 @@ for its own MCP listeners (RFC 6749, 7591, 7636, 8252, 8414, 8707, 9068, 9207, 9
 - **Revocation latency**: a revoked grant, a deleted client or account, a disabled
   account, a role or password change binds the very next call; an issued access token
   stays valid at the kit until it expires, but every call it makes is refused.
+- **Revocation latency**: a revoked grant, a disabled account, a role or password change
+  binds the very next call; an issued access token stays valid at the kit until it
+  expires, but every call it makes is refused. An administrator holding `ManageMcp`
+  revokes grants (one, or every grant of an account) and deletes clients on
+  Administration > MCP > Connections or with `kcc mcp connections revoke|revoke-account`
+  and `kcc mcp clients delete`, also while another process runs `kcc serve`: a deleted
+  client's grants are revoked in the same change, so its open sessions are refused at their
+  very next MCP call too, and the OAuth endpoints read the clients file on every request.
+  These pages and commands never show a token or a stored hash, and cannot change a
+  grant's account or role; they are audited as `web.mcp_grant_revoke`,
+  `web.mcp_client_delete`, `web.mcp_client_register`, `cli.mcp_grant_revoke` and
+  `cli.mcp_client_delete` with the account and ids only.
 - **Known limits**: a code used twice is refused, but the grant already issued from it is
   not revoked (RFC 9700 recommends it); reuse detection keeps 16 rotated refresh token
   hashes per grant, so an older one is just unknown; the 50-client limit counts

@@ -15,6 +15,7 @@ use super::{
     args_dom_jobs::ConfigCommand,
     args_domains::DomainCommand,
     args_fleet::{BackupCommand, CatalogCommand, RciCommand, RouterCommand},
+    args_mcp::McpCommand,
     args_migrate::MigrateCommand,
     args_scheduled::ScheduledCommand,
     preset::args::{CopyCommand, PresetCommand},
@@ -60,7 +61,7 @@ pub enum Command {
     Local(LocalCommand),
     /// Run the HTTP MCP server and optional Web UI.
     Serve,
-    /// Run an MCP transport.
+    /// MCP: the stdio transport, the effective settings, connections and clients.
     #[command(subcommand)]
     Mcp(McpCommand),
     /// Print a shell completion script.
@@ -131,14 +132,6 @@ pub enum LocalCommand {
     /// Weekly scheduled actions: policy switch, preset, backup, reboot; never saved.
     #[command(subcommand)]
     Scheduled(ScheduledCommand),
-}
-
-/// MCP transport commands.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum McpCommand {
-    /// Run MCP over the local process's stdin and stdout.
-    Stdio,
 }
 
 impl Cli {

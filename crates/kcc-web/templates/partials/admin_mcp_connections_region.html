@@ -1,0 +1,111 @@
+{#- The MCP connections region: the live grants by account, the registered clients and the pre-registration form. Revoke and Delete post without a confirmation and are answered with the dialog, whose button posts again with it; a change answers with this region out of band. Client names and redirect URIs are unverified: shown in a bidirectional isolate. No token or hash is ever shown. -#}
+{%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
+<div class="admin-region mcp-connections" id="mcp-connections-region"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <section class="mcp-connections__section" id="mcp-grants" aria-labelledby="mcp-grants-title">
+    <h2 id="mcp-grants-title">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_GRANTS) }}</h2>
+    {%- if accounts.is_empty() %}
+    <p class="page__text" id="mcp-grants-empty">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_GRANTS_EMPTY) }}</p>
+    {%- endif %}
+    {%- for account in accounts %}
+    <div class="mcp-account" id="mcp-account-{{ loop.index }}">
+      <div class="mcp-account__head">
+        <h3 class="mcp-account__name" id="mcp-account-{{ loop.index }}-name">{{ account.name }}</h3>
+        <form class="inline-form" method="post" action="{{ account.revoke_all }}" hx-post="{{ account.revoke_all }}" hx-target="#page-outcome">
+          <button class="button button--secondary" type="submit" aria-describedby="mcp-account-{{ loop.index }}-name">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_REVOKE_ALL) }}</button>
+        </form>
+      </div>
+      <div class="table-wrap">
+        <table class="table mcp-table mcp-grants-table" aria-labelledby="mcp-account-{{ loop.index }}-name">
+          <thead>
+            <tr>
+              <th scope="col">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_CLIENT) }}</th>
+              <th scope="col">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_HOST) }}</th>
+              <th scope="col">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_CREATED) }}</th>
+              <th scope="col">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_LAST_USED) }}</th>
+              <th scope="col">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_RESOURCE) }}</th>
+              <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_ADMIN_ACTIONS) }}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {%- for grant in account.grants %}
+            <tr class="mcp-grant">
+              <th scope="row" id="{{ grant.anchor }}">{% if let Some(name) = grant.client %}<bdi class="mcp-client-name">{{ name }}</bdi>{% else %}<span class="muted">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_UNNAMED) }}</span>{% endif %}</th>
+              <td data-label="{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_HOST) }}"><bdi class="mono mcp-host">{{ grant.host }}</bdi></td>
+              <td data-label="{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_CREATED) }}">{% if let Some(at) = grant.created %}<time datetime="{{ at.iso() }}">{{ at.text() }}</time>{% endif %}</td>
+              <td data-label="{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_LAST_USED) }}">{% if let Some(at) = grant.last_used %}<time datetime="{{ at.iso() }}">{{ at.text() }}</time>{% endif %}</td>
+              <td data-label="{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_RESOURCE) }}"><span class="mono mcp-resource">{{ grant.resource }}</span></td>
+              <td class="mcp-act">
+                <form class="inline-form" method="post" action="{{ grant.revoke }}" hx-post="{{ grant.revoke }}" hx-target="#page-outcome">
+                  <button class="button button--danger-ghost" type="submit" aria-describedby="{{ grant.anchor }}">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_REVOKE) }}</button>
+                </form>
+              </td>
+            </tr>
+            {%- endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {%- endfor %}
+  </section>
+  <section class="mcp-connections__section" id="mcp-clients" aria-labelledby="mcp-clients-title">
+    <h2 id="mcp-clients-title">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_CLIENTS) }}</h2>
+    <p class="page__text" id="mcp-clients-count">{{ count }}</p>
+    {%- if clients.is_empty() %}
+    <p class="page__text" id="mcp-clients-empty">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_CLIENTS_EMPTY) }}</p>
+    {%- else %}
+    <div class="table-wrap">
+      <table class="table mcp-table" aria-labelledby="mcp-clients-title">
+        <thead>
+          <tr>
+            <th scope="col">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_CLIENT) }}</th>
+            <th scope="col">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_REDIRECTS) }}</th>
+            <th scope="col">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_KIND) }}</th>
+            <th scope="col">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_REGISTERED_AT) }}</th>
+            <th scope="col">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_COUNT_HEAD) }}</th>
+            <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_ADMIN_ACTIONS) }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {%- for client in clients %}
+          <tr class="mcp-client" id="mcp-client-{{ client.id }}">
+            <th scope="row" id="mcp-client-{{ client.id }}-name">{% if let Some(name) = client.name %}<bdi class="mcp-client-name">{{ name }}</bdi>{% else %}<span class="muted">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_UNNAMED) }}</span>{% endif %}<br><code class="mcp-client-id">{{ client.id }}</code></th>
+            <td data-label="{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_REDIRECTS) }}"><ul class="plain-list">{% for uri in client.uris %}<li><bdi class="mono mcp-redirect">{{ uri }}</bdi></li>{% endfor %}</ul></td>
+            <td data-label="{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_KIND) }}">{% if client.pre_registered %}{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_PRE_REGISTERED) }}{% else %}{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_DYNAMIC) }}{% endif %}</td>
+            <td data-label="{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_REGISTERED_AT) }}">{% if let Some(at) = client.registered %}<time datetime="{{ at.iso() }}">{{ at.text() }}</time>{% endif %}</td>
+            <td data-label="{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_COUNT_HEAD) }}">{{ client.connections }}</td>
+            <td class="mcp-act">
+              <form class="inline-form" method="post" action="{{ client.delete }}" hx-post="{{ client.delete }}" hx-target="#page-outcome">
+                <button class="button button--danger-ghost" type="submit" aria-describedby="mcp-client-{{ client.id }}-name">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_DELETE) }}</button>
+              </form>
+            </td>
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- endif %}
+  </section>
+  <section class="mcp-connections__section" id="mcp-register" aria-labelledby="mcp-register-title">
+    <h2 id="mcp-register-title">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_REGISTER_TITLE) }}</h2>
+    <p class="page__text">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_REGISTER_TEXT) }}</p>
+    {%- if full %}
+    <p class="notice" data-tone="warning" id="mcp-register-full" data-message-key="{{ keys::WEB_ADMIN_MCP_CONNECTIONS_ERROR_FULL.id() }}">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_ERROR_FULL) }}</p>
+    {%- endif %}
+    <form class="form mcp-register-form" id="mcp-register-form" method="post" action="/ui/admin/mcp/clients" hx-post="/ui/admin/mcp/clients" hx-target="#mcp-connections-region" hx-swap="outerHTML">
+      {{ ui::field("mcp-register-name", "name", t(keys::WEB_ADMIN_MCP_CONNECTIONS_NAME), form.name, form.name_error, "text", "off", t(keys::WEB_ADMIN_MCP_CONNECTIONS_NAME_HELP)) }}
+      <div class="field">
+        <label class="field__label" for="mcp-register-uris">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_REDIRECTS) }}</label>
+        <textarea class="field__input field__area mono" id="mcp-register-uris" name="redirect_uris" rows="3" spellcheck="false" aria-describedby="mcp-register-uris-help{% if !form.uris_error.is_empty() %} mcp-register-uris-error{% endif %}"{% if !form.uris_error.is_empty() %} aria-invalid="true"{% endif %}>{{ form.uris }}</textarea>
+        <p class="field__help" id="mcp-register-uris-help">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_REDIRECTS_HELP) }}</p>
+        {%- if !form.uris_error.is_empty() %}
+        <p class="field__error" id="mcp-register-uris-error">{{ form.uris_error }}</p>
+        {%- endif %}
+      </div>
+      <div class="form__actions">
+        <button class="button button--primary" type="submit">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_REGISTER) }}</button>
+      </div>
+    </form>
+  </section>
+</div>
+{{ kit::toasts(toasts) }}

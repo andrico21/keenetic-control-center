@@ -91,6 +91,14 @@ macro_rules! key_table {
             }
         }
 
+        /// Sets `key` of `to` to the value `from` holds (an unset optional value stays
+        /// unset).
+        pub(super) fn pick(from: &McpConfig, key: KeyPath, to: &mut McpOverrides) {
+            match key {
+                $(KeyPath::$key => key_table!(@pick $mode, to.$($field).+, from.$($field).+),)+
+            }
+        }
+
         /// Stores `key` of `overrides`, when set, into `target`.
         pub(super) fn overlay(overrides: &McpOverrides, key: KeyPath, target: &mut McpConfig) {
             match key {
@@ -104,6 +112,12 @@ macro_rules! key_table {
     };
     (@optional plain) => { false };
     (@optional opt) => { true };
+    (@pick plain, $($target:ident).+, $($source:ident).+) => {
+        $($target).+ = Some($($source).+.clone())
+    };
+    (@pick opt, $($target:ident).+, $($source:ident).+) => {
+        $($target).+.clone_from(&$($source).+)
+    };
     (@set plain, $($target:ident).+, $value:ident) => {
         $($target).+ = $value.clone()
     };

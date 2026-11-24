@@ -3390,3 +3390,111 @@ h3 {
   min-inline-size: 0;
   max-inline-size: 100%;
 }
+
+/* MCP connections: grants by account, clients, pre-registration */
+
+.mcp-connections {
+  gap: var(--space-8);
+}
+
+.mcp-connections__section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.mcp-account {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.mcp-account__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.mcp-client-id {
+  overflow-wrap: anywhere;
+}
+
+.mcp-host,
+.mcp-resource,
+.mcp-redirect {
+  overflow-wrap: break-word;
+}
+
+.mcp-account__head .inline-form {
+  display: flex;
+  margin-inline-start: auto;
+}
+
+.mcp-grants-table {
+  table-layout: fixed;
+}
+
+.mcp-grants-table thead th:nth-child(1) {
+  inline-size: 20%;
+}
+
+.mcp-grants-table thead th:nth-child(2) {
+  inline-size: 20%;
+}
+
+.mcp-grants-table thead th:nth-child(3),
+.mcp-grants-table thead th:nth-child(4) {
+  inline-size: 13%;
+}
+
+.mcp-grants-table thead th:nth-child(6) {
+  inline-size: 7rem;
+}
+
+@media (max-width: 47.99rem) {
+  .admin-region .mcp-table {
+    min-inline-size: 0;
+    table-layout: auto;
+  }
+
+  .mcp-table thead {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .mcp-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+    padding-block: var(--space-5);
+    border-block-end: 1px solid var(--color-border);
+  }
+
+  .mcp-table th[scope="row"],
+  .mcp-table td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .mcp-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+  }
+
+  .mcp-table .mcp-act {
+    padding-block-start: var(--space-2);
+  }
+}
+
+.mcp-register-form {
+  max-inline-size: var(--measure);
+}

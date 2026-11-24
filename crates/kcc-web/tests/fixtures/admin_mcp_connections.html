@@ -1,0 +1,152 @@
+<nav class="tabs mcp-tabs" aria-label="MCP">
+  <ul class="tabs__list">
+    <li><a class="tabs__link" href="/ui/admin/mcp">Settings</a></li>
+    <li><a class="tabs__link" href="/ui/admin/mcp/connections" aria-current="page">Connections</a></li>
+  </ul>
+</nav>
+  <h1 class="page__title">MCP connections</h1>
+  <p class="page__text">MCP clients signed in with kcc accounts, and the clients registered for that sign-in. Revoking a connection takes effect at the client&#39;s very next MCP call.</p>
+  <div class="page-outcome" id="page-outcome" aria-live="polite"></div>
+  <div class="admin-region mcp-connections" id="mcp-connections-region">
+  <section class="mcp-connections__section" id="mcp-grants" aria-labelledby="mcp-grants-title">
+    <h2 id="mcp-grants-title">Connections by account</h2>
+    <div class="mcp-account" id="mcp-account-1">
+      <div class="mcp-account__head">
+        <h3 class="mcp-account__name" id="mcp-account-1-name">alice</h3>
+        <form class="inline-form" method="post" action="/ui/admin/mcp/connections/revoke-account?account=alice" hx-post="/ui/admin/mcp/connections/revoke-account?account=alice" hx-target="#page-outcome">
+          <button class="button button--secondary" type="submit" aria-describedby="mcp-account-1-name">Revoke all</button>
+        </form>
+      </div>
+      <div class="table-wrap">
+        <table class="table mcp-table mcp-grants-table" aria-labelledby="mcp-account-1-name">
+          <thead>
+            <tr>
+              <th scope="col">Client</th>
+              <th scope="col">Returns to</th>
+              <th scope="col">Connected</th>
+              <th scope="col">Last token</th>
+              <th scope="col">MCP server</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="mcp-grant">
+              <th scope="row" id="mcp-grant-1"><bdi class="mcp-client-name">Claude Code</bdi></th>
+              <td data-label="Returns to"><bdi class="mono mcp-host">127.0.0.1</bdi></td>
+              <td data-label="Connected"><time datetime="2023-11-14T22:13:20Z">2023-11-14 22:13:20 UTC</time></td>
+              <td data-label="Last token"><time datetime="2023-11-14T22:13:20Z">2023-11-14 22:13:20 UTC</time></td>
+              <td data-label="MCP server"><span class="mono mcp-resource">http://127.0.0.1:8443/mcp</span></td>
+              <td class="mcp-act">
+                <form class="inline-form" method="post" action="/ui/admin/mcp/connections/revoke?grant=<id>" hx-post="/ui/admin/mcp/connections/revoke?grant=<id>" hx-target="#page-outcome">
+                  <button class="button button--danger-ghost" type="submit" aria-describedby="mcp-grant-1">Revoke</button>
+                </form>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mcp-account" id="mcp-account-2">
+      <div class="mcp-account__head">
+        <h3 class="mcp-account__name" id="mcp-account-2-name">bob</h3>
+        <form class="inline-form" method="post" action="/ui/admin/mcp/connections/revoke-account?account=bob" hx-post="/ui/admin/mcp/connections/revoke-account?account=bob" hx-target="#page-outcome">
+          <button class="button button--secondary" type="submit" aria-describedby="mcp-account-2-name">Revoke all</button>
+        </form>
+      </div>
+      <div class="table-wrap">
+        <table class="table mcp-table mcp-grants-table" aria-labelledby="mcp-account-2-name">
+          <thead>
+            <tr>
+              <th scope="col">Client</th>
+              <th scope="col">Returns to</th>
+              <th scope="col">Connected</th>
+              <th scope="col">Last token</th>
+              <th scope="col">MCP server</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="mcp-grant">
+              <th scope="row" id="mcp-grant-2"><span class="muted">Unnamed client</span></th>
+              <td data-label="Returns to"><bdi class="mono mcp-host">com.example.app</bdi></td>
+              <td data-label="Connected"><time datetime="2023-11-14T22:13:20Z">2023-11-14 22:13:20 UTC</time></td>
+              <td data-label="Last token"><time datetime="2023-11-14T22:13:20Z">2023-11-14 22:13:20 UTC</time></td>
+              <td data-label="MCP server"><span class="mono mcp-resource">http://127.0.0.1:8443/mcp</span></td>
+              <td class="mcp-act">
+                <form class="inline-form" method="post" action="/ui/admin/mcp/connections/revoke?grant=<id>" hx-post="/ui/admin/mcp/connections/revoke?grant=<id>" hx-target="#page-outcome">
+                  <button class="button button--danger-ghost" type="submit" aria-describedby="mcp-grant-2">Revoke</button>
+                </form>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  <section class="mcp-connections__section" id="mcp-clients" aria-labelledby="mcp-clients-title">
+    <h2 id="mcp-clients-title">Registered clients</h2>
+    <p class="page__text" id="mcp-clients-count">2 of 50 clients registered.</p>
+    <div class="table-wrap">
+      <table class="table mcp-table" aria-labelledby="mcp-clients-title">
+        <thead>
+          <tr>
+            <th scope="col">Client</th>
+            <th scope="col">Redirect URIs</th>
+            <th scope="col">Registered by</th>
+            <th scope="col">Registered</th>
+            <th scope="col">Connections</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="mcp-client" id="mcp-client-<id>">
+            <th scope="row" id="mcp-client-<id>-name"><bdi class="mcp-client-name">Claude Code</bdi><br><code class="mcp-client-id"><id></code></th>
+            <td data-label="Redirect URIs"><ul class="plain-list"><li><bdi class="mono mcp-redirect">http://127.0.0.1:33418/callback</bdi></li></ul></td>
+            <td data-label="Registered by">The client itself</td>
+            <td data-label="Registered"><time datetime="2023-11-14T22:13:20Z">2023-11-14 22:13:20 UTC</time></td>
+            <td data-label="Connections">1</td>
+            <td class="mcp-act">
+              <form class="inline-form" method="post" action="/ui/admin/mcp/clients/delete?client=<id>" hx-post="/ui/admin/mcp/clients/delete?client=<id>" hx-target="#page-outcome">
+                <button class="button button--danger-ghost" type="submit" aria-describedby="mcp-client-<id>-name">Delete</button>
+              </form>
+            </td>
+          </tr>
+          <tr class="mcp-client" id="mcp-client-<id>">
+            <th scope="row" id="mcp-client-<id>-name"><span class="muted">Unnamed client</span><br><code class="mcp-client-id"><id></code></th>
+            <td data-label="Redirect URIs"><ul class="plain-list"><li><bdi class="mono mcp-redirect">com.example.app:/oauth</bdi></li></ul></td>
+            <td data-label="Registered by">The client itself</td>
+            <td data-label="Registered"><time datetime="2023-11-14T22:13:20Z">2023-11-14 22:13:20 UTC</time></td>
+            <td data-label="Connections">1</td>
+            <td class="mcp-act">
+              <form class="inline-form" method="post" action="/ui/admin/mcp/clients/delete?client=<id>" hx-post="/ui/admin/mcp/clients/delete?client=<id>" hx-target="#page-outcome">
+                <button class="button button--danger-ghost" type="submit" aria-describedby="mcp-client-<id>-name">Delete</button>
+              </form>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="mcp-connections__section" id="mcp-register" aria-labelledby="mcp-register-title">
+    <h2 id="mcp-register-title">Register a client</h2>
+    <p class="page__text">For an MCP client without dynamic registration. The rules and the limit of clients are the same as for clients that register themselves; a client registered here is never removed for being unused.</p>
+    <form class="form mcp-register-form" id="mcp-register-form" method="post" action="/ui/admin/mcp/clients" hx-post="/ui/admin/mcp/clients" hx-target="#mcp-connections-region" hx-swap="outerHTML">
+      <div class="field">
+  <label class="field__label" for="mcp-register-name">Name</label>
+  <input class="field__input" id="mcp-register-name" name="name" type="text" value="" autocomplete="off" aria-describedby="mcp-register-name-help">
+  <p class="field__help" id="mcp-register-name-help">Shown to the user who approves the connection. Optional.</p>
+</div>
+      <div class="field">
+        <label class="field__label" for="mcp-register-uris">Redirect URIs</label>
+        <textarea class="field__input field__area mono" id="mcp-register-uris" name="redirect_uris" rows="3" spellcheck="false" aria-describedby="mcp-register-uris-help"></textarea>
+        <p class="field__help" id="mcp-register-uris-help">One per line, at most 5: http to 127.0.0.1, [::1] or localhost, https, or an app scheme such as com.example.app:/callback.</p>
+      </div>
+      <div class="form__actions">
+        <button class="button button--primary" type="submit">Register client</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+</div>
+  

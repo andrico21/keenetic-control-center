@@ -260,6 +260,12 @@ impl ClientsDocument {
             .is_some()
     }
 
+    /// Removes client `id`; the client, or `None` when there is no such client.
+    pub(crate) fn remove(&mut self, id: &str) -> Option<Client> {
+        let index = self.clients.iter().position(|client| client.id == id)?;
+        Some(self.clients.remove(index))
+    }
+
     /// Removes every dynamic client without a grant in `live` whose registration and last
     /// grant are [`UNUSED_CLIENT_SECONDS`] old at `now`; answers how many it removed.
     fn purge(&mut self, now: u64, live: &BTreeSet<String>) -> usize {

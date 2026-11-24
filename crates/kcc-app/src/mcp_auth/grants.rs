@@ -185,6 +185,13 @@ impl Grant {
         self.revoked
     }
 
+    /// Whether the grant is neither revoked nor expired at `now` (Unix seconds).
+    #[inline]
+    #[must_use]
+    pub const fn is_live(&self, now: u64) -> bool {
+        is_live(self, now)
+    }
+
     /// Whether `fingerprint` is the password fingerprint the grant was made with.
     pub(crate) fn password_matches(&self, fingerprint: &PasswordFingerprint) -> bool {
         same(
@@ -244,6 +251,21 @@ impl GrantsDocument {
             .iter()
             .filter(|grant| is_live(grant, now))
             .map(|grant| grant.client.clone())
+            .collect()
+    }
+
+    /// Revokes every unrevoked grant `matches` selects; the grants as revoked.
+    pub(crate) fn revoke_all<F>(&mut self, matches: F) -> Vec<Grant>
+    where
+        F: Fn(&Grant) -> bool,
+    {
+        self.grants
+            .iter_mut()
+            .filter(|grant| !grant.revoked && matches(grant))
+            .map(|grant| {
+                grant.revoked = true;
+                grant.clone()
+            })
             .collect()
     }
 

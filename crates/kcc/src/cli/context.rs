@@ -15,7 +15,7 @@ use kcc_app::{
     persist::StateStore,
     registry::RouterRegistry,
     secrets::MasterKey,
-    settings::{Config, default_config_dir},
+    settings::{Config, OverrideReport, default_config_dir},
     workflow::ChangeWorkflow,
 };
 use kcc_catalog::Catalog;
@@ -506,6 +506,15 @@ impl Target {
 ///
 /// Returns read, parse, override or validation failures.
 pub(crate) fn load_config(path: Option<&Path>) -> Outcome<Config> {
+    Ok(load_config_reporting(path)?.0)
+}
+
+/// As [`load_config`], also answering which settings the environment overrode.
+///
+/// # Errors
+///
+/// As [`load_config`].
+pub(crate) fn load_config_reporting(path: Option<&Path>) -> Outcome<(Config, Vec<OverrideReport>)> {
     let resolved = path.map(Path::to_path_buf).or_else(|| {
         default_config_dir()
             .map(|dir| dir.join("kcc.toml"))
@@ -515,7 +524,7 @@ pub(crate) fn load_config(path: Option<&Path>) -> Outcome<Config> {
         Some(file) => Config::load(&file)?,
         None => Config::default(),
     };
-    drop(config.apply_env_overrides()?);
+    let overrides = config.apply_env_overrides()?;
     config.validate()?;
-    Ok(config)
+    Ok((config, overrides))
 }

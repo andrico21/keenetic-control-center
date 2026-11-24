@@ -1,0 +1,7 @@
+{#- The MCP area's two tabs: the settings and the connections; the including template has a `connections` field, true on the connections page. -#}
+<nav class="tabs mcp-tabs" aria-label="{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_AREA) }}">
+  <ul class="tabs__list">
+    <li><a class="tabs__link" href="/ui/admin/mcp"{% if !connections %} aria-current="page"{% endif %}>{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_SETTINGS_TAB) }}</a></li>
+    <li><a class="tabs__link" href="/ui/admin/mcp/connections"{% if connections %} aria-current="page"{% endif %}>{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_TAB) }}</a></li>
+  </ul>
+</nav>

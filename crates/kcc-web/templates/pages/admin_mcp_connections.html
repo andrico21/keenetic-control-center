@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page admin-page">
+  {%- include "partials/admin_tabs.html" %}
+  {%- include "partials/admin_mcp_subtabs.html" %}
+  <h1 class="page__title">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_TITLE) }}</h1>
+  <p class="page__text">{{ t(keys::WEB_ADMIN_MCP_CONNECTIONS_TEXT) }}</p>
+  <div class="page-outcome" id="page-outcome" aria-live="polite"></div>
+  {{ region }}
+</div>
+{%- endblock %}

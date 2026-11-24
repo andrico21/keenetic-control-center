@@ -139,7 +139,7 @@ pub(crate) fn write_stdout(bytes: &[u8]) -> Outcome {
 }
 
 /// Aligns `rows` under `headers` with two spaces between columns.
-fn render_table(headers: &[String], rows: &[Vec<String>]) -> String {
+pub(crate) fn render_table(headers: &[String], rows: &[Vec<String>]) -> String {
     let mut widths = headers
         .iter()
         .map(|header| header.chars().count())
