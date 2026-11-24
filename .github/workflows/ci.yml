@@ -35,11 +35,11 @@ env:
 
 # Action pins: actions/checkout v7.0.1, dtolnay/rust-toolchain (master, the
 # `toolchain:` input selects the compiler), Swatinem/rust-cache v2.9.3,
-# taiki-e/install-action v2.90.6 (shellcheck 0.11.0); actionlint v1.7.12 through
+# taiki-e/install-action v2.90.8 (shellcheck 0.11.0); actionlint v1.7.12 through
 # `go install`. Refresh by hand or through Dependabot (which is told to leave
 # rust-toolchain alone, see .github/dependabot.yml). Gate tools are pinned
 # (R-GUIDE Section 12: tool installs ignore the dependency cooldown) and bumped
-# deliberately: cargo-deny 0.21.0, cargo-audit 0.23.0, cargo-vet 0.10.3,
+# deliberately: cargo-deny 0.22.0, cargo-audit 0.23.0, cargo-vet 0.10.4,
 # cargo-machete 0.10.1, taplo 0.10.0. A gate-tool version must be in the pinned
 # install-action's manifest: an unlisted one falls back to cargo-binstall.
 jobs:
@@ -196,9 +196,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
         with:
           toolchain: "1.100.0"
-      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
-          tool: cargo-deny@0.21.0
+          tool: cargo-deny@0.22.0
       - run: cargo deny check
 
   audit:
@@ -212,7 +212,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
         with:
           toolchain: "1.100.0"
-      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
           tool: cargo-audit@0.23.0
       - run: cargo audit
@@ -228,9 +228,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
         with:
           toolchain: "1.100.0"
-      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
-          tool: cargo-vet@0.10.3
+          tool: cargo-vet@0.10.4
       # Cargo.lock and supply-chain/imports.lock are committed, so this is
       # deterministic and offline. On a bump run `cargo vet` (fetches the
       # imported audit sets), add `cargo vet add-exemption <crate> <version>
@@ -250,7 +250,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master
         with:
           toolchain: "1.100.0"
-      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
           tool: cargo-machete@0.10.1
       # First-party crates only: spikes/ is throwaway code outside the profile.
@@ -297,7 +297,7 @@ jobs:
       - run: cargo xtask i18n-check
       - run: cargo xtask assets-check
       - run: cargo xtask cancel-safety
-      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
           tool: shellcheck@0.11.0
       - run: shellcheck deploy/podman/*.sh scripts/*.sh scripts/live/*.sh
@@ -323,9 +323,9 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: xtask
-      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
-          tool: cargo-deny@0.21.0,cargo-vet@0.10.3
+          tool: cargo-deny@0.22.0,cargo-vet@0.10.4
       - run: cargo clippy --manifest-path xtask/Cargo.toml --all-targets --all-features -- -D warnings
       - run: cargo test --manifest-path xtask/Cargo.toml --all-features
       - run: cargo deny --manifest-path xtask/Cargo.toml check
@@ -339,7 +339,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+      - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
           tool: taplo@0.10.0
       - run: taplo fmt --check

@@ -1095,6 +1095,8 @@ The first release, `0.1.0`, is in preparation and contains:
   `macos-26`. Dependabot now also proposes base-image updates, with the same 3-day
   cooldown. cargo-deny 0.22.0 and cargo-vet 0.10.4 wait for an install-action release
   past the cooldown that lists them. No behaviour change.
+- **CI gate tools cargo-deny 0.22.0 and cargo-vet 0.10.4**, installed through
+  `taiki-e/install-action` v2.90.8, whose manifest lists both. No behaviour change.
 
 ### Removed
 

@@ -20,8 +20,8 @@
   `cargo +1.100.0 build --workspace --all-features`.
 - **CI:** `.github/workflows/ci.yml` (jobs fmt, clippy, test, rustdoc, deny, audit, vet,
   machete, msrv, gates, xtask, taplo, guidelines) and `.github/dependabot.yml`. Gate tools
-  are installed at pinned versions: cargo-deny 0.20.2, cargo-audit 0.23.0, cargo-vet
-  0.10.3, cargo-machete 0.9.2, taplo 0.10.0 (see deviation 2); `release.yml` installs
+  are installed at pinned versions: cargo-deny 0.22.0, cargo-audit 0.23.0, cargo-vet
+  0.10.4, cargo-machete 0.9.2, taplo 0.10.0 (see deviation 2); `release.yml` installs
   cargo-zigbuild 0.24.1. Dependabot carries a 3-day
   `cooldown` for both cargo ecosystems (`/`, `/xtask`).
 - **Notable dependencies:** `rmcp-server-kit`, `axum`, `askama`, `reqwest`/`rustls`,
