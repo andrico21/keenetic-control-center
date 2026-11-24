@@ -206,3 +206,18 @@ New for this plan:
 - A mutation driver that applies one mutant, runs one filtered suite and restores: give the filter a control test that passes (libtest takes several filters after `--`), else a mutant that fails every filtered test reports passed=0. `drop((a, b))` of Copy/reference tuples trips `dropping_copy_types` under warnings=deny; bind to `let _unaudited = (..)` instead.
 - A dialog-first Web change (`POST` without `confirm=yes` answers the kit dialog via `respond::in_dialog`, the dialog re-posts to the same URL with the id in the query) needs no GET dialog route and keeps the form body to `confirm`/`object`/`confirm_name`.
 - Phone tables: `display:grid` rows with `td[data-label]::before { content: attr(data-label) }` and a visually hidden thead keep every action reachable at 320/390 without inline style (CSP-safe).
+
+## [2026-11-24] Todo 31 Windows CI fix (e31w)
+- Root cause: `serve_oauth` `Fixture::state_bytes` read every file under a live child's state dir, including held `*.lock` sidecars; Windows byte-range locks are mandatory, so `fs::read` fails with os error 33 (Linux advisory locks never reproduce it).
+- Rule: never read `*.lock` files or state files of a live server raw; walkers skip `*.lock` (see `serve_notify/process.rs::files`, `serve_oauth/fixture.rs::bytes_below`). clippy: no `else if` without final `else`, no shadowing of a fn parameter by a loop binding.
+
+## [2026-11-24] Todo 33 fix round (e33f) learnings
+- A role ceiling that compares only the change's own (value, role) pairs misses every change that moves WHERE an existing mapping applies (issuer, JWKS URL, audience, role claim, a listener switched to the source, a replaced CA). Ask for each trust input: "who can mint identities after this change?" and check the actor against every role those identities get.
+- clippy here (nursery/pedantic): `too_long_first_doc_paragraph` fires on any doc comment whose first paragraph runs over ~2 lines, test docs included: write "Regression (todo N): <one line>." then a blank `///` line; `module_name_repetitions` fires for `trust::TrustAnchor` (suffix match too): name the module after something else (`sources`); `assert!(x.is_empty())` without a message trips `assert_is_empty`; `[x.clone()]` as a slice trips `cloned_ref_to_slice_refs` (`slice::from_ref`).
+- A pure screening function with an injected resolver (`screened(host, allowlist, |host| Some(vec![ip]))`) makes every SSRF class unit-testable offline; the real resolver stays a thin wrapper.
+
+## [2026-11-24] Todo 32 fix round (e32f) learnings
+- An expired-but-unrevoked grant for a listing test: issue it LAST through a GrantStore/PendingStore on a fixed past clock (Web: NOW-2h with a 1 h TTL; CLI, whose child uses the wall clock: a fixed 2001 instant with a 1 h TTL). `GrantStore::issue` purges every grant not live at its own instant, so an expired grant seeded first is gone after the next issue.
+- Prefix mutants of an account match need BOTH directions pinned (`olga` vs `olgab`, revoke each): `starts_with(account)` and `account.starts_with(..)` survive a one-directional test.
+- `clippy::too_long_first_doc_paragraph` (nursery) fires on 3-line first paragraphs of test docs: write a one-line first sentence, then a blank `///` line.
+- The mutation loop waited mostly for build slots: 33 runs (30 mutants) took ~85 min of wall time with ~1-3 min of actual work each.

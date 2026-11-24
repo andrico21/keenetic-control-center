@@ -161,3 +161,7 @@
 - A ManageMcp holder may revoke any account's grants (also an admin's): revocation only removes access, so no role-dominance check was added (unlike API key revoke, which compares roles).
 - Pre-existing, seen during the visual QA, not todo 32's: the admin tab bar is cut off at 390 px ("Notif...") with only a thin scrollbar as cue; the shared kit dialog's typed-name input has a faint edge in dark mode and the dialog's Close is plain text.
 - `delete_client` revokes the client's grants and then removes the client under the clients-file lock; `GrantStore::issue` marks the client and pushes the grant in two separate locked steps, so an issue that passed its client check just before the delete can still push a grant for the deleted client right after it. todo 31's fix round (FilePrincipals refusing a grant whose client is gone) closes the authority side; the listing would show such a grant with the bare client id until it is revoked.
+
+## [2026-11-24] Todo 33 fix round (e33f): residuals (not changed)
+- The CA ceiling on upload is checked by the Web against the roles at that moment; the supervisor stores the file without an actor, so a role change between the check and the store (milliseconds) is not re-checked. Settings changes re-check at commit.
+- A mapping target that names no configured role is skipped by the source ceiling (it grants nothing today); a role created later under that name would be handed out by the provider without anyone re-checking the provider's origin.

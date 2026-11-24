@@ -759,7 +759,7 @@ W2, W3, W5, W6, W7 and W8 hold fewer than the template's 5-8 todos, and W9, W10 
   Commit: Y | feat(web,serve,mcp): sign in to MCP with a kcc account through OAuth 2.1
   Recommended task executor category: deep-high - protocol, browser flow and authority checks across three crates
 
-- [ ] 32. MCP connections page and CLI
+- [x] 32. MCP connections page and CLI
   What to do / Must NOT do:
   - Web `/ui/admin/mcp/connections` (`ManageMcp`; a second tab in the MCP area): grants by account and client (client name, redirect host, created, last used, resource), revoke one or all of an account; registered clients with delete; pre-register a client (name, redirect URIs) for clients without DCR; audit `web.mcp_grant_revoke`, `web.mcp_client_delete`, `web.mcp_client_register`.
   - CLI `kcc mcp settings show` (effective settings with sources; `--json`), `kcc mcp connections list|revoke <grant-id>|revoke-account <user>`, `kcc mcp clients list|delete <id>` (`ManageMcp` through `[cli] role`); changes reach a running server at the next MCP call through todo 31's version-checked `McpPrincipals` (grants) and through StateWatch followers for the clients file.
