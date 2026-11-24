@@ -165,3 +165,9 @@
 ## [2026-11-24] Todo 33 fix round (e33f): residuals (not changed)
 - The CA ceiling on upload is checked by the Web against the roles at that moment; the supervisor stores the file without an actor, so a role change between the check and the store (milliseconds) is not re-checked. Settings changes re-check at commit.
 - A mapping target that names no configured role is skipped by the source ceiling (it grants nothing today); a role created later under that name would be handed out by the provider without anyone re-checking the provider's origin.
+
+## [2026-11-24] Todo 20 (e20) findings (docs sweep; no code changed)
+- `crates/kcc-web/src/config_page/backup_rows.rs:150` (`stamp`) still calls `humantime::format_rfc3339_seconds(..).to_string()`: a planted backup file name with a timestamp of year 10000 or later makes `ToString` panic the configuration page (needs state-dir write access). `Timestamp::at` in admin_shared.rs was fixed in todo 27.
+- The plan's `.pub` host key file is not backed by code; the product text sends the admin to `ssh-keyscan` and `dropbearkey -y`. Docs mark the `.pub` file as unverified (BACKLOG).
+- CHANGELOG "MCP settings state file" bullet still says only `raw` is safety_reducing; `entware-ssh` is too (definitions.rs). Additions-only audit, left as is.
+- BACKLOG now lists which Entware facts no live suite checks (authorized_keys permissions, rc.func exit 8 and 255, chroot, dropbear channel close, Netcraze parity).
