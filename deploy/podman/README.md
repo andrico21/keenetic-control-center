@@ -194,6 +194,44 @@ The fakes run on the host from the `kcc-testkit` binaries (`kcc-fake-router`,
 `kcc-fake-sinks`); the container reaches them through pasta port forwards on its own
 loopback.
 
+The first fake router also serves the fake Entware SSH server (`--entware-ssh-port`,
+`KCC_E2E_SSH_PORT`, default 18422, forwarded into the container like the router ports).
+The `entware-ssh` step runs `kcc entware ssh enable` and `probe`, a `bootstrap` with a
+wrong root password (refused, exit 3), a second probe and the `bootstrap` with the
+password file (a Podman secret in container mode), `packages list`, `packages install
+mc`, `services restart S80nginx` and `ssh revoke`, after which `packages list` is refused
+(exit 10). So the SSH client, its key handling and the enrolment run inside the container
+under the profile.
+
+The configuration also enables the dedicated MCP listener (`[mcp] endpoint = "both"`,
+`[mcp.dedicated]` on `KCC_E2E_MCP_PORT`, default 18444, `tls = "self_signed"`,
+`public_url = "https://localhost:<port>"`; in the container it binds `0.0.0.0` and is
+published on `127.0.0.1:<port>`, like the Web UI). Four MCP steps follow:
+
+- `mcp-dedicated`: downloads the listener's certificate from the MCP page; an unknown
+  API key is refused (401) and `tools/list` with the API key succeeds there.
+- `mcp-mtls`: an `openssl`-generated client CA and client certificate; the CA is uploaded
+  on the MCP page and `auth.dedicated.mtls = "required"` saved there (with the password
+  re-entry, then the restart is polled until applied); `initialize` without a certificate
+  is refused and `tools/list` with it succeeds.
+- `mcp-main-restart`: saves `auth.main.oauth = "kcc"` on the MCP page with CSRF and the
+  password re-entry, polls the status fragment until the restart of the main listener is
+  applied (bounded by its deadline, `server.shutdown_timeout` + 10 s), then `/healthz`,
+  the dashboard with the session from before the restart, and `/metrics` answer.
+- `mcp-oauth`: the whole "Sign in with kcc" flow with `curl` and `openssl` on the main
+  listener (issuer `https://localhost:<web port>`): protected-resource and
+  authorization-server metadata, registration with a loopback redirect URI, the
+  authorization request, the Web login carrying the request id, the consent approval
+  (CSRF header, `code` read from `HX-Redirect`), the token request with the S256
+  verifier and `tools/list` with the access token, so the kit's loopback JWKS fetch runs
+  inside the container; then `kcc mcp connections revoke` and the next `tools/list` of
+  the same session is refused (`forbidden`).
+
+`--only <step>[,<step>...]` runs the start-up steps (`privilege-floor`, `accounts`,
+`startup`, `healthz`), the named steps and the closing `graceful-sigterm` and `no-denials`
+(`mcp-oauth` brings `mcp-main-restart`, which switches the main listener to kcc
+sign-in), for example `bash deploy/podman/e2e.sh --container --only entware-ssh`.
+
 The generator assigns every traced syscall to a fixed rationale group
 (`xtask/src/seccomp_groups.rs`) and fails on a syscall no group lists, so a new kind of
 I/O cannot slip in unreviewed. It also adds:

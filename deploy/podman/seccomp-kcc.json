@@ -44,6 +44,14 @@
       "action": "SCMP_ACT_ALLOW"
     },
     {
+      "_group": "secret memory locking: the Entware SSH client (russh-cryptovec) locks the pages of every key and session buffer against swapping and unlocks them before they are freed; it ignores a refusal, so a missing rule would silently leave key material swappable",
+      "names": [
+        "mlock",
+        "munlock"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
       "_group": "signals: tokio's SIGTERM/SIGINT/SIGHUP handlers and the alternate signal stack of every thread",
       "names": [
         "rt_sigaction",
@@ -54,12 +62,13 @@
       "action": "SCMP_ACT_ALLOW"
     },
     {
-      "_group": "file reads: kcc.toml, the mounted secrets (master key, TLS pair, router passwords), /proc/self/status, /etc/hosts and /etc/resolv.conf, the CA bundle; ioctl is the terminal probe (TCGETS/TIOCGWINSZ) of the CLI output",
+      "_group": "file reads: kcc.toml, the mounted secrets (master key, TLS pair, router passwords), /proc/self/status, /etc/hosts and /etc/resolv.conf, the CA bundle; ioctl is the terminal probe (TCGETS/TIOCGWINSZ) of the CLI output and FIONBIO, the blocking switch of a std socket: the listener health probe's connect with a timeout after an MCP listener restart, and the loopback JWKS listener of kcc sign-in handed to tokio",
       "names": [
         "close",
         "fcntl",
         "fstat",
         "getdents64",
+        "ioctl",
         "lseek",
         "lstat",
         "newfstatat",

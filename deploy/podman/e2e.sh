@@ -9,12 +9,16 @@
 #   deploy/podman/e2e.sh --native <kcc-binary> [--trace-dir <dir>]
 #   deploy/podman/e2e.sh --container [--image <ref>] [--seccomp <profile.json>]
 #   options: --keep-going (report every step instead of stopping at the first failure)
+#            --only <step>[,<step>...] (run only these steps after the start-up steps;
+#            mcp-oauth brings mcp-main-restart, which switches the main listener to it)
 #
 # Environment: CARGO_TARGET_DIR (testkit binaries), KCC_E2E_NAME (prefix of every podman
 # object, default kcc-e2e), KCC_E2E_WEB_PORT (default 18443), KCC_E2E_METRICS_PORT
 # (default 19090), KCC_E2E_ROUTER_PORT (first of two fake router ports, default 18481),
-# KCC_E2E_KEEP=1 (keep the work directory with every log), KCC_E2E_VERBOSE=1 (print the
-# output of passing steps too).
+# KCC_E2E_SSH_PORT (the fake Entware SSH server of the first router, default 18422),
+# KCC_E2E_MCP_PORT (the dedicated MCP listener, default 18444), KCC_E2E_KEEP=1 (keep the
+# work directory with every log), KCC_E2E_VERBOSE=1 (print the output of passing steps
+# too).
 # The container never runs as root, never gains a capability and always runs under the
 # seccomp profile.
 set -euo pipefail
@@ -26,6 +30,7 @@ IMAGE="kcc:test"
 SECCOMP="${ROOT}/deploy/podman/seccomp-kcc.json"
 TRACE_DIR=""
 KEEP_GOING=0
+ONLY=""
 while (($# > 0)); do
   case "$1" in
     --native) MODE=native; BIN="$(realpath "$2")"; shift 2 ;;
@@ -34,21 +39,28 @@ while (($# > 0)); do
     --seccomp) SECCOMP="$(realpath "$2")"; shift 2 ;;
     --trace-dir) TRACE_DIR="$(realpath -m "$2")"; shift 2 ;;
     --keep-going) KEEP_GOING=1; shift ;;
-    *) echo "usage: $0 --native <kcc> [--trace-dir <dir>] | --container [--image <ref>] [--seccomp <json>] [--keep-going]" >&2; exit 2 ;;
+    --only) ONLY=",$2,"; shift 2 ;;
+    *) echo "usage: $0 --native <kcc> [--trace-dir <dir>] | --container [--image <ref>] [--seccomp <json>] [--keep-going] [--only <steps>]" >&2; exit 2 ;;
   esac
 done
 [[ -n "${MODE}" ]] || { echo "pass --native <kcc> or --container" >&2; exit 2; }
+if [[ "${ONLY}" == *,mcp-oauth,* && "${ONLY}" != *,mcp-main-restart,* ]]; then
+  ONLY="${ONLY}mcp-main-restart,"
+fi
 
 NAME="${KCC_E2E_NAME:-kcc-e2e}"
 WEB_PORT="${KCC_E2E_WEB_PORT:-18443}"
 METRICS_PORT="${KCC_E2E_METRICS_PORT:-19090}"
 ROUTER_A_PORT="${KCC_E2E_ROUTER_PORT:-18481}"
 ROUTER_B_PORT="$((ROUTER_A_PORT + 1))"
+SSH_PORT="${KCC_E2E_SSH_PORT:-18422}"
+MCP_PORT="${KCC_E2E_MCP_PORT:-18444}"
 TARGET_DIR="${CARGO_TARGET_DIR:-${ROOT}/target}"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/${NAME}.XXXXXX")"
 CTR="${NAME}-kcc"
 VOLUME="${NAME}-state"
-SECRETS=(master-key tls-cert tls-key router-password user-password telegram-token)
+SECRETS=(master-key tls-cert tls-key router-password user-password telegram-token
+  entware-password entware-wrong-password)
 PIDS=()
 FAILED=0
 
@@ -112,6 +124,10 @@ trap cleanup EXIT
 step() {
   local name="$1" log rc
   shift
+  case "${name}" in
+    privilege-floor | accounts | startup | healthz | graceful-sigterm | no-denials) ;;
+    *) [[ -z "${ONLY}" || "${ONLY}" == *",${name},"* ]] || return 0 ;;
+  esac
   log="${WORK}/step-${name}.log"
   set +e
   ( set -e; "$@" ) >"${log}" 2>&1
@@ -148,9 +164,14 @@ cargo build --quiet --locked -p kcc-testkit --bin kcc-fake-router --bin kcc-fake
 printf 'e2e-router-password\n' >"${WORK}/router.password"
 for side in a b; do
   port="${ROUTER_A_PORT}"
-  [[ "${side}" == b ]] && port="${ROUTER_B_PORT}"
+  # The first router also serves the fake Entware SSH server (root password `keenetic`).
+  ssh=(--entware-ssh-port "${SSH_PORT}")
+  if [[ "${side}" == b ]]; then
+    port="${ROUTER_B_PORT}"
+    ssh=()
+  fi
   "${TARGET_DIR}/debug/kcc-fake-router" --model KN-1811 --firmware 5.1 --mode router --seed-log 3 \
-    --bind "127.0.0.1:${port}" --password-file "${WORK}/router.password" \
+    --bind "127.0.0.1:${port}" --password-file "${WORK}/router.password" "${ssh[@]}" \
     >"${WORK}/router-${side}.log" 2>&1 &
   PIDS+=("$!")
 done
@@ -158,6 +179,7 @@ NO_COLOR=1 "${TARGET_DIR}/debug/kcc-fake-sinks" >"${WORK}/sinks.out" 2>"${WORK}/
 PIDS+=("$!")
 wait_line 30 "${WORK}/router-a.log" "fake router listening"
 wait_line 30 "${WORK}/router-b.log" "fake router listening"
+wait_line 30 "${WORK}/router-a.log" "fake Entware SSH listening"
 wait_line 30 "${WORK}/sinks.out" "^elasticsearch "
 wait_line 30 "${WORK}/sinks.out" "^telegram "
 LOKI_PORT="$(sed -n 's|^loki http://127.0.0.1:||p' "${WORK}/sinks.out")"
@@ -173,6 +195,9 @@ chmod 0600 "${WORK}/etc/e2e-user.password"
 # An obviously fake bot token in the shape kcc accepts; the fake Telegram takes any token.
 printf '%s' '0:e2e-fake-token-not-a-real-telegram-bot' >"${WORK}/telegram.token"
 chmod 0600 "${WORK}/telegram.token"
+printf '%s' 'keenetic' >"${WORK}/entware.password"
+printf '%s' 'not-the-entware-password' >"${WORK}/entware-wrong.password"
+chmod 0600 "${WORK}/entware.password" "${WORK}/entware-wrong.password"
 if [[ "${MODE}" == native ]]; then
   HOST_NAME="localhost"
   LISTEN="127.0.0.1"
@@ -185,6 +210,9 @@ if [[ "${MODE}" == native ]]; then
   ROUTER_PASSWORD="${WORK}/router.password"
   USER_PASSWORD="${WORK}/etc/e2e-user.password"
   TELEGRAM_TOKEN="${WORK}/telegram.token"
+  ENTWARE_PASSWORD="${WORK}/entware.password"
+  ENTWARE_WRONG_PASSWORD="${WORK}/entware-wrong.password"
+  MCP_BIND="127.0.0.1"
   export HOME="${WORK}/home" XDG_CONFIG_HOME="${WORK}/home/config" \
     XDG_STATE_HOME="${WORK}/home/state" KCC_MASTER_KEY_FILE="${WORK}/master.key"
   WRAP=()
@@ -197,7 +225,7 @@ if [[ "${MODE}" == native ]]; then
   kcc_once() { kcc "$@"; }
 else
   HOST_NAME="fakes.kcc-e2e.test"
-  FORWARDS="-T,${ROUTER_A_PORT},-T,${ROUTER_B_PORT},-T,${LOKI_PORT},-T,${ES_PORT},-T,${TELEGRAM_PORT}"
+  FORWARDS="-T,${ROUTER_A_PORT},-T,${ROUTER_B_PORT},-T,${SSH_PORT},-T,${LOKI_PORT},-T,${ES_PORT},-T,${TELEGRAM_PORT}"
   LISTEN="0.0.0.0"
   LISTEN_PORT=8443
   METRICS_BIND="0.0.0.0:9090"
@@ -210,6 +238,10 @@ else
   # container's root, so the password reaches the image user as a secret.
   USER_PASSWORD="/run/secrets/kcc-user-password"
   TELEGRAM_TOKEN="/run/secrets/kcc-telegram-token"
+  ENTWARE_PASSWORD="/run/secrets/kcc-entware-password"
+  ENTWARE_WRONG_PASSWORD="/run/secrets/kcc-entware-wrong-password"
+  # Published like the Web UI, so the listener binds the container's interface.
+  MCP_BIND="0.0.0.0"
   # The certificate is generated by the image itself, as the non-root image user mapped
   # onto the invoking host user, so the files stay owned by that host user.
   podman run --rm --userns=keep-id:uid=65532,gid=65532 --read-only --cap-drop=ALL \
@@ -221,6 +253,8 @@ else
   podman secret create "${NAME}-router-password" "${WORK}/router.password" >/dev/null
   podman secret create "${NAME}-user-password" "${WORK}/etc/e2e-user.password" >/dev/null
   podman secret create "${NAME}-telegram-token" "${WORK}/telegram.token" >/dev/null
+  podman secret create "${NAME}-entware-password" "${WORK}/entware.password" >/dev/null
+  podman secret create "${NAME}-entware-wrong-password" "${WORK}/entware-wrong.password" >/dev/null
   podman volume create "${VOLUME}" >/dev/null
   HARDENING=(--read-only --cap-drop=ALL --security-opt no-new-privileges
     --security-opt "seccomp=${SECCOMP}" --memory=256m --memory-swap=256m --pids-limit=128)
@@ -233,7 +267,9 @@ else
     --secret "${NAME}-tls-key,target=/run/secrets/kcc-tls-key,uid=65532,gid=65532,mode=0400"
     --secret "${NAME}-router-password,target=/run/secrets/kcc-router-password,uid=65532,gid=65532,mode=0400"
     --secret "${NAME}-user-password,target=/run/secrets/kcc-user-password,uid=65532,gid=65532,mode=0400"
-    --secret "${NAME}-telegram-token,target=/run/secrets/kcc-telegram-token,uid=65532,gid=65532,mode=0400")
+    --secret "${NAME}-telegram-token,target=/run/secrets/kcc-telegram-token,uid=65532,gid=65532,mode=0400"
+    --secret "${NAME}-entware-password,target=/run/secrets/kcc-entware-password,uid=65532,gid=65532,mode=0400"
+    --secret "${NAME}-entware-wrong-password,target=/run/secrets/kcc-entware-wrong-password,uid=65532,gid=65532,mode=0400")
   kcc_cfg() { podman exec "${CTR}" /kcc --config "$@"; }
   kcc_once() { podman run --rm "${RUNTIME[@]}" "${IMAGE}" --config "${CONF}" "$@"; }
 fi
@@ -256,6 +292,14 @@ public_url = "https://localhost:${WEB_PORT}"
 
 [mcp]
 http_enabled = true
+endpoint = "both"
+
+[mcp.dedicated]
+enabled = true
+bind = "${MCP_BIND}"
+port = ${MCP_PORT}
+public_url = "https://localhost:${MCP_PORT}"
+tls = "self_signed"
 
 [outbound]
 allow_loopback = true
@@ -347,7 +391,8 @@ launch_server() {
     PIDS+=("$!")
   else
     podman run -d --name "${CTR}" "${RUNTIME[@]}" \
-      -p "127.0.0.1:${WEB_PORT}:8443" -p "127.0.0.1:${METRICS_PORT}:9090" "${IMAGE}" >/dev/null \
+      -p "127.0.0.1:${WEB_PORT}:8443" -p "127.0.0.1:${METRICS_PORT}:9090" \
+      -p "127.0.0.1:${MCP_PORT}:${MCP_PORT}" "${IMAGE}" >/dev/null \
       || return 1
     podman logs -f "${CTR}" >"${WORK}/serve.log" 2>&1 &
     PIDS+=("$!")
@@ -546,6 +591,315 @@ mcp_http() {
     | tee "${WORK}/mcp-call.txt" | grep -q '"isError":false'
 }
 
+# ---------------------------------------------------------------- Entware SSH leg
+# Every Entware SSH command needs the destructive confirmation, reads included.
+entware() { kcc --router fake-a --json --confirm-destructive fake-a "$@"; }
+
+# Probes the fake's host key into ${WORK}/ssh-probe.json (the ticket stays out of the log).
+entware_probe() {
+  entware entware ssh probe >"${WORK}/ssh-probe.json"
+  jq -e '.ticket and (.fingerprint | startswith("SHA256:"))' "${WORK}/ssh-probe.json" >/dev/null
+}
+
+# Bootstraps with the ticket of the last probe and the Entware password file $1.
+entware_bootstrap() {
+  entware --password-file "$1" entware ssh bootstrap \
+    --ticket "$(jq -r '.ticket' "${WORK}/ssh-probe.json")" \
+    --fingerprint "$(jq -r '.fingerprint' "${WORK}/ssh-probe.json")"
+}
+
+entware_ssh() {
+  local code=0
+  entware entware ssh enable --port "${SSH_PORT}"
+  entware_probe
+  # A wrong root password is refused (exit 3) and burns the ticket: probe again.
+  entware_bootstrap "${ENTWARE_WRONG_PASSWORD}" || code=$?
+  echo "bootstrap with a wrong password: exit ${code}"
+  [[ "${code}" == 3 ]]
+  entware_probe
+  entware_bootstrap "${ENTWARE_PASSWORD}" | tee "${WORK}/ssh-bootstrap.json"
+  jq -e '.enrolled' "${WORK}/ssh-bootstrap.json" >/dev/null
+  entware entware packages list | tee "${WORK}/ssh-packages.json"
+  jq -e '[.packages[].name] | index("opkg")' "${WORK}/ssh-packages.json" >/dev/null
+  entware entware packages install mc | tee "${WORK}/ssh-install.json"
+  jq -e '.package == "mc" and .before == null and .after != null' "${WORK}/ssh-install.json" >/dev/null
+  entware entware services restart S80nginx | tee "${WORK}/ssh-restart.json"
+  jq -e '.service == "S80nginx" and .state == "running"' "${WORK}/ssh-restart.json" >/dev/null
+  entware entware ssh revoke | tee "${WORK}/ssh-revoke.json"
+  jq -e '.revoked' "${WORK}/ssh-revoke.json" >/dev/null
+  # Revoked: kcc no longer holds an enrolment for the router (exit 10, nothing sent).
+  code=0
+  entware entware packages list || code=$?
+  echo "packages list after the revoke: exit ${code}"
+  [[ "${code}" == 10 ]]
+}
+
+# ---------------------------------------------------------------- MCP legs
+DEDICATED="https://localhost:${MCP_PORT}/mcp"
+OAUTH_REDIRECT="http://127.0.0.1:9/callback"
+
+# The CSRF token of the page at path $1, read with the cookie jar $2.
+page_csrf() {
+  local html
+  html="$(curl_tls -c "$2" -b "$2" "${BASE}$1")"
+  sed -n 's/.*<meta name="csrf-token" content="\([^"]*\)".*/\1/p' <<<"${html}" | head -n 1
+}
+
+# Signs the e2e user in with the cookie jar $1.
+web_sign_in() {
+  local csrf code
+  csrf="$(page_csrf /ui/login "$1")"
+  [[ -n "${csrf}" ]]
+  code="$(curl_tls -c "$1" -b "$1" -o /dev/null -w '%{http_code}' \
+    -H "Origin: ${BASE}" -H 'sec-fetch-site: same-origin' -H "x-csrf-token: ${csrf}" \
+    --data-urlencode username=e2e --data-urlencode "password@${WORK}/etc/e2e-user.password" \
+    "${BASE}/ui/login")"
+  echo "sign-in: ${code}"
+  [[ "${code}" == 303 ]]
+}
+
+# A same-origin htmx POST to path $2 with the cookie jar $1; curl options after them.
+web_post() {
+  local jar="$1" path="$2" csrf
+  shift 2
+  csrf="$(page_csrf /ui/admin/mcp "${jar}")"
+  [[ -n "${csrf}" ]]
+  curl_tls -c "${jar}" -b "${jar}" -H "Origin: ${BASE}" -H 'sec-fetch-site: same-origin' \
+    -H "x-csrf-token: ${csrf}" -H 'hx-request: true' "$@" "${BASE}${path}"
+}
+
+# Saves the MCP settings `key=value` pairs after the jar $1 on the MCP page, with the
+# password re-entry a sign-in change needs, and waits for the listener restart to be
+# applied. The status fragment's own deadline bounds the wait: server.shutdown_timeout
+# + 10 s after the save.
+mcp_settle() {
+  local jar="$1" pair args=() code until html
+  shift
+  for pair in "$@"; do
+    args+=(--data-urlencode "field=${pair%%=*}" --data-urlencode "${pair}")
+  done
+  code="$(web_post "${jar}" /ui/admin/mcp -o "${WORK}/mcp-save.html" -w '%{http_code}' \
+    "${args[@]}" --data-urlencode "password@${WORK}/etc/e2e-user.password")"
+  echo "save $*: ${code}"
+  until="$(sed -n 's|.*hx-get="/ui/admin/mcp/status?until=\([0-9]*\)".*|\1|p' "${WORK}/mcp-save.html" | head -n 1)"
+  if [[ "${code}" != 200 || -z "${until}" ]]; then
+    cat "${WORK}/mcp-save.html"
+    return 1
+  fi
+  while (($(date +%s) <= until + 1)); do
+    html="$(curl_tls -b "${jar}" "${BASE}/ui/admin/mcp/status?until=${until}" || true)"
+    if grep -q 'data-message-key="web-admin-mcp-restart-applied"' <<<"${html}"; then
+      echo "restart applied"
+      return 0
+    fi
+    if grep -q 'data-message-key=' <<<"${html}"; then
+      echo "${html}"
+      return 1
+    fi
+    sleep 0.5
+  done
+  echo "the restart was not applied by its deadline ${until}"
+  return 1
+}
+
+# The JSON-RPC message of an MCP reply on stdin: the body, or the last `data:` line of an
+# event stream.
+rpc_message() {
+  local body data
+  body="$(cat)"
+  data="$(sed -n 's/^data:[[:space:]]*//p' <<<"${body}" | sed '/^[[:space:]]*$/d' | tail -n 1)"
+  printf '%s\n' "${data:-${body}}"
+}
+
+# POSTs the JSON-RPC text $2 to the MCP endpoint $1 in the session MCP_SESSION (when one
+# is open); curl options after them. The headers go to ${WORK}/mcp.headers.
+mcp_post() {
+  local url="$1" body="$2"
+  shift 2
+  curl -sS --max-time 20 -D "${WORK}/mcp.headers" "$@" \
+    -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' \
+    ${MCP_SESSION:+-H "Mcp-Session-Id: ${MCP_SESSION}"} --data "${body}" "${url}"
+}
+
+MCP_INITIALIZE='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"e2e","version":"1"}}}'
+
+# Opens an MCP session at $1 with the curl options after it: sets MCP_SESSION.
+mcp_open() {
+  local url="$1"
+  shift
+  MCP_SESSION=""
+  mcp_post "${url}" "${MCP_INITIALIZE}" "$@" >/dev/null
+  MCP_SESSION="$(sed -n 's/^mcp-session-id: *\([^[:space:]]*\).*/\1/Ip' "${WORK}/mcp.headers")"
+  [[ -n "${MCP_SESSION}" ]]
+  mcp_post "${url}" '{"jsonrpc":"2.0","method":"notifications/initialized"}' "$@" >/dev/null
+}
+
+# The JSON-RPC answer to tools/list at $1 in the open session; curl options after it.
+mcp_tools() {
+  local url="$1"
+  shift
+  mcp_post "${url}" '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' "$@" | rpc_message
+}
+
+# Downloads the dedicated listener's self-signed certificate from the MCP page (jar $1),
+# waiting for the listener to have generated it.
+dedicated_cert() {
+  local code tries
+  for ((tries = 60; tries > 0; tries--)); do
+    code="$(curl_tls -b "$1" -o "${WORK}/dedicated-cert.pem" -w '%{http_code}' \
+      "${BASE}/ui/admin/mcp/certificate")"
+    [[ "${code}" == 200 ]] && break
+    sleep 0.5
+  done
+  echo "dedicated certificate: ${code}"
+  [[ "${code}" == 200 ]]
+  for ((tries = 60; tries > 0; tries--)); do
+    curl -sS --max-time 5 --cacert "${WORK}/dedicated-cert.pem" -o /dev/null "${DEDICATED}" && return 0
+    sleep 0.5
+  done
+  return 1
+}
+
+mcp_dedicated() {
+  local jar="${WORK}/jar-dedicated" key code
+  web_sign_in "${jar}"
+  dedicated_cert "${jar}"
+  code="$(curl -sS --max-time 20 --cacert "${WORK}/dedicated-cert.pem" -o /dev/null -w '%{http_code}' \
+    -H 'Authorization: Bearer kcc-e2e-not-a-key' -H 'Accept: application/json, text/event-stream' \
+    -H 'Content-Type: application/json' --data "${MCP_INITIALIZE}" "${DEDICATED}")"
+  echo "unknown API key: ${code}"
+  [[ "${code}" == 401 ]]
+  key="$(jq -r '.key' "${WORK}/apikey.json")"
+  mcp_open "${DEDICATED}" --cacert "${WORK}/dedicated-cert.pem" -H "Authorization: Bearer ${key}"
+  mcp_tools "${DEDICATED}" --cacert "${WORK}/dedicated-cert.pem" -H "Authorization: Bearer ${key}" \
+    | tee "${WORK}/dedicated-tools.json"
+  jq -e '[.result.tools[].name] | index("kcc_router_info")' "${WORK}/dedicated-tools.json" >/dev/null
+}
+
+mcp_mtls() {
+  local jar="${WORK}/jar-mtls" dir="${WORK}/mtls" code
+  mkdir -p "${dir}"
+  openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 2 \
+    -subj /CN=kcc-e2e-client-ca -addext basicConstraints=critical,CA:TRUE \
+    -addext keyUsage=critical,keyCertSign,cRLSign -keyout "${dir}/ca.key" -out "${dir}/ca.pem"
+  openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj /CN=kcc-e2e-client \
+    -keyout "${dir}/client.key" -out "${dir}/client.csr"
+  printf '%s\n' basicConstraints=critical,CA:FALSE keyUsage=critical,digitalSignature \
+    extendedKeyUsage=clientAuth >"${dir}/client.ext"
+  openssl x509 -req -in "${dir}/client.csr" -CA "${dir}/ca.pem" -CAkey "${dir}/ca.key" \
+    -set_serial 2 -days 2 -extfile "${dir}/client.ext" -out "${dir}/client.pem"
+  web_sign_in "${jar}"
+  dedicated_cert "${jar}"
+  code="$(web_post "${jar}" /ui/admin/mcp/ca -o "${WORK}/mtls-upload.html" -w '%{http_code}' \
+    -F kind=mtls -F "file=@${dir}/ca.pem;type=application/x-pem-file")"
+  echo "client CA upload: ${code}"
+  [[ "${code}" == 200 ]]
+  grep -q 'web-admin-mcp-ca-saved' "${WORK}/mtls-upload.html"
+  mcp_settle "${jar}" auth.dedicated.mtls=required
+  code="$(curl -sS --max-time 20 --cacert "${WORK}/dedicated-cert.pem" -o /dev/null -w '%{http_code}' \
+    -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' \
+    --data "${MCP_INITIALIZE}" "${DEDICATED}" || true)"
+  echo "initialize without a client certificate: ${code}"
+  [[ "${code}" != 200 ]]
+  mcp_open "${DEDICATED}" --cacert "${WORK}/dedicated-cert.pem" \
+    --cert "${dir}/client.pem" --key "${dir}/client.key"
+  mcp_tools "${DEDICATED}" --cacert "${WORK}/dedicated-cert.pem" \
+    --cert "${dir}/client.pem" --key "${dir}/client.key" | tee "${WORK}/mtls-tools.json"
+  jq -e '.result.tools | length > 0' "${WORK}/mtls-tools.json" >/dev/null
+}
+
+mcp_main_restart() {
+  local jar="${WORK}/jar-restart" code
+  web_sign_in "${jar}"
+  mcp_settle "${jar}" auth.main.oauth=kcc
+  healthz
+  code="$(curl_tls -b "${jar}" -o /dev/null -w '%{http_code}' "${BASE}/ui/r/fake-a")"
+  echo "dashboard after the restart: ${code}"
+  [[ "${code}" == 200 ]]
+  code="$(curl -sS --max-time 10 -o "${WORK}/metrics-restart.prom" -w '%{http_code}' \
+    "http://127.0.0.1:${METRICS_PORT}/metrics")"
+  echo "metrics after the restart: ${code}"
+  [[ "${code}" == 200 ]]
+  grep -q '^keenetic_up{' "${WORK}/metrics-restart.prom"
+}
+
+# The value of the query parameter $1 in the URL $2.
+query_param() {
+  sed -n "s/.*[?&]$1=\([^&#]*\).*/\1/p" <<<"$2" | head -n 1
+}
+
+mcp_oauth() {
+  local jar="${WORK}/jar-oauth" meta code verifier challenge state answer url id html csrf \
+    target auth_code token grant
+  # The protected resource names the main listener's issuer, which describes itself.
+  curl_tls "${BASE}/.well-known/oauth-protected-resource/mcp" | tee "${WORK}/oauth-prm.json"
+  jq -e --arg issuer "${BASE}" '.authorization_servers | index($issuer)' "${WORK}/oauth-prm.json" >/dev/null
+  meta="${WORK}/oauth-as.json"
+  curl_tls "${BASE}/.well-known/oauth-authorization-server" | tee "${meta}"
+  jq -e --arg issuer "${BASE}" '.issuer == $issuer and (.code_challenge_methods_supported | index("S256"))' \
+    "${meta}" >/dev/null
+  code="$(curl_tls -o "${WORK}/oauth-client.json" -w '%{http_code}' -H 'Content-Type: application/json' \
+    --data "{\"client_name\":\"kcc e2e\",\"redirect_uris\":[\"${OAUTH_REDIRECT}\"],\"token_endpoint_auth_method\":\"none\",\"grant_types\":[\"authorization_code\",\"refresh_token\"],\"response_types\":[\"code\"]}" \
+    "$(jq -r '.registration_endpoint' "${meta}")")"
+  echo "registration: ${code}"
+  [[ "${code}" == 201 ]]
+  verifier="$(openssl rand -hex 32)"
+  challenge="$(printf '%s' "${verifier}" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')"
+  state="$(openssl rand -hex 16)"
+  answer="$(curl_tls -o /dev/null -w '%{http_code} %{redirect_url}' -G \
+    --data-urlencode response_type=code \
+    --data-urlencode "client_id=$(jq -r '.client_id' "${WORK}/oauth-client.json")" \
+    --data-urlencode "redirect_uri=${OAUTH_REDIRECT}" --data-urlencode "code_challenge=${challenge}" \
+    --data-urlencode code_challenge_method=S256 --data-urlencode "state=${state}" \
+    --data-urlencode "resource=${BASE}/mcp" --data-urlencode scope=mcp \
+    "$(jq -r '.authorization_endpoint' "${meta}")")"
+  echo "authorize: ${answer%%\?*}"
+  [[ "${answer}" == "303 ${BASE}/ui/oauth/consent?request="* ]]
+  url="${answer#303 }"
+  id="$(query_param request "${url}")"
+  # The browser: the consent page without a session is the login carrying the request.
+  html="$(curl_tls -c "${jar}" -b "${jar}" "${url}")"
+  [[ "$(sed -n 's/.*name="consent" value="\([^"]*\)".*/\1/p' <<<"${html}" | head -n 1)" == "${id}" ]]
+  csrf="$(sed -n 's/.*<meta name="csrf-token" content="\([^"]*\)".*/\1/p' <<<"${html}" | head -n 1)"
+  answer="$(curl_tls -c "${jar}" -b "${jar}" -o /dev/null -w '%{http_code} %{redirect_url}' \
+    -H "Origin: ${BASE}" -H 'sec-fetch-site: same-origin' -H "x-csrf-token: ${csrf}" \
+    --data-urlencode username=e2e --data-urlencode "password@${WORK}/etc/e2e-user.password" \
+    --data-urlencode "consent=${id}" "${BASE}/ui/login")"
+  echo "login with the request: ${answer%%\?*}"
+  [[ "${answer}" == "303 ${url}" ]]
+  csrf="$(page_csrf "${url#"${BASE}"}" "${jar}")"
+  [[ -n "${csrf}" ]]
+  code="$(curl_tls -c "${jar}" -b "${jar}" -D "${WORK}/oauth-consent.headers" -o /dev/null \
+    -w '%{http_code}' -H "Origin: ${BASE}" -H 'sec-fetch-site: same-origin' \
+    -H "x-csrf-token: ${csrf}" -H 'hx-request: true' --data-urlencode "request=${id}" \
+    "${BASE}/ui/oauth/consent/approve")"
+  target="$(sed -n 's/^hx-redirect: *//Ip' "${WORK}/oauth-consent.headers" | tr -d '\r')"
+  echo "approve: ${code}, back to ${target%%\?*}"
+  [[ "${target}" == "${OAUTH_REDIRECT}?"* && "$(query_param state "${target}")" == "${state}" ]]
+  auth_code="$(query_param code "${target}")"
+  [[ -n "${auth_code}" ]]
+  curl_tls -o "${WORK}/oauth-token.json" --data-urlencode grant_type=authorization_code \
+    --data-urlencode "code=${auth_code}" --data-urlencode "redirect_uri=${OAUTH_REDIRECT}" \
+    --data-urlencode "client_id=$(jq -r '.client_id' "${WORK}/oauth-client.json")" \
+    --data-urlencode "code_verifier=${verifier}" --data-urlencode "resource=${BASE}/mcp" \
+    "$(jq -r '.token_endpoint' "${meta}")"
+  jq -e '.token_type == "Bearer" and .access_token and .scope == "mcp"' "${WORK}/oauth-token.json" >/dev/null
+  token="$(jq -r '.access_token' "${WORK}/oauth-token.json")"
+  mcp_open "${BASE}/mcp" --cacert "${CERT}" -H "Authorization: Bearer ${token}"
+  mcp_tools "${BASE}/mcp" --cacert "${CERT}" -H "Authorization: Bearer ${token}" \
+    | tee "${WORK}/oauth-tools.json"
+  jq -e '[.result.tools[].name] | index("kcc_router_info")' "${WORK}/oauth-tools.json" >/dev/null
+  # Revoked with the CLI, the connection's next call is refused.
+  kcc --json mcp connections list | tee "${WORK}/oauth-connections.json"
+  grant="$(jq -r '[.connections[] | select(.account == "e2e")] | if length == 1 then .[0].grant else empty end' \
+    "${WORK}/oauth-connections.json")"
+  [[ -n "${grant}" ]]
+  kcc --json --confirm-destructive "${grant}" mcp connections revoke "${grant}"
+  mcp_tools "${BASE}/mcp" --cacert "${CERT}" -H "Authorization: Bearer ${token}" \
+    | tee "${WORK}/oauth-revoked.json"
+  jq -e '.result == null and .error.message == "forbidden"' "${WORK}/oauth-revoked.json" >/dev/null
+}
+
 healthcheck() {
   if [[ "${MODE}" == native ]]; then
     kcc healthcheck
@@ -617,6 +971,11 @@ step log-forwarding log_forwarding
 step telegram-test-message telegram_test_message
 step schedule-run-now schedule_run_now
 step mcp-http mcp_http
+step entware-ssh entware_ssh
+step mcp-dedicated mcp_dedicated
+step mcp-mtls mcp_mtls
+step mcp-main-restart mcp_main_restart
+step mcp-oauth mcp_oauth
 step healthcheck healthcheck
 step sighup-reload sighup_reload
 step graceful-sigterm graceful_sigterm

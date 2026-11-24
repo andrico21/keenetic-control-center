@@ -28,11 +28,15 @@ pub(crate) const GROUPS: &[Group] = &[
         &["brk", "madvise", "mmap", "mprotect", "mremap", "munmap"],
     ),
     (
+        "secret memory locking: the Entware SSH client (russh-cryptovec) locks the pages of every key and session buffer against swapping and unlocks them before they are freed; it ignores a refusal, so a missing rule would silently leave key material swappable",
+        &["mlock", "munlock"],
+    ),
+    (
         "signals: tokio's SIGTERM/SIGINT/SIGHUP handlers and the alternate signal stack of every thread",
         &["rt_sigaction", "rt_sigprocmask", "rt_sigreturn", "sigaltstack"],
     ),
     (
-        "file reads: kcc.toml, the mounted secrets (master key, TLS pair, router passwords), /proc/self/status, /etc/hosts and /etc/resolv.conf, the CA bundle; ioctl is the terminal probe (TCGETS/TIOCGWINSZ) of the CLI output",
+        "file reads: kcc.toml, the mounted secrets (master key, TLS pair, router passwords), /proc/self/status, /etc/hosts and /etc/resolv.conf, the CA bundle; ioctl is the terminal probe (TCGETS/TIOCGWINSZ) of the CLI output and FIONBIO, the blocking switch of a std socket: the listener health probe's connect with a timeout after an MCP listener restart, and the loopback JWKS listener of kcc sign-in handed to tokio",
         &[
             "access", "close", "faccessat", "faccessat2", "fcntl", "fstat", "getcwd",
             "getdents64", "ioctl", "lseek", "newfstatat", "open", "openat", "pread64", "read",
