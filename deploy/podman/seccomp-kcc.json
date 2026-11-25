@@ -124,6 +124,7 @@
     {
       "_group": "event loop and timers: tokio's epoll reactor and its eventfd waker, the musl resolver's poll, and the clocks behind timeouts, sessions and poll cadences",
       "names": [
+        "clock_gettime",
         "epoll_create1",
         "epoll_ctl",
         "epoll_pwait",
