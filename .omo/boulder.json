@@ -6,9 +6,9 @@
       "work_id": "keenetic-control-center-d60645fa",
       "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",
       "plan_name": "keenetic-control-center",
-      "status": "active",
+      "status": "completed",
       "started_at": "2026-11-05T16:38:10.317Z",
-      "updated_at": "2026-11-05T16:38:10.317Z",
+      "updated_at": "2026-11-06T01:24:30.370Z",
       "session_ids": [
         "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
       ],
@@ -16,7 +16,9 @@
         "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt": "direct"
       },
       "agent": "atlas",
-      "task_sessions": {}
+      "task_sessions": {},
+      "ended_at": "2026-11-06T01:24:30.370Z",
+      "elapsed_ms": 31580053
     },
     "keenetic-control-center-b590fef9": {
       "work_id": "keenetic-control-center-b590fef9",
@@ -130,12 +132,14 @@
       "session_origins": {
         "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt": "direct"
       },
-      "status": "active",
+      "status": "completed",
       "worktree_path": null,
       "started_at": "2026-11-20T19:47:23.000Z",
-      "updated_at": "2026-11-20T19:47:23.000Z",
+      "updated_at": "2026-11-25T07:08:07.715Z",
       "agent": "atlas",
-      "task_sessions": {}
+      "task_sessions": {},
+      "ended_at": "2026-11-25T07:08:07.715Z",
+      "elapsed_ms": 386444715
     }
   },
   "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",
