@@ -6,6 +6,17 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Podman example configuration admits its router.** `deploy/podman/kcc.toml.example`
+  had no `[outbound]` table, so its empty `allowed_networks` refused the example router;
+  it now lists `192.168.1.0/24`, the network of that router.
+- **Release images keep their HEALTHCHECK.** The 1.0.0 image was pushed in the OCI format,
+  which has no field for the HEALTHCHECK, so it has none. Images are now pushed in the
+  Docker v2 schema 2 format, and CI fails when the exported image lacks the HEALTHCHECK.
+  `deploy/podman/run.sh` now sets the health check itself, so it works with the 1.0.0
+  image too. The Quadlet unit already set its own.
+
 ## [1.0.0] - 2026-11-25
 
 ### Added

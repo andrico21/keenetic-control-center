@@ -35,7 +35,7 @@ seccomp. If something fails under the profile, debug it as described in
 
 ```sh
 mkdir -p ~/.config/kcc/etc ~/.config/containers/systemd
-cp deploy/podman/kcc.toml.example ~/.config/kcc/etc/kcc.toml      # edit routers, public_url
+cp deploy/podman/kcc.toml.example ~/.config/kcc/etc/kcc.toml      # edit routers, allowed_networks, public_url
 cp deploy/podman/seccomp-kcc.json ~/.config/kcc/seccomp-kcc.json
 cp deploy/podman/kcc.container ~/.config/containers/systemd/kcc.container
 ```
@@ -293,6 +293,9 @@ Release images are pushed to `ghcr.io/andrico21/keenetic-control-center` by
 gate passes. A prerelease tag (one with a `-`, such as `1.1.0-rc.1`) is published only
 under its own tag and does not move `:latest`, so a unit or `run.sh` on `:latest` stays on
 the last stable release.
+Release images are pushed in the Docker v2 schema 2 format (a Docker manifest list):
+the OCI image format has no field for the HEALTHCHECK, so an OCI export would drop it.
+CI checks that the exported image archive carries the HEALTHCHECK.
 The image's `org.opencontainers.image.version` label carries the tag's version. They are not signed yet; until they are,
 pin the image by digest (`Image=ghcr.io/...@sha256:...`) after verifying it, or build
 it yourself from a tagged checkout. When signing is added (`cosign sign --yes` with the

@@ -41,6 +41,8 @@ args=(
   -v "kcc-state:/var/lib/kcc:U,Z"
   -v "${CONFIG_DIR}:/etc/kcc:ro,Z"
   -p 127.0.0.1:8443:8443
+  --health-cmd '["/kcc","healthcheck","--config","/etc/kcc/kcc.toml"]'
+  --health-interval 30s --health-timeout 10s --health-start-period 20s --health-retries 3
 )
 for name in ${KCC_ROUTER_SECRETS:-kcc-router-home}; do
   args+=(--secret "$(secret "${name}")")

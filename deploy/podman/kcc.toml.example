@@ -44,6 +44,12 @@ allow_non_loopback = true
 # url = "https://loki.example.net"
 # password_file = "/run/secrets/kcc-loki-password"
 
+[outbound]
+# Networks router addresses must fall into. The default is empty, which admits no
+# router: list the network of every router below (or `allowed_suffixes` for routers
+# reached by host name). See docs/CONFIG.md.
+allowed_networks = ["192.168.1.0/24"]
+
 [[routers]]
 name = "home"
 url = "http://192.168.1.1"
