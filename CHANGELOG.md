@@ -16,6 +16,9 @@ All notable changes to this project are documented in this file. The format is b
   Docker v2 schema 2 format, and CI fails when the exported image lacks the HEALTHCHECK.
   `deploy/podman/run.sh` now sets the health check itself, so it works with the 1.0.0
   image too. The Quadlet unit already set its own.
+- **`run.sh` gives kcc 100 seconds to stop.** It now passes `--stop-timeout 100`, like the
+  Quadlet unit. Podman's default of 10 seconds could kill kcc during its graceful
+  shutdown.
 
 ## [1.0.0] - 2026-11-25
 

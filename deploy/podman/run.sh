@@ -35,6 +35,7 @@ args=(
   --security-opt no-new-privileges
   --security-opt "seccomp=${SECCOMP}"
   --memory=256m --memory-swap=256m --pids-limit=128
+  --stop-timeout 100
   --secret "$(secret kcc-master-key)"
   --secret "$(secret kcc-tls-cert)"
   --secret "$(secret kcc-tls-key)"

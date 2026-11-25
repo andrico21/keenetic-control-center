@@ -40,11 +40,18 @@ cp deploy/podman/seccomp-kcc.json ~/.config/kcc/seccomp-kcc.json
 cp deploy/podman/kcc.container ~/.config/containers/systemd/kcc.container
 ```
 
+Keep `kcc.toml` at mode 0644 and its directory at 0755. The container runs as uid
+65532, which rootless Podman maps to one of your subordinate ids, not to your own user,
+and the config directory is a bind mount. A file with mode 0600 (for example one created
+with `umask 077`) makes kcc fail with `cannot read config file /etc/kcc/kcc.toml:
+Permission denied (os error 13)`. The file holds no secrets; they arrive as Podman
+secrets.
+
 The `[web] public_url` host is the SNI `kcc healthcheck` sends, so the certificate must
 carry it. kcc derives its browser Origin allowlist from that URL and the listener;
 `[server] allowed_origins` adds any other trusted proxy origins. The unit's `HealthCmd`
 uses the exec (JSON) form: the plain-string form becomes `CMD-SHELL`, which needs
-`/bin/sh`, and distroless has no shell. The unit's `StopTimeout=100` covers the server shutdown (30 s) plus 10 s reserved for stopping the scheduler, the bracket grace (10 s), job drain (30 s), queued Telegram notifications (2 s), audit flush (5 s) and a 13 s margin; keep it at least this value.
+`/bin/sh`, and distroless has no shell. The unit's `StopTimeout=100` covers the server shutdown (30 s) plus 10 s reserved for stopping the scheduler, the bracket grace (10 s), job drain (30 s), queued Telegram notifications (2 s), audit flush (5 s) and a 13 s margin; keep it at least this value. `run.sh` passes the same `--stop-timeout 100`.
 
 The optional MCP-only listener (`[mcp.dedicated]`, default port 8444) serves `/mcp` only,
 without the Web UI and without metrics. To reach it from the host, set `bind = "0.0.0.0"`
