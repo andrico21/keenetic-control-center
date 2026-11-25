@@ -1,0 +1,8 @@
+# actionlint 1.7.12 does not list the GitHub-hosted Ubuntu 26.04 runner labels yet.
+# They are GA (actions/runner-images: ubuntu-26.04 and ubuntu-26.04-arm), and
+# container.yml runs its build and e2e on them. Remove these entries when a release
+# of actionlint knows them.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
+    - ubuntu-26.04-arm
