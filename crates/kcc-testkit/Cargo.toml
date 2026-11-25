@@ -1,6 +1,6 @@
 [package]
 name = "kcc-testkit"
-version = "0.1.0"
+version = "1.0.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -31,8 +31,8 @@ md-5 = { workspace = true }
 rcgen = { workspace = true, features = ["crypto", "pem", "ring"] }
 ring = "0.17.14"
 rustls = { workspace = true, features = ["ring", "std", "tls12"] }
-kcc-config = { version = "0.1.0", path = "../kcc-config" }
-kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
+kcc-config = { version = "1.0.0", path = "../kcc-config" }
+kcc-rci = { version = "1.0.0", path = "../kcc-rci" }
 rand = { workspace = true }
 russh = { workspace = true }
 secrecy = { workspace = true }

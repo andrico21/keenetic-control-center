@@ -1,6 +1,6 @@
 [package]
 name = "kcc-migrate"
-version = "0.1.0"
+version = "1.0.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -8,12 +8,12 @@ publish = false
 
 [dependencies]
 askama = { workspace = true, features = ["derive", "std"] }
-kcc-app = { version = "0.1.0", path = "../kcc-app" }
-kcc-domain = { version = "0.1.0", path = "../kcc-domain" }
-kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
-kcc-config = { version = "0.1.0", path = "../kcc-config" }
-kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
-kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
+kcc-app = { version = "1.0.0", path = "../kcc-app" }
+kcc-domain = { version = "1.0.0", path = "../kcc-domain" }
+kcc-catalog = { version = "1.0.0", path = "../kcc-catalog" }
+kcc-config = { version = "1.0.0", path = "../kcc-config" }
+kcc-i18n = { version = "1.0.0", path = "../kcc-i18n" }
+kcc-rci = { version = "1.0.0", path = "../kcc-rci" }
 md-5 = { workspace = true }
 reqwest = { workspace = true, features = ["rustls-no-provider"] }
 secrecy = { workspace = true }
@@ -26,7 +26,7 @@ tracing = { workspace = true, features = ["std"] }
 zeroize = { workspace = true }
 
 [dev-dependencies]
-kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
+kcc-testkit = { version = "1.0.0", path = "../kcc-testkit" }
 proptest = { workspace = true }
 tempfile = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["fmt", "std"] }

@@ -3,7 +3,7 @@ name: Container
 on:
   push:
     branches: [master]
-    tags: ["v*"]
+    tags: ["[0-9]+.[0-9]+.[0-9]+", "[0-9]+.[0-9]+.[0-9]+-*"]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -31,7 +31,7 @@ jobs:
   # requests already run ci.yml on their own, so only tag builds call it here.
   gates:
     name: CI gates
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: read
     uses: ./.github/workflows/ci.yml
@@ -83,7 +83,7 @@ jobs:
           # pushed and keep the Containerfile default.
           version=()
           if [[ "${GITHUB_REF_TYPE}" == tag ]]; then
-            version=(--build-arg VERSION="${GITHUB_REF_NAME#v}")
+            version=(--build-arg VERSION="${GITHUB_REF_NAME}")
           fi
           podman build --format docker --platform "linux/${ARCH}" \
             "${version[@]}" \
@@ -135,12 +135,12 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Export the image
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           ARCH: ${{ matrix.arch }}
         run: podman save --format oci-archive -o "${RUNNER_TEMP}/kcc-${ARCH}.tar" kcc:test
       - name: Upload the image
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: kcc-${{ matrix.arch }}
@@ -149,7 +149,7 @@ jobs:
 
   push:
     name: Push the multi-arch image
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/')
     needs: [gates, image]
     runs-on: ubuntu-26.04
     timeout-minutes: 20
@@ -174,7 +174,7 @@ jobs:
             podman manifest add "${IMAGE}:${TAG}" "oci-archive:${RUNNER_TEMP}/images/kcc-${arch}.tar"
           done
           podman manifest push --all "${IMAGE}:${TAG}" "docker://${IMAGE}:${TAG}"
-          # A prerelease tag (v1.2.3-rc.1) never moves :latest.
+          # A prerelease tag (1.2.3-rc.1) never moves :latest.
           if [[ "${TAG}" != *-* ]]; then
             podman manifest push --all "${IMAGE}:${TAG}" "docker://${IMAGE}:latest"
           fi

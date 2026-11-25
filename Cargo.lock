@@ -2010,7 +2010,7 @@ dependencies = [
 
 [[package]]
 name = "kcc"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "arc-swap",
  "caps",
@@ -2053,7 +2053,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-app"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "argon2",
  "base64 0.23.1",
@@ -2092,7 +2092,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-catalog"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "kcc-rci",
  "kcc-testkit",
@@ -2109,7 +2109,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-config"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.23.1",
  "md-5",
@@ -2122,7 +2122,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-domain"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.23.1",
  "kcc-app",
@@ -2148,7 +2148,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-i18n"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "fluent-bundle",
  "thiserror 2.0.21",
@@ -2158,7 +2158,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-mcp"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "arc-swap",
  "http",
@@ -2186,7 +2186,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-migrate"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "askama",
  "kcc-app",
@@ -2214,7 +2214,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-rci"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "argon2",
  "axum",
@@ -2249,7 +2249,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-ssh"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "kcc-rci",
  "kcc-testkit",
@@ -2266,7 +2266,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-telemetry"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "flate2",
@@ -2290,7 +2290,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-testkit"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "argon2",
  "axum",
@@ -2320,7 +2320,7 @@ dependencies = [
 
 [[package]]
 name = "kcc-web"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "askama",
  "axum",

@@ -1,6 +1,6 @@
 [package]
 name = "kcc-web"
-version = "0.1.0"
+version = "1.0.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -14,15 +14,15 @@ base64 = { workspace = true, features = ["std", "simd-unsafe"] }
 fluent-bundle = { workspace = true }
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
 humantime = { workspace = true }
-kcc-app = { version = "0.1.0", path = "../kcc-app" }
-kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
-kcc-config = { version = "0.1.0", path = "../kcc-config" }
-kcc-domain = { version = "0.1.0", path = "../kcc-domain" }
-kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
-kcc-migrate = { version = "0.1.0", path = "../kcc-migrate" }
-kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
-kcc-ssh = { version = "0.1.0", path = "../kcc-ssh" }
-kcc-telemetry = { version = "0.1.0", path = "../kcc-telemetry" }
+kcc-app = { version = "1.0.0", path = "../kcc-app" }
+kcc-catalog = { version = "1.0.0", path = "../kcc-catalog" }
+kcc-config = { version = "1.0.0", path = "../kcc-config" }
+kcc-domain = { version = "1.0.0", path = "../kcc-domain" }
+kcc-i18n = { version = "1.0.0", path = "../kcc-i18n" }
+kcc-migrate = { version = "1.0.0", path = "../kcc-migrate" }
+kcc-rci = { version = "1.0.0", path = "../kcc-rci" }
+kcc-ssh = { version = "1.0.0", path = "../kcc-ssh" }
+kcc-telemetry = { version = "1.0.0", path = "../kcc-telemetry" }
 rand = { workspace = true }
 rmcp-server-kit = { workspace = true }
 secrecy = { workspace = true, features = ["serde"] }
@@ -37,7 +37,7 @@ tracing = { workspace = true, features = ["std"] }
 url = { workspace = true }
 
 [dev-dependencies]
-kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
+kcc-testkit = { version = "1.0.0", path = "../kcc-testkit" }
 rcgen = { workspace = true, features = ["crypto", "pem", "ring"] }
 rmcp = { workspace = true, features = ["server"] }
 tempfile = { workspace = true }

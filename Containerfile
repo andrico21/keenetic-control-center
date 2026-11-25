@@ -58,7 +58,7 @@ RUN --mount=type=cache,id=kcc-cargo-registry,target=/usr/local/cargo/registry \
 # neither a shell nor a package manager.
 FROM gcr.io/distroless/static-debian13@sha256:4c2cd1dee442c9a99924a378c7c126fac8fef14771579ef567c3f2bdd7a5122a
 
-ARG VERSION="0.1.0"
+ARG VERSION="1.0.0"
 ARG VCS_REF=""
 ARG BUILD_DATE=""
 LABEL org.opencontainers.image.title="keenetic-control-center" \

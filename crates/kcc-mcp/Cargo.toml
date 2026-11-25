@@ -1,6 +1,6 @@
 [package]
 name = "kcc-mcp"
-version = "0.1.0"
+version = "1.0.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -9,13 +9,13 @@ publish = false
 [dependencies]
 arc-swap = { workspace = true }
 http = "1.5.0"
-kcc-app = { version = "0.1.0", path = "../kcc-app" }
-kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
-kcc-config = { version = "0.1.0", path = "../kcc-config" }
-kcc-domain = { version = "0.1.0", path = "../kcc-domain" }
-kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
-kcc-migrate = { version = "0.1.0", path = "../kcc-migrate" }
-kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
+kcc-app = { version = "1.0.0", path = "../kcc-app" }
+kcc-catalog = { version = "1.0.0", path = "../kcc-catalog" }
+kcc-config = { version = "1.0.0", path = "../kcc-config" }
+kcc-domain = { version = "1.0.0", path = "../kcc-domain" }
+kcc-i18n = { version = "1.0.0", path = "../kcc-i18n" }
+kcc-migrate = { version = "1.0.0", path = "../kcc-migrate" }
+kcc-rci = { version = "1.0.0", path = "../kcc-rci" }
 rmcp = { workspace = true, features = ["server"] }
 rmcp-server-kit = { workspace = true }
 schemars = "1.2.3"
@@ -26,7 +26,7 @@ tokio = { workspace = true, features = ["rt", "sync", "time"] }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
-kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
+kcc-testkit = { version = "1.0.0", path = "../kcc-testkit" }
 proptest = { workspace = true }
 rmcp = { workspace = true, features = ["client", "server"] }
 tempfile = { workspace = true }

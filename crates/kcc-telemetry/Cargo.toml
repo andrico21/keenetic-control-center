@@ -1,6 +1,6 @@
 [package]
 name = "kcc-telemetry"
-version = "0.1.0"
+version = "1.0.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -9,8 +9,8 @@ publish = false
 [dependencies]
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }
 flate2 = "1.1.11"
-kcc-app = { version = "0.1.0", path = "../kcc-app" }
-kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
+kcc-app = { version = "1.0.0", path = "../kcc-app" }
+kcc-rci = { version = "1.0.0", path = "../kcc-rci" }
 prometheus = "0.14.0"
 reqwest = { workspace = true, features = ["rustls-no-provider"] }
 rustls = { workspace = true, features = ["ring", "std", "tls12"] }
@@ -23,7 +23,7 @@ tokio-util = { workspace = true }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
-kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
+kcc-testkit = { version = "1.0.0", path = "../kcc-testkit" }
 tempfile = { workspace = true }
 url = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "test-util"] }

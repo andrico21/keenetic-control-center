@@ -289,9 +289,10 @@ syscall becomes a reportable error, not an instant kill without a diagnosis.
 ## Image signing
 
 Release images are pushed to `ghcr.io/andrico21/keenetic-control-center` by
-`.github/workflows/container.yml` on `v*` tags, after every CI gate passes. A prerelease
-tag (one with a `-`, such as `v0.2.0-rc.1`) is published only under its own tag and does
-not move `:latest`, so a unit or `run.sh` on `:latest` stays on the last stable release.
+`.github/workflows/container.yml` on release tags (`1.2.3`, no `v` prefix), after every CI
+gate passes. A prerelease tag (one with a `-`, such as `1.1.0-rc.1`) is published only
+under its own tag and does not move `:latest`, so a unit or `run.sh` on `:latest` stays on
+the last stable release.
 The image's `org.opencontainers.image.version` label carries the tag's version. They are not signed yet; until they are,
 pin the image by digest (`Image=ghcr.io/...@sha256:...`) after verifying it, or build
 it yourself from a tagged checkout. When signing is added (`cosign sign --yes` with the

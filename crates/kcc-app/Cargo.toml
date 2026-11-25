@@ -1,6 +1,6 @@
 [package]
 name = "kcc-app"
-version = "0.1.0"
+version = "1.0.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -14,10 +14,10 @@ humantime = { workspace = true }
 humantime-serde = "1.1.1"
 ipnet = { version = "2.12.2", features = ["serde"] }
 jiff = { version = "1.0.2", default-features = false, features = ["std", "tzdb-bundle-always"] }
-kcc-config = { version = "0.1.0", path = "../kcc-config" }
-kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
-kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
-kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
+kcc-config = { version = "1.0.0", path = "../kcc-config" }
+kcc-catalog = { version = "1.0.0", path = "../kcc-catalog" }
+kcc-i18n = { version = "1.0.0", path = "../kcc-i18n" }
+kcc-rci = { version = "1.0.0", path = "../kcc-rci" }
 ring = "0.17.14"
 rmcp-server-kit = { workspace = true }
 rustls = { workspace = true }
@@ -39,7 +39,7 @@ zeroize = { workspace = true }
 windows-permissions = "0.2.4"
 
 [dev-dependencies]
-kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
+kcc-testkit = { version = "1.0.0", path = "../kcc-testkit" }
 proptest = { workspace = true }
 rcgen = { workspace = true, features = ["crypto", "pem", "ring"] }
 tracing-subscriber = { workspace = true, features = ["fmt", "std"] }

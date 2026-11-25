@@ -6,9 +6,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-25
+
 ### Added
 
-The first release, `0.1.0`, is in preparation and contains:
+The first release contains:
 
 - **RCI client** with ndw2, ndw4 and HTTP digest sign-in, an outbound policy with DNS
   pinning and no redirects, certificate verification or public-key pinning, and
@@ -600,11 +602,12 @@ The first release, `0.1.0`, is in preparation and contains:
   the arm and disarm lines of each recovery mechanism (`Recovery`) and the shared table of
   bracket failure fates with the fault that causes each (`Fate`); the Web, MCP and
   domain tests use it instead of their own copies.
-- **Container image tags and labels.** A prerelease tag (one with a `-`, such as
-  `v0.2.0-rc.1`) is published only under its own tag and no longer moves `:latest`, so a
-  Quadlet unit or `run.sh` on `:latest` stays on the last stable release. The image's
-  `org.opencontainers.image.version` label carries the tag's version instead of always
-  `0.1.0`. Images and release archives are published only after every CI gate passes.
+- **Release tags, container image tags and labels.** Release tags carry no `v` prefix
+  (`1.0.0`). A prerelease tag (one with a `-`, such as `1.1.0-rc.1`) is published only
+  under its own tag and does not move `:latest`, so a Quadlet unit or `run.sh` on
+  `:latest` stays on the last stable release. The image's
+  `org.opencontainers.image.version` label carries the tag's version. Images and release
+  archives are published only after every CI gate passes.
 - **The seccomp profile filters only `x86_64` and `aarch64`.** The 32-bit `x86`, `x32`
   and `arm` ABIs, which the image never uses, are no longer allowed. The profile is
   regenerated from the union of two traces (`deploy/podman/README.md`).
@@ -1838,4 +1841,5 @@ The first release, `0.1.0`, is in preparation and contains:
 See the Limitations section of [README.md](README.md). No firmware line has live
 hardware evidence yet.
 
-[Unreleased]: https://github.com/andrico21/keenetic-control-center/commits/master
+[Unreleased]: https://github.com/andrico21/keenetic-control-center/compare/1.0.0...master
+[1.0.0]: https://github.com/andrico21/keenetic-control-center/releases/tag/1.0.0

@@ -1,11 +1,12 @@
 name: Release
 
-# Tag pushes `v*` build, package and publish a GitHub release. A manual run
+# Pushing a release tag (`1.2.3`, or `1.2.3-rc.1` for a prerelease; no `v` prefix)
+# builds, packages and publishes a GitHub release. A manual run
 # (workflow_dispatch) is a dry run: it builds and uploads the same archives as
 # workflow artifacts and never creates a release.
 on:
   push:
-    tags: ["v*"]
+    tags: ["[0-9]+.[0-9]+.[0-9]+", "[0-9]+.[0-9]+.[0-9]+-*"]
   workflow_dispatch:
 
 # Least-privilege default; only the `release` job gets `contents: write`.
@@ -54,7 +55,7 @@ jobs:
         run: |
           crate_version=$(sed -n 's/^version = "\(.*\)"$/\1/p' crates/kcc/Cargo.toml | head -n 1)
           if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            version=${GITHUB_REF_NAME#v}
+            version=${GITHUB_REF_NAME}
             if [[ "$version" != "$crate_version" ]]; then
               echo "::error::tag $GITHUB_REF_NAME does not match crates/kcc version $crate_version"
               exit 1
@@ -162,7 +163,7 @@ jobs:
   release:
     name: GitHub release
     needs: [meta, checksums]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
