@@ -131,7 +131,14 @@ mod tests {
             .filter_map(|key| key.get("kty").and_then(Value::as_str))
             .collect();
         assert_eq!(types, ["EC", "OKP"]);
-        assert!(!served.iter().any(|key| key.to_string().contains("RS")));
+        for key in &served {
+            assert_ne!(key.get("kty").and_then(Value::as_str), Some("RSA"));
+            if let Some(raw) = key.get("alg") {
+                let alg = raw.as_str().ok_or("alg is not a string")?;
+                assert!(!alg.starts_with("RS") && !alg.starts_with("PS"), "{alg}");
+                assert!(["ES256", "EdDSA"].contains(&alg), "{alg}");
+            }
+        }
         assert_eq!(get(&idp, "/other").await?.0, "HTTP/1.1 404 Not Found");
         assert_eq!(
             idp.jwks_uri(),

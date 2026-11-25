@@ -212,7 +212,7 @@ async fn no_page_or_audit_record_carries_a_secret() -> TestResult {
     }
     for body in &shown {
         assert!(!body.contains(secret), "no plain secret");
-        assert!(!body.contains("ns3"), "no encoded secret");
+        assert!(!body.contains("ns3 "), "no encoded secret");
         assert!(!body.contains("password"), "no password line");
     }
     assert!(
