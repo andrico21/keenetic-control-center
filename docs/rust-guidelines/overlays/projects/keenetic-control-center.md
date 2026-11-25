@@ -15,13 +15,13 @@
   `kcc`. `xtask/` is a separate workspace with lint tables equal to the root profile.
 - **Toolchain:** edition 2024, `rust-version = "1.100.0"` (root and `xtask/`),
   `unsafe_code = "forbid"`. No `rust-toolchain.toml`; CI pins `1.100.0`. Formatting uses
-  the dated nightly `nightly-2026-11-21` (`rustfmt.toml` sets
+  the dated nightly `nightly-2026-11-22` (`rustfmt.toml` sets
   `imports_granularity`/`group_imports`); MSRV is checked with
   `cargo +1.100.0 build --workspace --all-features`.
 - **CI:** `.github/workflows/ci.yml` (jobs fmt, clippy, test, rustdoc, deny, audit, vet,
   machete, msrv, gates, xtask, taplo, guidelines) and `.github/dependabot.yml`. Gate tools
   are installed at pinned versions: cargo-deny 0.22.0, cargo-audit 0.23.0, cargo-vet
-  0.10.4, cargo-machete 0.9.2, taplo 0.10.0 (see deviation 2); `release.yml` installs
+  0.10.4, cargo-machete 0.10.1, taplo 0.10.0 (see deviation 2); `release.yml` installs
   cargo-zigbuild 0.24.1. Dependabot carries a 3-day
   `cooldown` for both cargo ecosystems (`/`, `/xtask`).
 - **Notable dependencies:** `rmcp-server-kit`, `axum`, `askama`, `reqwest`/`rustls`,
@@ -115,7 +115,7 @@
 4. **Rust versions in workflow files are unquoted** (opened 2026-11-14, resolved
    2026-11-18). Core Section 11 (Tooling) asks to quote every Rust version in YAML.
    `ci.yml`, `container.yml` and `release.yml` now quote every toolchain
-   (`toolchain: "1.100.0"`, `toolchain: "nightly-2026-11-21"`); keep any new pin quoted.
+   (`toolchain: "1.100.0"`, `toolchain: "nightly-2026-11-22"`); keep any new pin quoted.
 5. **No `Cache-Control` on the kit's own routes** (opened 2026-11-16, open). The
    http-services rule on response headers wants `Cache-Control: no-store` on every
    authenticated response. kcc turns the kit's `Cache-Control` off in

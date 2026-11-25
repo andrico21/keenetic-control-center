@@ -10,7 +10,7 @@ is binding. Don't edit the vendored guideline files.
 Run from the repository root; every Rust change leaves all of these green:
 
 ```text
-cargo +nightly-2026-11-21 fmt --all -- --check
+cargo +nightly-2026-11-22 fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features

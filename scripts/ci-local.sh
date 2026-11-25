@@ -12,7 +12,7 @@ export CARGO_TERM_COLOR=always
 step() { printf '\n=== %s ===\n' "$*"; }
 
 step fmt
-cargo +nightly-2026-11-21 fmt --all -- --check
+cargo +nightly-2026-11-22 fmt --all -- --check
 
 step clippy-workspace
 cargo clippy --workspace --all-targets --all-features -- -D warnings

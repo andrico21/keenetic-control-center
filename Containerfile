@@ -56,7 +56,7 @@ RUN --mount=type=cache,id=kcc-cargo-registry,target=/usr/local/cargo/registry \
 
 # distroless/static: CA bundle, tzdata, /etc/passwd with `nonroot` (65532) and /tmp, and
 # neither a shell nor a package manager.
-FROM gcr.io/distroless/static-debian13@sha256:1a64f46364620465ef9e9a8f5413757dfdf22695e050bbfd7303eeaf17a59383
+FROM gcr.io/distroless/static-debian13@sha256:4c2cd1dee442c9a99924a378c7c126fac8fef14771579ef567c3f2bdd7a5122a
 
 ARG VERSION="0.1.0"
 ARG VCS_REF=""
@@ -68,7 +68,7 @@ LABEL org.opencontainers.image.title="keenetic-control-center" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.licenses="MIT OR Apache-2.0" \
       org.opencontainers.image.source="https://github.com/andrico21/keenetic-control-center" \
-      org.opencontainers.image.base.name="gcr.io/distroless/static-debian13@sha256:1a64f46364620465ef9e9a8f5413757dfdf22695e050bbfd7303eeaf17a59383"
+      org.opencontainers.image.base.name="gcr.io/distroless/static-debian13@sha256:4c2cd1dee442c9a99924a378c7c126fac8fef14771579ef567c3f2bdd7a5122a"
 
 COPY --from=builder --chmod=0755 /kcc /kcc
 
