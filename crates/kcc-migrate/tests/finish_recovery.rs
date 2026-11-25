@@ -49,7 +49,7 @@ mod tests {
     async fn rollback_ready(
         mode: &str,
         faults: FaultInjection,
-        clock: Option<Arc<dyn Clock>>,
+        clock: Arc<dyn Clock>,
     ) -> Result<(Fixture, Applier), Box<dyn Error>> {
         let mut scenario = migration::Fixture::default();
         scenario.mode = Some(mode.to_owned());
@@ -59,9 +59,7 @@ mod tests {
             .with_migration(scenario);
         let fixture = Fixture::from_router(fake, DEFAULT_PASSWORD).await?;
         let mut request = fixture.request(1).await?;
-        if let Some(selected_clock) = clock {
-            request.options.clock = selected_clock;
-        }
+        request.options.clock = clock;
         let (_, done) = Applier::start(&fixture.runner, request).await?;
         let applier = done.await??;
         Ok((fixture, applier))
@@ -179,8 +177,10 @@ mod tests {
     async fn accepted_rollback_then_unreachable_reports_restarting_or_armed()
     -> Result<(), Box<dyn Error>> {
         for mode in ["router", "extender"] {
+            let baseline_clock: Arc<dyn Clock> =
+                Arc::new(RecoveryClock(Arc::new(MockClock::new())));
             let (baseline_fixture, mut baseline_applier) =
-                rollback_ready(mode, FaultInjection::default(), None).await?;
+                rollback_ready(mode, FaultInjection::default(), baseline_clock).await?;
             let requests_before_rollback = baseline_fixture.handle.request_count();
             baseline_applier.rollback().await?;
             let rollback_command = if mode == "router" {
@@ -203,7 +203,7 @@ mod tests {
             let clock = Arc::new(MockClock::new());
             let faults = FaultInjection::default().fail_after_requests(terminal_request);
             let recovery_clock: Arc<dyn Clock> = Arc::new(RecoveryClock(clock));
-            let (fixture, mut applier) = rollback_ready(mode, faults, Some(recovery_clock)).await?;
+            let (fixture, mut applier) = rollback_ready(mode, faults, recovery_clock).await?;
             assert_eq!(fixture.handle.request_count(), requests_before_rollback);
             let error = applier
                 .rollback()

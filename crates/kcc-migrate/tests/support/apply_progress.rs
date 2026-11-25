@@ -22,11 +22,29 @@ mod tests {
 
     use crate::support::Fixture;
 
+    /// A clock that never moves, so no renewal is due by elapsed time.
+    #[derive(Debug)]
+    struct FrozenClock;
+
+    impl Clock for FrozenClock {
+        fn now(&self) -> Duration {
+            Duration::ZERO
+        }
+        fn wait(&self, _duration: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+            Box::pin(ready(()))
+        }
+    }
+
     /// Each complete group of fifty replayed lines renews recovery before the next group.
+    ///
+    /// The apply runs on a frozen clock: on the wall clock a slow runner also renews once
+    /// sixty seconds passed, which adds a boundary the line count does not explain.
     #[tokio::test]
     async fn every_fifty_line_boundary_renews_recovery() -> Result<(), Box<dyn Error>> {
         let fixture = Fixture::spawn(Profile::default(), FaultInjection::default()).await?;
-        let (_id, done) = Applier::start(&fixture.runner, fixture.request(105).await?).await?;
+        let mut request = fixture.request(105).await?;
+        request.options.clock = Arc::new(FrozenClock);
+        let (_id, done) = Applier::start(&fixture.runner, request).await?;
         let mut applier = done.await??;
         assert_eq!(applier.report().failure, None);
         let mut submitted = 0_usize;
