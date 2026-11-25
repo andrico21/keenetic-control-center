@@ -11,11 +11,16 @@ All notable changes to this project are documented in this file. The format is b
 - **The Podman example configuration admits its router.** `deploy/podman/kcc.toml.example`
   had no `[outbound]` table, so its empty `allowed_networks` refused the example router;
   it now lists `192.168.1.0/24`, the network of that router.
-- **Release images keep their HEALTHCHECK.** The 1.0.0 image was pushed in the OCI format,
-  which has no field for the HEALTHCHECK, so it has none. Images are now pushed in the
-  Docker v2 schema 2 format, and CI fails when the exported image lacks the HEALTHCHECK.
-  `deploy/podman/run.sh` now sets the health check itself, so it works with the 1.0.0
-  image too. The Quadlet unit already set its own.
+- **Release images keep their HEALTHCHECK.** The 1.0.0 image was first pushed in the
+  OCI format, which has no field for the HEALTHCHECK, so it had none. On 2026-11-25
+  it was republished with the HEALTHCHECK and the same layers, as the Docker manifest
+  list `sha256:31379956ba338c6ae90fcda8baade912cb2f00600044cb783ee6551758df07b4`
+  under the tags `1.0.0` and `latest`. The first 1.0.0 index
+  `sha256:c726f9a6381365fa7b18ad0d8fc3295be2c27c9c6b5d1439c89b0aad54c3ef7e` stays
+  available by digest for anyone who pinned it. Images are now pushed in the Docker
+  v2 schema 2 format, and CI fails when the exported image lacks the HEALTHCHECK.
+  `deploy/podman/run.sh` now sets the health check itself, and the Quadlet unit
+  already set its own.
 - **`run.sh` gives kcc 100 seconds to stop.** It now passes `--stop-timeout 100`, like the
   Quadlet unit. Podman's default of 10 seconds could kill kcc during its graceful
   shutdown.
