@@ -371,7 +371,7 @@ The first release, `0.1.0`, is in preparation and contains:
   `OutboundPolicy::admit_ssh(router, port)` resolves a router's host and keeps only
   addresses inside `allowed_networks` (loopback only when admitted; a host admitted only
   through `allowed_suffixes` gets none; metadata addresses never). `kcc-testkit` gains
-  `entware_ssh::FakeEntwareSsh` (russh 0.65.2, `ring` backend, a new dependency): an
+  `entware_ssh::FakeEntwareSsh` (russh 0.65.4, `ring` backend, a new dependency): an
   ed25519 host key that can be replaced, password and `authorized_keys` sign-in, an
   `opkg` package database, init scripts that follow Entware's `rc.func`, counters and
   fault switches; `kcc-fake-router --entware-ssh-port <port>` serves one.
@@ -1100,6 +1100,12 @@ The first release, `0.1.0`, is in preparation and contains:
 - **CI components moved to** the rustfmt nightly `nightly-2026-11-22` and the current
   digest of the `distroless/static-debian13` base image. cargo-deny 0.22.1 waits for an
   install-action release past the cooldown that lists it. No behaviour change.
+- **SSH client library `russh` 0.65.2 -> 0.65.4** for its client-side security fixes:
+  the host key and its signature must match the negotiated host-key algorithm, the reply
+  queue no longer grows on unanswered authentication failures, and channel-open
+  confirmations and failures are accepted only for channels waiting for one. Also
+  `hashbrown` 0.17.2 and `jiff`/`jiff-static` 1.0.2 in both workspaces; `generic-array`
+  1.4.5 leaves the dependency tree. No behaviour change.
 
 ### Removed
 

@@ -101,11 +101,12 @@
    dependency be the version `cargo update` selects. Both workspaces (`/` and `xtask/`)
    now resolve with a plain `cargo update` under the cooldown, every crates.io
    requirement is written as its locked version, and a `cargo update --dry-run --verbose`
-   changes nothing. Held back on 2026-11-24 (checked 12:36 UTC), all inside the
-   cooldown unless named: anyhow 1.0.105, async-compression 0.4.53,
-   brotli-decompressor 6.4.0, crc32fast 1.5.6, hashbrown 0.17.2, hyper 1.13.0,
-   jiff/jiff-static 1.0.3 and jiff-core 1.0.2, rangemap 1.9.0 (`xtask/`),
-   russh 0.65.3/0.65.4, zlib-rs 0.6.9; matchit 0.8.6 is held by axum 0.8.9's
+   changes nothing. Held back on 2026-11-25 (checked 07:30 UTC), all inside the
+   cooldown unless named: anyhow 1.0.105, async-compression 0.4.54,
+   brotli-decompressor 6.4.0, clap/clap_builder 4.6.10, compression-codecs 0.4.49,
+   crc32fast 1.5.6, hyper 1.13.0, jiff/jiff-static 1.0.3 and jiff-core 1.0.2,
+   rangemap 1.9.0 (`xtask/`), toml 1.2.3, toml_edit 0.25.21, toml_parser 1.1.7,
+   zerocopy/zerocopy-derive 0.8.65, zlib-rs 0.6.9; matchit 0.8.6 is held by axum 0.8.9's
    `matchit = "=0.8.4"`; crypto-common 0.1.7 requires `generic-array = "=0.14.7"` while
    0.14.9 is locked; `jsonwebtoken` 12 is held by rmcp-server-kit 3.21.1 (the newest kit
    release), which requires `jsonwebtoken` 11; that requirement is why the D-RSA and

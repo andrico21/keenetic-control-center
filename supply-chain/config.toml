@@ -446,10 +446,6 @@ criteria = "safe-to-deploy"
 version = "0.14.9"
 criteria = "safe-to-deploy"
 
-[[exemptions.generic-array]]
-version = "1.4.5"
-criteria = "safe-to-deploy"
-
 [[exemptions.getrandom]]
 version = "0.2.15"
 criteria = "safe-to-deploy"
@@ -472,6 +468,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.hashbrown]]
 version = "0.14.5"
+criteria = "safe-to-deploy"
+
+[[exemptions.hashbrown]]
+version = "0.17.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.hex-literal]]
@@ -579,7 +579,7 @@ version = "1.0.19"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff]]
-version = "1.0.1"
+version = "1.0.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff-core]]
@@ -587,7 +587,7 @@ version = "1.0.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff-static]]
-version = "1.0.1"
+version = "1.0.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.jiff-tzdb]]
@@ -975,7 +975,7 @@ version = "0.0.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.russh]]
-version = "0.65.2"
+version = "0.65.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.russh-cryptovec]]

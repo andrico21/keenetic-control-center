@@ -13,7 +13,7 @@ chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["
 humantime = { workspace = true }
 humantime-serde = "1.1.1"
 ipnet = { version = "2.12.2", features = ["serde"] }
-jiff = { version = "1.0.1", default-features = false, features = ["std", "tzdb-bundle-always"] }
+jiff = { version = "1.0.2", default-features = false, features = ["std", "tzdb-bundle-always"] }
 kcc-config = { version = "0.1.0", path = "../kcc-config" }
 kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
 kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
