@@ -123,11 +123,15 @@ own. A second `--dns` is refused with exit code 4.
 
 ## Segments
 
-`/ui/r/<router>/segments` lists the segments kcc created on the router: bridge, VLAN ID,
-address, DHCP range, NAT, whether new devices are allowed, Wi-Fi access point, the ports
-carrying the VLAN and the connection policy. A segment that lost some of its objects is
-marked Incomplete. Segments made outside kcc aren't listed; their bridges and VLANs are
-on the Network page.
+A segment is a separate network kcc builds as one unit: a VLAN, a bridge with its own
+address, a DHCP pool, the switch ports and Wi-Fi access point that carry it, and a
+connection policy. `/ui/r/<router>/segments` lists the segments kcc created on the
+router: bridge, VLAN ID, address, DHCP range, NAT, whether new devices are allowed, Wi-Fi
+access point, the ports carrying the VLAN and the connection policy. A segment that lost
+some of its objects is marked Incomplete. kcc lists only the segments it created: it
+records each one on the router and removes it as a unit, and it cannot tell which objects
+belong to a bridge made elsewhere. Your other bridges and VLANs are on the Network page,
+which the Segments page links to.
 
 Create segment builds a new one (VLAN, bridge, address, DHCP pool, ports, access point,
 policy) step by step, rolling back finished steps, and the failing step when the router

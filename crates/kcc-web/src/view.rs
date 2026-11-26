@@ -21,6 +21,7 @@ use crate::{
     table::view::TableView,
     telemetry::FeedState,
     traffic::number,
+    wizard::analysis::names_hw_id,
 };
 
 /// What the Web UI shows about one router.
@@ -38,7 +39,7 @@ pub(crate) struct RouterView {
     brand: Option<MessageKey>,
     /// Model name.
     model: Option<String>,
-    /// Hardware id, such as `KN-1811`.
+    /// Hardware id, such as `KN-1811`, unless the model name already shows it.
     hw_id: Option<String>,
     /// Firmware version.
     firmware: Option<String>,
@@ -132,7 +133,15 @@ impl RouterView {
             .clone()
             .filter(|_| self.brand.is_some())
             .or_else(|| info.version.model.clone());
-        self.hw_id = info.hw_id().map(str::to_owned);
+        self.hw_id = info
+            .hw_id()
+            .filter(|id| {
+                !self
+                    .model
+                    .as_deref()
+                    .is_some_and(|model| names_hw_id(model, id))
+            })
+            .map(str::to_owned);
         self.firmware = info
             .firmware
             .map(|firmware| firmware.to_string())

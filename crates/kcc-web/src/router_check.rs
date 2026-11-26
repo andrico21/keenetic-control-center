@@ -37,6 +37,7 @@ use crate::{
     page::{Localize as _, Shell, Theme},
     page_kit::{audit::Record, context::managed},
     router_form::{FieldErrors, RouterForm, address::is_slug},
+    wizard::analysis::model_text,
 };
 
 /// The id a connection test uses when the form has no valid one yet.
@@ -193,11 +194,7 @@ impl TestResult {
             Ok(info) => Self {
                 shell,
                 error: String::new(),
-                model: [info.version.model.as_deref(), info.hw_id()]
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<_>>()
-                    .join(" "),
+                model: model_text(info),
                 firmware: info
                     .firmware
                     .map_or_default(|firmware| firmware.to_string()),

@@ -178,6 +178,49 @@ async fn a_segment_is_reviewed_then_created() -> TestResult {
     Ok(())
 }
 
+/// todo 6: the note on what a segment is links to the router's Network page.
+///
+/// It does so in the empty state and above a list of segments.
+#[tokio::test]
+async fn the_scope_note_links_to_the_network_page_with_and_without_segments() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let admin = fixture.login("admin").await?;
+    let marker = "\u{1}";
+    let mut args = FluentArgs::new();
+    args.set("network", marker);
+    let scope = tr(Locale::En, keys::WEB_SEGMENTS_SCOPE, Some(&args));
+    let (before, after) = scope
+        .split_once(marker)
+        .ok_or("the note names the Network page")?;
+    let note = format!(
+        "{}<a href=\"/ui/r/home/network\">{}</a>{}",
+        html(before),
+        said(Locale::En, keys::WEB_SEGMENTS_NETWORK_PAGE),
+        html(after)
+    );
+    let empty = text(fixture.get(PAGE, &admin).await?).await?;
+    assert!(
+        empty.contains(&said(Locale::En, keys::WEB_SEGMENTS_EMPTY)),
+        "empty: {empty}"
+    );
+    assert!(empty.contains(&note), "the note when empty: {empty}");
+    let created = fixture
+        .post(
+            &format!("{PAGE}/create"),
+            &admin,
+            &form(&confirmed_segment()),
+        )
+        .await?;
+    assert_eq!(created.status(), StatusCode::OK, "created");
+    let listed = text(fixture.get(PAGE, &admin).await?).await?;
+    let first = listed
+        .find("aria-labelledby=\"segment-23\"")
+        .ok_or("the created segment is listed")?;
+    let shown = listed.find(&note).ok_or("the note beside the list")?;
+    assert!(shown < first, "the note above the list: {listed}");
+    Ok(())
+}
+
 #[tokio::test]
 async fn invalid_details_are_refused_before_anything_is_written() -> TestResult {
     let fixture = Fixture::new().await?;

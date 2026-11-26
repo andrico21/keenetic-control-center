@@ -7244,6 +7244,9 @@ pub const WEB_SEGMENTS_EMPTY: MessageKey = MessageKey::new("web-segments-empty")
 /// `web-segments-scope` in `web.ftl`.
 pub const WEB_SEGMENTS_SCOPE: MessageKey = MessageKey::new("web-segments-scope");
 
+/// `web-segments-network-page` in `web.ftl`.
+pub const WEB_SEGMENTS_NETWORK_PAGE: MessageKey = MessageKey::new("web-segments-network-page");
+
 /// `web-segments-delete-title` in `web.ftl`.
 pub const WEB_SEGMENTS_DELETE_TITLE: MessageKey = MessageKey::new("web-segments-delete-title");
 
@@ -9596,7 +9599,7 @@ pub const WEB_ADMIN_MCP_MTLS_ROLE_ABOVE: MessageKey =
     MessageKey::new("web-admin-mcp-mtls-role-above");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2953] = [
+pub static ALL: [MessageKey; 2954] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -11896,6 +11899,7 @@ pub static ALL: [MessageKey; 2953] = [
     WEB_SEGMENTS_MISSING,
     WEB_SEGMENTS_EMPTY,
     WEB_SEGMENTS_SCOPE,
+    WEB_SEGMENTS_NETWORK_PAGE,
     WEB_SEGMENTS_DELETE_TITLE,
     WEB_SEGMENTS_DELETE_TEXT,
     WEB_SEGMENTS_DELETE_REMOVED,

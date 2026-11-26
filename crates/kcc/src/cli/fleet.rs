@@ -46,7 +46,7 @@ pub(crate) async fn info(ctx: &Ctx) -> Outcome {
     let human = [
         out.tr(
             keys::CLI_INFO_MODEL,
-            &[("model", &model), ("name", &hardware)],
+            &[("model", &model_label(&model, &hardware))],
         ),
         out.tr(keys::CLI_INFO_FIRMWARE, &[("version", &firmware)]),
         out.tr(keys::CLI_INFO_TIER, &[("value", &out.tr(tier_key, &[]))]),
@@ -162,6 +162,19 @@ pub(crate) fn body_value(body: RciBody) -> Value {
     }
 }
 
+/// The model as `kcc info` prints it, its hardware id shown once.
+///
+/// That is `model` alone when it already shows `hardware` (it is `hardware`, carries
+/// `(hardware)` as `Ultra (KN-1811)` does, or there is no hardware id), else
+/// `model (hardware)`.
+fn model_label(model: &str, hardware: &str) -> String {
+    if hardware.is_empty() || model == hardware || model.contains(&format!("({hardware})")) {
+        model.to_owned()
+    } else {
+        format!("{model} ({hardware})")
+    }
+}
+
 /// Model and firmware text of a detected router.
 pub(crate) fn identity(info: &RouterInfo) -> (String, String) {
     let model = info
@@ -177,4 +190,34 @@ pub(crate) fn identity(info: &RouterInfo) -> (String, String) {
         .or_else(|| info.firmware.map(|version| version.to_string()))
         .unwrap_or_default();
     (model, firmware)
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+mod tests {
+    use super::model_label;
+
+    /// todo 6: `kcc info` prints the model alone only when it is the hardware id or
+    /// carries it in brackets; the id inside other text or other brackets is added once.
+    #[test]
+    fn info_model_label_adds_the_hardware_id_unless_the_model_is_it_or_brackets_it() {
+        assert_eq!(model_label("Ultra (KN-1811)", "KN-1811"), "Ultra (KN-1811)");
+        assert_eq!(model_label("KN-1811", "KN-1811"), "KN-1811");
+        assert_eq!(model_label("Ultra", ""), "Ultra");
+        assert_eq!(
+            model_label("Keenetic Ultra", "KN-1811"),
+            "Keenetic Ultra (KN-1811)"
+        );
+        assert_eq!(
+            model_label("Ultra KN-1811", "KN-1811"),
+            "Ultra KN-1811 (KN-1811)"
+        );
+        assert_eq!(
+            model_label("Ultra (KN-1811A)", "KN-1811"),
+            "Ultra (KN-1811A) (KN-1811)"
+        );
+    }
 }

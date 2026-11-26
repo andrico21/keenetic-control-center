@@ -11,9 +11,13 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use crate::{
     markup::Rendered,
+    nav::Section,
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, request::rendered},
 };
+
+/// Stands for the link in the formatted scope note; no translation contains it.
+const LINK: &str = "\u{e000}";
 
 /// One segment as the list shows it.
 #[derive(Debug)]
@@ -173,5 +177,22 @@ impl Region {
     /// Whether a segment misses objects kcc created for it.
     fn incomplete(&self) -> bool {
         self.rows.iter().any(|row| !row.complete)
+    }
+
+    /// The note on what a segment is and why only kcc's own are listed, as the text before
+    /// and after the link to the router's Network page, which the template writes between.
+    fn scope(&self) -> (String, String) {
+        let mut args = FluentArgs::new();
+        args.set("network", LINK);
+        let note = tr(self.shell.locale(), keys::WEB_SEGMENTS_SCOPE, Some(&args));
+        note.split_once(LINK).map_or_else(
+            || (note.clone(), String::new()),
+            |(before, after)| (before.to_owned(), after.to_owned()),
+        )
+    }
+
+    /// The router's Network page.
+    fn network(&self) -> String {
+        Section::Network.href_on(Some(&self.router))
     }
 }

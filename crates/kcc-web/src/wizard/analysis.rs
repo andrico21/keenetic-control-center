@@ -60,11 +60,17 @@ pub(crate) fn inventory_problem(error: &InventoryError) -> Problem {
 /// The model name and hardware id `info` reports, as far as it does.
 pub(crate) fn model_text(info: &RouterInfo) -> String {
     match (info.version.model.as_deref(), info.hw_id()) {
-        (Some(name), Some(id)) if name != id => format!("{name} ({id})"),
+        (Some(name), Some(id)) if !names_hw_id(name, id) => format!("{name} ({id})"),
         (Some(name), _) => name.to_owned(),
         (None, Some(id)) => id.to_owned(),
         (None, None) => String::new(),
     }
+}
+
+/// Whether the model name `name` already shows the hardware id `id`: it is `id`, or it
+/// carries `(id)` as `Ultra (KN-1811)` does.
+pub(crate) fn names_hw_id(name: &str, id: &str) -> bool {
+    name == id || name.contains(&format!("({id})"))
 }
 
 /// The localized operating mode.
@@ -76,5 +82,24 @@ pub(crate) fn mode_text(mode: &SystemMode, locale: Locale) -> String {
         SystemMode::Repeater => tr(locale, keys::WEB_MIGRATE_MODE_REPEATER, None),
         SystemMode::Other(name) => name.clone(),
         _ => tr(locale, keys::WEB_KIT_NOT_REPORTED, None),
+    }
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+mod tests {
+    use super::names_hw_id;
+
+    /// todo 6: a model names its hardware id when it is the id or carries it in brackets.
+    #[test]
+    fn a_model_names_its_hardware_id_only_as_itself_or_in_brackets() {
+        assert!(names_hw_id("Ultra (KN-1811)", "KN-1811"));
+        assert!(names_hw_id("KN-1811", "KN-1811"));
+        assert!(!names_hw_id("Keenetic Ultra", "KN-1811"));
+        assert!(!names_hw_id("Ultra KN-1811", "KN-1811"));
+        assert!(!names_hw_id("Ultra (KN-1811A)", "KN-1811"));
     }
 }

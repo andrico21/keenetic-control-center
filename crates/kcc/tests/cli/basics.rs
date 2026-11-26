@@ -2,9 +2,13 @@
 
 use core::error::Error;
 
+use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
-use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, model::Model};
-use serde_json::Value;
+use kcc_testkit::{
+    DEFAULT_PASSWORD, FakeRouter,
+    model::{Firmware, Model, Profile},
+};
+use serde_json::{Value, json};
 
 use super::support::{Env, TestResult, router};
 
@@ -43,6 +47,65 @@ async fn json_info_reports_the_fixture_model_and_tier() -> TestResult {
         Some("hardware_verified"),
         "{info}"
     );
+    handle.shutdown().await?;
+    Ok(())
+}
+
+/// todo 6: a router whose `show version` model already names its hardware id, as
+/// `Ultra (KN-1811)` does, prints that model once and the hardware id no second time.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn info_prints_a_model_that_names_its_hardware_id_once() -> TestResult {
+    let model = "Ultra (KN-1811)";
+    let version = json!({
+        "title": Firmware::V5_1.title(), "release": Firmware::V5_1.release(),
+        "model": model, "device": "Ultra", "hw_id": "KN-1811",
+        "hw_version": "10000000", "hw_type": "router", "vendor": "Keenetic",
+        "manufacturer": "Keenetic Ltd.", "series": "KN", "region": "EA", "arch": "aarch64",
+    });
+    let (address, handle) = FakeRouter::builder(Profile::default())
+        .show_fixture("version", version)
+        .build()?
+        .serve(([127, 0, 0, 1], 0).into())
+        .await?;
+    let env = Env::new("")?;
+    let password = env.write("router.password", DEFAULT_PASSWORD)?;
+    env.write_config(&router("lab-1", address, &password))?;
+    let run = env.kcc(&["info"])?;
+    assert_eq!(run.code, 0_i32, "{run:?}");
+    let mut args = FluentArgs::new();
+    args.set("model", model);
+    let line = tr(Locale::En, keys::CLI_INFO_MODEL, Some(&args));
+    assert!(
+        run.stdout.lines().any(|printed| printed == line),
+        "{line:?} in {}",
+        run.stdout
+    );
+    assert_eq!(run.stdout.matches("KN-1811").count(), 1, "{}", run.stdout);
+    handle.shutdown().await?;
+    Ok(())
+}
+
+/// todo 6: a router whose `show version` model does not name its hardware id, as
+/// `Keenetic Ultra` does not, prints the model followed by the id in brackets once.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn info_joins_a_model_that_lacks_its_hardware_id_once() -> TestResult {
+    let (env, handle) = lab().await?;
+    let run = env.kcc(&["info"])?;
+    assert_eq!(run.code, 0_i32, "{run:?}");
+    let hardware = Model::Kn1811.hw_id();
+    let mut args = FluentArgs::new();
+    args.set("model", format!("{} ({hardware})", Model::Kn1811.realm()));
+    let line = tr(Locale::En, keys::CLI_INFO_MODEL, Some(&args));
+    assert_eq!(
+        run.stdout
+            .lines()
+            .filter(|printed| *printed == line)
+            .count(),
+        1,
+        "{line:?} in {}",
+        run.stdout
+    );
+    assert_eq!(run.stdout.matches(hardware).count(), 1, "{}", run.stdout);
     handle.shutdown().await?;
     Ok(())
 }

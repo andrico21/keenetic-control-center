@@ -1,5 +1,7 @@
 {#- The segments kcc created on one router, one panel each; a change sends the region again out of band. -#}
 <div class="lan-region" id="segments-region"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- let (before, after) = scope() %}
+  <p class="page__text">{{ before }}<a href="{{ network() }}">{{ t(keys::WEB_SEGMENTS_NETWORK_PAGE) }}</a>{{ after }}</p>
   {%- if rows.is_empty() %}
   <p class="page__text">{{ t(keys::WEB_SEGMENTS_EMPTY) }}</p>
   {%- else %}
@@ -32,5 +34,4 @@
   <p class="page__text">{{ t(keys::WEB_SEGMENTS_INCOMPLETE_NOTE) }}</p>
   {%- endif %}
   {%- endif %}
-  <p class="page__text">{{ t(keys::WEB_SEGMENTS_SCOPE) }}</p>
 </div>
