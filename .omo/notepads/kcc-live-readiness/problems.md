@@ -1,1 +1,5 @@
 # kcc-live-readiness: problems (append-only; unresolved blockers)
+
+## [2026-11-26] Todo 5: acceptance gap (fake-router request log)
+- The CLI acceptance "nothing sent to the fake router (its request log is empty)" is not covered by a test. The unit tests drive `typed` through the injectable prompt (mismatch gives exit 2 with `cli-secret-mismatch` and returns no secret). Every caller reads the new secret with `?` before it builds or sends the change. But all six router callers call `new_secret` after `Session::open`, which signs in and reads the router. So after a mismatch the fake's log would hold the sign-in and read requests, though never the change. An empty log needs either the prompt moved before `Session::open` in each caller (then a permission or protected-account refusal would come after the user has typed twice) or a prompt seam on `Ctx` (a production seam only tests need). Not done; owner or orchestrator to decide.
+- `crates/kcc-web/src/auth.rs` was already about 573 pure LOC before todo 5, over the 250 limit; todo 5 adds 7 lines.

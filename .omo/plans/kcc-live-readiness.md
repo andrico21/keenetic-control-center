@@ -178,7 +178,7 @@ W2 and W3 hold fewer than five todos and W6-W9 one each because they contain exa
 ## Todos
 > Implementation + Test = ONE todo. Never separate.
 <!-- APPEND TASK BATCHES BELOW THIS LINE WITH edit/apply_patch - never rewrite the headers above. -->
-- [ ] 1. RciError contract: typed transport causes, value-free decode details, honest Display and Debug
+- [x] 1. RciError contract: typed transport causes, value-free decode details, honest Display and Debug
   What to do / Must NOT do:
   - Dependencies of `crates/kcc-rci/Cargo.toml`: add `serde_path_to_error = "0.1.20"`, `hyper = { version = "1.12.0", default-features = false }` and `tracing = { workspace = true, features = ["std"] }` (all three already in `Cargo.lock`; record the reason in the commit body). Update the "Notable dependencies" line of `docs/rust-guidelines/overlays/projects/keenetic-control-center.md:27` (the project overlay is editable; vendored files are not).
   - New module `crates/kcc-rci/src/diag.rs`, re-exported from `lib.rs`:
@@ -250,7 +250,7 @@ W2 and W3 hold fewer than five todos and W6-W9 one each because they contain exa
   Commit: Y | feat(testkit): capture every kcc read and refuse to write a leaked identifier
   Recommended task executor category: deep-low - privacy-sensitive tooling with clear rules
 
-- [ ] 5. Type every new password twice (Web account page and CLI prompts)
+- [x] 5. Type every new password twice (Web account page and CLI prompts)
   What to do / Must NOT do:
   - Web: `crates/kcc-web/templates/pages/account.html:11-15` adds `{{ ui::field("new-password-again", "new_password_again", t(keys::WEB_SECRET_REPEAT), "", "", "password", "new-password") }}` after the new-password field; `PasswordForm` (`crates/kcc-web/src/auth.rs:81-95`) gains `new_password_again` (its `Debug` stays redacted); `change_password` (`auth.rs:387-447`) compares the two before any account call and on a mismatch renders the account page with `keys::WEB_SECRET_MISMATCH` (`web-secret-mismatch`, `crates/kcc-i18n/locales/en/web.ftl:1906`), changes nothing and writes no audit entry. The forced first change uses the same form, so it is covered.
   - CLI: the interactive-prompt branch asks twice wherever kcc reads a NEW secret, and a mismatch returns `Failure::message(Exit::Usage, keys::CLI_SECRET_MISMATCH, &[])` before anything is sent: inside `new_secret` (`crates/kcc/src/cli/dom_net.rs:138-148`; its callers are the router-users passwd command, the Wi-Fi key `dom_wifi.rs:51`, VPN server PSK and user passwords `dom_vpn_server.rs:83,99`, VPN client credentials `dom_vpn.rs:123`, the WAN password `dom_link.rs:129`) and at the account new-password prompts (`crates/kcc/src/cli/accounts.rs:43` user add, `accounts.rs:143` the new password of `user passwd`). (`crates/kcc/src/cli/migrate_plan.rs:155` reads new passwords from files only, so it needs no change.) Implement it once (`read_new_secret` in `crates/kcc/src/cli/secret.rs`, built on an injectable prompt function so tests can drive it). File and `KCC_PASSWORD` sources are unchanged, and `read_secret` for existing secrets (current passwords, router credentials, tokens, the notify token, the Entware root password) is unchanged. New Fluent messages in `crates/kcc-i18n/locales/{en,ru,uk,de,be,kk}/cli.ftl`: `cli-secret-repeat-prompt` ("Type it again: ") and `cli-secret-mismatch` ("The two entries differ. Nothing was changed."); run `cargo xtask i18n-gen`.
@@ -264,7 +264,7 @@ W2 and W3 hold fewer than five todos and W6-W9 one each because they contain exa
   Commit: Y | feat(web,cli): ask for a new password twice
   Recommended task executor category: visual-engineering - a form change on the Web UI plus CLI prompts
 
-- [ ] 6. Explain segments on the page; show the router model once
+- [x] 6. Explain segments on the page; show the router model once
   What to do / Must NOT do:
   - Replace `web-segments-scope` (`crates/kcc-i18n/locales/en/web.ftl:1892`) in all six locales with: "A segment is a separate network kcc builds as one unit: a VLAN, a bridge with its own address, a DHCP pool, the switch ports and Wi-Fi access point that carry it, and a connection policy. kcc lists only the segments it created: it records each one on the router and removes it as a unit, and it cannot tell which objects belong to a bridge made elsewhere. Your other bridges and VLANs are on the Network page." and render "Network page" as a link to the router's network page where the template shows the text (`crates/kcc-web/templates/pages/segments.html`, `crates/kcc-web/src/clients_pages/segment_list.rs`); show it both above the list and in the empty state.
   - `docs/USER_GUIDE.md:124-139` gains the same "why" sentence.
@@ -278,7 +278,7 @@ W2 and W3 hold fewer than five todos and W6-W9 one each because they contain exa
   Commit: Y | fix(web,cli): explain segments and print the router model once
   Recommended task executor category: visual-engineering - page copy and a small display fix
 
-- [ ] 7. Router display name: settings, state, registry, CLI and MCP
+- [x] 7. Router display name: settings, state, registry, CLI and MCP
   What to do / Must NOT do:
   - `RouterProfile` (`crates/kcc-app/src/settings.rs:685-718`) gains `#[serde(default, skip_serializing_if = "Option::is_none")] pub label: Option<String>`; the state record `ManagedRouterProfile` (`crates/kcc-app/src/registry.rs:44-90`) gains the same field with the same attributes. Both structs use `deny_unknown_fields`, so a profile WITHOUT a label stays readable by 1.0.0 and a profile with one is not; the CHANGELOG (todo 26) says "To go back to 1.0.0, remove router names first". Validation (one function, used by settings, CLI and Web): trimmed, 1 to 64 characters, no `char::is_control`; empty after trim means none; names need not be unique.
   - Registry: `display_name(id) -> String` returns the label or the id; `FleetEntry::new(id, name, selected)` (`crates/kcc-web/src/page.rs:131-170`) receives it (todo 11 uses it everywhere else). Logs, metrics, audit records and the CLI `--router` argument keep the id.
