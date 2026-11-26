@@ -12,7 +12,7 @@ use sha3::{Digest as _, Sha3_512};
 use tokio::{sync::Semaphore, task};
 use zeroize::Zeroizing;
 
-use crate::{AuthError, RciError, auth::Credentials};
+use crate::{AuthError, LocalCause, RciError, TransportCause, auth::Credentials};
 
 /// Global budget for concurrent Argon2 derivations (default: one).
 static BUDGET: LazyLock<Arc<Semaphore>> = LazyLock::new(|| Arc::new(Semaphore::new(1)));
@@ -63,7 +63,7 @@ impl Keys {
         let permit = budget
             .acquire_owned()
             .await
-            .map_err(|_closed| RciError::Transport)?;
+            .map_err(|_closed| RciError::Transport(TransportCause::Local(LocalCause::Budget)))?;
         let password = credentials.password.clone();
         task::spawn_blocking(move || {
             let result = Self::derive_sync(password.expose_secret().as_bytes(), parameters);
@@ -71,7 +71,7 @@ impl Keys {
             result
         })
         .await
-        .map_err(|_join| RciError::Transport)?
+        .map_err(|_join| RciError::Transport(TransportCause::Local(LocalCause::Worker)))?
     }
 
     /// Performs the Argon2id calculation and immediately erases the salted password.
@@ -307,7 +307,7 @@ mod tests {
         )
         .await?;
 
-        assert!(matches!(started, Err(RciError::Decode)));
+        assert!(matches!(started, Err(RciError::Decode(_))));
         assert_eq!(counts.phase_three.load(Ordering::SeqCst), 2);
         drop(permit);
         handle.shutdown().await?;

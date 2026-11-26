@@ -261,7 +261,7 @@ pub(crate) const fn failure(error: &RegistryError) -> MessageKey {
     match error {
         RegistryError::Rci(RciError::Policy) => keys::WEB_ROUTER_ERROR_POLICY,
         RegistryError::Rci(RciError::Auth(_)) => keys::ERRORS_ROUTER_AUTH,
-        RegistryError::Rci(RciError::Transport | RciError::Timeout) => {
+        RegistryError::Rci(RciError::Transport(_) | RciError::Timeout) => {
             keys::WEB_ROUTER_ERROR_UNREACHABLE
         }
         RegistryError::InvalidProfile { reason: _ } => keys::WEB_ROUTER_ERROR_URL,

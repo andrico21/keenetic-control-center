@@ -14,9 +14,10 @@ use std::{
 };
 
 use kcc_rci::{
-    RciError, RciPath, RciResponse, RouterUrl,
+    DecodeDetail, DecodeProblem, RciError, RciPath, RciResponse, RouterUrl, TransportCause,
     auth::Credentials,
     engine::{ConfigKind, RciBody, RciClient, RciClientOptions},
+    not_json,
     outbound::TlsMode,
     session::{HttpTimeouts, Manager},
 };
@@ -341,8 +342,15 @@ pub async fn fetch(connection: &Connection, request: &Request) -> Result<RawBody
         }
         Request::RunningConfig => {
             let bytes = client.download_config(ConfigKind::Running).await?;
-            let text = String::from_utf8(bytes.expose_secret().to_vec())
-                .map_err(|_error| RciError::Decode)?;
+            let text = String::from_utf8(bytes.expose_secret().to_vec()).map_err(|error| {
+                RciError::Decode(DecodeDetail::new(
+                    "running-config",
+                    "$",
+                    DecodeProblem::NotUtf8 {
+                        bytes: error.as_bytes().len(),
+                    },
+                ))
+            })?;
             return Ok(RawBody(Raw::Config(Zeroizing::new(text))));
         }
         Request::Root => return read_root(&connection.session).await,
@@ -350,7 +358,13 @@ pub async fn fetch(connection: &Connection, request: &Request) -> Result<RawBody
     match body {
         RciBody::Json(response) => Ok(RawBody(Raw::Json(response.value))),
         RciBody::Text(text) => Ok(RawBody(Raw::Text(Zeroizing::new(text)))),
-        _ => Err(RciError::Decode),
+        _ => Err(RciError::Decode(DecodeDetail::new(
+            "capture item",
+            "$",
+            DecodeProblem::Other {
+                category: "an answer of another kind",
+            },
+        ))),
     }
 }
 
@@ -370,17 +384,20 @@ async fn read_root(session: &Manager) -> Result<RawBody, RciError> {
         status => return Err(RciError::Http { status }),
     }
     let mut bytes = Zeroizing::new(Vec::new());
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|_error| RciError::Transport)?
-    {
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        if error.is_timeout() {
+            RciError::Timeout
+        } else {
+            RciError::Transport(TransportCause::BodyInterrupted)
+        }
+    })? {
         if bytes.len().saturating_add(chunk.len()) > ITEM_BYTE_CAP {
             return Err(RciError::BodyTooLarge);
         }
         bytes.extend_from_slice(&chunk);
     }
-    let value: Value = serde_json::from_slice(&bytes).map_err(|_error| RciError::Decode)?;
+    let value: Value = serde_json::from_slice(&bytes)
+        .map_err(|_error| RciError::Decode(not_json("rci root", &bytes)))?;
     Ok(RawBody(Raw::Json(RciResponse::from_value(value)?.value)))
 }
 

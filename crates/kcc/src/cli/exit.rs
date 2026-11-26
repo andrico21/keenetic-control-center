@@ -232,7 +232,7 @@ impl From<RciError> for Failure {
             RciError::Auth(_) => Exit::Auth,
             RciError::Validation => Exit::Validation,
             RciError::Policy => Exit::Policy,
-            RciError::Transport
+            RciError::Transport(_)
             | RciError::Timeout
             | RciError::Http { status: _ }
             | RciError::Rci {
@@ -244,7 +244,7 @@ impl From<RciError> for Failure {
             | RciError::NotFound
             | RciError::MethodNotAllowed
             | RciError::BodyTooLarge
-            | RciError::Decode
+            | RciError::Decode(_)
             | _ => Exit::Router,
         };
         Self::text(exit, &error)

@@ -247,14 +247,14 @@ impl Dispatch<'_> {
                             ident: _,
                             message,
                         } => message.clone(),
-                        RciError::Transport
+                        RciError::Transport(_)
                         | RciError::Timeout
                         | RciError::Http { status: _ }
                         | RciError::Auth(_)
                         | RciError::NotFound
                         | RciError::MethodNotAllowed
                         | RciError::BodyTooLarge
-                        | RciError::Decode
+                        | RciError::Decode(_)
                         | RciError::Policy
                         | RciError::Validation
                         | _ => rci_failure(Family::Commands, locale, error)

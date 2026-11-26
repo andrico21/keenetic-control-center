@@ -86,7 +86,7 @@ pub(crate) fn rci_failure(family: Family, locale: Locale, error: &RciError) -> F
             message,
         } => Failure::new(tr(locale, family.rejected(), None), "rci_error")
             .with_router_said(vec![message.clone()]),
-        RciError::Transport | RciError::Policy => {
+        RciError::Transport(_) | RciError::Policy => {
             Failure::new(tr(locale, family.unreachable(), None), "unreachable")
         }
         RciError::Timeout => Failure::new(tr(locale, keys::ERRORS_TIMEOUT, None), "timeout"),
@@ -95,7 +95,7 @@ pub(crate) fn rci_failure(family: Family, locale: Locale, error: &RciError) -> F
         RciError::Http { status: _ }
         | RciError::MethodNotAllowed
         | RciError::BodyTooLarge
-        | RciError::Decode
+        | RciError::Decode(_)
         | RciError::Validation
         | _ => {
             tracing::warn!(?error, "router request failed");

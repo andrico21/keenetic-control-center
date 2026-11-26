@@ -65,7 +65,7 @@ async fn detection_refuses_the_wrong_spki() -> TestResult {
     let session = manager(&router, fixture.address(), &TlsMode::PinSha256([0; 32]))?;
     let result = RouterInfo::detect(&session, &router).await;
     fixture.shutdown().await;
-    assert!(matches!(result, Err(RciError::Transport)));
+    assert!(matches!(result, Err(RciError::Transport(_))));
     Ok(())
 }
 

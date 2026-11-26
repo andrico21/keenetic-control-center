@@ -18,7 +18,7 @@ use futures_util::{
     stream::{self, BoxStream},
 };
 use kcc_domain::{DomainError, RouterCtx, logging};
-use kcc_rci::RciError;
+use kcc_rci::{LocalCause, RciError, TransportCause};
 use tokio::{sync::watch, task::JoinHandle, time::sleep};
 
 use super::log_source::{POLL_INTERVAL, TAIL_LINES, lines, new_lines};
@@ -82,10 +82,16 @@ impl Lease {
         let latest = window
             .wait_for(|latest| !matches!(latest, Window::Pending))
             .await
-            .map_err(|_stopped| DomainError::Rci(RciError::Transport))?;
+            .map_err(|_stopped| {
+                DomainError::Rci(RciError::Transport(TransportCause::Local(
+                    LocalCause::Worker,
+                )))
+            })?;
         match &*latest {
             Window::Lines(found) => Ok(found.to_vec()),
-            Window::Pending | Window::Failed => Err(DomainError::Rci(RciError::Transport)),
+            Window::Pending | Window::Failed => Err(DomainError::Rci(RciError::Transport(
+                TransportCause::Local(LocalCause::Worker),
+            ))),
         }
     }
 

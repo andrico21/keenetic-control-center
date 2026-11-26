@@ -24,6 +24,7 @@ pub mod budget;
 pub mod capabilities;
 pub mod catalog_path;
 pub mod configuration_answer;
+pub mod diag;
 pub mod engine;
 pub mod ndw4_keys;
 mod ndw4_reply;
@@ -36,6 +37,12 @@ pub mod version;
 use core::{fmt, net::Ipv4Addr, str::FromStr};
 
 pub use configuration_answer::ConfigurationAnswer;
+pub use diag::{
+    LocalCause, TlsCause, TransportCause,
+    answer::{DecodeDetail, DecodeProblem, JsonKind, decode_value, not_json},
+    classify,
+    collapse::{Admit, DedupeKey, Deduper},
+};
 pub use engine::{BackgroundHandle, ConfigKind, RciBody, RciClient, RciClientOptions, SecretBytes};
 pub use outbound::{AllowedNetwork, OutboundPolicy, TlsMode};
 use serde::{Deserialize, Serialize, Serializer};
@@ -527,29 +534,32 @@ pub enum AuthError {
 }
 
 /// Failures produced by RCI validation, transport, or response processing.
+///
+/// Neither text carries a URL, host, port, query, header, cookie, login or router value;
+/// of the router's error status only `ident` and `code` are shown.
 #[derive(Error)]
 #[non_exhaustive]
 pub enum RciError {
     /// The transport failed before an HTTP response was available.
-    #[error("RCI transport failed: see audit log")]
-    Transport,
+    #[error("connection to the router failed: {0}")]
+    Transport(TransportCause),
     /// The request exceeded its configured deadline.
-    #[error("RCI request timed out")]
+    #[error("the router did not answer in time")]
     Timeout,
     /// The caller cancelled the operation; the router-side work was asked to stop.
-    #[error("RCI operation was cancelled")]
+    #[error("the operation was cancelled")]
     Cancelled,
     /// The router returned an unexpected HTTP status.
-    #[error("RCI HTTP request failed")]
+    #[error("the router answered HTTP {status}")]
     Http {
         /// HTTP status code.
         status: u16,
     },
     /// Authentication failed.
-    #[error("RCI authentication failed")]
+    #[error("router sign-in failed")]
     Auth(#[source] AuthError),
     /// The response contained an error-level RCI status.
-    #[error("RCI request failed: see audit log")]
+    #[error("the router reported an error ({ident} {code})")]
     Rci {
         /// Location of the status-bearing object.
         pointer: JsonPointer,
@@ -561,47 +571,47 @@ pub enum RciError {
         message: String,
     },
     /// The requested RCI resource does not exist.
-    #[error("RCI resource was not found")]
+    #[error("the router does not have this resource")]
     NotFound,
     /// The HTTP method is not supported by the resource.
-    #[error("RCI method is not allowed")]
+    #[error("the router does not allow this method here")]
     MethodNotAllowed,
     /// The response exceeded the configured body limit.
-    #[error("RCI response body is too large")]
+    #[error("the router's answer is too large")]
     BodyTooLarge,
     /// The response body could not be decoded.
-    #[error("RCI response could not be decoded")]
-    Decode,
+    #[error("the router's answer could not be read: {0}")]
+    Decode(Box<DecodeDetail>),
     /// Outbound policy refused the router target.
-    #[error("RCI outbound policy refused the target")]
+    #[error("kcc's outbound policy refused the router address")]
     Policy,
     /// A caller-provided value failed validation.
-    #[error("RCI input validation failed")]
+    #[error("input validation failed")]
     Validation,
 }
 
 impl fmt::Debug for RciError {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::Transport => "RciError::Transport",
-            Self::Timeout => "RciError::Timeout",
-            Self::Cancelled => "RciError::Cancelled",
-            Self::Http { status: _ } => "RciError::Http",
-            Self::Auth(_error) => "RciError::Auth",
+        match self {
+            Self::Transport(cause) => write!(f, "Transport({cause:?})"),
+            Self::Http { status } => write!(f, "Http {{ status: {status} }}"),
+            Self::Auth(error) => write!(f, "Auth({error:?})"),
             Self::Rci {
                 pointer: _,
-                code: _,
-                ident: _,
+                code,
+                ident,
                 message: _,
-            } => "RciError::Rci",
-            Self::NotFound => "RciError::NotFound",
-            Self::MethodNotAllowed => "RciError::MethodNotAllowed",
-            Self::BodyTooLarge => "RciError::BodyTooLarge",
-            Self::Decode => "RciError::Decode",
-            Self::Policy => "RciError::Policy",
-            Self::Validation => "RciError::Validation",
-        })
+            } => write!(f, "Rci {{ ident: {ident:?}, code: {code:?} }}"),
+            Self::Decode(detail) => write!(f, "Decode({detail:?})"),
+            Self::Timeout => f.write_str("Timeout"),
+            Self::Cancelled => f.write_str("Cancelled"),
+            Self::NotFound => f.write_str("NotFound"),
+            Self::MethodNotAllowed => f.write_str("MethodNotAllowed"),
+            Self::BodyTooLarge => f.write_str("BodyTooLarge"),
+            Self::Policy => f.write_str("Policy"),
+            Self::Validation => f.write_str("Validation"),
+        }
     }
 }
 

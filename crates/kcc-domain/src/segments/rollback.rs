@@ -17,10 +17,10 @@ pub(super) const fn may_have_changed_router(error: &WorkflowError) -> bool {
             | WorkflowError::UnexpectedBody
             | WorkflowError::Audit(_)
             | WorkflowError::Rci(
-                RciError::Transport
+                RciError::Transport(_)
                     | RciError::Timeout
                     | RciError::Http { status: _ }
-                    | RciError::Decode
+                    | RciError::Decode(_)
             )
     )
 }

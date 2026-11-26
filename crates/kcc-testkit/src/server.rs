@@ -27,6 +27,7 @@ use crate::{
     FaultInjection, RequestRecord,
     components::Components,
     config_state::ConfigState,
+    connection_fault,
     entware_install::Installer,
     failsafe::{FailSafe, ScheduledReboot},
     firmware_update::FirmwareUpdate,
@@ -1227,6 +1228,9 @@ async fn inject_faults(
 ) -> Response {
     let record = request_log::push(&shared, &request);
     let _previous: Option<request_log::RecordIndex> = request.extensions_mut().insert(record);
+    if let Some(fault) = connection_fault::wire_fault(&shared.faults, request.uri().path()) {
+        return connection_fault::answer(fault, request).await;
+    }
     shared.gate.pass().await;
     let _inflight = shared.inflight.enter();
     shared.expire_reboots();

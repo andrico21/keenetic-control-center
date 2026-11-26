@@ -28,12 +28,12 @@ use zeroize::Zeroizing;
 
 use self::transport::install_ring_provider;
 use crate::{
-    AuthError, RciError, RouterUrl,
+    AuthError, LocalCause, RciError, RouterUrl, TransportCause,
     auth::{Credentials, Scheme, WwwAuthenticate, ndw2_response},
     auth_digest,
     auth_ndw4::{Cache, Exchange},
     auth_options::{ARGON2_ITERATIONS, ARGON2_MEMORY_KIB, Mode, Options},
-    auth_token,
+    auth_token, diag,
     ndw4_reply::Caps,
     observe::{LoginScheme, RciObserver},
 };
@@ -227,7 +227,9 @@ impl Manager {
             .connect_timeout(timeouts.connect)
             .read_timeout(timeouts.read)
             .build()
-            .map_err(|_error| RciError::Transport)?;
+            .map_err(|_error| {
+                RciError::Transport(TransportCause::Local(LocalCause::ClientBuild))
+            })?;
         Ok(Self {
             client,
             router,
@@ -592,7 +594,7 @@ impl Manager {
                 login: &self.credentials.login,
                 password: &response_hash,
             })
-            .map_err(|_error| RciError::Transport)?,
+            .map_err(|_error| RciError::Transport(TransportCause::Local(LocalCause::Serialize)))?,
         );
         let login_response = self
             .client
@@ -747,7 +749,7 @@ impl ParsedCookie {
 /// Returns [`RciError::Transport`] if the cookie cannot be represented as a header.
 fn cookie_header(name: &str, value: &SecretString) -> Result<HeaderValue, RciError> {
     HeaderValue::from_str(&format!("{name}={}", value.expose_secret()))
-        .map_err(|_error| RciError::Transport)
+        .map_err(|_error| RciError::Transport(TransportCause::Local(LocalCause::Header)))
 }
 
 impl From<ParsedCookie> for Session {
@@ -790,7 +792,9 @@ pub(crate) fn parse_set_cookie(
         }
         let Ok(text) = raw.to_str() else {
             if expected_name.is_some() {
-                return Err(RciError::Transport);
+                return Err(RciError::Transport(TransportCause::Local(
+                    LocalCause::Header,
+                )));
             }
             continue;
         };
@@ -826,7 +830,7 @@ pub(crate) fn map_reqwest_error(error: &reqwest::Error) -> RciError {
     if error.is_timeout() {
         RciError::Timeout
     } else {
-        RciError::Transport
+        RciError::Transport(diag::classify(error))
     }
 }
 

@@ -10,7 +10,7 @@ use subtle::ConstantTimeEq as _;
 use tokio::sync::Mutex;
 
 use crate::{
-    AuthError, RciError,
+    AuthError, LocalCause, RciError, TransportCause,
     auth::{Credentials, Ndw4Challenge},
     ndw4_keys::{Keys, Parameters},
     ndw4_reply::{Caps, Reply},
@@ -85,7 +85,8 @@ impl Exchange<'_> {
         let url = format!("{}{}", self.origin, challenge.endpoint);
         let mut pending = parse_set_cookie(initial.headers(), None)?.map(Session::from);
         let mut nonce_bytes = [0_u8; 16];
-        getrandom::fill(&mut nonce_bytes).map_err(|_error| RciError::Transport)?;
+        getrandom::fill(&mut nonce_bytes)
+            .map_err(|_error| RciError::Transport(TransportCause::Local(LocalCause::Random)))?;
         let client_nonce = STANDARD.encode(nonce_bytes);
         let login = self.credentials.login.as_str();
         let first = self

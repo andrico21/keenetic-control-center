@@ -3,8 +3,8 @@
 use core::{str::FromStr as _, time::Duration};
 
 use kcc_rci::{
-    OutboundPolicy, RciClient, RciClientOptions, RciError, RciPath, RouterUrl, auth::Credentials,
-    version::FirmwareVersion,
+    OutboundPolicy, RciClient, RciClientOptions, RciError, RciPath, RouterUrl, TransportCause,
+    auth::Credentials, version::FirmwareVersion,
 };
 use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter};
 use proptest::prelude::*;
@@ -294,7 +294,7 @@ async fn background_command_runs_and_cancels_through_validated_engine() -> Resul
         .expect("catalog accepts background start");
     let (address, handle) = FakeRouter::spawn()
         .await
-        .map_err(|_error| RciError::Transport)?;
+        .map_err(|_error| RciError::Transport(TransportCause::ConnectOther))?;
     let router =
         RouterUrl::from_str(&format!("http://{address}")).map_err(|_error| RciError::Validation)?;
     let credentials = Credentials::new(
@@ -334,6 +334,6 @@ async fn background_command_runs_and_cancels_through_validated_engine() -> Resul
     handle
         .shutdown()
         .await
-        .map_err(|_error| RciError::Transport)?;
+        .map_err(|_error| RciError::Transport(TransportCause::ConnectOther))?;
     Ok(())
 }

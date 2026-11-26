@@ -6,7 +6,7 @@ use tokio::{
 };
 
 use crate::{
-    RciError,
+    LocalCause, RciError, TransportCause,
     observe::{RciObserver, RequestOutcome},
 };
 
@@ -34,7 +34,7 @@ impl<'budget> Admission<'budget> {
         let permit = semaphore
             .acquire()
             .await
-            .map_err(|_closed| RciError::Transport)?;
+            .map_err(|_closed| RciError::Transport(TransportCause::Local(LocalCause::Budget)))?;
         Ok(Self {
             _permit: permit,
             observer,

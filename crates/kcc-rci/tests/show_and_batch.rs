@@ -14,7 +14,7 @@
 use core::{error::Error, net::SocketAddr, str::FromStr as _};
 
 use kcc_rci::{
-    RciError, RciPath, RciResponse, RouterUrl,
+    DecodeDetail, DecodeProblem, RciError, RciPath, RciResponse, RouterUrl,
     auth::Credentials,
     engine::{RciBody, RciClient, RciClientOptions},
     outbound::OutboundPolicy,
@@ -60,7 +60,11 @@ fn probe() -> Result<RciPath, RciError> {
 fn answer(body: RciBody) -> Result<Value, RciError> {
     match body {
         RciBody::Json(response) => Ok(response.value),
-        RciBody::Text(_) | _ => Err(RciError::Decode),
+        RciBody::Text(_) | _ => Err(RciError::Decode(DecodeDetail::new(
+            "test answer",
+            "$",
+            DecodeProblem::Other { category: "text" },
+        ))),
     }
 }
 
@@ -123,7 +127,7 @@ async fn a_short_batch_reply_is_a_decode_error() -> TestResult {
         .await
         .map_err(RciError::from);
 
-    assert!(matches!(result, Err(RciError::Decode)), "{result:?}");
+    assert!(matches!(result, Err(RciError::Decode(_))), "{result:?}");
     handle.shutdown().await?;
     Ok(())
 }

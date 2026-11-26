@@ -12,12 +12,14 @@ base64 = { workspace = true, features = ["std", "simd-unsafe"] }
 bytes = "1.12.2"
 getrandom = "0.4.3"
 hmac = { workspace = true, features = ["zeroize"] }
+hyper = { version = "1.12.0", default-features = false }
 md-5 = { workspace = true }
 reqwest = { workspace = true, features = ["json", "multipart", "rustls-no-provider"] }
 rustls = { workspace = true, features = ["ring", "std", "tls12"] }
 secrecy = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+serde_path_to_error = "0.1.20"
 serde_urlencoded = "0.7.1"
 sha2 = { workspace = true }
 sha3 = { workspace = true, features = ["zeroize"] }

@@ -6,7 +6,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 use super::{RciClient, admit::Admission, response_json};
-use crate::{RciError, RciResponse};
+use crate::{DecodeDetail, DecodeProblem, RciError, RciResponse};
 
 /// Maximum serialized request size used for one batch chunk.
 const BATCH_BYTES: usize = 900 * 1024;
@@ -62,10 +62,23 @@ pub(super) async fn run(
                         let Value::Array(values) =
                             response_json(response, client.options.response_bytes).await?
                         else {
-                            return Err(RciError::Decode);
+                            return Err(RciError::Decode(DecodeDetail::new(
+                                "batch answer",
+                                "$",
+                                DecodeProblem::Other {
+                                    category: "batch answer item has another shape",
+                                },
+                            )));
                         };
                         if values.len() != expected {
-                            return Err(RciError::Decode);
+                            return Err(RciError::Decode(DecodeDetail::new(
+                                "batch answer",
+                                "$",
+                                DecodeProblem::Length {
+                                    expected,
+                                    got: values.len(),
+                                },
+                            )));
                         }
                         Ok(values)
                     }

@@ -95,7 +95,9 @@ const fn map_refusal(refusal: Refusal) -> McpFailure {
 pub(crate) fn map_rci(error: &RciError) -> McpFailure {
     tracing::warn!(error = ?error, "MCP RCI request failed");
     match error {
-        RciError::Transport | RciError::Timeout | RciError::Policy => McpFailure::RouterUnreachable,
+        RciError::Transport(_) | RciError::Timeout | RciError::Policy => {
+            McpFailure::RouterUnreachable
+        }
         RciError::Auth(_)
         | RciError::Http { status: _ }
         | RciError::Rci {
@@ -107,7 +109,7 @@ pub(crate) fn map_rci(error: &RciError) -> McpFailure {
         | RciError::NotFound
         | RciError::MethodNotAllowed => McpFailure::RouterRejected,
         RciError::Validation => McpFailure::ValidationFailed,
-        RciError::BodyTooLarge | RciError::Decode | _ => McpFailure::Internal,
+        RciError::BodyTooLarge | RciError::Decode(_) | _ => McpFailure::Internal,
     }
 }
 

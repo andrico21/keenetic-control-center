@@ -22,7 +22,7 @@ use core::{
 };
 
 use kcc_rci::{
-    ObjectName, RciError, RciPath, RouterUrl,
+    DecodeDetail, DecodeProblem, ObjectName, RciError, RciPath, RouterUrl,
     auth::Credentials,
     engine::{ConfigKind, RciBody, RciClient, RciClientOptions, SecretBytes},
     outbound::{AllowedNetwork, OutboundPolicy, TlsMode},
@@ -63,7 +63,11 @@ async fn client(address: SocketAddr) -> Result<RciClient, RciError> {
 fn json_value(body: RciBody) -> Result<Value, RciError> {
     match body {
         RciBody::Json(response) => Ok(response.value),
-        RciBody::Text(_) | _ => Err(RciError::Decode),
+        RciBody::Text(_) | _ => Err(RciError::Decode(DecodeDetail::new(
+            "test answer",
+            "$",
+            DecodeProblem::Other { category: "text" },
+        ))),
     }
 }
 
@@ -234,7 +238,10 @@ async fn pinned_tls_accepts_the_right_spki_and_rejects_the_wrong_one() -> TestRe
         &resolved,
     )?;
     let wrong = Manager::with_client_builder(router, credentials(), timeouts, wrong_builder)?;
-    assert!(matches!(wrong.get("/auth").await, Err(RciError::Transport)));
+    assert!(matches!(
+        wrong.get("/auth").await,
+        Err(RciError::Transport(_))
+    ));
 
     fixture.shutdown().await;
     Ok(())

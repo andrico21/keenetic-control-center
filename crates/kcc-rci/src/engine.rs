@@ -24,17 +24,20 @@ use zeroize::Zeroizing;
 
 use self::{admit::Admission, batch::BatchError, body::read_capped};
 use crate::{
-    ObjectName, RciError, RciPath, RciResponse, RouterUrl,
+    DecodeDetail, DecodeProblem, ObjectName, RciError, RciPath, RciResponse, RouterUrl,
     auth::Credentials,
     auth_options::Options as AuthOptions,
     budget::{Budget, DEFAULT_CONCURRENCY},
     capabilities::RouterInfo,
     configuration_answer::ConfigurationAnswer,
-    encode_query,
+    encode_query, not_json,
     observe::RciObserver,
     outbound::{OutboundPolicy, TlsMode},
     session::{HttpTimeouts, Manager, RequestKind},
 };
+
+/// kcc's words for an answer whose request it does not name.
+const ANSWER: &str = "router answer";
 
 /// Default response body cap of a client and of identity detection.
 pub const DEFAULT_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
@@ -82,6 +85,8 @@ pub struct RciClientOptions {
     pub observer: Option<Arc<dyn RciObserver>>,
     /// Authentication policy of every session this client opens.
     pub auth: AuthOptions,
+    /// The router profile id this client's log lines carry; empty when unset.
+    pub log_id: String,
 }
 
 impl Default for RciClientOptions {
@@ -96,6 +101,7 @@ impl Default for RciClientOptions {
             response_bytes: DEFAULT_RESPONSE_BYTES,
             observer: None,
             auth: AuthOptions::default(),
+            log_id: String::new(),
         }
     }
 }
@@ -114,6 +120,14 @@ impl RciClientOptions {
     #[must_use]
     pub fn with_observer(mut self, observer: Arc<dyn RciObserver>) -> Self {
         self.observer = Some(observer);
+        self
+    }
+
+    /// Sets the router profile id (never its display name) this client's log lines carry.
+    #[inline]
+    #[must_use]
+    pub fn with_log_id(mut self, log_id: String) -> Self {
+        self.log_id = log_id;
         self
     }
 
@@ -400,7 +414,7 @@ impl RciClient {
     #[inline]
     pub async fn show_rc(&self, tree: Value) -> Result<ConfigurationAnswer, RciError> {
         let RciBody::Json(response) = self.post_root(&json!({"show":{"rc":tree}})).await? else {
-            return Err(RciError::Decode);
+            return Err(missing_pointer("show rc", "/show/rc"));
         };
         ConfigurationAnswer::from_response(&response, ConfigKind::Running)
     }
@@ -415,7 +429,7 @@ impl RciClient {
     #[inline]
     pub async fn show_sc(&self, tree: Value) -> Result<ConfigurationAnswer, RciError> {
         let RciBody::Json(response) = self.post_root(&json!({"show":{"sc":tree}})).await? else {
-            return Err(RciError::Decode);
+            return Err(missing_pointer("show sc", "/show/sc"));
         };
         ConfigurationAnswer::from_response(&response, ConfigKind::Startup)
     }
@@ -564,13 +578,13 @@ impl RciClient {
             .post_root(&json!({"put":{"filename":"flash:startup-config","size":size}}))
             .await?;
         let RciBody::Json(decoded) = handshake else {
-            return Err(RciError::Decode);
+            return Err(missing_pointer("upload handshake", "/put/port"));
         };
         let port = decoded
             .value
             .pointer("/put/port")
             .and_then(Value::as_str)
-            .ok_or(RciError::Decode)?
+            .ok_or_else(|| missing_pointer("upload handshake", "/put/port"))?
             .to_owned();
         let form = multipart::Form::new().text("port", port).part(
             "Filedata",
@@ -612,6 +626,13 @@ impl RciClient {
             }
             .await,
         )
+    }
+
+    /// The router profile id this client's log lines carry; empty when unset.
+    #[inline]
+    #[must_use]
+    pub fn log_id(&self) -> &str {
+        &self.options.log_id
     }
 
     /// The request and login observer of this client, if any.
@@ -692,7 +713,18 @@ fn map_status(response_status: StatusCode) -> Result<(), RciError> {
 async fn response_json(response: Response, cap: usize) -> Result<Value, RciError> {
     map_status(response.status())?;
     let body = read_capped(response, cap).await?;
-    serde_json::from_slice(&body).map_err(|_error| RciError::Decode)
+    serde_json::from_slice(&body).map_err(|_error| RciError::Decode(not_json(ANSWER, &body)))
+}
+
+/// The decode error of `resource` whose answer lacks kcc's own `pointer`.
+pub(crate) fn missing_pointer(resource: &str, pointer: &str) -> RciError {
+    RciError::Decode(DecodeDetail::new(
+        resource,
+        "$",
+        DecodeProblem::MissingPointer {
+            pointer: pointer.to_owned(),
+        },
+    ))
 }
 
 /// Decodes JSON when possible and preserves valid UTF-8 text otherwise.
@@ -707,8 +739,17 @@ async fn decode_response(response: Response, cap: usize) -> Result<RciBody, RciE
     let mut body = read_capped(response, cap).await?;
     match serde_json::from_slice::<Value>(&body) {
         Ok(value) => RciResponse::from_value(value).map(RciBody::Json),
-        Err(_json_error) => String::from_utf8(take(&mut *body))
-            .map(RciBody::Text)
-            .map_err(|_utf8_error| RciError::Decode),
+        Err(_json_error) => {
+            let bytes = body.len();
+            String::from_utf8(take(&mut *body))
+                .map(RciBody::Text)
+                .map_err(|_utf8_error| {
+                    RciError::Decode(DecodeDetail::new(
+                        ANSWER,
+                        "$",
+                        DecodeProblem::NotUtf8 { bytes },
+                    ))
+                })
+        }
     }
 }

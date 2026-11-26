@@ -1,7 +1,7 @@
 //! Protected sequential replay with value-free partial outcomes.
 
 use kcc_catalog::HttpMethod;
-use kcc_rci::RciError;
+use kcc_rci::{DecodeDetail, DecodeProblem, RciError};
 use serde::Serialize;
 use serde_json::json;
 
@@ -93,9 +93,9 @@ pub(super) async fn run(
         let response = match changes.client.parse_batch([line.as_str()]).await {
             Ok(mut results) if results.len() == 1 => results
                 .pop()
-                .ok_or(RciError::Decode)
+                .ok_or_else(|| one_answer(0))
                 .and_then(|result| result),
-            Ok(_results) => Err(RciError::Decode),
+            Ok(results) => Err(one_answer(results.len())),
             Err(failure) => Err(RciError::from(failure)),
         };
         let outcome = match response {
@@ -143,4 +143,13 @@ pub(super) async fn run(
         outcomes,
         completion: audited.and(refreshed),
     })
+}
+
+/// The decode error of a parse batch of one line answered with `got` answers.
+fn one_answer(got: usize) -> RciError {
+    RciError::Decode(DecodeDetail::new(
+        "parse batch answer",
+        "$",
+        DecodeProblem::Length { expected: 1, got },
+    ))
 }

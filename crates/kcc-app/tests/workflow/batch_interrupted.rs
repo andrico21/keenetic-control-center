@@ -93,7 +93,7 @@ mod tests {
             .await;
 
         assert!(
-            matches!(result, Err(WorkflowError::Rci(RciError::Decode))),
+            matches!(result, Err(WorkflowError::Rci(RciError::Decode(_)))),
             "{result:?}"
         );
         drop(changes);

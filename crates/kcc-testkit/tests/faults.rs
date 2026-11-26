@@ -44,13 +44,16 @@ mod tests {
                     .await?,
             );
             let result = client.parse("ip http port 8430").await;
-            assert!(matches!(result, Err(RciError::Transport)), "{result:?}");
+            assert!(matches!(result, Err(RciError::Transport(_))), "{result:?}");
             assert_eq!(handle.running_config_text().contains("port 8430"), applied);
             assert!(handle.recovery_armed());
             let cleanup = client
                 .parse("no system configuration fail-safe timer")
                 .await;
-            assert!(matches!(cleanup, Err(RciError::Transport)), "{cleanup:?}");
+            assert!(
+                matches!(cleanup, Err(RciError::Transport(_))),
+                "{cleanup:?}"
+            );
             assert!(handle.recovery_armed());
             handle.shutdown().await?;
         }

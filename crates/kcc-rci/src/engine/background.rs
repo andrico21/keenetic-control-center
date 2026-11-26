@@ -8,7 +8,9 @@ use serde_json::Value;
 use tokio::{runtime, sync::Semaphore, time};
 use tokio_util::sync::CancellationToken;
 
-use super::{RciBody, RciClient, admit::Admission, decode_response, response_json, session};
+use super::{
+    RciBody, RciClient, admit::Admission, decode_response, missing_pointer, response_json, session,
+};
 use crate::{
     RciError, RciPath, encode_query,
     observe::RciObserver,
@@ -75,7 +77,7 @@ pub(super) async fn start(
                 Ok(value
                     .pointer("/process/id")
                     .and_then(Value::as_str)
-                    .ok_or(RciError::Decode)?
+                    .ok_or_else(|| missing_pointer("background command", "/process/id"))?
                     .to_owned())
             }
             .await,

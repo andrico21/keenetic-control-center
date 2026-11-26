@@ -272,7 +272,7 @@ every step must pass, `podman inspect --format '{{.State.Health.Status}}'` must 
 `healthy`, the metrics scrape passes `promtool check metrics`, `podman run --user 0
 kcc:test --version` exits 77, and the container log must contain no
 `Operation not permitted`, `EPERM` or `ENOSYS`. The log check alone is not enough: kcc
-reports a refused `getsockopt` as "RCI transport failed", so the functional steps
+reports a refused `getsockopt` as "connection to the router failed: could not connect", so the functional steps
 (router reads, migration, metrics `keenetic_up 1`, log forwarding) are what prove the
 outbound path. A copy of the profile without `getsockopt` keeps startup and `/healthz`
 green and fails exactly those steps.

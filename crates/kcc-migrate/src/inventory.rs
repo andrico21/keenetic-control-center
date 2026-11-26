@@ -6,7 +6,8 @@ use core::{fmt, str, str::FromStr as _};
 use kcc_catalog::{Catalog, CatalogError};
 use kcc_config::config_text::{Ast, ParseError, Token, parse};
 use kcc_rci::{
-    ConfigKind, RciBody, RciClient, RciError, RciPath, RouterUrl,
+    ConfigKind, DecodeDetail, DecodeProblem, JsonKind, RciBody, RciClient, RciError, RciPath,
+    RouterUrl,
     capabilities::{RouterInfo, SystemMode},
     version::{FirmwareVersion, FirmwareVersionError},
 };
@@ -283,17 +284,37 @@ async fn collect_last_change(client: &RciClient) -> Result<String, RciError> {
     let path =
         RciPath::from_segments(["show", "last-change"]).map_err(|_error| RciError::Validation)?;
     let RciBody::Json(response) = client.get(&path, &()).await? else {
-        return Err(RciError::Decode);
+        return Err(last_change(
+            "$",
+            DecodeProblem::Other {
+                category: "the answer is text",
+            },
+        ));
     };
-    let checksum = response
-        .value
-        .get("checksum")
-        .and_then(Value::as_str)
-        .ok_or(RciError::Decode)?;
+    let found = response.value.get("checksum");
+    let checksum = found.and_then(Value::as_str).ok_or_else(|| {
+        last_change(
+            "$.checksum",
+            DecodeProblem::Mismatch {
+                found: JsonKind::of(found),
+                expected: "a checksum string".to_owned(),
+            },
+        )
+    })?;
     if checksum.len() != 32 || !checksum.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err(RciError::Decode);
+        return Err(last_change(
+            "$.checksum",
+            DecodeProblem::Other {
+                category: "the checksum is not 32 hex digits",
+            },
+        ));
     }
     Ok(checksum.to_owned())
+}
+
+/// The decode error of a `show last-change` answer at `path`.
+fn last_change(path: &str, problem: DecodeProblem) -> RciError {
+    RciError::Decode(DecodeDetail::new("show last-change", path, problem))
 }
 
 /// Target inventory failures.

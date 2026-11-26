@@ -161,9 +161,37 @@ pub struct FaultInjection {
     components_restart: components::Restart,
     /// How the simulated Entware installer goes wrong, if it does.
     entware_install: Option<entware_install::InstallFault>,
+    /// Path substrings whose answers announce more bytes than they send, then close.
+    cut_body: Vec<String>,
+    /// Path substrings whose requests are read and the connection closed unanswered.
+    close_before_answer: Vec<String>,
 }
 
 impl FaultInjection {
+    /// Answers every request whose path contains `path_substring` with 200 and a
+    /// `Content-Length` larger than the bytes it sends, then closes the connection.
+    #[inline]
+    #[must_use]
+    pub fn cut_body<S>(mut self, path_substring: S) -> Self
+    where
+        S: Into<String>,
+    {
+        self.cut_body.push(path_substring.into());
+        self
+    }
+
+    /// Reads every request whose path contains `path_substring` and closes its
+    /// connection without a status line.
+    #[inline]
+    #[must_use]
+    pub fn close_before_answer<S>(mut self, path_substring: S) -> Self
+    where
+        S: Into<String>,
+    {
+        self.close_before_answer.push(path_substring.into());
+        self
+    }
+
     /// Drops connections after applying a matching parser command.
     #[inline]
     #[must_use]
@@ -742,7 +770,7 @@ impl FakeRouter {
         let task = tokio::spawn(async move {
             let served = axum::serve(
                 connection_fault::Listener::new(listener, self.shared.connection_lost()),
-                app,
+                app.into_make_service_with_connect_info::<connection_fault::Wire>(),
             )
             .with_graceful_shutdown(async move {
                 match stopped.await {

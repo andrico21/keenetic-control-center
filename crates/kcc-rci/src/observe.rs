@@ -40,7 +40,9 @@ impl RequestOutcome {
         match result {
             Ok(_) => Self::Ok,
             Err(RciError::Auth(_)) => Self::Auth,
-            Err(RciError::Transport | RciError::Timeout | RciError::Cancelled) => Self::Transport,
+            Err(RciError::Transport(_) | RciError::Timeout | RciError::Cancelled) => {
+                Self::Transport
+            }
             Err(RciError::Http { status: _ } | RciError::NotFound | RciError::MethodNotAllowed) => {
                 Self::Http
             }
@@ -52,7 +54,7 @@ impl RequestOutcome {
                     message: _,
                 }
                 | RciError::BodyTooLarge
-                | RciError::Decode
+                | RciError::Decode(_)
                 | RciError::Policy
                 | RciError::Validation,
             ) => Self::Other,

@@ -7,7 +7,7 @@ use reqwest::Response;
 use rustls::crypto::{CryptoProvider, ring::default_provider};
 
 use super::{Manager, map_reqwest_error};
-use crate::{RciError, RouterUrl};
+use crate::{LocalCause, RciError, RouterUrl, TransportCause};
 
 /// Probes only the origin for which the session transport was constructed.
 ///
@@ -48,5 +48,5 @@ pub(super) fn install_ring_provider() -> Result<(), RciError> {
                         .ok_or(())
                 })
         })
-        .map_err(|()| RciError::Transport)
+        .map_err(|()| RciError::Transport(TransportCause::Local(LocalCause::ClientBuild)))
 }

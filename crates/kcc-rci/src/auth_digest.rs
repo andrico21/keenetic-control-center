@@ -14,7 +14,7 @@ use tokio::sync::Mutex;
 use zeroize::Zeroizing;
 
 use crate::{
-    AuthError, RciError,
+    AuthError, LocalCause, RciError, TransportCause,
     auth::{Credentials, Scheme, WwwAuthenticate, push_hex},
     session::map_reqwest_error,
 };
@@ -67,10 +67,16 @@ impl State {
         request: RequestBuilder,
         credentials: &Credentials,
     ) -> Result<Response, RciError> {
-        let replay = request.try_clone().ok_or(RciError::Transport)?;
+        let replay = request
+            .try_clone()
+            .ok_or(RciError::Transport(TransportCause::Local(
+                LocalCause::BodyClone,
+            )))?;
         let unsigned = replay
             .try_clone()
-            .ok_or(RciError::Transport)?
+            .ok_or(RciError::Transport(TransportCause::Local(
+                LocalCause::BodyClone,
+            )))?
             .build()
             .map_err(|error| map_reqwest_error(&error))?;
         let method = unsigned.method().as_str();
@@ -200,7 +206,8 @@ impl Challenge {
             .checked_add(1)
             .ok_or(RciError::Auth(AuthError::Rejected))?;
         let mut bytes = [0_u8; 16];
-        getrandom::fill(&mut bytes).map_err(|_error| RciError::Transport)?;
+        getrandom::fill(&mut bytes)
+            .map_err(|_error| RciError::Transport(TransportCause::Local(LocalCause::Random)))?;
         let cnonce = STANDARD.encode(bytes);
         let ha1 = hash(
             self.algorithm,

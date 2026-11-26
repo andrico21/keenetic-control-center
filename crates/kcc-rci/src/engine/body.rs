@@ -3,7 +3,7 @@
 use reqwest::Response;
 use zeroize::Zeroizing;
 
-use crate::RciError;
+use crate::{RciError, TransportCause};
 
 /// Reads at most `cap` bytes into a buffer wiped on drop.
 ///
@@ -24,11 +24,13 @@ pub(crate) async fn read_capped(
         .and_then(|length| usize::try_from(length).ok())
         .map_or(0, |length| length.min(cap));
     let mut body = Zeroizing::new(Vec::with_capacity(announced));
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|_error| RciError::Transport)?
-    {
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        if error.is_timeout() {
+            RciError::Timeout
+        } else {
+            RciError::Transport(TransportCause::BodyInterrupted)
+        }
+    })? {
         let needed = body.len().saturating_add(chunk.len());
         if needed > cap {
             return Err(RciError::BodyTooLarge);

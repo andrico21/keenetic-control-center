@@ -25,8 +25,9 @@
   cargo-zigbuild 0.24.1. Dependabot carries a 3-day
   `cooldown` for both cargo ecosystems (`/`, `/xtask`).
 - **Notable dependencies:** `rmcp-server-kit`, `axum`, `askama`, `reqwest`/`rustls`,
-  `secrecy`, `zeroize`, `chacha20poly1305`, `serde`, `tokio`, `tracing`, `proptest`
-  (dev), `rcgen` (dev).
+  `hyper` (kcc-rci reads its error kinds to name transport causes), `secrecy`, `zeroize`,
+  `chacha20poly1305`, `serde`, `serde_path_to_error` (value-free decode paths in kcc-rci),
+  `tokio`, `tracing`, `proptest` (dev), `rcgen` (dev).
 - **Vendored rules:** `docs/rust-guidelines/` holds the core, `http-services.md` and
   `mcp-servers.md` byte-for-byte at the commit in `PIN` (upstream `andrico21/rust-guidelines`
   `49898c91ea69ca5b9d9510ad2db9e750f3c64847`, stable through Rust 1.100), with `SHA256SUMS` checked by the

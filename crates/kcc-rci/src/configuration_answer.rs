@@ -4,7 +4,7 @@ use core::fmt;
 
 use serde_json::Value;
 
-use crate::{ConfigKind, RciError, RciResponse};
+use crate::{ConfigKind, RciError, RciResponse, engine::missing_pointer};
 
 /// A configuration answer whose router envelope is inaccessible to callers.
 #[derive(Clone, PartialEq)]
@@ -38,15 +38,15 @@ impl ConfigurationAnswer {
         response: &RciResponse,
         kind: ConfigKind,
     ) -> Result<Self, RciError> {
-        let pointer = match kind {
-            ConfigKind::Startup => "/show/sc",
-            ConfigKind::Running => "/show/rc",
+        let (resource, pointer) = match kind {
+            ConfigKind::Startup => ("show sc", "/show/sc"),
+            ConfigKind::Running => ("show rc", "/show/rc"),
         };
         let tree = response
             .value
             .pointer(pointer)
             .cloned()
-            .ok_or(RciError::Decode)?;
+            .ok_or_else(|| missing_pointer(resource, pointer))?;
         Ok(Self { tree })
     }
 }

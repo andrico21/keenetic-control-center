@@ -3,13 +3,16 @@
 use alloc::collections::{BTreeMap, BTreeSet};
 
 use reqwest::{StatusCode, header};
-use serde::{Deserialize, Deserializer, de::Error as _};
+use serde::{
+    Deserialize, Deserializer,
+    de::{DeserializeOwned, Error as _},
+};
 use serde_json::{Map, Value};
 
 use crate::{
     RciError, RciResponse, RouterUrl,
     auth::{Scheme, WwwAuthenticate},
-    engine,
+    decode_value, engine, not_json,
     session::Manager,
     version::FirmwareVersion,
 };
@@ -377,19 +380,21 @@ impl RouterInfo {
     ) -> Result<Self, RciError> {
         let read = |path| read_optional(client, path, cap);
         let auth_schemes = probe_auth_schemes(client, router).await?;
-        let version: ShowVersion =
-            decode(read("/rci/show/version").await?.ok_or(RciError::NotFound)?)?;
+        let version: ShowVersion = decode(
+            "show version",
+            &read("/rci/show/version").await?.ok_or(RciError::NotFound)?,
+        )?;
         let identification = read("/rci/show/identification")
             .await?
-            .map(decode::<Identification>)
+            .map(|value| decode::<Identification>("show identification", &value))
             .transpose()?;
         let user = read("/rci/whoami")
             .await?
-            .map(decode::<WhoAmI>)
+            .map(|value| decode::<WhoAmI>("whoami", &value))
             .transpose()?;
         let system_mode = read("/rci/show/system/mode")
             .await?
-            .map(decode::<ShowSystemMode>)
+            .map(|value| decode::<ShowSystemMode>("show system mode", &value))
             .transpose()?
             .and_then(|mode| mode.active.or(mode.selected))
             .map(|name| SystemMode::from_name(&name));
@@ -397,7 +402,7 @@ impl RouterInfo {
             None => None,
             Some(value) => {
                 let bands = read("/rci/show/interface/bands").await?;
-                Some(inventory(value, bands)?)
+                Some(inventory(&value, bands)?)
             }
         };
         Ok(Self::assemble(
@@ -574,7 +579,8 @@ async fn read_optional(
         });
     }
     let body = engine::body::read_capped(response, cap).await?;
-    let value = serde_json::from_slice::<Value>(&body).map_err(|_error| RciError::Decode)?;
+    let value = serde_json::from_slice::<Value>(&body)
+        .map_err(|_error| RciError::Decode(not_json(&resource_words(path), &body)))?;
     match RciResponse::from_value(value) {
         Ok(decoded) => Ok(Some(decoded.value)),
         Err(RciError::Rci {
@@ -587,16 +593,21 @@ async fn read_optional(
     }
 }
 
-/// Decodes a typed model.
+/// Decodes a typed model of `resource`.
 ///
 /// # Errors
 ///
 /// Returns [`RciError::Decode`] when the value has the wrong shape.
-fn decode<T>(value: Value) -> Result<T, RciError>
+fn decode<T>(resource: &str, value: &Value) -> Result<T, RciError>
 where
-    T: for<'de> Deserialize<'de>,
+    T: DeserializeOwned,
 {
-    serde_json::from_value(value).map_err(|_error| RciError::Decode)
+    decode_value(resource, value).map_err(RciError::Decode)
+}
+
+/// kcc's words for the resource at the RCI `path`, such as `show version`.
+fn resource_words(path: &str) -> String {
+    path.strip_prefix("/rci/").unwrap_or(path).replace('/', " ")
 }
 
 /// Builds the interface inventory from `show interface` and `show interface bands`.
@@ -604,8 +615,8 @@ where
 /// # Errors
 ///
 /// Returns [`RciError::Decode`] when `show interface` is not an object of entries.
-fn inventory(interfaces: Value, bands: Option<Value>) -> Result<InterfaceInventory, RciError> {
-    let entries: BTreeMap<String, ShowInterface> = decode(interfaces)?;
+fn inventory(interfaces: &Value, bands: Option<Value>) -> Result<InterfaceInventory, RciError> {
+    let entries: BTreeMap<String, ShowInterface> = decode("show interface", interfaces)?;
     let mut ordered = entries.into_iter().collect::<Vec<_>>();
     ordered.sort_by_key(|(_key, entry)| {
         entry
@@ -734,7 +745,7 @@ mod tests {
             radios,
             bands: _,
         } = inventory(
-            json!({
+            &json!({
                 "GigabitEthernet0/1": {"type": "Port", "index": 1_i32, "label": 2_i32},
                 "GigabitEthernet0/0": {"type": "Port", "index": 0_i32, "label": "1"},
                 "WifiMaster1": {"id": "WifiMaster1", "type": "WifiMaster"},

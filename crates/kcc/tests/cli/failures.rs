@@ -1,4 +1,4 @@
-//! Failed change attempts leave an audit entry, so "see audit log" points at one.
+//! Failed change attempts leave an audit entry.
 
 use core::net::SocketAddr;
 
