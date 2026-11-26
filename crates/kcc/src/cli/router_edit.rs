@@ -15,7 +15,7 @@ use super::{
     args_router::{CredentialArgs, EditArgs},
     exit::Outcome,
     router_secrets::usage,
-    routers::parse_url,
+    routers::{parse_label, parse_url},
 };
 
 /// What one `router edit` does.
@@ -78,6 +78,11 @@ pub(super) fn plan(stored: &ManagedRouterProfile, args: EditArgs) -> Outcome<Pla
     }
     if let Some(name) = args.login {
         profile.login = name;
+    }
+    match (args.clear_label, args.label) {
+        (true, _) => profile.label = None,
+        (false, Some(text)) => profile.label = parse_label(&text)?,
+        (false, None) => {}
     }
     if !args.tags.is_empty() {
         profile.tags = args.tags;

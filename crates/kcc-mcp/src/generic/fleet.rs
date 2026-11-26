@@ -125,6 +125,7 @@ pub(crate) fn routers_list(server: &KccMcp, input: &ListInput) -> Result<Value, 
         .map(|entry| {
             json!({
                 "id": entry.profile.id,
+                "label": entry.profile.label,
                 "tags": entry.profile.tags,
                 "test_device": entry.profile.test_device
             })

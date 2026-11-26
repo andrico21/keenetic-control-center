@@ -85,6 +85,8 @@ mod role_dominance;
 mod router_credentials;
 #[path = "cli/router_edits.rs"]
 mod router_edits;
+#[path = "cli/router_labels.rs"]
+mod router_labels;
 #[path = "cli/router_remove.rs"]
 mod router_remove;
 #[path = "cli/router_rollback.rs"]

@@ -96,6 +96,26 @@ mod tests {
         lab.stop().await
     }
 
+    /// Todo 7: every listed router carries `label`: its display name, or null without one.
+    #[tokio::test]
+    async fn routers_list_reports_each_label() -> TestResult {
+        let lab = start().await?;
+        let mut named = lab.registry.get("lab-1")?.profile;
+        named.label = Some("Home Office".to_owned());
+        lab.registry.update(&admin(), named).await?;
+
+        let listed = lab.call("kcc_routers_list", json!({}), false).await?;
+
+        let value = listed.value()?;
+        let labels = ["/routers/0/label", "/routers/1/label"].map(|path| value.pointer(path));
+        assert_eq!(
+            labels,
+            [Some(&json!("Home Office")), Some(&Value::Null)],
+            "{value}"
+        );
+        lab.stop().await
+    }
+
     /// E-18: `confirm` is described as required for management changes on every curated
     /// write tool, and the firewall tool lists no `index` or `description` input.
     #[tokio::test]

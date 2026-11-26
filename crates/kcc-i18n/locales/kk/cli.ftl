@@ -328,3 +328,5 @@ cli-mcp-col-name = Атауы
 cli-mcp-col-kind = Кім тіркеген
 cli-mcp-col-registered = Тіркелген
 cli-mcp-col-connections = Қосылымдар
+cli-col-label = Атауы
+cli-router-label-invalid = Роутер атауы 64 таңбадан аспауы және басқару таңбаларынсыз болуы керек.

@@ -239,7 +239,8 @@ pub(crate) fn switcher(entries: &[RegistryEntry], selected: Option<&str>) -> Vec
         .map(|entry| {
             let id = entry.profile.id.clone();
             let is_selected = selected == Some(id.as_str());
-            FleetEntry::new(id.clone(), id, is_selected)
+            let name = entry.profile.display_name().to_owned();
+            FleetEntry::new(id, name, is_selected)
         })
         .collect()
 }

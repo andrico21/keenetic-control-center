@@ -689,6 +689,9 @@ pub enum SearchFlavor {
 pub struct RouterProfile {
     /// Profile id: 1-32 characters of `[a-z0-9-]`.
     pub name: String,
+    /// Display name people read; checked by `registry::label::parse`, blank means none.
+    #[serde(default)]
+    pub label: Option<String>,
     /// Router base URL (`http` or `https`).
     pub url: Url,
     /// Login name; required unless `auth = "token"`.
@@ -1036,7 +1039,8 @@ impl RouterProfile {
     fn validate(&self) -> Result<(), ConfigError> {
         rules::check(&rules::from_config(self)).map_err(|fault| match fault {
             ProfileFault::Id => invalid("routers.name", fault.reason()),
-            ProfileFault::Url
+            ProfileFault::Label
+            | ProfileFault::Url
             | ProfileFault::CredentialSource
             | ProfileFault::TokenFileNeedsTokenAuth
             | ProfileFault::TokenAuthNeedsTokenFile

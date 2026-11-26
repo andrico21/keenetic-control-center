@@ -391,6 +391,7 @@ with `kcc router add` or the Web UI, which live in the state directory.
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `name` | string | required | profile id, 1 to 32 of `a-z 0-9 -` |
+| `label` | string | unset | display name people read, any script, at most 64 characters, no control characters; surrounding spaces are trimmed and a blank one means none; logs, metrics, audit records, URLs and `--router` keep `name` |
 | `url` | URL | required | router origin, `http` or `https`, with no path, query or fragment (`http://192.0.2.1:8080`, not `http://192.0.2.1/ui`) |
 | `login` | string | unset | login name; required unless `auth = "token"` |
 | `password_file` | path | unset | file holding the password |

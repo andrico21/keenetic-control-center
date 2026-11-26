@@ -4,6 +4,7 @@ extern crate alloc;
 
 mod auth;
 mod budgets;
+pub mod label;
 #[cfg(test)]
 mod local_socket_tests;
 mod read_pool;
@@ -51,6 +52,10 @@ use crate::{
 pub struct ManagedRouterProfile {
     /// Stable slug id (`[a-z0-9-]{1,32}`).
     pub id: String,
+    /// Display name people read ([`label::parse`] form); unset means the id. A stored
+    /// label makes the state file unreadable by kcc 1.0.0, so none is written when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     /// Router base URL.
     pub url: Url,
     /// Primary management login; may be empty for a token profile.
@@ -83,6 +88,7 @@ impl ManagedRouterProfile {
     pub const fn new(id: String, url: Url, login: String, password_file: PathBuf) -> Self {
         Self {
             id,
+            label: None,
             url,
             login,
             password_file: Some(password_file),
@@ -119,6 +125,13 @@ impl ManagedRouterProfile {
             CredentialKind::Token => self.token_file.as_deref(),
             CredentialKind::ReadPassword => self.read_password_file.as_deref(),
         }
+    }
+
+    /// The name people read: the label, or the id without one.
+    #[must_use]
+    #[inline]
+    pub fn display_name(&self) -> &str {
+        self.label.as_deref().unwrap_or(&self.id)
     }
 
     /// Whether this profile reaches a different endpoint than `before`: another URL,
@@ -572,6 +585,23 @@ impl RouterRegistry {
             .into_iter()
             .find(|entry| entry.profile.id == id)
             .ok_or_else(|| RegistryError::NotFound { id: id.to_owned() })
+    }
+
+    /// The name people read for router `id`: its label, or the id itself when it has
+    /// none, is unknown or the profile set is unreadable. Never a key: logs, metrics,
+    /// audit records and `--router` keep the id.
+    #[must_use]
+    #[inline]
+    pub fn display_name(&self, id: &str) -> String {
+        self.profiles
+            .read()
+            .ok()
+            .and_then(|profiles| {
+                profiles
+                    .get(id)
+                    .map(|profile| profile.display_name().to_owned())
+            })
+            .unwrap_or_else(|| id.to_owned())
     }
 
     /// Creates a mutable state profile.

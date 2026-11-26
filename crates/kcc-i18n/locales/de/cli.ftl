@@ -328,3 +328,5 @@ cli-mcp-col-name = Name
 cli-mcp-col-kind = Registriert von
 cli-mcp-col-registered = Registriert
 cli-mcp-col-connections = Verbindungen
+cli-col-label = Bezeichnung
+cli-router-label-invalid = Ein Routername hat höchstens 64 Zeichen und keine Steuerzeichen.

@@ -328,3 +328,5 @@ cli-mcp-col-name = Имя
 cli-mcp-col-kind = Кем зарегистрирован
 cli-mcp-col-registered = Зарегистрирован
 cli-mcp-col-connections = Подключения
+cli-col-label = Название
+cli-router-label-invalid = Название роутера — не более 64 символов, без управляющих символов.

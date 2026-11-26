@@ -23,7 +23,7 @@ use super::{
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     outbound, router_edit,
-    routers::parse_url,
+    routers::{parse_label, parse_url},
     secret::{password_env_set, read_secret},
 };
 
@@ -41,6 +41,7 @@ pub(crate) async fn add(ctx: &Ctx, services: &Services, args: AddArgs) -> Outcom
         .authorize_audited(services, &[Permission::ManageRouters], &[&args.id])
         .await?;
     let url = parse_url(&args.url)?;
+    let label = args.label.as_deref().map_or(Ok(None), parse_label)?;
     let auth = args
         .credentials
         .auth
@@ -70,6 +71,7 @@ pub(crate) async fn add(ctx: &Ctx, services: &Services, args: AddArgs) -> Outcom
         args.login,
         store.sealed_path(&id, CredentialKind::Password)?,
     );
+    profile.label = label;
     profile.tags = args.tags;
     profile.test_device = args.test_device;
     profile.tls = args

@@ -47,6 +47,9 @@ pub struct AddArgs {
     /// Router login.
     #[arg(long, default_value = "admin")]
     pub login: String,
+    /// Display name, any script, up to 64 characters; the id stays the key.
+    #[arg(long, value_name = "TEXT")]
+    pub label: Option<String>,
     /// Free-form label; repeat for several.
     #[arg(long = "tag")]
     pub tags: Vec<String>,
@@ -73,6 +76,12 @@ pub struct EditArgs {
     /// New router login.
     #[arg(long)]
     pub login: Option<String>,
+    /// New display name, any script, up to 64 characters; the id stays the key.
+    #[arg(long, value_name = "TEXT")]
+    pub label: Option<String>,
+    /// Remove the display name.
+    #[arg(long, conflicts_with = "label")]
+    pub clear_label: bool,
     /// Replace the labels; repeat for several.
     #[arg(long = "tag")]
     pub tags: Vec<String>,

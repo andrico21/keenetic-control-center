@@ -3,7 +3,7 @@
 use kcc_app::{
     entware_ssh::state::{SshStore, active, forget},
     permissions::Permission,
-    registry::ProfileSource,
+    registry::{ProfileSource, label},
 };
 use kcc_catalog::Risk;
 use kcc_i18n::keys;
@@ -15,7 +15,8 @@ use super::{
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     fleet::identity,
-    outbound, router_secrets,
+    outbound,
+    router_secrets::{self, usage},
     secret::confirm,
 };
 
@@ -121,6 +122,7 @@ fn list(ctx: &Ctx, services: &Services) -> Outcome {
         .map(|entry| {
             json!({
                 "id": entry.profile.id,
+                "label": entry.profile.label,
                 "url": entry.profile.url.as_str(),
                 "login": entry.profile.login,
                 "tags": entry.profile.tags,
@@ -134,6 +136,7 @@ fn list(ctx: &Ctx, services: &Services) -> Outcome {
         .map(|entry| {
             vec![
                 entry.profile.id.clone(),
+                entry.profile.label.clone().unwrap_or_default(),
                 entry.profile.url.as_str().to_owned(),
                 entry.profile.login.clone(),
                 source_name(entry.source).to_owned(),
@@ -150,6 +153,7 @@ fn list(ctx: &Ctx, services: &Services) -> Outcome {
         &document,
         &[
             keys::CLI_COL_ID,
+            keys::CLI_COL_LABEL,
             keys::CLI_COL_URL,
             keys::CLI_COL_LOGIN,
             keys::CLI_COL_SOURCE,
@@ -166,6 +170,15 @@ fn list(ctx: &Ctx, services: &Services) -> Outcome {
 /// Returns the command's failure with its exit code.
 pub(super) fn parse_url(text: &str) -> Outcome<Url> {
     Url::parse(text).map_err(|error| Failure::text(Exit::Usage, &error))
+}
+
+/// Parses a router display name; blank means none.
+///
+/// # Errors
+///
+/// Returns a usage failure (exit 2) for a name the rule refuses.
+pub(super) fn parse_label(text: &str) -> Outcome<Option<String>> {
+    label::parse(text).map_err(|_fault| usage(keys::CLI_ROUTER_LABEL_INVALID, &[]))
 }
 
 /// The stable name of a profile source.

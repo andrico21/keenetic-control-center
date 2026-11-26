@@ -1,6 +1,6 @@
 //! The one set of rules a router profile must satisfy, from `kcc.toml` or from state.
 
-use super::ManagedRouterProfile;
+use super::{ManagedRouterProfile, label};
 use crate::settings::{RouterAuth, RouterProfile, RouterTls, is_valid_router_id};
 
 /// The first rule a router profile breaks.
@@ -8,6 +8,8 @@ use crate::settings::{RouterAuth, RouterProfile, RouterTls, is_valid_router_id};
 pub(crate) enum ProfileFault {
     /// The id is outside 1-32 characters of `[a-z0-9-]`.
     Id,
+    /// The label is not in the form [`label::parse`] returns.
+    Label,
     /// The URL is not an `http` or `https` origin.
     Url,
     /// Not exactly one of `password_file` and `token_file` is set.
@@ -29,6 +31,7 @@ impl ProfileFault {
     pub(crate) const fn field(self) -> &'static str {
         match self {
             Self::Id => "name",
+            Self::Label => "label",
             Self::Url => "url",
             Self::CredentialSource => "password_file",
             Self::TokenFileNeedsTokenAuth | Self::TokenAuthNeedsTokenFile => "auth",
@@ -42,6 +45,9 @@ impl ProfileFault {
     pub(crate) const fn reason(self) -> &'static str {
         match self {
             Self::Id => "id must be 1-32 characters of [a-z0-9-]",
+            Self::Label => {
+                "label must be 1-64 characters without control characters or surrounding white space"
+            }
             Self::Url => "url must be an http or https origin, without path, query or fragment",
             Self::CredentialSource => "set exactly one of password_file and token_file",
             Self::TokenFileNeedsTokenAuth => "token_file needs auth = \"token\"",
@@ -60,6 +66,11 @@ impl ProfileFault {
 pub(crate) fn check(profile: &ManagedRouterProfile) -> Result<(), ProfileFault> {
     if !is_valid_router_id(&profile.id) {
         return Err(ProfileFault::Id);
+    }
+    if let Some(name) = &profile.label
+        && label::parse(name).ok().flatten().as_ref() != Some(name)
+    {
+        return Err(ProfileFault::Label);
     }
     let url = &profile.url;
     if !matches!(url.scheme(), "http" | "https")
@@ -104,6 +115,7 @@ pub(crate) fn from_config(profile: &RouterProfile) -> ManagedRouterProfile {
     };
     ManagedRouterProfile {
         id: profile.name.clone(),
+        label: profile.label.as_deref().and_then(config_label),
         url: profile.url.clone(),
         login: profile.login.clone().unwrap_or_default(),
         password_file: profile.password_file.clone(),
@@ -115,4 +127,10 @@ pub(crate) fn from_config(profile: &RouterProfile) -> ManagedRouterProfile {
         test_device: profile.test_device,
         tags: profile.tags.clone(),
     }
+}
+
+/// A `kcc.toml` label in its stored form: trimmed, and none when blank. A label the rule
+/// refuses stays as written, so [`check`] reports it.
+fn config_label(text: &str) -> Option<String> {
+    label::parse(text).unwrap_or_else(|_fault| Some(text.to_owned()))
 }

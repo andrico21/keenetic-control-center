@@ -1019,6 +1019,12 @@ pub const CLI_MCP_COL_REGISTERED: MessageKey = MessageKey::new("cli-mcp-col-regi
 /// `cli-mcp-col-connections` in `cli.ftl`.
 pub const CLI_MCP_COL_CONNECTIONS: MessageKey = MessageKey::new("cli-mcp-col-connections");
 
+/// `cli-col-label` in `cli.ftl`.
+pub const CLI_COL_LABEL: MessageKey = MessageKey::new("cli-col-label");
+
+/// `cli-router-label-invalid` in `cli.ftl`.
+pub const CLI_ROUTER_LABEL_INVALID: MessageKey = MessageKey::new("cli-router-label-invalid");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -9584,7 +9590,7 @@ pub const WEB_ADMIN_MCP_MTLS_ROLE_ABOVE: MessageKey =
     MessageKey::new("web-admin-mcp-mtls-role-above");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2949] = [
+pub static ALL: [MessageKey; 2951] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -9908,6 +9914,8 @@ pub static ALL: [MessageKey; 2949] = [
     CLI_MCP_COL_KIND,
     CLI_MCP_COL_REGISTERED,
     CLI_MCP_COL_CONNECTIONS,
+    CLI_COL_LABEL,
+    CLI_ROUTER_LABEL_INVALID,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,
