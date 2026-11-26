@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "active_work_id": "kcc-entware-mcp-8f82ad6d",
+  "active_work_id": "kcc-live-readiness-3c91e7a2",
   "works": {
     "keenetic-control-center-d60645fa": {
       "work_id": "keenetic-control-center-d60645fa",
@@ -140,6 +140,23 @@
       "task_sessions": {},
       "ended_at": "2026-11-25T07:08:07.715Z",
       "elapsed_ms": 386444715
+    },
+    "kcc-live-readiness-3c91e7a2": {
+      "work_id": "kcc-live-readiness-3c91e7a2",
+      "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/kcc-live-readiness.md",
+      "plan_name": "kcc-live-readiness",
+      "session_ids": [
+        "opencode:ses_dea0797c5ffeI3gP0PImEMmni9"
+      ],
+      "session_origins": {
+        "opencode:ses_dea0797c5ffeI3gP0PImEMmni9": "direct"
+      },
+      "status": "active",
+      "worktree_path": null,
+      "started_at": "2026-11-26T03:50:56.000Z",
+      "updated_at": "2026-11-26T03:50:56.000Z",
+      "agent": "atlas",
+      "task_sessions": {}
     }
   },
   "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",
