@@ -18,6 +18,7 @@ use zeroize::Zeroizing;
 use super::{
     args_admin::{AdminCommand, UserCommand},
     context::{Ctx, Services},
+    dom_net::new_secret,
     exit::{Exit, Failure, Outcome, denied},
     secret::read_secret,
 };
@@ -40,10 +41,7 @@ pub(crate) async fn user(ctx: &Ctx, command: UserCommand) -> Outcome {
             locale,
         } => {
             let actor = ctx.principal().authority()?;
-            let password = read_secret(
-                ctx.globals().password_file(),
-                &out.tr(keys::CLI_PROMPT_NEW_PASSWORD, &[("user", &username)]),
-            )?;
+            let password = new_secret(ctx, &username)?;
             let new = NewAccount::new(username.clone(), password, role.clone()).with_locale(locale);
             match accounts.create(&actor, new) {
                 Err(AccountError::Grant(GrantError::Forbidden)) => {
@@ -140,10 +138,7 @@ async fn passwd(
 ) -> Outcome {
     let accounts = ctx.accounts(services);
     let out = ctx.out();
-    let new = read_secret(
-        ctx.globals().password_file(),
-        &out.tr(keys::CLI_PROMPT_NEW_PASSWORD, &[("user", username)]),
-    )?;
+    let new = new_secret(ctx, username)?;
     let own_account = ctx.principal().account_name() == username;
     let changed = if own_account {
         let current = read_secret(

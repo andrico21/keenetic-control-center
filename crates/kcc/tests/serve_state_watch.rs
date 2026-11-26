@@ -232,6 +232,7 @@ async fn an_own_password_change_keeps_its_session() -> TestResult {
                 &[
                     ("current_password", PASSWORD),
                     ("new_password", new_password.as_str()),
+                    ("new_password_again", new_password.as_str()),
                 ],
             ),
         )

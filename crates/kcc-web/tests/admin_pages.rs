@@ -707,6 +707,7 @@ mod tests {
                 &[
                     ("current_password", initial),
                     ("new_password", "my own passphrase 7"),
+                    ("new_password_again", "my own passphrase 7"),
                 ],
             )
             .await?;
@@ -725,6 +726,65 @@ mod tests {
         );
         let open = fixture.get("/ui/", &rotated).await?;
         assert_eq!(open.status(), StatusCode::OK, "full access");
+        Ok(())
+    }
+
+    /// todo 5: a first password change whose two new entries differ changes nothing.
+    ///
+    /// The account page names the mismatch, nothing is audited, the session still waits
+    /// for the change and the initial password still signs in.
+    #[tokio::test]
+    async fn a_new_password_typed_two_ways_changes_nothing() -> TestResult {
+        let fixture = Fixture::new("en", Vec::new())?;
+        let initial = ["initial", "runtime", "passphrase"].join(" ");
+        fixture.accounts.create(
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            NewAccount::new(
+                "bob".to_owned(),
+                SecretString::from(initial.clone()),
+                "operator".to_owned(),
+            )
+            .with_must_change_password(true),
+        )?;
+        let (bob, _landing) = fixture.sign_in("bob", &initial, "/ui/account").await?;
+        let first = ["first", "new", "passphrase"].join(" ");
+        let second = ["second", "new", "passphrase"].join(" ");
+
+        let refused = fixture
+            .post(
+                &bob,
+                "/ui/account/password",
+                &[
+                    ("current_password", initial.as_str()),
+                    ("new_password", first.as_str()),
+                    ("new_password_again", second.as_str()),
+                ],
+            )
+            .await?;
+
+        assert_eq!(refused.status(), StatusCode::OK, "the account page again");
+        let html = text(refused).await?;
+        assert!(html.contains(&en(keys::WEB_SECRET_MISMATCH)), "mismatch");
+        assert!(
+            !html.contains(&first) && !html.contains(&second),
+            "no entry is echoed"
+        );
+        assert!(
+            !fixture.audit_log()?.contains("\"web.password_change\""),
+            "nothing audited"
+        );
+        let blocked = fixture.get("/ui/", &bob.cookie).await?;
+        assert_eq!(
+            header_text(&blocked, header::LOCATION.as_str()).as_deref(),
+            Some("/ui/account"),
+            "the session still waits for the new password"
+        );
+        let (_again, landing) = fixture.sign_in("bob", &initial, "/ui/account").await?;
+        assert_eq!(
+            landing.as_deref(),
+            Some("/ui/account"),
+            "the initial password still signs in, to the change"
+        );
         Ok(())
     }
 

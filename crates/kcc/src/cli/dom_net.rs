@@ -11,7 +11,7 @@ use super::{
     context::Ctx,
     domains::Session,
     exit::Outcome,
-    secret::read_secret,
+    secret::read_new_secret,
 };
 
 /// Runs a `router-users` command.
@@ -135,15 +135,18 @@ async fn initialize(ctx: &Ctx, media: &str, entware_ok: bool) -> Outcome {
         .await
 }
 
-/// Reads a new router secret for `name` from the usual sources.
+/// Reads a new secret for `name` from the usual sources; a typed one is typed twice.
 ///
 /// # Errors
 ///
-/// Returns a usage failure when no source is available.
+/// Returns a usage failure when no source is available or the two typed entries differ.
 pub(crate) fn new_secret(ctx: &Ctx, name: &str) -> Outcome<SecretString> {
-    read_secret(
+    let out = ctx.out();
+    read_new_secret(
         ctx.globals().password_file(),
-        &ctx.out()
-            .tr(keys::CLI_PROMPT_NEW_PASSWORD, &[("user", name)]),
+        (
+            &out.tr(keys::CLI_PROMPT_NEW_PASSWORD, &[("user", name)]),
+            &out.tr(keys::CLI_SECRET_REPEAT_PROMPT, &[]),
+        ),
     )
 }

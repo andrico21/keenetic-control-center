@@ -83,6 +83,8 @@ pub(crate) struct PasswordForm {
     current_password: String,
     /// Replacement password.
     new_password: String,
+    /// The replacement password typed again; it must equal `new_password`.
+    new_password_again: String,
 }
 
 impl fmt::Debug for PasswordForm {
@@ -90,10 +92,12 @@ impl fmt::Debug for PasswordForm {
         let Self {
             current_password: _,
             new_password: _,
+            new_password_again: _,
         } = self;
         f.debug_struct("PasswordForm")
             .field("current_password", &"[redacted]")
             .field("new_password", &"[redacted]")
+            .field("new_password_again", &"[redacted]")
             .finish()
     }
 }
@@ -394,6 +398,10 @@ pub(crate) async fn change_password(
     let server_error = |error: &dyn Display| {
         errors::internal(error, prefs::shell_for_locale(&headers, user.locale()))
     };
+    if form.new_password != form.new_password_again {
+        let error = Some(keys::WEB_SECRET_MISMATCH);
+        return account_response(&state, &headers, &current, &user, false, error).await;
+    }
     let accounts = Arc::clone(state.accounts());
     let username = user.username().to_owned();
     let auth_username = username.clone();
@@ -763,12 +771,14 @@ mod tests {
     }
 
     #[test]
-    fn password_form_debug_redacts_both_passwords() {
+    fn password_form_debug_redacts_every_password() {
         let current_password = ["runtime", "current", "secret"].join("-");
         let new_password = ["runtime", "replacement", "secret"].join("-");
+        let new_password_again = ["runtime", "repeated", "secret"].join("-");
         let form = PasswordForm {
             current_password: current_password.clone(),
             new_password: new_password.clone(),
+            new_password_again: new_password_again.clone(),
         };
 
         let debug = format!("{form:?}");
@@ -780,6 +790,10 @@ mod tests {
         assert!(
             !debug.contains(&new_password),
             "Debug must omit the replacement password"
+        );
+        assert!(
+            !debug.contains(&new_password_again),
+            "Debug must omit the repeated password"
         );
     }
 }

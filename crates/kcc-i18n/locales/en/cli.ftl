@@ -330,3 +330,5 @@ cli-mcp-col-registered = Registered
 cli-mcp-col-connections = Connections
 cli-col-label = Label
 cli-router-label-invalid = A router name has at most 64 characters and no control characters.
+cli-secret-repeat-prompt = Type it again:
+cli-secret-mismatch = The two entries differ. Nothing was changed.

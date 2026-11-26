@@ -1025,6 +1025,12 @@ pub const CLI_COL_LABEL: MessageKey = MessageKey::new("cli-col-label");
 /// `cli-router-label-invalid` in `cli.ftl`.
 pub const CLI_ROUTER_LABEL_INVALID: MessageKey = MessageKey::new("cli-router-label-invalid");
 
+/// `cli-secret-repeat-prompt` in `cli.ftl`.
+pub const CLI_SECRET_REPEAT_PROMPT: MessageKey = MessageKey::new("cli-secret-repeat-prompt");
+
+/// `cli-secret-mismatch` in `cli.ftl`.
+pub const CLI_SECRET_MISMATCH: MessageKey = MessageKey::new("cli-secret-mismatch");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -9590,7 +9596,7 @@ pub const WEB_ADMIN_MCP_MTLS_ROLE_ABOVE: MessageKey =
     MessageKey::new("web-admin-mcp-mtls-role-above");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2951] = [
+pub static ALL: [MessageKey; 2953] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -9916,6 +9922,8 @@ pub static ALL: [MessageKey; 2951] = [
     CLI_MCP_COL_CONNECTIONS,
     CLI_COL_LABEL,
     CLI_ROUTER_LABEL_INVALID,
+    CLI_SECRET_REPEAT_PROMPT,
+    CLI_SECRET_MISMATCH,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

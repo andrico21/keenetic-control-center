@@ -330,3 +330,5 @@ cli-mcp-col-registered = Зарегистрирован
 cli-mcp-col-connections = Подключения
 cli-col-label = Название
 cli-router-label-invalid = Название роутера — не более 64 символов, без управляющих символов.
+cli-secret-repeat-prompt = Повторите ввод:
+cli-secret-mismatch = Два введённых значения различаются. Ничего не изменено.

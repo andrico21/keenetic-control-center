@@ -470,7 +470,7 @@ mod tests {
         let (other, _other_csrf) = fixture.authenticated().await?;
         let replacement = ["rotated", "runtime", "passphrase"].join(" ");
         let body = format!(
-            "current_password={}&new_password={}",
+            "current_password={}&new_password={1}&new_password_again={1}",
             PASSWORD.replace(' ', "+"),
             replacement.replace(' ', "+")
         );

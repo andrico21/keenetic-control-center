@@ -60,20 +60,25 @@ impl Env {
     }
 
     fn reset(&self, password_file: &str) -> Result<Output, Box<dyn Error>> {
+        self.reset_from(Some(password_file), None)
+    }
+
+    fn reset_from(
+        &self,
+        password_file: Option<&str>,
+        password_env: Option<&str>,
+    ) -> Result<Output, Box<dyn Error>> {
+        let config = self.path("kcc.toml");
+        let mut args = vec!["--config", config.to_str().ok_or("non-UTF-8 config path")?];
+        if let Some(file) = password_file {
+            args.extend(["--password-file", file]);
+        }
+        args.extend(["user", "passwd", "alice"]);
         let output = spawning::spawn(
             spawning::command(env!("CARGO_BIN_EXE_kcc"))
-                .args([
-                    "--config",
-                    self.path("kcc.toml")
-                        .to_str()
-                        .ok_or("non-UTF-8 config path")?,
-                    "--password-file",
-                    password_file,
-                    "user",
-                    "passwd",
-                    "alice",
-                ])
+                .args(args)
                 .env_clear()
+                .envs(password_env.map(|value| ("KCC_PASSWORD", value)))
                 // Windows sockets fail to load their provider without SystemRoot.
                 .envs(env::var_os("SystemRoot").map(|root| ("SystemRoot", root)))
                 .env("PATH", env::var_os("PATH").unwrap_or_default())
@@ -85,6 +90,7 @@ impl Env {
                 .env(MASTER_KEY_FILE_ENV, self.path("master.key"))
                 .env("USER", "tester")
                 .env("LANG", "C")
+                .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped()),
         )?
@@ -181,6 +187,33 @@ async fn viewer_reset_is_refused_with_policy_exit_and_no_state_change() -> TestR
         accounts(&env)?.authenticate("alice", &SecretString::from(replacement))?,
         Authentication::Invalid,
         "refused reset changes no credentials"
+    );
+    Ok(())
+}
+
+/// todo 5: the new password of `user passwd` comes from `KCC_PASSWORD` when no file is
+/// given and stdin is not a terminal; it is not prompted for.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn password_environment_supplies_the_new_password_without_a_terminal() -> TestResult {
+    let env = Env::new("admin")?;
+    seed(&env)?;
+    let replacement = format!("alice {} passphrase", "from environment");
+
+    let run = env.reset_from(None, Some(&replacement))?;
+
+    assert!(run.status.success(), "{run:?}");
+    let stdout = String::from_utf8(run.stdout)?;
+    let stderr = String::from_utf8(run.stderr)?;
+    assert!(
+        !stdout.contains(&replacement) && !stderr.contains(&replacement),
+        "password is absent from both output streams"
+    );
+    assert!(
+        matches!(
+            accounts(&env)?.authenticate("alice", &SecretString::from(replacement.as_str()))?,
+            Authentication::Authenticated { role, locale: _ } if role == "viewer"
+        ),
+        "the environment password authenticates"
     );
     Ok(())
 }

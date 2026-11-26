@@ -11,6 +11,7 @@
     <form class="form" method="post" action="/ui/account/password" hx-post="/ui/account/password" hx-target="body">
       {{ ui::field("current-password", "current_password", t(keys::WEB_CURRENT_PASSWORD), "", "", "password", "current-password") }}
       {{ ui::field("new-password", "new_password", t(keys::WEB_NEW_PASSWORD), "", error, "password", "new-password") }}
+      {{ ui::field("new-password-again", "new_password_again", t(keys::WEB_SECRET_REPEAT), "", "", "password", "new-password") }}
       <button class="button button--primary" type="submit">{{ t(keys::WEB_CHANGE_PASSWORD) }}</button>
     </form>
   </section>
