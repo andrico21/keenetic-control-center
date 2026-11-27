@@ -5,13 +5,21 @@
 
 use core::{error::Error, net::SocketAddr, time::Duration};
 
-use kcc_app::{audit::AuditLog, notify_store::NotifyEvent, poller::PollResult, pseudonym};
+use kcc_app::{
+    audit::AuditLog, notify_store::NotifyEvent, poller::PollResult, pseudonym,
+    schedules::model::Schedule,
+};
 use kcc_testkit::{Handle, fake_telegram::FakeTelegram};
+use serde_json::json;
 use tempfile::TempDir;
 use tokio::sync::watch;
 
 use self::rig::{fake, fake_with_visitor};
 use super::NotifyHandle;
+use crate::server_schedules::{
+    lines::{Line, LineKind},
+    notices::Notices as _,
+};
 
 mod rig;
 
@@ -136,5 +144,74 @@ async fn a_new_device_is_named_by_its_pseudonym_only() -> TestResult {
     ] {
         assert!(!text.contains(private), "{private} in {text}");
     }
+    Ok(())
+}
+
+/// Todo 11: a labelled router is named by its label in Telegram messages, both from its
+/// follower (offline) and from the audit log (a failed change); the id stays out.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_labelled_router_is_named_by_its_label() -> TestResult {
+    let label = "Home Office";
+    let mut rig = Rig::start_labelled(
+        &[NotifyEvent::RouterDownUp, NotifyEvent::ChangeFailed],
+        fake()?,
+        Some(label),
+    )
+    .await?;
+    rig.polls(2, true).await?;
+    rig.audit(("router.change_cli", "interface Home"), "failed")
+        .await?;
+    rig.messages(1).await?;
+    rig.stop_router().await?;
+    rig.messages(2).await?;
+    rig.notify.stop().await;
+
+    let texts = rig.texts();
+    assert_eq!(texts.len(), 2, "{texts:?}");
+    for text in &texts {
+        assert!(text.contains(label), "{text}");
+        assert!(
+            !text.split_whitespace().any(|word| word
+                .trim_matches(|character: char| !character.is_alphanumeric())
+                == ROUTER),
+            "the id stays out: {text}"
+        );
+    }
+    Ok(())
+}
+
+/// Todo 11: the scheduler's line about a labelled router's schedule names the router by
+/// its label; the id stays out.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_scheduled_line_names_a_labelled_router_by_its_label() -> TestResult {
+    let label = "Home Office";
+    let rig = Rig::start_labelled(&[NotifyEvent::ScheduledSuccess], fake()?, Some(label)).await?;
+    let schedule: Schedule = serde_json::from_value(json!({
+        "id": "00000000000000aa",
+        "name": "Weekly backup",
+        "router": ROUTER,
+        "when": {"days": ["mon"], "hour": 3_u8, "minute": 0_u8, "zone": "UTC"},
+        "action": {"kind": "backup"},
+        "owner": {"kind": "web", "username": "alice"},
+        "state": {"state": "active"},
+        "created_at": 0_i64,
+        "updated_at": 0_i64,
+    }))?;
+    rig.notify
+        .send_line(Line::new(&schedule, LineKind::BackedUp));
+    rig.messages(1).await?;
+    rig.notify.stop().await;
+
+    let texts = rig.texts();
+    let [text] = texts.as_slice() else {
+        return Err(format!("one message expected: {texts:?}").into());
+    };
+    assert!(text.contains(label), "{text}");
+    assert!(
+        !text.split_whitespace().any(|word| word
+            .trim_matches(|character: char| !character.is_alphanumeric())
+            == ROUTER),
+        "the id stays out: {text}"
+    );
     Ok(())
 }

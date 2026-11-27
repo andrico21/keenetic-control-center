@@ -7,7 +7,7 @@
   <div class="page-head">
     <h1 class="page__title">{{ t(tabs.title()) }}</h1>
   </div>
-  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router_name(router) }}</a></p>
   {%- include "partials/system_tabs.html" %}
   {%- if let Some(message) = problem %}
   <p class="notice" data-tone="error">{{ t(**message) }}</p>

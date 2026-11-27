@@ -57,12 +57,13 @@ impl Source {
     }
 }
 
-/// How `source` is named in the summary and the migration list.
-pub(crate) fn source_text(source: &Source, locale: Locale) -> String {
+/// How `source` is named in the summary and the migration list, in `shell`'s locale
+/// and with the names of its fleet switcher.
+pub(crate) fn source_text(source: &Source, shell: &Shell) -> String {
     let mut args = FluentArgs::new();
     let key = match source {
         Source::Router { router } => {
-            args.set("router", router.clone());
+            args.set("router", shell.router_name(router).to_owned());
             keys::WEB_MIGRATE_SOURCE_IS_ROUTER
         }
         Source::File { name } => {
@@ -70,12 +71,12 @@ pub(crate) fn source_text(source: &Source, locale: Locale) -> String {
             keys::WEB_MIGRATE_SOURCE_IS_FILE
         }
         Source::Backup { router, name } => {
-            args.set("router", router.clone());
+            args.set("router", shell.router_name(router).to_owned());
             args.set("name", name.clone());
             keys::WEB_MIGRATE_SOURCE_IS_BACKUP
         }
     };
-    tr(locale, key, Some(&args))
+    tr(shell.locale(), key, Some(&args))
 }
 
 /// The step's panel.
@@ -112,8 +113,8 @@ struct Choice {
 
 /// The backups of one router.
 struct Group {
-    /// Router profile id.
-    router: String,
+    /// What people read for the router: its display name, else its id.
+    name: String,
     /// Its backups, newest first.
     backups: Vec<Choice>,
 }
@@ -173,8 +174,13 @@ impl Panel {
         let routers = match services.fleet().visible(services.user().role()).await {
             Ok(entries) => entries
                 .into_iter()
-                .map(|entry| entry.profile.id)
-                .filter(|router| services.may_migrate(router))
+                .map(|entry| {
+                    (
+                        entry.profile.id.clone(),
+                        entry.profile.display_name().to_owned(),
+                    )
+                })
+                .filter(|(router, _)| services.may_migrate(router))
                 .collect::<Vec<_>>(),
             Err(error) => {
                 tracing::warn!(%error, "migration source: routers could not be listed");
@@ -183,10 +189,10 @@ impl Panel {
         };
         let groups = routers
             .iter()
-            .filter_map(|router| {
+            .filter_map(|(router, name)| {
                 let backups = services.fleet().workflow().backups().list(router).ok()?;
                 (!backups.is_empty()).then(|| Group {
-                    router: router.clone(),
+                    name: name.clone(),
                     backups: backups
                         .into_iter()
                         .map(|backup| {
@@ -226,9 +232,9 @@ impl Panel {
             },
             routers: routers
                 .into_iter()
-                .map(|router| Choice {
+                .map(|(router, name)| Choice {
                     selected: chosen(&router),
-                    label: router.clone(),
+                    label: name,
                     value: router,
                 })
                 .collect(),

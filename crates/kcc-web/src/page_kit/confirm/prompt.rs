@@ -15,10 +15,18 @@ impl Prompt {
             family,
             guard,
             router: router.to_owned(),
+            name: router.to_owned(),
             wrong_name: false,
             persists: false,
             persisted_paths: Vec::new(),
         }
+    }
+
+    /// Names the router `name` in the dialog's sentences; the id stays what is typed.
+    #[must_use]
+    pub(crate) fn named(mut self, name: String) -> Self {
+        self.name = name;
+        self
     }
 
     /// Reports that the typed router name did not match.
@@ -42,9 +50,12 @@ impl Prompt {
     /// The dialog, shown in the shared `<dialog>`; confirming sends `resubmit`.
     pub(crate) fn render(self, resubmit: Resubmit, locale: Locale) -> Response {
         let mut args = FluentArgs::new();
-        args.set("router", self.router.clone());
-        args.set("name", self.router.clone());
+        args.set("router", self.name.clone());
+        args.set("id", self.router.clone());
         args.set("minutes", FAIL_SAFE_MINUTES.to_string());
+        let mut exact = FluentArgs::new();
+        exact.set("router", self.router.clone());
+        exact.set("name", self.router.clone());
         let (title, unsaved_text) = self.guard.words(self.family);
         // The router saves such a change itself, so the dialog does not call it unsaved.
         let text = if self.persists && self.guard == Guard::Write {
@@ -74,12 +85,12 @@ impl Prompt {
         let ask = if self.guard.needs_name() {
             // The timer's text does not ask for the name, so the field says what to type.
             let help = if self.guard == Guard::DestructiveManagement {
-                tr(locale, keys::WEB_ADMIN_CONFIRM_HELP, Some(&args))
+                tr(locale, keys::WEB_ADMIN_CONFIRM_HELP, Some(&exact))
             } else {
                 String::new()
             };
             let error = if self.wrong_name {
-                tr(locale, keys::WEB_EXPLORER_CONFIRM_NAME_ERROR, Some(&args))
+                tr(locale, keys::WEB_EXPLORER_CONFIRM_NAME_ERROR, Some(&exact))
             } else {
                 String::new()
             };

@@ -9598,8 +9598,17 @@ pub const WEB_ADMIN_MCP_OIDC_ROLE_ABOVE: MessageKey =
 pub const WEB_ADMIN_MCP_MTLS_ROLE_ABOVE: MessageKey =
     MessageKey::new("web-admin-mcp-mtls-role-above");
 
+/// `web-router-name` in `web.ftl`.
+pub const WEB_ROUTER_NAME: MessageKey = MessageKey::new("web-router-name");
+
+/// `web-router-name-help` in `web.ftl`.
+pub const WEB_ROUTER_NAME_HELP: MessageKey = MessageKey::new("web-router-name-help");
+
+/// `web-router-error-name` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_NAME: MessageKey = MessageKey::new("web-router-error-name");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2954] = [
+pub static ALL: [MessageKey; 2957] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -12554,4 +12563,7 @@ pub static ALL: [MessageKey; 2954] = [
     WEB_ADMIN_MCP_OIDC_CA_UNCHECKED,
     WEB_ADMIN_MCP_OIDC_ROLE_ABOVE,
     WEB_ADMIN_MCP_MTLS_ROLE_ABOVE,
+    WEB_ROUTER_NAME,
+    WEB_ROUTER_NAME_HELP,
+    WEB_ROUTER_ERROR_NAME,
 ];

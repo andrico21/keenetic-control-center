@@ -229,8 +229,10 @@ pub(crate) struct Prompt {
     family: Family,
     /// What the dialog asks for and explains, as the gate decided it.
     guard: Guard,
-    /// Router profile id.
+    /// Router profile id, the name to type.
     router: String,
+    /// What people read for the router: its display name, else the id.
+    name: String,
     /// Whether a typed router name did not match.
     wrong_name: bool,
     /// Whether the router persists the request at once.

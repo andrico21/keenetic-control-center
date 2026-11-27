@@ -9,7 +9,7 @@
     <div class="page-head__actions"><button class="button button--primary" type="button" hx-get="/ui/r/{{ router }}/system/schedules/new" hx-target="#dialog-content">{{ t(keys::WEB_SYSTEM_SCHEDULES_ADD) }}</button></div>
     {%- endif %}
   </div>
-  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router_name(router) }}</a></p>
   {%- include "partials/system_tabs.html" %}
   {{ kit::outcome_region() }}
   {%- if let Some(message) = problem %}

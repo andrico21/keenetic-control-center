@@ -19,7 +19,8 @@ pub(crate) trait Notices: Debug + Send + Sync {
 
 impl Notices for NotifyHandle {
     fn send_line(&self, line: Line) {
-        self.report(line.event(), move |locale| line.render(locale));
+        let named = self.router_name(line.router());
+        self.report(line.event(), move |locale| line.render(locale, &named));
     }
 
     fn mute_router(&self, router: &str, until: u64) {

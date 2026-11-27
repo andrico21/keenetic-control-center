@@ -12,7 +12,7 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_app::permissions::Permission;
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{bundle::tr, keys};
 use serde_json::json;
 
 use super::{record::Record, saved, steps::Origin, summary};
@@ -87,7 +87,7 @@ pub(super) async fn copy_page(
         intro: tr(locale, keys::WEB_PRESETS_COPY_INTRO, None),
         start: "/ui/copy".to_owned(),
         start_label: tr(locale, keys::WEB_PRESETS_COPY_START, None),
-        table: runs_view(&rows, locale),
+        table: runs_view(&rows, &shell),
         shell,
     })
 }
@@ -127,7 +127,7 @@ pub(super) async fn preset_page(
         intro: tr(locale, keys::WEB_PRESETS_APPLY_INTRO, None),
         start: format!("/ui/presets/{id}/apply"),
         start_label: tr(locale, keys::WEB_PRESETS_APPLY_START, None),
-        table: runs_view(&rows, locale),
+        table: runs_view(&rows, &shell),
         shell,
     })
 }
@@ -276,23 +276,25 @@ where
 }
 
 /// The table of the runs `records` in `locale`.
-fn runs_view(records: &[Record], locale: Locale) -> TableView {
+fn runs_view(records: &[Record], shell: &Shell) -> TableView {
+    let locale = shell.locale();
     let columns = [
         keys::WEB_PRESETS_RUNS_STARTED,
         keys::WEB_PRESETS_RUNS_SETTINGS,
         keys::MIGRATE_TARGET,
         keys::WEB_PRESETS_RUNS_STEP,
     ];
-    let rows = records.iter().map(|record| row(record, locale)).collect();
+    let rows = records.iter().map(|record| row(record, shell)).collect();
     runs_table((&columns, keys::WEB_PRESETS_RUNS_EMPTY), rows, locale)
 }
 
 /// The list row of `record`: started, settings, target and step.
-fn row(record: &Record, locale: Locale) -> Vec<Cell> {
+fn row(record: &Record, shell: &Shell) -> Vec<Cell> {
+    let locale = shell.locale();
     let href = screen::href::<Record>(record.id());
     vec![
         started(href, Timestamp::at(record.created_at(), locale), locale),
-        Cell::text(summary::settings_text(record, locale)),
+        Cell::text(summary::settings_text(record, shell)),
         Cell::code(record.target().unwrap_or_default().to_owned()),
         Cell::text(format!(
             "{}. {}",

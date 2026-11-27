@@ -173,21 +173,23 @@ impl<'call> Desk<'call> {
             return None;
         };
         let locale = self.locale();
-        let mut args = FluentArgs::new();
-        args.set("router", self.router().to_owned());
-        args.set("name", self.router().to_owned());
+        let mut exact = FluentArgs::new();
+        exact.set("router", self.router().to_owned());
         let error = if wrong_name {
-            tr(locale, keys::WEB_EXPLORER_CONFIRM_NAME_ERROR, Some(&args))
+            tr(locale, keys::WEB_EXPLORER_CONFIRM_NAME_ERROR, Some(&exact))
         } else {
             String::new()
         };
+        let mut args = FluentArgs::new();
+        args.set("router", self.state.router_name(self.router()));
+        args.set("id", self.router().to_owned());
         let words = Words::new(
             tr(
                 locale,
                 keys::WEB_SYSTEM_ENTWARE_SSH_CONFIRM_TITLE,
                 Some(&args),
             ),
-            tr(locale, doing.text(), None),
+            tr(locale, doing.text(), Some(&args)),
             tr(locale, keys::WEB_KIT_CONFIRM, None),
         );
         let typed = Typed::router(locale).with_error(error);

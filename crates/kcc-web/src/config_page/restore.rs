@@ -113,7 +113,10 @@ pub(crate) async fn raw_restore(
                 "unreachable",
             )
         })
-        .and_then(|found| same_model(text.expose_secret(), found.as_deref(), (&router, locale)));
+        .and_then(|found| {
+            let shown = state.router_name(&router);
+            same_model(text.expose_secret(), found.as_deref(), (&shown, locale))
+        });
     if let Err(failure) = checked {
         return Ok(stop(opened, name, failure).await);
     }
@@ -152,8 +155,8 @@ pub(crate) async fn raw_restore(
     Ok(changed(outcome, None, None, locale))
 }
 
-/// Whether the backup `text` can be restored raw onto a router of `model`: it must name
-/// the same model and the firmware it was saved on.
+/// Whether the backup `text` can be restored raw onto a router of `model`, shown as
+/// `named`: it must name the same model and the firmware it was saved on.
 ///
 /// # Errors
 ///
@@ -161,14 +164,14 @@ pub(crate) async fn raw_restore(
 fn same_model(
     text: &str,
     model: Option<&str>,
-    (router, locale): (&str, Locale),
+    (named, locale): (&str, Locale),
 ) -> Result<(), Failure> {
     let Ok(source) = SourceConfig::from_bytes(text.as_bytes()) else {
         let (key, audit) = RawFailure::Unreadable.describe();
         return Err(Failure::new(tr(locale, key, None), audit));
     };
     let mut args = FluentArgs::new();
-    args.set("router", router.to_owned());
+    args.set("router", named.to_owned());
     args.set("value", model.unwrap_or_default().to_owned());
     let key = match (source.hw_id.as_deref(), model) {
         (Some(saved), Some(actual)) if saved.eq_ignore_ascii_case(actual) => {
@@ -194,7 +197,8 @@ fn same_model(
 async fn ask(opened: &Opened<'_>, name: &str, wrong_name: bool) -> Response {
     let router = opened.router();
     let mut args = FluentArgs::new();
-    args.set("router", router.to_owned());
+    args.set("router", opened.state().router_name(router));
+    args.set("id", router.to_owned());
     let listed = store::list(opened.services(), router)
         .await
         .unwrap_or_default();

@@ -459,6 +459,15 @@ impl WebState {
         self.fleet.as_deref()
     }
 
+    /// What people read for router `id` in a heading or a sentence: its display name,
+    /// else the id. URLs, form values, audit records, logs, metrics and typed
+    /// confirmations keep the id.
+    #[must_use]
+    pub(crate) fn router_name(&self, id: &str) -> String {
+        self.fleet()
+            .map_or_else(|| id.to_owned(), |fleet| fleet.registry().display_name(id))
+    }
+
     /// Attaches the administration services: the user, role, API-key, audit-log and
     /// server pages under `/ui/admin` use them. Without it those pages show a "not
     /// configured" notice and their changes answer `503`.

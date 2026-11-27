@@ -98,6 +98,11 @@ impl Line {
         &self.id
     }
 
+    /// The schedule's router.
+    pub(crate) fn router(&self) -> &str {
+        &self.router
+    }
+
     /// The event the line belongs to.
     pub(crate) const fn event(&self) -> NotifyEvent {
         match self.kind {
@@ -113,11 +118,11 @@ impl Line {
         }
     }
 
-    /// The text in `locale`.
-    pub(crate) fn render(&self, locale: Locale) -> String {
+    /// The text in `locale`, naming the router `named`.
+    pub(crate) fn render(&self, locale: Locale, named: &str) -> String {
         let mut args = FluentArgs::new();
         args.set("name", self.name.clone());
-        args.set("router", self.router.clone());
+        args.set("router", named.to_owned());
         let key = match &self.kind {
             LineKind::PolicySet { policy } => {
                 args.set("policy", policy.clone());

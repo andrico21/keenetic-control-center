@@ -169,9 +169,12 @@ async fn handle(shared: &Shared, lockouts: &mut Lockouts, entry: &AuditEntry) {
     }
     match signal {
         None => {}
-        Some(Signal::ChangeFailed(failure)) => shared.emit(NotifyEvent::ChangeFailed, |locale| {
-            render::change_failed(locale, &failure)
-        }),
+        Some(Signal::ChangeFailed(failure)) => {
+            let named = failure.router().map(|router| shared.router_name(router));
+            shared.emit(NotifyEvent::ChangeFailed, |locale| {
+                render::change_failed(locale, &failure, named.as_deref())
+            });
+        }
         Some(Signal::Repaired(file)) => shared.emit(NotifyEvent::AuditProblem, |locale| {
             render::audit_repaired(locale, &file)
         }),

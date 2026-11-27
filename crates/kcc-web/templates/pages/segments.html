@@ -10,7 +10,7 @@
     <button class="button button--primary" type="button" hx-get="/ui/r/{{ router }}/segments/new" hx-target="#dialog-content">{{ t(keys::WEB_SEGMENTS_CREATE) }}</button>
     {%- endif %}
   </div>
-  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router_name(router) }}</a></p>
   {{ kit::outcome_region() }}
   {%- if let Some(message) = problem %}
   <p class="notice" data-tone="error">{{ t(**message) }}</p>

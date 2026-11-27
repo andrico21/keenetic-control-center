@@ -1,5 +1,6 @@
-//! The audit of a migration's finish: refusals and failures are recorded, and a change the
-//! router made stays audited when the record cannot be saved.
+//! The audit of a migration's finish: refusals and failures are recorded, a change the
+//! router made stays audited when the record cannot be saved, and the rollback asks a
+//! labelled target for its id.
 
 #[cfg(test)]
 #[expect(
@@ -12,12 +13,17 @@ mod tests {
     use std::fs;
 
     use axum::http::StatusCode;
+    use kcc_i18n::keys;
     use serde_json::json;
 
     use crate::{
         flow::{apply, moved, seed_source, to_preview, to_review},
         setup,
-        support::{outcome::TestResult, page::text, web::Fixture},
+        support::{
+            outcome::TestResult,
+            page::{en_with, text},
+            web::Fixture,
+        },
     };
 
     /// The id of a planted record.
@@ -170,6 +176,75 @@ mod tests {
         assert_eq!(
             fixture.outcomes("web.migrate_rollback")?,
             Vec::<String>::new()
+        );
+        Ok(())
+    }
+
+    /// Todo 11: the rollback dialog of a labelled target names it by its name and asks
+    /// for its id: the name typed back is refused before the router hears anything, the
+    /// id passes the gate.
+    // NOT cancel-safe: the fixture owns router tasks.
+    #[tokio::test]
+    async fn the_rollback_dialog_names_the_target_and_asks_for_its_id() -> TestResult {
+        let (target, label) = ("ultra", "Lab Office");
+        let fixture = setup::fixture().await?;
+        fixture.label(target, label).await?;
+        plant_at_results(&fixture, "admin")?;
+        let admin = fixture.login("admin").await?;
+        let rollback = format!("/ui/migrate/{ID}/rollback");
+        let requests = fixture.router(target)?.request_count();
+
+        let asked = text(fixture.post_form(&rollback, &admin, &[]).await?).await?;
+        let by_name = text(
+            fixture
+                .post_form(
+                    &rollback,
+                    &admin,
+                    &[("confirm", "yes"), ("confirm_name", label)],
+                )
+                .await?,
+        )
+        .await?;
+        let refused_requests = fixture.router(target)?.request_count();
+        let by_id = text(
+            fixture
+                .post_form(
+                    &rollback,
+                    &admin,
+                    &[("confirm", "yes"), ("confirm_name", target)],
+                )
+                .await?,
+        )
+        .await?;
+
+        let key = keys::WEB_MIGRATE_ROLLBACK_TEXT;
+        let expected = en_with(key, &[("router", label), ("id", target)]);
+        assert_ne!(
+            expected,
+            en_with(key, &[("router", label), ("id", label)]),
+            "the text names the id to type"
+        );
+        for shown in [
+            en_with(keys::WEB_MIGRATE_ROLLBACK_TITLE, &[("router", label)]),
+            expected,
+        ] {
+            assert!(asked.contains(&shown), "the dialog misses {shown}: {asked}");
+        }
+        assert!(
+            by_name.contains(&en_with(
+                keys::WEB_EXPLORER_CONFIRM_NAME_ERROR,
+                &[("router", target)]
+            )),
+            "the name is not the id: {by_name}"
+        );
+        assert_eq!(refused_requests, requests, "nothing sent for the name");
+        assert!(
+            !by_id.contains("name=\"confirm_name\""),
+            "the id passes the gate: {by_id}"
+        );
+        assert!(
+            !fixture.outcomes("web.migrate_rollback")?.is_empty(),
+            "the rollback ran and is audited"
         );
         Ok(())
     }

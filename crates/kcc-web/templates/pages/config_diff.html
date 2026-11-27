@@ -5,7 +5,7 @@
   <div class="page-head">
     <h1 class="page__title">{{ t(keys::WEB_CONFIG_COMPARE_TITLE) }}</h1>
   </div>
-  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a><a href="/ui/r/{{ router }}/config">{{ t(keys::WEB_CONFIG_TITLE) }}</a></p>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router_name(router) }}</a><a href="/ui/r/{{ router }}/config">{{ t(keys::WEB_CONFIG_TITLE) }}</a></p>
   {%- if let Some(message) = problem %}
   <p class="notice" data-tone="error">{{ t(**message) }}</p>
   {%- endif %}

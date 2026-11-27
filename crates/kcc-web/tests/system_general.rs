@@ -108,6 +108,23 @@ mod tests {
         Ok(())
     }
 
+    /// Todo 11: the page's identity line names a labelled router by its name and links
+    /// its id.
+    #[tokio::test]
+    async fn the_identity_line_names_a_labelled_router() -> TestResult {
+        let name = "Home Office";
+        let fixture = Fixture::new().await?;
+        fixture.label(ROUTER, name).await?;
+        let viewer = fixture.login("viewer").await?;
+        let page = text(fixture.get(PAGE, &viewer).await?).await?;
+        let identity = format!(
+            "<p class=\"identity\"><a href=\"/ui/r/{ROUTER}\">{}</a></p>",
+            html(name)
+        );
+        assert!(page.contains(&identity), "{page}");
+        Ok(())
+    }
+
     #[tokio::test]
     async fn a_change_is_read_back_and_shows_the_unsaved_badge() -> TestResult {
         let fixture = Fixture::new().await?;

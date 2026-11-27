@@ -6,11 +6,15 @@ pub(super) mod parse;
 use std::sync::OnceLock;
 
 use askama::Template;
+use fluent_bundle::FluentArgs;
 use kcc_app::schedules::{
     model::{Action, Schedule},
     time::zones,
 };
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+};
 
 use super::{choices::Choices, text::DAYS};
 use crate::page::{Localize as _, Shell};
@@ -315,6 +319,17 @@ impl Editor {
     /// The submit button's label.
     const fn submit_label(&self) -> MessageKey {
         self.submit
+    }
+
+    /// The instruction under a restart's typed field, naming the chosen router's id.
+    fn reboot_help(&self) -> String {
+        let mut args = FluentArgs::new();
+        args.set("id", self.typed.router.clone());
+        tr(
+            self.shell.locale(),
+            keys::WEB_ADMIN_SCHEDULED_REBOOT_HELP,
+            Some(&args),
+        )
     }
 
     /// Shows `errors`.

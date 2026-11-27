@@ -39,3 +39,5 @@ mod strangers;
 )]
 #[path = "support/mod.rs"]
 mod support;
+#[path = "presets_pages/target_names.rs"]
+mod target_names;

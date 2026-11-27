@@ -4,11 +4,13 @@
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
-    locale::Locale,
 };
 
 use super::{kinds::Mode, record::Record};
-use crate::wizard::{flow::Flow as _, source::source_text};
+use crate::{
+    page::Shell,
+    wizard::{flow::Flow as _, source::source_text},
+};
 
 /// The title of a wizard in `mode`.
 pub(super) const fn title(mode: Mode) -> MessageKey {
@@ -19,15 +21,19 @@ pub(super) const fn title(mode: Mode) -> MessageKey {
 }
 
 /// Source and target of `record`, as far as chosen.
-pub(super) fn summary(record: &Record, locale: Locale) -> Vec<(String, String)> {
+pub(super) fn summary(record: &Record, shell: &Shell) -> Vec<(String, String)> {
+    let locale = shell.locale();
     let source = record.source().map(|source| {
         (
             tr(locale, keys::WEB_MIGRATE_SUMMARY_SOURCE, None),
-            source_text(source, locale),
+            source_text(source, shell),
         )
     });
-    let target = record
-        .target()
-        .map(|target| (tr(locale, keys::MIGRATE_TARGET, None), target.to_owned()));
+    let target = record.target().map(|target| {
+        (
+            tr(locale, keys::MIGRATE_TARGET, None),
+            shell.router_name(target).to_owned(),
+        )
+    });
     source.into_iter().chain(target).collect()
 }

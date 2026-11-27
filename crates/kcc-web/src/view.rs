@@ -29,6 +29,8 @@ use crate::{
 pub(crate) struct RouterView {
     /// Profile id.
     id: String,
+    /// What people read: the display name, else the id.
+    name: String,
     /// Reachability pill; unknown until the first poll.
     status: RouterStatus,
     /// Where the profile is defined.
@@ -83,6 +85,7 @@ impl RouterView {
         };
         let mut view = Self {
             id: entry.profile.id.clone(),
+            name: entry.profile.display_name().to_owned(),
             status,
             source: entry.source,
             controls: Controls::default(),
@@ -173,6 +176,11 @@ impl RouterView {
     /// Profile id.
     pub(crate) fn id(&self) -> &str {
         &self.id
+    }
+
+    /// What people read: the display name, else the id.
+    pub(crate) fn name(&self) -> &str {
+        &self.name
     }
 
     /// Reachability pill.

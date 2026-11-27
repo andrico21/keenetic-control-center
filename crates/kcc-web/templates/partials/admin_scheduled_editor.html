@@ -17,7 +17,7 @@
     <label class="field__label" for="scheduled-router">{{ t(keys::WEB_ADMIN_SCHEDULED_ROUTER) }}</label>
     <select class="field__input" id="scheduled-router" name="router" hx-get="{{ urls.1 }}" hx-trigger="change" hx-target="#dialog-content" hx-include="#scheduled-form"{% if !errors.router.is_empty() %} aria-invalid="true" aria-describedby="scheduled-router-error"{% endif %}>
       {%- for router in routers %}
-      <option value="{{ router }}"{% if *router == typed.router %} selected{% endif %}>{{ router }}</option>
+      <option value="{{ router }}"{% if *router == typed.router %} selected{% endif %}>{{ router_name(router) }}</option>
       {%- endfor %}
     </select>
     {%- endif %}
@@ -137,7 +137,7 @@
   {%- endif %}
   <p class="field__help">{{ t(keys::WEB_ADMIN_SCHEDULED_UNSAVED_HELP) }}</p>
   {%- else if typed.kind == "reboot" %}
-  {{ ui::field("scheduled-confirm", "confirm_name", t(keys::WEB_EXPLORER_CONFIRM_NAME), typed.confirm_name, errors.confirm, "text", "off", t(keys::WEB_ADMIN_SCHEDULED_REBOOT_HELP)) }}
+  {{ ui::field("scheduled-confirm", "confirm_name", t(keys::WEB_EXPLORER_CONFIRM_NAME), typed.confirm_name, errors.confirm, "text", "off", reboot_help()) }}
   {%- endif %}
   <div class="dialog__actions">
     <button class="button button--primary" type="submit">{{ t(submit_label()) }}</button>

@@ -70,7 +70,7 @@ fn row_cells(
         Cell::text(schedule.name.as_str().to_owned())
             .attr("id", row.clone())
             .head(),
-        Cell::code(schedule.router.clone()),
+        Cell::text(entry.router_name.clone()),
         Cell::text(text::days(schedule, locale)),
         Cell::text(text::time(schedule)),
         Cell::text(text::summary(&schedule.action, locale)),

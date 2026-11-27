@@ -14,6 +14,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    overview::masthead,
     page_kit::{context::fragment_shell, respond},
 };
 
@@ -49,7 +50,8 @@ pub(super) async fn editor(
     } else {
         Choices::default()
     };
-    let mut editor = Editor::new(fragment_shell(locale), title, (routers, typed), choices);
+    let shell = fragment_shell(locale).with_fleet(masthead(state, user.role(), None).await, None);
+    let mut editor = Editor::new(shell, title, (routers, typed), choices);
     editor.refuse_all(errors);
     editor
 }

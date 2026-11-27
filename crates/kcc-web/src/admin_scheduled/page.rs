@@ -143,7 +143,7 @@ where
 async fn listed(state: &WebState, role: &Role) -> Result<Vec<Listed>, Failure> {
     let store = store(state)?;
     let reader = role.clone();
-    spawn_blocking(move || -> Result<Vec<Listed>, Failure> {
+    let mut listed = spawn_blocking(move || -> Result<Vec<Listed>, Failure> {
         let schedules = ScheduleStore::new(store.clone()).list(&reader)?;
         let mut runs = store.read::<RunsDocument>()?.unwrap_or_default().schedules;
         Ok(schedules
@@ -152,11 +152,19 @@ async fn listed(state: &WebState, role: &Role) -> Result<Vec<Listed>, Failure> {
                 let last = runs
                     .remove(&schedule.id)
                     .and_then(|history| history.runs.into_iter().last());
-                Listed { schedule, last }
+                Listed {
+                    router_name: schedule.router.clone(),
+                    schedule,
+                    last,
+                }
             })
             .collect())
     })
-    .await?
+    .await??;
+    for entry in &mut listed {
+        entry.router_name = state.router_name(&entry.schedule.router);
+    }
+    Ok(listed)
 }
 
 /// The table for `user`, with `toasts`, sent out of band.

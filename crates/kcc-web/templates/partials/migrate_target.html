@@ -12,8 +12,8 @@
       <p class="field__help">{{ t(keys::WEB_MIGRATE_TARGET_NONE) }}</p>
       {%- else %}
       <select class="field__input" id="target-router" name="router"{% if !router_error.is_empty() %} aria-invalid="true" aria-describedby="target-router-error"{% endif %}>
-        {%- for (router, selected) in routers %}
-        <option value="{{ router }}"{% if *selected %} selected{% endif %}>{{ router }}</option>
+        {%- for (router, name, selected) in routers %}
+        <option value="{{ router }}"{% if *selected %} selected{% endif %}>{{ name }}</option>
         {%- endfor %}
       </select>
       {%- endif %}

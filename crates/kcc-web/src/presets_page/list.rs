@@ -90,7 +90,7 @@ pub(super) async fn page(
                 .map(|group| group_title(group, locale))
                 .collect::<Vec<_>>()
                 .join(", "),
-            source: source_text(preset, locale),
+            source: source_text(preset, &shell),
             captured: Timestamp::at(preset.source.captured_at, locale),
             creator: preset.created_by.clone(),
             may_change: may_change(services, preset),
@@ -166,13 +166,20 @@ pub(super) fn may_change(services: Services<'_>, preset: &Preset) -> bool {
             .is_none_or(|router| services.may_migrate(router))
 }
 
-/// Where `preset` came from: model, firmware and router, backup or file.
-pub(super) fn source_text(preset: &Preset, locale: Locale) -> String {
+/// Where `preset` came from: model, firmware and router, backup or file, in `shell`'s
+/// locale and with the names of its fleet switcher.
+pub(super) fn source_text(preset: &Preset, shell: &Shell) -> String {
+    let locale = shell.locale();
     let source = &preset.source;
     let mut args = FluentArgs::new();
     args.set("model", source.model.clone());
     args.set("version", source.firmware_version.clone());
-    args.set("router", source.router_id.clone().unwrap_or_default());
+    args.set(
+        "router",
+        shell
+            .router_name(source.router_id.as_deref().unwrap_or_default())
+            .to_owned(),
+    );
     let key = match source.kind {
         PresetSourceKind::Router => keys::WEB_PRESETS_SOURCE_ROUTER,
         PresetSourceKind::Backup => keys::WEB_PRESETS_SOURCE_BACKUP,

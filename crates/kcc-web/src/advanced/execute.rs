@@ -83,6 +83,7 @@ pub(crate) async fn execute(
         )
         .with_include("#explorer-form");
         return prompt
+            .named(state.router_name(&router))
             .with_persists(built.validated().persists_immediately)
             .with_persisted_paths(built.validated().persisted_paths.clone())
             .render(resubmit, locale);

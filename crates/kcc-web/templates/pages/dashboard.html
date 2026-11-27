@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{%- block title %}{{ router.id() }}{% endblock %}
+{%- block title %}{{ router.name() }}{% endblock %}
 {%- block head %}
 {{ ui::stylesheet("vendor/uPlot.min.css") }}
 {{ ui::script("vendor/uPlot.iife.min.js") }}
@@ -7,7 +7,7 @@
 {%- block content %}
 <div class="page dashboard" hx-ext="sse" sse-connect="{{ stream }}">
   <div class="page-head">
-    <h1 class="page__title">{{ router.id() }}</h1>
+    <h1 class="page__title">{{ router.name() }}</h1>
     <div class="page-head__actions">
       <a class="button button--ghost" href="/ui/r/{{ router.id() }}/explorer">{{ t(keys::WEB_EXPLORER_TITLE) }}</a>
       {%- if router.can_edit() %}

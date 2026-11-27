@@ -8,7 +8,7 @@ use crate::{
     PAGE,
     support::{
         outcome::TestResult,
-        page::{en, text},
+        page::{en, en_with, form, text},
         web::{Fixture, ROUTER},
     },
 };
@@ -147,6 +147,43 @@ async fn save_is_refused_while_the_timer_runs() -> TestResult {
     assert!(
         !fixture.audited("web.config_save", "success")?,
         "nothing saved"
+    );
+    Ok(())
+}
+
+/// Todo 11: the rollback dialog of a labelled router names it by its name and asks for
+/// its id; the name typed back is refused and nothing is rolled back.
+#[tokio::test]
+async fn the_rollback_dialog_names_the_router_and_asks_for_its_id() -> TestResult {
+    let name = "Home Office";
+    let fixture = Fixture::new().await?;
+    fixture.label(ROUTER, name).await?;
+    change_and_arm(&fixture, "guarded-change").await?;
+    let admin = fixture.login("admin").await?;
+    let rollback = format!("{PAGE}/rollback");
+    let asked = text(fixture.post(&rollback, &admin, "").await?).await?;
+    let key = keys::WEB_CONFIG_ROLLBACK_TEXT;
+    let expected = en_with(key, &[("id", ROUTER)]);
+    assert_ne!(
+        expected,
+        en_with(key, &[("id", "other")]),
+        "the text names the id to type"
+    );
+    for shown in [
+        en_with(keys::WEB_CONFIG_ROLLBACK_TITLE, &[("router", name)]),
+        expected,
+    ] {
+        assert!(asked.contains(&shown), "the dialog misses {shown}: {asked}");
+    }
+    let by_name = form(&[("confirm", "yes"), ("confirm_name", name)]);
+    let refused = text(fixture.post(&rollback, &admin, &by_name).await?).await?;
+    assert!(
+        refused.contains("name=\"confirm_name\""),
+        "the name is not the id: {refused}"
+    );
+    assert!(
+        !fixture.audited("web.config_rollback", "success")?,
+        "nothing rolled back"
     );
     Ok(())
 }

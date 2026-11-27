@@ -414,6 +414,16 @@ impl Shell {
         &self.fleet
     }
 
+    /// What people read for router `id`: its name in the fleet switcher, else the id.
+    #[inline]
+    #[must_use]
+    pub fn router_name<'name>(&'name self, id: &'name str) -> &'name str {
+        self.fleet
+            .iter()
+            .find(|entry| entry.id() == id)
+            .map_or(id, FleetEntry::name)
+    }
+
     /// Status of the selected router.
     #[inline]
     #[must_use]
@@ -500,6 +510,11 @@ pub(crate) trait Localize {
     )]
     fn t(&self, key: MessageKey) -> String {
         tr(self.shell().locale, key, None)
+    }
+
+    /// What people read for router `id` in a heading: its display name, else the id.
+    fn router_name<'name>(&'name self, id: &'name str) -> &'name str {
+        self.shell().router_name(id)
     }
 
     /// Formats `key` with the Fluent variable `$count` in the page's locale.

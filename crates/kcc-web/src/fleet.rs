@@ -6,7 +6,7 @@
 
 extern crate alloc;
 
-use alloc::sync::Arc;
+use alloc::{collections::BTreeSet, sync::Arc};
 use core::{error::Error, fmt, pin::Pin, time::Duration};
 
 use kcc_app::{
@@ -191,6 +191,18 @@ impl Fleet {
             }));
         }
         status
+    }
+
+    /// The id of every profile, whoever may read it.
+    ///
+    /// # Errors
+    ///
+    /// Returns registry storage errors and a failed blocking task.
+    // cancel-safe: the blocking read changes no state.
+    pub(crate) async fn ids(&self) -> Result<BTreeSet<String>, Box<dyn Error + Send + Sync>> {
+        let registry = Arc::clone(&self.registry);
+        let entries = spawn_blocking(move || registry.list()).await??;
+        Ok(entries.into_iter().map(|entry| entry.profile.id).collect())
     }
 
     /// Every profile `role` may read, in id order.

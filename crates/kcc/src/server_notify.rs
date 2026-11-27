@@ -203,6 +203,12 @@ impl Shared {
         self.current().locale()
     }
 
+    /// What messages call router `id`: its display name, else the id. Pseudonyms, mutes
+    /// and logs keep the id.
+    fn router_name(&self, id: &str) -> String {
+        self.deps.registry.display_name(id)
+    }
+
     /// Whether clients are named by name and MAC.
     fn client_details(&self) -> bool {
         self.current().client_details()

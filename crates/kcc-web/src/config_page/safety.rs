@@ -141,7 +141,8 @@ pub(crate) async fn rollback(
     let locale = action.locale();
     if let Gate::Ask { wrong_name } = confirm::gate(&pairs, &router) {
         let mut args = FluentArgs::new();
-        args.set("router", router.clone());
+        args.set("router", state.router_name(&router));
+        args.set("id", router.clone());
         let words = (
             keys::WEB_CONFIG_ROLLBACK_TITLE,
             keys::WEB_CONFIG_ROLLBACK_TEXT,

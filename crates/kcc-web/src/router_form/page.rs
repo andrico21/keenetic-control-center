@@ -103,7 +103,7 @@ impl FormPage {
     /// The edit form of `draft.id`.
     pub(crate) fn edit(shell: Shell, draft: Draft, errors: FieldErrors) -> Self {
         let mut args = FluentArgs::new();
-        args.set("name", draft.id.clone());
+        args.set("name", draft.shown().to_owned());
         let title = tr(shell.locale(), keys::WEB_ROUTER_EDIT_TITLE, Some(&args));
         Self {
             shell,

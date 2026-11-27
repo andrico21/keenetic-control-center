@@ -1,6 +1,6 @@
 {#- The inside of one fleet card; the page includes it and the fleet stream re-sends it. -#}
 <div class="router-card__head">
-  <h2 class="router-card__title"><a class="router-card__link" href="/ui/r/{{ card.id() }}">{{ card.id() }}</a></h2>
+  <h2 class="router-card__title"><a class="router-card__link" href="/ui/r/{{ card.id() }}">{{ card.name() }}</a></h2>
   <span class="status" data-status="{{ card.status().value() }}">{{ t(card.status().label()) }}</span>
 </div>
 {%- if card.brand().is_some() || card.model().is_some() || card.hw_id().is_some() %}

@@ -1,11 +1,12 @@
 //! The router profile form: submitted fields and their validation.
 
 pub(crate) mod address;
+pub(crate) mod derive;
 pub(crate) mod page;
 pub(crate) mod plan;
 
 use kcc_app::{
-    registry::ManagedRouterProfile,
+    registry::{ManagedRouterProfile, label},
     settings::{RouterAuth, RouterTls},
 };
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
@@ -21,6 +22,9 @@ use crate::page_kit::secret::write_only;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct RouterForm {
+    /// Display name; absent keeps the stored one when editing, empty clears it.
+    #[serde(default)]
+    name: Option<String>,
     /// New profile id (add form).
     #[serde(default)]
     id: String,
@@ -77,6 +81,8 @@ const MODES: [(&str, RouterAuth); 5] = [
 /// What the form shows again: every field but the secrets.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Draft {
+    /// Display name.
+    name: String,
     /// Profile id.
     id: String,
     /// Router address.
@@ -105,6 +111,7 @@ impl Draft {
             RouterTls::Verify | _ => (false, String::new()),
         };
         Self {
+            name: profile.label.clone().unwrap_or_default(),
             id: profile.id.clone(),
             url: profile.url.as_str().trim_end_matches('/').to_owned(),
             login: profile.login.clone(),
@@ -125,6 +132,20 @@ impl Draft {
         &self.id
     }
 
+    /// Display name, empty when none was given.
+    pub(crate) fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// What the router is called: its name, else its id.
+    pub(crate) fn shown(&self) -> &str {
+        if self.name.is_empty() {
+            &self.id
+        } else {
+            &self.name
+        }
+    }
+
     /// The same values for the profile `id`.
     #[must_use]
     pub(crate) fn with_id(mut self, id: String) -> Self {
@@ -136,6 +157,8 @@ impl Draft {
 /// One localized message per invalid field; empty strings mean valid.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct FieldErrors {
+    /// Display name.
+    name: String,
     /// Profile id.
     id: String,
     /// Address, including outbound-policy refusals.
@@ -175,6 +198,7 @@ impl FieldErrors {
     /// The first field message, in form order.
     pub(crate) fn first(&self) -> &str {
         [
+            &self.name,
             &self.id,
             &self.url,
             &self.login,
@@ -212,6 +236,10 @@ impl Typed {
 
 /// The valid fields of a form.
 pub(crate) struct Parsed {
+    /// Display name; `None` clears it.
+    label: Option<String>,
+    /// Whether the form had no name field, so the stored name stays.
+    keeps_label: bool,
     /// Router origin.
     url: Url,
     /// Login.
@@ -254,6 +282,9 @@ impl Parsed {
     /// Copies the parsed fields into `profile`, keeping its id, sign-in mode and
     /// credentials ([`plan::Plan`] changes those).
     pub(crate) fn apply(self, profile: &mut ManagedRouterProfile) {
+        if !self.keeps_label {
+            profile.label = self.label;
+        }
         profile.url = self.url;
         profile.login = self.login;
         profile.tls = self.tls;
@@ -284,6 +315,7 @@ impl RouterForm {
         let message = |key| tr(locale, key, None);
         let mut errors = FieldErrors::default();
         let mut draft = Draft {
+            name: self.name.as_deref().unwrap_or_default().trim().to_owned(),
             id: self.id.trim().to_owned(),
             url: self.url.trim().to_owned(),
             login: self.login.trim().to_owned(),
@@ -294,6 +326,10 @@ impl RouterForm {
             tags: self.tags.trim().to_owned(),
             test_device: self.test_device.is_some(),
         };
+        let label = self.name.as_deref().map_or(Ok(None), label::parse);
+        if label.is_err() {
+            errors.name = message(keys::WEB_ROUTER_ERROR_NAME);
+        }
         let wanted = if self.auth.is_empty() {
             "auto"
         } else {
@@ -339,6 +375,8 @@ impl RouterForm {
         };
         let parsed = match url {
             Some(target) if !errors.any() => Ok(Parsed {
+                label: label.ok().flatten(),
+                keeps_label: self.name.is_none(),
                 url: target,
                 login: draft.login.clone(),
                 auth,

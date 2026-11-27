@@ -168,10 +168,11 @@ impl Panel {
         let errors = submitted.map_or_else(Errors::default, |sent| {
             Errors::of(sent, captured.lines.is_empty(), locale)
         });
+        let source = source_text(found.source(), &shell);
         Self {
             shell,
             id: id.to_owned(),
-            source: source_text(found.source(), locale),
+            source,
             facts: (found.model().to_owned(), found.firmware().to_owned()),
             groups,
             named: (chosen.name.clone(), errors.name),

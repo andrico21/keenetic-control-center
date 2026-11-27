@@ -43,7 +43,7 @@
     {%- else %}
     <select class="field__input" id="source-backup" name="backup"{% if !errors.backup.is_empty() %} aria-invalid="true" aria-describedby="source-backup-error"{% endif %}>
       {%- for group in groups %}
-      <optgroup label="{{ group.router }}">
+      <optgroup label="{{ group.name }}">
         {%- for choice in group.backups %}
         <option value="{{ choice.value }}"{% if choice.selected %} selected{% endif %}>{{ choice.label }}</option>
         {%- endfor %}

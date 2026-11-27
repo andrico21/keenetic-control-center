@@ -9,6 +9,8 @@
     clippy::panic_in_result_fn,
     reason = "test code is not rendered API documentation; a test fails by panicking"
 )]
+#[path = "destructive_management/named.rs"]
+mod named;
 #[path = "destructive_management/single_stake.rs"]
 mod single_stake;
 #[path = "destructive_management/unvalidated.rs"]

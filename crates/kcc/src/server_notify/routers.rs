@@ -120,19 +120,20 @@ async fn observe(shared: &Shared, router: &str, watch: &mut Watch, result: &Poll
         Err(PollError::Auth) => Poll::LoginRefused,
         Err(_) => Poll::Failed,
     };
+    let called = shared.router_name(router);
     match watch.tracker.observe(poll, now, shared.muted(router, now)) {
         None => {}
         Some(Transition::Down { since }) => {
             let shown = shared.local_time(since);
             shared.emit(NotifyEvent::RouterDownUp, |locale| {
-                render::router_down(locale, router, &shown)
+                render::router_down(locale, &called, &shown)
             });
         }
         Some(Transition::Up { outage }) => shared.emit(NotifyEvent::RouterDownUp, |locale| {
-            render::router_up(locale, router, outage)
+            render::router_up(locale, &called, outage)
         }),
         Some(Transition::LoginRefused) => shared.emit(NotifyEvent::RouterLogin, |locale| {
-            render::router_login(locale, router)
+            render::router_login(locale, &called)
         }),
     }
     if let Ok(snapshot) = result {
@@ -158,7 +159,7 @@ async fn observe(shared: &Shared, router: &str, watch: &mut Watch, result: &Poll
                 .iter()
                 .map(|device| name(locale, device, naming))
                 .collect();
-            render::new_devices(locale, router, &named)
+            render::new_devices(locale, &called, &named)
         });
     }
 }
@@ -187,7 +188,7 @@ async fn firmware(shared: &Shared, router: &str) {
         Err(error) => tracing::warn!(%error, "recording the announced firmware did not finish"),
     }
     shared.emit(NotifyEvent::FirmwareUpdate, |locale| {
-        render::firmware(locale, router, &version)
+        render::firmware(locale, &shared.router_name(router), &version)
     });
 }
 

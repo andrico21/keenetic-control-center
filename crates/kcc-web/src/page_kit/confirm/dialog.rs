@@ -36,7 +36,7 @@ impl Ask {
 }
 
 impl Typed {
-    /// The router's name to type, under the label "Router name".
+    /// The router's id to type, under the label "Router ID".
     pub(crate) fn router(locale: Locale) -> Self {
         Self {
             label: tr(locale, keys::WEB_EXPLORER_CONFIRM_NAME, None),

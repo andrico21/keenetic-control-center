@@ -175,6 +175,7 @@ pub(crate) async fn send(
         let resubmit = Resubmit::new(format!("/ui/r/{router}/console/rci/send"), "#rci-result")
             .with_include("#rci-form");
         return prompt
+            .named(state.router_name(&router))
             .with_persists(checked.persists())
             .with_persisted_paths(checked.persisted_paths())
             .render(resubmit, locale);

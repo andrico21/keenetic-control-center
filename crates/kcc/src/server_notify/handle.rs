@@ -111,6 +111,11 @@ impl NotifyHandle {
         self.shared.emit(event, render);
     }
 
+    /// What messages call router `id`: its display name, else the id.
+    pub(crate) fn router_name(&self, id: &str) -> String {
+        self.shared.router_name(id)
+    }
+
     /// Mutes `router`'s offline and online messages until `until` (Unix seconds).
     pub(crate) fn mute(&self, router: &str, until: u64) {
         self.shared.mute(router, until);

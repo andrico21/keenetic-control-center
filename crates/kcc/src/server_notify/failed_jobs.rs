@@ -102,9 +102,15 @@ async fn resolve(shared: &Shared, id: String) {
     }
     let jobs = Arc::clone(&shared.deps.jobs);
     match spawn_blocking(move || jobs.get(&id)).await {
-        Ok(Ok(record)) => shared.emit(NotifyEvent::JobFailed, |locale| {
-            render::job_failed(locale, &record.kind, record.router.as_deref())
-        }),
+        Ok(Ok(record)) => {
+            let named = record
+                .router
+                .as_deref()
+                .map(|router| shared.router_name(router));
+            shared.emit(NotifyEvent::JobFailed, |locale| {
+                render::job_failed(locale, &record.kind, named.as_deref())
+            });
+        }
         Ok(Err(error)) => {
             tracing::warn!(%error, "a failed job cannot be read for its notification");
         }

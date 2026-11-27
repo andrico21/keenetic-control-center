@@ -7,6 +7,10 @@
   {%- if read_only %}
   <p class="page__text">{{ t(keys::WEB_ROUTER_READ_ONLY) }}</p>
   <dl class="facts">
+    {%- if !draft.name().is_empty() %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_NAME) }}</dt><dd>{{ draft.name() }}</dd></div>
+    {%- endif %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_ID) }}</dt><dd class="mono">{{ draft.id() }}</dd></div>
     <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_URL) }}</dt><dd class="mono">{{ draft.url }}</dd></div>
     <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_LOGIN) }}</dt><dd>{{ draft.login }}</dd></div>
     <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_AUTH) }}</dt><dd>{% if draft.auth == "token" %}{{ t(keys::WEB_ROUTER_AUTH_TOKEN) }}{% else if draft.auth == "ndw2" %}{{ t(keys::WEB_ROUTER_AUTH_NDW2) }}{% else if draft.auth == "ndw4" %}{{ t(keys::WEB_ROUTER_AUTH_NDW4) }}{% else if draft.auth == "digest" %}{{ t(keys::WEB_ROUTER_AUTH_DIGEST) }}{% else %}{{ t(keys::WEB_ROUTER_AUTH_AUTO) }}{% endif %}</dd></div>
@@ -22,6 +26,7 @@
   <p><a class="button button--secondary" href="{{ cancel() }}">{{ t(keys::COMMON_BACK) }}</a></p>
   {%- else %}
   <form class="form" method="post" action="{{ action() }}" hx-post="{{ action() }}" hx-target="body">
+    {{ ui::field("router-name", "name", t(keys::WEB_ROUTER_NAME), draft.name(), errors.name, "text", "off", t(keys::WEB_ROUTER_NAME_HELP)) }}
     {%- if editing %}
     <input type="hidden" name="router" value="{{ draft.id }}">
     <div class="field">

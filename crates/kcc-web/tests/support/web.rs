@@ -28,7 +28,7 @@ use tower::ServiceExt as _;
 
 use super::{
     base::{Frozen, ORIGIN, PASSWORD},
-    build::{Setup, master_key},
+    build::{Setup, admin, master_key},
     outcome::TestResult,
     page::{cookie_pair, form, meta_content, text},
 };
@@ -304,6 +304,15 @@ impl Fixture {
     /// The registry, for direct router access in test setup.
     pub(crate) fn registry(&self) -> &RouterRegistry {
         &self.registry
+    }
+
+    /// Gives router `id` the display name `label`.
+    // NOT cancel-safe: the registry may write `routers.json` before the future is dropped.
+    pub(crate) async fn label(&self, id: &str, label: &str) -> TestResult {
+        let mut profile = self.registry.get(id)?.profile;
+        profile.label = Some(label.to_owned());
+        self.registry.update(&admin()?, profile).await?;
+        Ok(())
     }
 
     /// The audit log so far, verified.

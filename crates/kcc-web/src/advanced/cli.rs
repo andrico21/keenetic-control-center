@@ -212,6 +212,7 @@ pub(crate) async fn send(
         let resubmit = Resubmit::new(format!("/ui/r/{router}/console/cli/send"), "#cli-result")
             .with_include("#cli-form");
         return prompt
+            .named(state.router_name(&router))
             .with_persists(validated.persists_immediately)
             .with_persisted_paths(validated.persisted_paths.clone())
             .render(resubmit, locale);

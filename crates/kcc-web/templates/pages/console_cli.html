@@ -9,7 +9,7 @@
       <a class="button button--ghost" href="/ui/r/{{ router }}/console/rci">{{ t(keys::WEB_CONSOLE_RCI_TITLE) }}</a>
     </div>
   </div>
-  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a>{% if !catalog_note.is_empty() %} <span>{{ catalog_note }}</span>{% endif %}</p>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router_name(router) }}</a>{% if !catalog_note.is_empty() %} <span>{{ catalog_note }}</span>{% endif %}</p>
   {%- if let Some(message) = problem %}
   <p class="notice" data-tone="error">{{ t(**message) }}</p>
   {%- else %}

@@ -7,7 +7,7 @@
 //! changes as [`Moves`]; the machine itself is written once, here.
 
 use axum::response::Response;
-use kcc_i18n::{bundle::MessageKey, locale::Locale};
+use kcc_i18n::bundle::MessageKey;
 use serde::{Serialize, de::DeserializeOwned};
 
 use super::{run::Run, visit::Visit};
@@ -122,7 +122,7 @@ pub(crate) trait Flow: Serialize + DeserializeOwned + Send + Sync + 'static {
     fn title(&self) -> MessageKey;
 
     /// What the run works on, as far as chosen: label and value.
-    fn summary(&self, locale: Locale) -> Vec<(String, String)>;
+    fn summary(&self, shell: &Shell) -> Vec<(String, String)>;
 
     /// The page of the run `visit` opened, at its current step, in `shell`, for the
     /// page's query and the Web services.

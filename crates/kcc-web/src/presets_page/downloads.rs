@@ -83,7 +83,7 @@ fn report_json(record: &Record, locale: Locale) -> serde_json::Value {
     };
     json!({
         "run": record.id(),
-        "settings": settings_text(record, locale),
+        "settings": settings_text(record, &fragment_shell(locale)),
         "preset": preset,
         "source_router": record.source_router(),
         "target": record.target(),
@@ -111,7 +111,7 @@ fn markdown(record: &Record, locale: Locale) -> String {
         format!(
             "# {}: {}",
             text(keys::WEB_MIGRATE_REPORT_TITLE),
-            cell(&settings_text(record, locale))
+            cell(&settings_text(record, &fragment_shell(locale)))
         ),
         String::new(),
         format!(

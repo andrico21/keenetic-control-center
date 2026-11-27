@@ -71,9 +71,14 @@ pub(super) fn client_details(locale: Locale, name: &str, mac: &str) -> String {
     )
 }
 
-/// A change failed; says so when the router's fail-safe timer is still armed.
-pub(super) fn change_failed(locale: Locale, failure: &ChangeFailure) -> String {
-    let mut text = failure.router().map_or_else(
+/// A change failed on the router `named` (its display name), if it had one; says so
+/// when the router's fail-safe timer is still armed.
+pub(super) fn change_failed(
+    locale: Locale,
+    failure: &ChangeFailure,
+    named: Option<&str>,
+) -> String {
+    let mut text = named.map_or_else(
         || {
             line(
                 locale,

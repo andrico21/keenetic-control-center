@@ -166,7 +166,7 @@ pub(super) async fn commands(
         .filter(|line| secret(line))
         .map(|line| SecretString::from(line.to_owned()))
         .collect::<Vec<_>>();
-    let name = settings_text(visit.record(), locale);
+    let name = settings_text(visit.record(), &fragment_shell(locale));
     drop(visit);
     audit
         .with_params(json!({ "lines": lines.len() }))

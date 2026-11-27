@@ -10,7 +10,7 @@
     <button class="button button--primary" type="button" hx-get="{{ href }}" hx-target="#dialog-content">{{ t(**label) }}</button>
     {%- endif %}
   </div>
-  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router_name(router) }}</a></p>
   {%- if !views.is_empty() %}
   <nav class="lan-views" aria-label="{{ t(*views_label) }}">
     <ul class="lan-views__list">

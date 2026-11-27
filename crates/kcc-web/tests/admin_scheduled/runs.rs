@@ -13,11 +13,12 @@ use kcc_i18n::keys;
 use kcc_web::admin_scheduled::ScheduleRefusal;
 
 use crate::{
+    changes::reboot_form,
     fixture::{PAGE, Scheduled},
     stub::{Asked, Stub},
     support::{
         outcome::TestResult,
-        page::{en, text},
+        page::{en, en_with, html, text},
     },
 };
 
@@ -142,5 +143,45 @@ async fn running_a_reboot_now_needs_the_typed_router_name() -> TestResult {
         .await?;
     assert_eq!(started.status(), StatusCode::OK, "admitted");
     assert_eq!(stub.asked().len(), 1, "ran once");
+    Ok(())
+}
+
+/// Todo 11: a labelled router is named by its name in the table, and a restart asks for
+/// its id: in the run-now dialog and under the editor's typed field.
+#[tokio::test]
+async fn a_labelled_router_is_named_and_a_restart_asks_for_its_id() -> TestResult {
+    let name = "Home Office";
+    let fixture = Scheduled::build(Some(Stub::new())).await?;
+    fixture.web().label("home", name).await?;
+    let schedule = fixture.stored("Weekly restart", Action::Reboot)?;
+    let admin = fixture.login("admin").await?;
+    let page = fixture.html(PAGE, &admin).await?;
+    assert!(
+        page.contains(&format!(">{}</td>", html(name))),
+        "the table names the router: {page}"
+    );
+    for key in [
+        keys::WEB_ADMIN_SCHEDULED_RUN_REBOOT_TEXT,
+        keys::WEB_ADMIN_SCHEDULED_REBOOT_HELP,
+    ] {
+        assert_ne!(
+            en_with(key, &[("id", "home")]),
+            en_with(key, &[("id", "other")]),
+            "{key:?} names the id to type"
+        );
+    }
+    let run = format!("/ui/admin/scheduled/run-now?id={}", schedule.id);
+    let dialog = fixture.html(&run, &admin).await?;
+    let asked = en_with(keys::WEB_ADMIN_SCHEDULED_RUN_REBOOT_TEXT, &[("id", "home")]);
+    assert!(dialog.contains(&asked), "the run-now dialog: {dialog}");
+    let refused = fixture.post(PAGE, &admin, &reboot_form(name)).await?;
+    assert_eq!(
+        refused.status(),
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "the name is not the id"
+    );
+    let help = en_with(keys::WEB_ADMIN_SCHEDULED_REBOOT_HELP, &[("id", "home")]);
+    let editor = text(refused).await?;
+    assert!(editor.contains(&help), "the editor's field: {editor}");
     Ok(())
 }

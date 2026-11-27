@@ -78,6 +78,15 @@ impl Rig {
     /// Starts the notifier with `events` selected over `first`, polled every 50 ms and
     /// retried every 100 ms after a failure.
     pub(super) async fn start(events: &[NotifyEvent], first: FakeRouter) -> TestResult<Self> {
+        Self::start_labelled(events, first, None).await
+    }
+
+    /// As [`Rig::start`], the router's profile carrying the display name `label`.
+    pub(super) async fn start_labelled(
+        events: &[NotifyEvent],
+        first: FakeRouter,
+        label: Option<&str>,
+    ) -> TestResult<Self> {
         let telegram = FakeTelegram::spawn().await?;
         let token = format!(
             "{}:{}",
@@ -96,15 +105,17 @@ impl Rig {
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;
         let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
+        let mut profile = ManagedRouterProfile::new(
+            ROUTER.to_owned(),
+            Url::parse(&format!("http://{address}"))?,
+            "admin".to_owned(),
+            password,
+        );
+        profile.label = label.map(str::to_owned);
         registry
             .create(
                 &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
-                ManagedRouterProfile::new(
-                    ROUTER.to_owned(),
-                    Url::parse(&format!("http://{address}"))?,
-                    "admin".to_owned(),
-                    password,
-                ),
+                profile,
             )
             .await?;
         let poller = Poller::with_intervals(

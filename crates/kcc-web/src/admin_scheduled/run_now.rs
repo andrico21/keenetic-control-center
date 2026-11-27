@@ -101,6 +101,7 @@ pub(crate) async fn run_now(
 fn confirmation(schedule: &Schedule, locale: Locale, mistyped: bool) -> Dialog {
     let mut args = FluentArgs::new();
     args.set("name", schedule.name.as_str().to_owned());
+    args.set("id", schedule.router.clone());
     let restart = schedule.action == Action::Reboot;
     let words = Words::new(
         tr(locale, keys::WEB_ADMIN_SCHEDULED_RUN_TITLE, Some(&args)),
@@ -111,7 +112,7 @@ fn confirmation(schedule: &Schedule, locale: Locale, mistyped: bool) -> Dialog {
             } else {
                 keys::WEB_ADMIN_SCHEDULED_RUN_TEXT
             },
-            None,
+            Some(&args),
         ),
         tr(locale, keys::WEB_ADMIN_SCHEDULED_RUN, None),
     );

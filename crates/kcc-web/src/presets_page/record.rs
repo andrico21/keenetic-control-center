@@ -10,7 +10,7 @@
 use alloc::collections::{BTreeMap, BTreeSet};
 
 use axum::response::Response;
-use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
+use kcc_i18n::{bundle::MessageKey, keys};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -301,8 +301,8 @@ impl Flow for Record {
         summary::title(&self.origin)
     }
 
-    fn summary(&self, locale: Locale) -> Vec<(String, String)> {
-        summary::summary(self, locale)
+    fn summary(&self, shell: &Shell) -> Vec<(String, String)> {
+        summary::summary(self, shell)
     }
 
     fn show(

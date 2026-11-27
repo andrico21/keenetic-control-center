@@ -96,7 +96,8 @@ where
         .map_err(Refusal::status)?;
     let target = opened.record().target().unwrap_or_default().to_owned();
     drop(opened);
-    if let Some(dialog) = ask::<F>(&form, (&id, &target), user.locale()) {
+    let named = state.router_name(&target);
+    if let Some(dialog) = ask::<F>(&form, (&id, &target), (&named, user.locale())) {
         return Ok(dialog);
     }
     let visit = Visit::open(services, &wizards, &id)
@@ -149,16 +150,24 @@ where
     }
     let target = visit.record().target().unwrap_or_default();
     if choice == Choice::Rollback
-        && let Some(dialog) = ask::<F>(&form, (&id, target), user.locale())
+        && let Some(dialog) = ask::<F>(
+            &form,
+            (&id, target),
+            (&state.router_name(target), user.locale()),
+        )
     {
         return Ok(dialog);
     }
     finish(&state, &wizards, &user, (&id, visit, choice)).await
 }
 
-/// The rollback's confirmation for run `id` on `target`, unless `form` passes the kit's
-/// destructive guard: the confirm button and the router name typed exactly.
-fn ask<F>(form: &Confirmation, (id, target): (&str, &str), locale: Locale) -> Option<Response>
+/// The rollback's confirmation for run `id` on `target`, shown as `named`, unless `form`
+/// passes the kit's destructive guard: the confirm button and the router id typed exactly.
+fn ask<F>(
+    form: &Confirmation,
+    (id, target): (&str, &str),
+    (named, locale): (&str, Locale),
+) -> Option<Response>
 where
     F: Finishing,
 {
@@ -166,7 +175,10 @@ where
         return None;
     };
     let mut args = FluentArgs::new();
-    args.set("router", target.to_owned());
+    args.set("router", named.to_owned());
+    args.set("id", target.to_owned());
+    let mut exact = FluentArgs::new();
+    exact.set("router", target.to_owned());
     let (title, text) = F::ROLLBACK_WORDS;
     let words = Words::new(
         tr(locale, title, Some(&args)),
@@ -174,7 +186,7 @@ where
         tr(locale, keys::MIGRATE_ROLLBACK, None),
     );
     let error = if wrong_name {
-        tr(locale, keys::WEB_EXPLORER_CONFIRM_NAME_ERROR, Some(&args))
+        tr(locale, keys::WEB_EXPLORER_CONFIRM_NAME_ERROR, Some(&exact))
     } else {
         String::new()
     };

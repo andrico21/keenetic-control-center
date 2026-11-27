@@ -6,7 +6,7 @@
   <div class="page-head">
     <h1 class="page__title">{{ t(keys::WEB_SYSTEM_GENERAL_TITLE) }}</h1>
   </div>
-  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router_name(router) }}</a></p>
   {%- include "partials/system_tabs.html" %}
   {{ kit::outcome_region() }}
   {%- if let Some(message) = problem %}

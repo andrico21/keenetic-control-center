@@ -50,8 +50,8 @@ pub(super) struct Panel {
     id: String,
     /// A restore's fixed target, described.
     restore: Option<String>,
-    /// Routers the user may migrate to.
-    routers: Vec<(String, bool)>,
+    /// Routers the user may migrate to: id, display name and whether it is chosen.
+    routers: Vec<(String, String, bool)>,
     /// Whether the source firmware must be typed in.
     ask_firmware: bool,
     /// The typed source firmware.
@@ -100,19 +100,24 @@ impl Panel {
         let source_router = record.source().and_then(|source| source.router());
         let restore = (record.mode() == Mode::Restore).then(|| {
             let mut args = FluentArgs::new();
-            args.set("router", record.target().unwrap_or_default().to_owned());
+            args.set(
+                "router",
+                services
+                    .state()
+                    .router_name(record.target().unwrap_or_default()),
+            );
             tr(locale, keys::WEB_MIGRATE_TARGET_RESTORE, Some(&args))
         });
         let routers = match services.fleet().visible(services.user().role()).await {
             Ok(entries) => entries
                 .into_iter()
-                .map(|entry| entry.profile.id)
-                .filter(|router| {
+                .map(|entry| (entry.profile.display_name().to_owned(), entry.profile.id))
+                .filter(|(_, router)| {
                     services.may_migrate(router) && Some(router.as_str()) != source_router
                 })
-                .map(|router| {
+                .map(|(name, router)| {
                     let selected = record.target() == Some(router.as_str());
-                    (router, selected)
+                    (router, name, selected)
                 })
                 .collect(),
             Err(error) => {

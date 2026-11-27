@@ -50,6 +50,8 @@ pub(crate) struct ScheduleId {
 struct Listed {
     /// The schedule.
     schedule: Schedule,
+    /// What people read for its router: the display name, else the id.
+    router_name: String,
     /// Its last run, if it ran.
     last: Option<RunRecord>,
 }

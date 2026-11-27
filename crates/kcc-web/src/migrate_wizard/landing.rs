@@ -16,7 +16,7 @@ use axum::{
     response::Response,
 };
 use fluent_bundle::FluentArgs;
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{bundle::tr, keys};
 use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::json;
@@ -125,7 +125,7 @@ pub(super) async fn page(
             .await
             .map(|(router, backup, _text)| {
                 let mut args = FluentArgs::new();
-                args.set("router", router.clone());
+                args.set("router", state.router_name(&router));
                 args.set("name", backup.clone());
                 Restore {
                     text: tr(locale, keys::WEB_MIGRATE_RESTORE_OFFER, Some(&args)),
@@ -139,7 +139,7 @@ pub(super) async fn page(
     let store = services.store();
     retention::sweep::<Record>(&store, state.unix_seconds()).await;
     let rows = match store.list(user.username()).await {
-        Ok(records) => records.iter().map(|record| row(record, locale)).collect(),
+        Ok(records) => records.iter().map(|record| row(record, &shell)).collect(),
         Err(error) => return Refusal::Failed(Box::new(error)).page(shell),
     };
     let columns = [
@@ -279,7 +279,8 @@ async fn offered(
 }
 
 /// The list row of `record`: started, kind, source, target and step.
-fn row(record: &Record, locale: Locale) -> Vec<Cell> {
+fn row(record: &Record, shell: &Shell) -> Vec<Cell> {
+    let locale = shell.locale();
     let kind = match record.mode() {
         Mode::Migrate => keys::WEB_MIGRATE_KIND_MIGRATION,
         Mode::Restore => keys::WEB_MIGRATE_KIND_RESTORE,
@@ -291,7 +292,7 @@ fn row(record: &Record, locale: Locale) -> Vec<Cell> {
         Cell::text(
             record
                 .source()
-                .map_or_else(String::new, |source| source_text(source, locale)),
+                .map_or_else(String::new, |source| source_text(source, shell)),
         ),
         Cell::code(record.target().unwrap_or_default().to_owned()),
         Cell::text(format!(

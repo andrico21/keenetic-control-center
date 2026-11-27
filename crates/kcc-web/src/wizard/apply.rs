@@ -70,7 +70,7 @@ where
         return Err(F::refusal(&visit, &state, reason).await);
     };
     if !form.confirmed() {
-        return Ok(ask::<F>(locale, &id, &target));
+        return Ok(ask::<F>(locale, &id, &state.router_name(&target)));
     }
     if wizards.held_by_other(&target, &id) {
         audit.append(&state, &user, "busy").await;
@@ -104,13 +104,14 @@ where
     }
 }
 
-/// The dialog asking before the apply of run `id` to `target` starts.
-fn ask<F>(locale: Locale, id: &str, target: &str) -> Response
+/// The dialog asking before the apply of run `id` to the router people read as `named`
+/// starts.
+fn ask<F>(locale: Locale, id: &str, named: &str) -> Response
 where
     F: Applying,
 {
     let mut args = FluentArgs::new();
-    args.set("router", target.to_owned());
+    args.set("router", named.to_owned());
     let minutes = ApplyOptions::default().safety_seconds.div_ceil(60);
     args.set("minutes", u32::try_from(minutes).unwrap_or(u32::MAX));
     let (title, text, button) = F::CONFIRM;

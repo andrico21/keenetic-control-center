@@ -6,6 +6,7 @@
 //! its sealed record; it is never rendered, logged or audited. Every create, update and
 //! delete is audited with the changed credential kinds only.
 
+use core::error::Error;
 use std::path::PathBuf;
 
 use axum::{
@@ -38,6 +39,7 @@ use crate::{
     router_form::{
         Draft, FieldErrors, Parsed, RouterForm, Typed,
         address::is_slug,
+        derive::derived_id,
         page::{FormPage, Stored},
         plan::{Plan, Refusal},
     },
@@ -84,7 +86,11 @@ pub(crate) async fn create(
     let locale = user.locale();
     let (draft, typed, parsed) = form.parse(locale, true);
     let mut errors = parsed.as_ref().err().cloned().unwrap_or_default();
-    if let Some(key) = id_refusal(fleet, &user, draft.id()).await {
+    let id = match new_id(fleet, &draft).await {
+        Ok(id) => id,
+        Err(error) => return errors::internal(&error, shell),
+    };
+    if let Some(key) = id_refusal(fleet, &user, &id).await {
         errors.set_id(tr(locale, key, None));
     }
     if let Ok(fields) = &parsed
@@ -99,7 +105,6 @@ pub(crate) async fn create(
     let (Ok(fields), Some(plan), false) = (parsed, planned, errors.any()) else {
         return unprocessable(&FormPage::add(shell, draft, errors));
     };
-    let id = draft.id().to_owned();
     let store = fleet.credentials();
     let mut profile = ManagedRouterProfile::new(
         id.clone(),
@@ -123,12 +128,7 @@ pub(crate) async fn create(
         Err(error) => return errors::internal(&error, shell),
     }
     if let Err(error) = plan.seal(store, &id) {
-        if let Err(rollback) = fleet.registry().delete(user.role(), &id).await {
-            tracing::error!(error = %rollback, "router profile rollback failed");
-        }
-        if let Err(cleanup) = store.remove(&id) {
-            tracing::error!(router = %id, error = %cleanup, "router credential cleanup failed");
-        }
+        undo_create(fleet, &user, &id).await;
         return errors::internal(&error, shell);
     }
     let credentials = plan.changed();
@@ -138,6 +138,33 @@ pub(crate) async fn create(
     };
     audit(&state, &user, change).await;
     open(&format!("/ui/r/{id}"))
+}
+
+/// The id a new router takes: the typed one, or the one derived from its name when only
+/// the name was given.
+///
+/// # Errors
+///
+/// Returns registry storage errors and a failed blocking task.
+// cancel-safe: reads the registry only.
+async fn new_id(fleet: &Fleet, draft: &Draft) -> Result<String, Box<dyn Error + Send + Sync>> {
+    match (draft.id(), draft.name()) {
+        ("", name) if !name.is_empty() => Ok(derived_id(name, &fleet.ids().await?)),
+        (typed, _) => Ok(typed.to_owned()),
+    }
+}
+
+/// Removes the profile `id` and its credentials again after its credentials could not be
+/// sealed; a failure is logged.
+// NOT cancel-safe: the profile removal finishes on a blocking thread even if the future is
+// dropped, and the credential cleanup is then skipped.
+async fn undo_create(fleet: &Fleet, user: &CurrentUser, id: &str) {
+    if let Err(rollback) = fleet.registry().delete(user.role(), id).await {
+        tracing::error!(error = %rollback, "router profile rollback failed");
+    }
+    if let Err(cleanup) = fleet.credentials().remove(id) {
+        tracing::error!(router = %id, error = %cleanup, "router credential cleanup failed");
+    }
 }
 
 /// Why a new router cannot take the id `id`: not a slug, or already taken.

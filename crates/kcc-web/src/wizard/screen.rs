@@ -102,7 +102,7 @@ where
                 current: *step == current,
             })
             .collect(),
-        summary: record.summary(locale),
+        summary: record.summary(&shell),
         panel: rendered,
         prefix: F::PREFIX,
         id: record.id().to_owned(),

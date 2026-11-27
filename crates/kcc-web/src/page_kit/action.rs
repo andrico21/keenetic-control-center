@@ -229,7 +229,11 @@ impl<'call> Action<'call> {
     ) -> Option<Response> {
         self.effective(stakes)
             .ask(self.family, confirmation, self.router())
-            .map(|prompt| prompt.render(resubmit, self.locale()))
+            .map(|prompt| {
+                prompt
+                    .named(self.state.router_name(self.router()))
+                    .render(resubmit, self.locale())
+            })
     }
 
     /// `stakes`, never below the operation's own described risk.

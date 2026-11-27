@@ -109,7 +109,8 @@ pub(crate) async fn delete(
     };
     if let Gate::Ask { wrong_name } = confirm::gate(&pairs, &router) {
         let mut args = FluentArgs::new();
-        args.set("router", router.clone());
+        args.set("router", state.router_name(&router));
+        args.set("id", router.clone());
         args.set("name", stamp(info.created_at).1);
         let words = (
             keys::WEB_CONFIG_DELETE_TITLE,

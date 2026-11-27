@@ -56,8 +56,8 @@ pub(super) struct Panel {
     shell: Shell,
     /// Run id.
     id: String,
-    /// Routers the user may copy from, and whether each is chosen.
-    routers: Vec<(String, bool)>,
+    /// Routers the user may copy from: id, display name and whether it is chosen.
+    routers: Vec<(String, String, bool)>,
     /// Every group: id, name, description, whether chosen.
     groups: Vec<(String, String, String, bool)>,
     /// The router select's error.
@@ -80,11 +80,11 @@ impl Panel {
         let routers = match services.fleet().visible(services.user().role()).await {
             Ok(entries) => entries
                 .into_iter()
-                .map(|entry| entry.profile.id)
-                .filter(|known| services.may_migrate(known))
-                .map(|known| {
+                .map(|entry| (entry.profile.display_name().to_owned(), entry.profile.id))
+                .filter(|(_, known)| services.may_migrate(known))
+                .map(|(name, known)| {
                     let chosen = router == Some(known.as_str());
-                    (known, chosen)
+                    (known, name, chosen)
                 })
                 .collect(),
             Err(error) => {

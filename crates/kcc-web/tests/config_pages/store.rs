@@ -1,5 +1,5 @@
-//! The backup store behind the page: backups made in one second, and a store that cannot
-//! be read.
+//! The backup store behind the page: backups made in one second, a store that cannot be
+//! read, and the delete dialog of a labelled router.
 
 use std::fs;
 
@@ -7,10 +7,10 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    PAGE,
+    PAGE, backup_names,
     support::{
         outcome::TestResult,
-        page::{en, text},
+        page::{en, en_with, form, text},
         web::{Fixture, ROUTER},
     },
 };
@@ -86,6 +86,55 @@ async fn a_store_that_cannot_be_listed_stops_a_delete() -> TestResult {
     );
     assert!(
         fixture.audited("web.config_backup_delete", "failed")?,
+        "audited"
+    );
+    Ok(())
+}
+
+/// Todo 11: the delete dialog of a labelled router names it by its name and asks for its
+/// id: the name typed back is refused and the backup stays, the id deletes it.
+#[tokio::test]
+async fn the_delete_dialog_names_the_router_and_asks_for_its_id() -> TestResult {
+    let label = "Home Office";
+    let fixture = Fixture::new().await?;
+    fixture.label(ROUTER, label).await?;
+    let admin = fixture.login("admin").await?;
+    drop(fixture.post(&format!("{PAGE}/backups"), &admin, "").await?);
+    let page = text(fixture.get(PAGE, &admin).await?).await?;
+    let name = backup_names(&page).into_iter().next().ok_or("one backup")?;
+    let delete = format!("{PAGE}/backups/delete?name={name}");
+    let asked = text(fixture.post(&delete, &admin, "").await?).await?;
+    let key = keys::WEB_CONFIG_DELETE_TEXT;
+    let expected = en_with(key, &[("router", label), ("id", ROUTER)]);
+    assert_ne!(
+        expected,
+        en_with(key, &[("router", label), ("id", label)]),
+        "the text names the id to type"
+    );
+    assert!(
+        asked.contains(&expected),
+        "the dialog names the router and its id: {asked}"
+    );
+    let by_name = form(&[("confirm", "yes"), ("confirm_name", label)]);
+    let refused = text(fixture.post(&delete, &admin, &by_name).await?).await?;
+    assert!(
+        refused.contains("name=\"confirm_name\"")
+            && refused.contains(&en_with(
+                keys::WEB_EXPLORER_CONFIRM_NAME_ERROR,
+                &[("router", ROUTER)]
+            )),
+        "the name is not the id: {refused}"
+    );
+    let kept = text(fixture.get(PAGE, &admin).await?).await?;
+    assert!(backup_names(&kept).contains(&name), "kept: {kept}");
+    let by_id = form(&[("confirm", "yes"), ("confirm_name", ROUTER)]);
+    let deleted = text(fixture.post(&delete, &admin, &by_id).await?).await?;
+    assert!(
+        deleted.contains(&en(keys::WEB_CONFIG_BACKUP_DELETED)),
+        "the id passes the gate: {deleted}"
+    );
+    assert!(
+        fixture.audited("web.config_backup_delete", "success")?,
         "audited"
     );
     Ok(())
