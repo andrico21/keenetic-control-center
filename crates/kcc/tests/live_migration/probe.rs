@@ -185,7 +185,9 @@ async fn login(probe: &Probe<'_>, password: &str) -> bool {
         PROBE_USER.to_owned(),
         SecretString::from(password.to_owned()),
     );
-    let options = RciClientOptions::default().with_outbound(policy);
+    let options = RciClientOptions::default()
+        .with_outbound(policy)
+        .with_log_id(probe.client.log_id().to_owned());
     let Ok(client) = RciClient::connect_with(url, credentials, options).await else {
         return false;
     };

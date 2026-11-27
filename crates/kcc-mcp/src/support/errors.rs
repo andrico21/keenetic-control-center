@@ -93,7 +93,7 @@ const fn map_refusal(refusal: Refusal) -> McpFailure {
 
 /// Maps a router transport or protocol failure.
 pub(crate) fn map_rci(error: &RciError) -> McpFailure {
-    tracing::warn!(error = ?error, "MCP RCI request failed");
+    tracing::debug!(error = ?error, "MCP RCI request failed");
     match error {
         RciError::Transport(_) | RciError::Timeout | RciError::Policy => {
             McpFailure::RouterUnreachable

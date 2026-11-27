@@ -27,6 +27,7 @@ subtle = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 tokio-util = { workspace = true }
+tracing = { workspace = true, features = ["std"] }
 url = { workspace = true }
 x509-parser = { version = "0.18.1", default-features = false }
 zeroize = { workspace = true }
@@ -41,6 +42,7 @@ rcgen = { workspace = true, features = ["crypto", "ring"] }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "test-util"] }
 tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }
 tower = { workspace = true, features = ["util"] }
+tracing-subscriber = { workspace = true, features = ["fmt", "std"] }
 
 [package.metadata.cargo-machete]
 # md-5 is imported as `md5`, which machete's name matching misses

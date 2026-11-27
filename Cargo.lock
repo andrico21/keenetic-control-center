@@ -2243,6 +2243,8 @@ dependencies = [
  "tokio-rustls",
  "tokio-util",
  "tower",
+ "tracing",
+ "tracing-subscriber",
  "url",
  "x509-parser",
  "zeroize",

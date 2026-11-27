@@ -1,8 +1,9 @@
 //! Router identity, firmware, component, rights, and inventory detection.
 
 use alloc::collections::{BTreeMap, BTreeSet};
+use std::time::Instant;
 
-use reqwest::{StatusCode, header};
+use reqwest::{Method, StatusCode, header};
 use serde::{
     Deserialize, Deserializer,
     de::{DeserializeOwned, Error as _},
@@ -378,30 +379,58 @@ impl RouterInfo {
         router: &RouterUrl,
         cap: usize,
     ) -> Result<Self, RciError> {
+        let started = Instant::now();
+        let mut at = "/auth";
+        let result = Self::detect_steps(client, router, cap, &mut at).await;
+        if let Err(error) = &result {
+            let journal = client.journal();
+            journal.failed(&journal.label(&Method::GET, at), started.elapsed(), error);
+        }
+        result
+    }
+
+    /// The reads of [`Self::detect_capped`]; `at` follows the path of the current read.
+    ///
+    /// # Errors
+    ///
+    /// As [`RouterInfo::detect`].
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, every request is a read.
+    async fn detect_steps(
+        client: &Manager,
+        router: &RouterUrl,
+        cap: usize,
+        at: &mut &'static str,
+    ) -> Result<Self, RciError> {
         let read = |path| read_optional(client, path, cap);
         let auth_schemes = probe_auth_schemes(client, router).await?;
-        let version: ShowVersion = decode(
-            "show version",
-            &read("/rci/show/version").await?.ok_or(RciError::NotFound)?,
-        )?;
-        let identification = read("/rci/show/identification")
+        *at = "/rci/show/version";
+        let version: ShowVersion =
+            decode("show version", &read(*at).await?.ok_or(RciError::NotFound)?)?;
+        *at = "/rci/show/identification";
+        let identification = read(*at)
             .await?
             .map(|value| decode::<Identification>("show identification", &value))
             .transpose()?;
-        let user = read("/rci/whoami")
+        *at = "/rci/whoami";
+        let user = read(*at)
             .await?
             .map(|value| decode::<WhoAmI>("whoami", &value))
             .transpose()?;
-        let system_mode = read("/rci/show/system/mode")
+        *at = "/rci/show/system/mode";
+        let system_mode = read(*at)
             .await?
             .map(|value| decode::<ShowSystemMode>("show system mode", &value))
             .transpose()?
             .and_then(|mode| mode.active.or(mode.selected))
             .map(|name| SystemMode::from_name(&name));
-        let interfaces = match read("/rci/show/interface").await? {
+        *at = "/rci/show/interface";
+        let interfaces = match read(*at).await? {
             None => None,
             Some(value) => {
-                let bands = read("/rci/show/interface/bands").await?;
+                *at = "/rci/show/interface/bands";
+                let bands = read(*at).await?;
+                *at = "/rci/show/interface";
                 Some(inventory(&value, bands)?)
             }
         };
@@ -571,6 +600,7 @@ async fn read_optional(
         status,
         StatusCode::NOT_FOUND | StatusCode::METHOD_NOT_ALLOWED
     ) {
+        absent(client, path, &format!("http_{}", status.as_u16()));
         return Ok(None);
     }
     if !status.is_success() {
@@ -588,9 +618,24 @@ async fn read_optional(
             code: _,
             ident: _,
             message: _,
-        }) => Ok(None),
+        }) => {
+            absent(client, path, "router_error");
+            Ok(None)
+        }
         Err(error) => Err(error),
     }
+}
+
+/// Logs at DEBUG that the optional resource at `path` was absent because of `cause`.
+fn absent(client: &Manager, path: &str, cause: &str) {
+    let label = client.journal().label(&Method::GET, path);
+    tracing::debug!(
+        router = %label.router,
+        method = %label.method,
+        path = %label.path,
+        cause = %cause,
+        "optional router resource absent"
+    );
 }
 
 /// Decodes a typed model of `resource`.

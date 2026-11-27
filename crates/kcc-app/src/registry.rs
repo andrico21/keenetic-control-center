@@ -326,7 +326,7 @@ impl RouterRegistry {
     ) -> Result<Arc<RciClient>, RegistryError> {
         authorize(role, Permission::Migrate, id)?;
         let profile = self.get(id)?.profile;
-        let mut options = RciClientOptions::default();
+        let mut options = RciClientOptions::default().with_log_id(profile.id.clone());
         options.outbound = self.outbound.clone();
         options.tls = tls_mode(&profile.tls)?;
         options.budget = Some(self.budgets.get(id).await);
@@ -955,7 +955,7 @@ impl RouterRegistry {
         credentials: Credentials,
         auth: RciAuthOptions,
     ) -> Result<RouterInfo, RegistryError> {
-        let mut options = RciClientOptions::default();
+        let mut options = RciClientOptions::default().with_log_id(profile.id.clone());
         options.outbound = self.outbound.clone();
         options.tls = tls_mode(&profile.tls)?;
         options.budget = Some(self.budgets.get(&profile.id).await);
@@ -982,7 +982,7 @@ impl RouterRegistry {
         profile: &ManagedRouterProfile,
         credential_use: CredentialUse,
     ) -> Result<RciClient, RegistryError> {
-        let mut options = RciClientOptions::default();
+        let mut options = RciClientOptions::default().with_log_id(profile.id.clone());
         options.outbound = self.outbound.clone();
         options.tls = tls_mode(&profile.tls)?;
         options.observer = self.observer(&profile.id);

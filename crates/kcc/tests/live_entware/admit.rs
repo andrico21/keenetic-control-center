@@ -13,7 +13,7 @@ use std::{
 
 use kcc_app::{secrets::MASTER_KEY_FILE_ENV, settings::OutboundConfig};
 use kcc_testkit::{
-    capture::{Connection, connect},
+    capture::{Connection, connect_as},
     toml_text,
 };
 use secrecy::SecretString;
@@ -54,7 +54,8 @@ pub(crate) async fn admit(base: &Base, allow_loopback: bool) -> TestResult<Admit
     let admission = admission(&base.config, &base.url)?;
     let raw = Zeroizing::new(fs::read_to_string(&base.password_file)?);
     let password = SecretString::from(raw.trim_end_matches(['\r', '\n']).to_owned());
-    let connection = connect(
+    let connection = connect_as(
+        &admission.profile.name,
         base.url.parse()?,
         base.login.clone(),
         password,

@@ -98,7 +98,7 @@ pub(crate) fn rci_failure(family: Family, locale: Locale, error: &RciError) -> F
         | RciError::Decode(_)
         | RciError::Validation
         | _ => {
-            tracing::warn!(?error, "router request failed");
+            tracing::debug!(?error, "router request failed");
             Failure::new(tr(locale, family.failed(), None), "rci_error")
         }
     }

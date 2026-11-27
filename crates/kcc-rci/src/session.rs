@@ -1,7 +1,9 @@
 //! Reactive HTTP session management for authenticated router requests.
 
+pub(crate) mod journal;
 #[cfg(test)]
 mod refresh_tests;
+pub(crate) mod send;
 mod transport;
 
 use alloc::sync::Arc;
@@ -26,7 +28,7 @@ use serde::Serialize;
 use tokio::sync::Mutex;
 use zeroize::Zeroizing;
 
-use self::transport::install_ring_provider;
+use self::{journal::Journal, transport::install_ring_provider};
 use crate::{
     AuthError, LocalCause, RciError, RouterUrl, TransportCause,
     auth::{Credentials, Scheme, WwwAuthenticate, ndw2_response},
@@ -179,6 +181,8 @@ pub struct Manager {
     login: Mutex<()>,
     /// Optional login observer (self-metrics).
     observer: Option<Arc<dyn RciObserver>>,
+    /// Log identity and collapsed warnings, shared with the client that owns this manager.
+    journal: Arc<Journal>,
 }
 
 impl Manager {
@@ -243,6 +247,7 @@ impl Manager {
             session: StdMutex::new(None),
             login: Mutex::new(()),
             observer: None,
+            journal: Arc::new(Journal::default()),
         })
     }
 
@@ -292,6 +297,33 @@ impl Manager {
     pub fn with_observer(mut self, observer: Option<Arc<dyn RciObserver>>) -> Self {
         self.observer = observer;
         self
+    }
+
+    /// Sets the router profile id (never its display name) this manager's log lines carry.
+    #[inline]
+    #[must_use]
+    pub fn with_log_id(mut self, log_id: String) -> Self {
+        self.journal = Arc::new(Journal::new(log_id));
+        self
+    }
+
+    /// The router profile id this manager's log lines carry; empty when unset.
+    #[inline]
+    #[must_use]
+    pub fn log_id(&self) -> &str {
+        self.journal.id()
+    }
+
+    /// Shares the log identity and collapsed warnings of the client that owns this manager.
+    #[must_use]
+    pub(crate) fn with_journal(mut self, journal: Arc<Journal>) -> Self {
+        self.journal = journal;
+        self
+    }
+
+    /// The log identity and collapsed warnings of this manager.
+    pub(crate) fn journal(&self) -> &Journal {
+        &self.journal
     }
 
     /// Returns a snapshot of the current in-memory session.
@@ -351,12 +383,13 @@ impl Manager {
     where
         T: Serialize + Sync + ?Sized,
     {
+        let label = self.journal.label(&method, path);
         if let Some(token) = &self.options.experimental_token {
             let mut request = self.client.request(method.clone(), self.url(path));
             if let Some(value) = body {
                 request = request.json(value);
             }
-            let response = auth_token::send(request, token).await?;
+            let response = auth_token::send(request, token, &label).await?;
             if response.status() != StatusCode::UNAUTHORIZED
                 || !self.options.token_fallback
                 || !self.password_configured
@@ -370,7 +403,10 @@ impl Manager {
             if let Some(value) = body {
                 request = request.json(value);
             }
-            return self.digest.request(request, &self.credentials).await;
+            return self
+                .digest
+                .request(request, &self.credentials, &label)
+                .await;
         }
         self.ensure_password_session().await?;
         if self.is_bootstrap() {
@@ -378,10 +414,7 @@ impl Manager {
             if let Some(value) = body {
                 request = request.json(value);
             }
-            return request
-                .send()
-                .await
-                .map_err(|error| map_reqwest_error(&error));
+            return send::send(request, &label).await;
         }
         let first_session = self
             .usable_session()
@@ -451,13 +484,12 @@ impl Manager {
         let session = self
             .usable_session()
             .ok_or(RciError::Auth(AuthError::Rejected))?;
-        self.client
+        let request = self
+            .client
             .post(self.url(path))
             .header(header::COOKIE, session.header_value()?)
-            .multipart(form)
-            .send()
-            .await
-            .map_err(|error| map_reqwest_error(&error))
+            .multipart(form);
+        send::send(request, &self.journal.label(&Method::POST, path)).await
     }
 
     /// The key cache of this manager, shared with sessions of the same router and credentials.
@@ -486,13 +518,11 @@ impl Manager {
         if let Some(session) = removed
             && let Ok(cookie) = session.header_value()
         {
-            drop(
-                self.client
-                    .delete(self.url("/auth"))
-                    .header(header::COOKIE, cookie)
-                    .send()
-                    .await,
-            );
+            let request = self
+                .client
+                .delete(self.url("/auth"))
+                .header(header::COOKIE, cookie);
+            drop(send::send(request, &self.journal.label(&Method::DELETE, "/auth")).await);
         }
     }
 
@@ -504,7 +534,9 @@ impl Manager {
     // NOT cancel-safe: cancellation after POST /auth can authenticate remotely without installing
     // the local cookie; a later exchange replaces it.
     async fn authenticate(&self) -> Result<(), RciError> {
+        let started = Instant::now();
         let result = self.exchange().await;
+        self.journal.signed_in(&result, started.elapsed());
         if let Some(observer) = &self.observer {
             observer.authentication(result.as_ref().ok().copied(), result.is_ok());
         }
@@ -518,12 +550,11 @@ impl Manager {
     /// Returns typed authentication, transport, or HTTP status failures.
     // NOT cancel-safe: see `authenticate`.
     async fn exchange(&self) -> Result<LoginScheme, RciError> {
-        let challenge_response = self
-            .client
-            .get(self.url("/auth"))
-            .send()
-            .await
-            .map_err(|error| map_reqwest_error(&error))?;
+        let challenge_response = send::send(
+            self.client.get(self.url("/auth")),
+            &self.journal.label(&Method::GET, "/auth"),
+        )
+        .await?;
         if challenge_response.status().is_success() {
             if self.bootstrap_enabled && challenge_response.status() == StatusCode::OK {
                 self.bootstrap_active.store(true, Ordering::Release);
@@ -596,15 +627,14 @@ impl Manager {
             })
             .map_err(|_error| RciError::Transport(TransportCause::Local(LocalCause::Serialize)))?,
         );
-        let login_response = self
+        let request = self
             .client
             .post(self.url("/auth"))
             .header(header::COOKIE, pending.header_value()?)
             .header(header::CONTENT_TYPE, "application/json")
-            .body(body.to_string())
-            .send()
-            .await
-            .map_err(|error| map_reqwest_error(&error))?;
+            .body(body.to_string());
+        let login_response =
+            send::send(request, &self.journal.label(&Method::POST, "/auth")).await?;
         if login_response.status() == StatusCode::UNAUTHORIZED {
             return Err(RciError::Auth(AuthError::Rejected));
         }
@@ -628,6 +658,7 @@ impl Manager {
                 iterations: self.options.max_argon2_iterations,
             },
             cache: &self.ndw4_cache,
+            journal: &self.journal,
         }
     }
 
@@ -665,6 +696,7 @@ impl Manager {
     where
         T: Serialize + Sync + ?Sized,
     {
+        let label = self.journal.label(&method, path);
         let mut request = self
             .client
             .request(method, self.url(path))
@@ -672,10 +704,7 @@ impl Manager {
         if let Some(value) = body {
             request = request.json(value);
         }
-        request
-            .send()
-            .await
-            .map_err(|error| map_reqwest_error(&error))
+        send::send(request, &label).await
     }
 
     /// Returns a non-expired session snapshot.

@@ -2,6 +2,7 @@
 
 use core::mem::take;
 
+use reqwest::Method;
 use serde_json::Value;
 use thiserror::Error;
 
@@ -56,7 +57,8 @@ pub(super) async fn run(
         let body = Value::Array(chunk);
         let answered =
             match Admission::take(&client.semaphore, client.options.observer.as_deref()).await {
-                Ok(admission) => admission.report(
+                Ok(admission) => admission.report_logged(
+                    (&client.journal, &Method::POST, "/rci/"),
                     async {
                         let response = client.session.post("/rci/", &body).await?;
                         let Value::Array(values) =

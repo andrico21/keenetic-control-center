@@ -27,6 +27,8 @@ mod auth_modes;
 mod client_pool;
 #[path = "registry/inflight.rs"]
 mod inflight;
+#[path = "registry/request_log.rs"]
+mod request_log;
 #[cfg(unix)]
 #[path = "registry/secret_files.rs"]
 mod secret_files;

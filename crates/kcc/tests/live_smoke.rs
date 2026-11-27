@@ -29,7 +29,7 @@ use std::{
 use kcc_rci::{RciBody, RciError, RciPath, RouterUrl, capabilities::RouterInfo};
 use kcc_testkit::{
     DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle,
-    capture::{Captured, connect, read_all},
+    capture::{Captured, connect, connect_as, read_all},
     live_matrix::{self, Outcome, Run, Suite},
     model::{Firmware, Model, Profile},
 };
@@ -128,11 +128,18 @@ async fn smoke(live: LiveEnv, allow_loopback: bool) -> Result<Run, Box<dyn Error
         config,
         allowed,
     } = live;
-    drop(admission(&config, &url)?);
+    let admitted = admission(&config, &url)?;
     let raw = Zeroizing::new(fs::read_to_string(&password_file)?);
     let password = SecretString::from(raw.trim_end_matches(['\r', '\n']).to_owned());
     let router = url.parse::<RouterUrl>()?;
-    let connection = connect(router.clone(), login, password, allow_loopback).await?;
+    let connection = connect_as(
+        &admitted.profile.name,
+        router.clone(),
+        login,
+        password,
+        allow_loopback,
+    )
+    .await?;
     let serial = allowlisted(&connection.client, &allowed).await?;
     tracing::info!(serial_len = serial.len(), "router serial is allowlisted");
     let info = RouterInfo::detect(&connection.session, &router).await?;

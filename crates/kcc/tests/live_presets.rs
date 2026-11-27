@@ -37,7 +37,7 @@ use std::{
 use kcc_app::{secrets::MASTER_KEY_FILE_ENV, settings::OutboundConfig};
 use kcc_config::config_text::normalize;
 use kcc_rci::{ConfigKind, RciBody, RciClient, RciPath};
-use kcc_testkit::{capture::connect, live_matrix};
+use kcc_testkit::{capture::connect_as, live_matrix};
 use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::Value;
 use tempfile::TempDir;
@@ -118,7 +118,8 @@ async fn admit(
     let admitted = admission(&target.config, &target.url)?;
     let raw = Zeroizing::new(fs::read_to_string(&target.password_file)?);
     let password = SecretString::from(raw.trim_end_matches(['\r', '\n']).to_owned());
-    let connection = connect(
+    let connection = connect_as(
+        &admitted.profile.name,
         target.url.parse()?,
         target.login.clone(),
         password,

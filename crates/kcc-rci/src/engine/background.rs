@@ -14,7 +14,7 @@ use super::{
 use crate::{
     RciError, RciPath, encode_query,
     observe::RciObserver,
-    session::{Manager, RequestKind},
+    session::{Manager, RequestKind, journal::Journal},
 };
 
 /// Longest wait for the router to acknowledge the sign-out of a dedicated session.
@@ -63,16 +63,18 @@ pub(super) async fn start(
         session(
             (&client.router, &client.pinned),
             &client.credentials,
-            &client.options,
+            (&client.options, &client.journal),
         )?
         .with_key_cache(client.session.key_cache()),
     ));
+    let target = format!("/rci/{path}");
     // The permit (the receiver) is taken before the request (the argument) runs.
     let process_id = Admission::take(&client.semaphore, client.options.observer.as_deref())
         .await?
-        .report(
+        .report_logged(
+            (&client.journal, &Method::POST, &target),
             async {
-                let response = session.0.post(&format!("/rci/{path}"), body).await?;
+                let response = session.0.post(&target, body).await?;
                 let value = response_json(response, client.options.response_bytes).await?;
                 Ok(value
                     .pointer("/process/id")
@@ -86,6 +88,7 @@ pub(super) async fn start(
         session,
         semaphore: Arc::clone(&client.semaphore),
         observer: client.options.observer.clone(),
+        journal: Arc::clone(&client.journal),
         path,
         process_id,
         response_bytes: client.options.response_bytes,
@@ -103,6 +106,8 @@ pub struct Handle {
     semaphore: Arc<Semaphore>,
     /// The parent client's request and login observer.
     observer: Option<Arc<dyn RciObserver>>,
+    /// The parent client's log identity and collapsed warnings.
+    journal: Arc<Journal>,
     /// Process resource path.
     path: RciPath,
     /// Router process identifier.
@@ -139,7 +144,8 @@ impl Handle {
     pub async fn next(&self) -> Result<RciBody, RciError> {
         let path = process_path(&self.path, &self.process_id)?;
         let admission = Admission::take(&self.semaphore, self.observer.as_deref()).await?;
-        admission.report(
+        admission.report_logged(
+            (&self.journal, &Method::GET, &path),
             async {
                 let response = self.session.0.get(&path).await?;
                 decode_response(response, self.response_bytes).await
@@ -209,7 +215,8 @@ impl Handle {
     pub async fn stop(&self) -> Result<RciBody, RciError> {
         let path = process_path(&self.path, &self.process_id)?;
         let admission = Admission::take(&self.semaphore, self.observer.as_deref()).await?;
-        admission.report(
+        admission.report_logged(
+            (&self.journal, &Method::DELETE, &path),
             async {
                 let response = self
                     .session

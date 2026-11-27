@@ -4,7 +4,7 @@ use alloc::sync::Arc;
 use core::fmt;
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use reqwest::{Client, Response, StatusCode, header};
+use reqwest::{Client, Method, Response, StatusCode, header};
 use serde::Serialize;
 use subtle::ConstantTimeEq as _;
 use tokio::sync::Mutex;
@@ -14,7 +14,7 @@ use crate::{
     auth::{Credentials, Ndw4Challenge},
     ndw4_keys::{Keys, Parameters},
     ndw4_reply::{Caps, Reply},
-    session::{Session, map_reqwest_error, parse_set_cookie},
+    session::{Session, journal::Journal, parse_set_cookie, send::send},
 };
 
 /// One cached parameter set; its manager binds the router, login, and password.
@@ -33,6 +33,8 @@ pub(crate) struct Exchange<'session> {
     pub caps: Caps,
     /// Keys bound to this manager's router and credentials.
     pub cache: &'session Cache,
+    /// Log identity of the manager.
+    pub journal: &'session Journal,
 }
 
 impl fmt::Debug for Exchange<'_> {
@@ -43,6 +45,7 @@ impl fmt::Debug for Exchange<'_> {
             credentials: _,
             caps,
             cache: _,
+            journal: _,
         } = self;
         f.debug_struct("Exchange")
             .field("caps", caps)
@@ -157,13 +160,13 @@ impl Exchange<'_> {
             return Err(RciError::Auth(AuthError::Rejected));
         }
         let mut session = pending.ok_or(RciError::Auth(AuthError::Rejected))?;
-        let check = self
-            .client
-            .get(format!("{}/auth", self.origin))
-            .header(header::COOKIE, session.header_value()?)
-            .send()
-            .await
-            .map_err(|error| map_reqwest_error(&error))?;
+        let check = send(
+            self.client
+                .get(format!("{}/auth", self.origin))
+                .header(header::COOKIE, session.header_value()?),
+            &self.journal.label(&Method::GET, "/auth"),
+        )
+        .await?;
         if check.status() != StatusCode::OK {
             return Err(RciError::Auth(AuthError::Rejected));
         }
@@ -186,10 +189,8 @@ impl Exchange<'_> {
         if let Some(session) = pending.as_ref() {
             request = request.header(header::COOKIE, session.header_value()?);
         }
-        let response = request
-            .send()
-            .await
-            .map_err(|error| map_reqwest_error(&error))?;
+        let endpoint = url.strip_prefix(self.origin).unwrap_or_default();
+        let response = send(request, &self.journal.label(&Method::POST, endpoint)).await?;
         match pending {
             Some(session) => session.refresh_from_headers(response.headers())?,
             None => *pending = parse_set_cookie(response.headers(), None)?.map(Session::from),

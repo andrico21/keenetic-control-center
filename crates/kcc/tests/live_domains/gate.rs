@@ -3,7 +3,7 @@
 use core::error::Error;
 
 use kcc_rci::RouterUrl;
-use kcc_testkit::capture::{Connection, connect};
+use kcc_testkit::capture::{Connection, connect_as};
 
 use super::{
     campaign::Options,
@@ -29,7 +29,8 @@ pub(crate) struct Opened {
 pub(crate) async fn open(options: &Options) -> Result<Opened, Box<dyn Error>> {
     let admission = admission(&options.config, &options.url)?;
     let router = options.url.parse::<RouterUrl>()?;
-    let connection = connect(
+    let connection = connect_as(
+        &admission.profile.name,
         router,
         options.login.clone(),
         options.password.clone(),

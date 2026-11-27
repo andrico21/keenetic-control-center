@@ -33,7 +33,7 @@ use crate::{
     encode_query, not_json,
     observe::RciObserver,
     outbound::{OutboundPolicy, TlsMode},
-    session::{HttpTimeouts, Manager, RequestKind},
+    session::{HttpTimeouts, Manager, RequestKind, journal::Journal},
 };
 
 /// kcc's words for an answer whose request it does not name.
@@ -156,6 +156,8 @@ pub struct RciClient {
     post_only_show: StdMutex<BTreeSet<String>>,
     /// Addresses every connection of this client is pinned to.
     pinned: Vec<SocketAddr>,
+    /// Log identity and collapsed warnings, shared with every session of this client.
+    journal: Arc<Journal>,
 }
 
 impl fmt::Debug for RciClient {
@@ -178,7 +180,8 @@ impl RciClient {
     #[inline]
     pub async fn auth_headers(&self) -> Result<HeaderMap, RciError> {
         let admission = Admission::take(&self.semaphore, self.observer()).await?;
-        admission.report(
+        admission.report_logged(
+            (&self.journal, &Method::GET, "/auth"),
             async {
                 Ok(self
                     .session
@@ -214,7 +217,7 @@ impl RciClient {
             session(
                 (&client.router, &client.pinned),
                 &client.credentials,
-                &client.options,
+                (&client.options, &client.journal),
             )?
             .with_bootstrap(),
         );
@@ -268,7 +271,10 @@ impl RciClient {
         // The permit (the receiver) is taken before the sign-in (the argument) runs.
         Admission::take(&self.semaphore, self.observer())
             .await?
-            .report(self.session.ensure_session().await)?;
+            .report_logged(
+                (&self.journal, &Method::GET, "/auth"),
+                self.session.ensure_session().await,
+            )?;
         Ok(self.session.is_bootstrap())
     }
 
@@ -322,7 +328,8 @@ impl RciClient {
         if options.concurrency == 0 || options.response_bytes == 0 {
             return Err(RciError::Validation);
         }
-        let session = session((&router, resolved), &credentials, &options)?;
+        let journal = Arc::new(Journal::new(options.log_id.clone()));
+        let session = session((&router, resolved), &credentials, (&options, &journal))?;
         Ok(Self {
             router,
             credentials,
@@ -334,6 +341,7 @@ impl RciClient {
             options,
             post_only_show: StdMutex::new(BTreeSet::new()),
             pinned: resolved.to_vec(),
+            journal,
         })
     }
 
@@ -549,7 +557,8 @@ impl RciClient {
             ConfigKind::Running => "/ci/running-config.txt",
         };
         let admission = Admission::take(&self.semaphore, self.observer()).await?;
-        admission.report(
+        admission.report_logged(
+            (&self.journal, &Method::GET, path),
             async {
                 let response = self.session.get(path).await?;
                 map_status(response.status())?;
@@ -596,7 +605,8 @@ impl RciClient {
             .map_err(|_error| RciError::Validation)?,
         );
         let admission = Admission::take(&self.semaphore, self.observer()).await?;
-        admission.report(
+        admission.report_logged(
+            (&self.journal, &Method::POST, "/fui/"),
             async {
                 let response = self.session.post_multipart("/fui/", form).await?;
                 decode_response(response, self.options.response_bytes).await
@@ -619,7 +629,8 @@ impl RciClient {
         kind: RequestKind,
     ) -> Result<RciBody, RciError> {
         let admission = Admission::take(&self.semaphore, self.observer()).await?;
-        admission.report(
+        admission.report_logged(
+            (&self.journal, &method.clone(), path),
             async {
                 let response = self.session.request(method, path, body, kind).await?;
                 decode_response(response, self.options.response_bytes).await
@@ -652,7 +663,7 @@ pub type BackgroundHandle = background::Handle;
 fn session(
     (router, resolved): (&RouterUrl, &[SocketAddr]),
     credentials: &Credentials,
-    options: &RciClientOptions,
+    (options, journal): (&RciClientOptions, &Arc<Journal>),
 ) -> Result<Manager, RciError> {
     let builder = options.outbound.client_builder_for_resolved(
         router,
@@ -667,7 +678,8 @@ fn session(
         builder,
     )?
     .with_auth(options.auth.clone(), true)?
-    .with_observer(options.observer.clone()))
+    .with_observer(options.observer.clone())
+    .with_journal(Arc::clone(journal)))
 }
 
 /// Serializes a query onto one validated RCI resource path.

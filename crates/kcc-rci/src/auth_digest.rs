@@ -16,7 +16,10 @@ use zeroize::Zeroizing;
 use crate::{
     AuthError, LocalCause, RciError, TransportCause,
     auth::{Credentials, Scheme, WwwAuthenticate, push_hex},
-    session::map_reqwest_error,
+    session::{
+        map_reqwest_error,
+        send::{RequestLabel, send},
+    },
 };
 
 /// Digest state serializes nonce-count allocation without holding a lock during I/O.
@@ -66,6 +69,7 @@ impl State {
         &self,
         request: RequestBuilder,
         credentials: &Credentials,
+        label: &RequestLabel<'_>,
     ) -> Result<Response, RciError> {
         let replay = request
             .try_clone()
@@ -94,10 +98,7 @@ impl State {
                 );
             }
         }
-        let response = first
-            .send()
-            .await
-            .map_err(|error| map_reqwest_error(&error))?;
+        let response = send(first, label).await?;
         if response.status() != StatusCode::UNAUTHORIZED {
             return Ok(response);
         }
@@ -119,11 +120,7 @@ impl State {
                 .insert(challenge)
                 .authorization(credentials, method, &uri)?
         };
-        let result = replay
-            .header(header::AUTHORIZATION, authorization)
-            .send()
-            .await
-            .map_err(|error| map_reqwest_error(&error))?;
+        let result = send(replay.header(header::AUTHORIZATION, authorization), label).await?;
         if result.status() == StatusCode::UNAUTHORIZED {
             return Err(RciError::Auth(AuthError::Rejected));
         }

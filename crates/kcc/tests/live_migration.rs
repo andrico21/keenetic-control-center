@@ -42,7 +42,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use kcc_testkit::{capture::connect, live_matrix::record_skip};
+use kcc_testkit::{capture::connect_as, live_matrix::record_skip};
 use secrecy::SecretString;
 use zeroize::Zeroizing;
 
@@ -149,7 +149,14 @@ async fn rehearse(live: LiveEnv, allow_loopback: bool) -> TestResult {
     {
         let router = url.parse()?;
         let source_password = read_password(password_file)?;
-        let source = connect(router, login.clone(), source_password, allow_loopback).await?;
+        let source = connect_as(
+            "migration-source",
+            router,
+            login.clone(),
+            source_password,
+            allow_loopback,
+        )
+        .await?;
         drop(allowlisted(&source.client, &live.allowed).await?);
     }
     let mut evidence = Evidence::open()?;

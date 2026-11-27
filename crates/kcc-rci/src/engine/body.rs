@@ -3,7 +3,7 @@
 use reqwest::Response;
 use zeroize::Zeroizing;
 
-use crate::{RciError, TransportCause};
+use crate::{RciError, TransportCause, session::send::masked};
 
 /// Reads at most `cap` bytes into a buffer wiped on drop.
 ///
@@ -19,6 +19,7 @@ pub(crate) async fn read_capped(
     mut response: Response,
     cap: usize,
 ) -> Result<Zeroizing<Vec<u8>>, RciError> {
+    let path = masked(response.url().path());
     let announced = response
         .content_length()
         .and_then(|length| usize::try_from(length).ok())
@@ -43,6 +44,7 @@ pub(crate) async fn read_capped(
         }
         body.extend_from_slice(&chunk);
     }
+    tracing::debug!(path = %path, bytes = body.len(), "answer read");
     Ok(body)
 }
 

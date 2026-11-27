@@ -156,7 +156,11 @@ pub struct Connection {
     pub session: Manager,
 }
 
-/// Connects to `router` under [`lan_policy`] (plus loopback when asked).
+/// The log id of a capture's requests: the capture knows no router profile.
+pub const CAPTURE_LOG_ID: &str = "capture";
+
+/// Connects to `router` under [`lan_policy`] (plus loopback when asked); its log lines carry
+/// [`CAPTURE_LOG_ID`].
 ///
 /// # Errors
 ///
@@ -169,11 +173,30 @@ pub async fn connect(
     password: SecretString,
     allow_loopback: bool,
 ) -> Result<Connection, RciError> {
+    connect_as(CAPTURE_LOG_ID, router, login, password, allow_loopback).await
+}
+
+/// Connects like [`connect`], with every log line of the connection carrying the router
+/// profile id `log_id`.
+///
+/// # Errors
+///
+/// Policy, validation or transport errors.
+// NOT cancel-safe: cancellation can abandon synchronous DNS resolution, but sends no request.
+#[inline]
+pub async fn connect_as(
+    log_id: &str,
+    router: RouterUrl,
+    login: String,
+    password: SecretString,
+    allow_loopback: bool,
+) -> Result<Connection, RciError> {
     let policy = lan_policy().with_loopback(allow_loopback);
     let credentials = Credentials::new(login, password);
     let options = RciClientOptions::default()
         .with_outbound(policy.clone())
-        .with_response_bytes(ITEM_BYTE_CAP);
+        .with_response_bytes(ITEM_BYTE_CAP)
+        .with_log_id(log_id.to_owned());
     let client = RciClient::connect_with(router.clone(), credentials.clone(), options).await?;
     let builder = policy
         .client_builder(&router, &TlsMode::Verify, HttpTimeouts::default())
@@ -183,7 +206,8 @@ pub async fn connect(
         credentials,
         HttpTimeouts::default(),
         builder,
-    )?;
+    )?
+    .with_log_id(log_id.to_owned());
     Ok(Connection {
         router,
         client,

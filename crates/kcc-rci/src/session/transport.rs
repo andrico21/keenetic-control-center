@@ -3,10 +3,10 @@
 use core::time::Duration;
 use std::sync::OnceLock;
 
-use reqwest::Response;
+use reqwest::{Method, Response};
 use rustls::crypto::{CryptoProvider, ring::default_provider};
 
-use super::{Manager, map_reqwest_error};
+use super::{Manager, send};
 use crate::{LocalCause, RciError, RouterUrl, TransportCause};
 
 /// Probes only the origin for which the session transport was constructed.
@@ -21,13 +21,11 @@ pub(super) async fn probe_auth(
     if router != &manager.router {
         return Err(RciError::Policy);
     }
-    manager
+    let request = manager
         .client
         .get(manager.url("/auth"))
-        .timeout(Duration::from_secs(10))
-        .send()
-        .await
-        .map_err(|error| map_reqwest_error(&error))
+        .timeout(Duration::from_secs(10));
+    send::send(request, &manager.journal.label(&Method::GET, "/auth")).await
 }
 
 /// Installs rustls ring once, accepting a provider installed by another crate.
