@@ -3,13 +3,19 @@
 
 use alloc::collections::BTreeMap;
 use core::{net::Ipv4Addr, str::FromStr as _};
+use std::{
+    sync::{LazyLock, Mutex, PoisonError},
+    time::Instant,
+};
 
 use fluent_bundle::FluentArgs;
 use kcc_domain::{
-    clients::Client,
+    DomainError, RouterCtx,
+    clients::{self, Client},
     dhcp::model::{Binding, Neighbour, Pool, StaticLease},
 };
 use kcc_i18n::{bundle::tr, format, keys, locale::Locale};
+use kcc_rci::{Admit, Deduper};
 
 use crate::table::{
     Direction, Sort,
@@ -19,8 +25,42 @@ use crate::table::{
 /// Client names by lowercase MAC address.
 pub(crate) type Names = BTreeMap<String, String>;
 
+/// Collapses repeated warnings of the same router and failure.
+static SEEN: LazyLock<Mutex<Deduper>> = LazyLock::new(|| Mutex::new(Deduper::default()));
+
+/// The names of the clients of `router` by lowercase MAC address, none when the router's
+/// client list cannot be read.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+// router session. Apart from that, reads only.
+pub(crate) async fn read_names(domain: &RouterCtx, router: &str) -> Names {
+    match clients::read_clients(domain).await {
+        Ok(listed) => names(listed),
+        Err(error) => {
+            unavailable(router, &error);
+            Names::new()
+        }
+    }
+}
+
+/// Warns that `router`'s device names are unavailable because of `error`, once per failure.
+fn unavailable(router: &str, error: &DomainError) {
+    let key = (
+        router.to_owned(),
+        "show".to_owned(),
+        "ip hotspot".to_owned(),
+        error.to_string(),
+    );
+    let admit = SEEN
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .admit(key, Instant::now());
+    if let Admit::Log { suppressed } = admit {
+        tracing::warn!(router = %router, %error, suppressed, "DHCP page: device names unavailable");
+    }
+}
+
 /// The names of `clients` by lowercase MAC address.
-pub(crate) fn names(clients: Vec<Client>) -> Names {
+fn names(clients: Vec<Client>) -> Names {
     clients
         .into_iter()
         .filter_map(|client| {

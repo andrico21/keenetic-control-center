@@ -32,6 +32,8 @@ struct Switch {
     workflow: Arc<ChangeWorkflow>,
     /// The router.
     router: String,
+    /// The schedule's id.
+    schedule: String,
     /// `system:schedule:<id>`.
     actor: Actor,
     /// The owner's role.
@@ -53,6 +55,7 @@ pub(super) async fn switch(
         registry: Arc::clone(&deps.registry),
         workflow: Arc::clone(&deps.workflow),
         router: call.schedule.router.clone(),
+        schedule: call.schedule.id.clone(),
         actor: call.actor.clone(),
         role: call.role.clone(),
         mac: mac.to_owned(),
@@ -79,7 +82,13 @@ async fn run(switch: Switch) -> ActionResult {
         Ok(router) => router,
         Err(result) => return result,
     };
-    let client = match registered(&router, (&switch.mac, &switch.policy)).await {
+    let client = match registered(
+        &router,
+        (&switch.mac, &switch.policy),
+        Some(&switch.schedule),
+    )
+    .await
+    {
         Ok(client) => client,
         Err(refusal) => return failed(refusal.code()),
     };

@@ -31,7 +31,7 @@ pub(crate) const TAIL_LINES: u32 = 200;
 /// The router's log, as the log page reads it.
 pub(crate) trait LogSource: Send + Sync {
     /// The latest lines of the router of `domain`, oldest first.
-    fn tail(&self, domain: RouterCtx) -> BoxFuture<'static, Result<Vec<String>, DomainError>>;
+    fn tail(&self, domain: RouterCtx) -> BoxFuture<'static, Result<Vec<String>, Arc<DomainError>>>;
 
     /// The router's new lines as they arrive, in batches, after the `seen` ones.
     fn follow(&self, domain: RouterCtx, seen: Vec<String>) -> BoxStream<'static, Vec<String>>;
@@ -65,7 +65,7 @@ impl SharedLog {
 }
 
 impl LogSource for SharedLog {
-    fn tail(&self, domain: RouterCtx) -> BoxFuture<'static, Result<Vec<String>, DomainError>> {
+    fn tail(&self, domain: RouterCtx) -> BoxFuture<'static, Result<Vec<String>, Arc<DomainError>>> {
         let lease = self.lease(&domain);
         async move { lease.tail().await }.boxed()
     }

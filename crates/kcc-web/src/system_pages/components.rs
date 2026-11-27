@@ -181,9 +181,14 @@ pub(crate) async fn read(domain: &RouterCtx) -> Result<Vec<Component>, MessageKe
         components::read_components(domain).await,
         components::read_pending(domain).await,
     );
-    let (Ok(listed), Ok(pending)) = read else {
-        tracing::warn!("router components could not be read");
-        return Err(keys::WEB_SYSTEM_READ_FAILED);
+    let (listed, pending) = match read {
+        (Ok(listed), Ok(pending)) => (listed, pending),
+        (listed, pending) => {
+            for error in [listed.err(), pending.err()].into_iter().flatten() {
+                tracing::warn!(%error, "router components could not be read");
+            }
+            return Err(keys::WEB_SYSTEM_READ_FAILED);
+        }
     };
     Ok(listed
         .into_iter()

@@ -6,13 +6,13 @@ use axum::{
     extract::Query,
     http::{HeaderMap, Uri},
 };
-use kcc_domain::{Result as DomainResult, RouterCtx, clients, dhcp};
+use kcc_domain::{Result as DomainResult, RouterCtx, dhcp};
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use url::form_urlencoded::{Serializer, byte_serialize};
 
 use super::{
     TabLink,
-    dhcp_rows::{HostRow, PoolRow, names},
+    dhcp_rows::{HostRow, PoolRow, read_names},
     dhcp_table,
 };
 use crate::{
@@ -161,7 +161,7 @@ impl Shown {
                 .filter_map(|pool| PoolRow::new(pool, locale));
             Listing::Pools(Table::new(rows.collect(), &self.query, base))
         } else {
-            let known = names(clients::read_clients(domain).await.unwrap_or_default());
+            let known = read_names(domain, router).await;
             let rows: Vec<HostRow> = match self.view {
                 DhcpView::Leases => dhcp::read_static_leases(domain)
                     .await?

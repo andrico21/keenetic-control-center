@@ -3,7 +3,7 @@
 //! The collector owns the router's one `show log` stream; every viewer reads the
 //! collector's latest records and follows its fan-out, so viewers add no router request.
 
-use alloc::collections::BTreeSet;
+use alloc::{collections::BTreeSet, sync::Arc};
 use core::future::ready;
 
 use futures_util::{
@@ -32,7 +32,10 @@ impl CollectorLog {
 }
 
 impl LogSource for CollectorLog {
-    fn tail(&self, _domain: RouterCtx) -> BoxFuture<'static, Result<Vec<String>, DomainError>> {
+    fn tail(
+        &self,
+        _domain: RouterCtx,
+    ) -> BoxFuture<'static, Result<Vec<String>, Arc<DomainError>>> {
         ready(Ok(self.feed.recent().iter().map(line).collect())).boxed()
     }
 

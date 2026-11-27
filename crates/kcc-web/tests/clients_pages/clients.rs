@@ -4,6 +4,7 @@
 use axum::http::StatusCode;
 use kcc_i18n::{keys, locale::Locale};
 use kcc_rci::{RciBody, RciPath};
+use kcc_testkit::{FaultInjection, log_capture};
 use serde_json::Value;
 
 use crate::{
@@ -265,4 +266,54 @@ async fn a_router_refusal_shows_only_what_the_router_said() -> TestResult {
         },
     ])
     .await
+}
+
+/// Todo 9: a router refusal logs its `ident` and `code` at WARN and the message the user
+/// is shown at DEBUG with every MAC redacted; no line holds the MAC.
+#[tokio::test]
+async fn a_router_refusal_logs_its_code_and_the_redacted_message() -> TestResult {
+    let (captured, _guard) = log_capture::start();
+    let mac = format!("02:12:34:56:{:02x}:{:02x}", 0x78_u8, 0x9a_u8);
+    let faults = FaultInjection::default()
+        .fail_parse_matching("known host", 1)
+        .parse_failure_message(format!("bad host {mac}"));
+    let fixture = Fixture::with_faults(faults).await?;
+    let operator = fixture.login("operator").await?;
+
+    let body = text(
+        fixture
+            .post(&action("name", UNREGISTERED), &operator, "value=office-pc")
+            .await?,
+    )
+    .await?;
+
+    assert!(
+        body.contains("bad host"),
+        "the user is shown the message: {body}"
+    );
+    let text = captured.text();
+    assert!(!text.contains(&mac), "no line holds the MAC: {text}");
+    let refused = |level: &str| -> Vec<String> {
+        captured
+            .lines_at(level)
+            .into_iter()
+            .filter(|line| line.contains("kcc_web::page_kit::failure"))
+            .collect()
+    };
+    let warned = refused("WARN");
+    assert_eq!(warned.len(), 1, "{warned:?} in {text}");
+    let warn = warned.first().ok_or("WARN line")?;
+    assert!(
+        warn.contains("router refused the request")
+            && warn.contains("ident=\"FakeRouter\"")
+            && warn.contains("code=\"0\"")
+            && !warn.contains("bad host"),
+        "{warn}"
+    );
+    let said = refused("DEBUG")
+        .into_iter()
+        .find(|line| line.contains("bad host"))
+        .ok_or("the message at DEBUG")?;
+    assert!(said.contains("bad host [REDACTED-MAC]"), "{said}");
+    Ok(())
 }

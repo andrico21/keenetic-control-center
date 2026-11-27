@@ -105,10 +105,54 @@ pub enum PollError {
     },
     /// A read request failed.
     #[error("router polling request failed")]
-    Request,
+    Request {
+        /// Value-free class of the failure, such as `http_500` or `timeout`.
+        cause: String,
+    },
     /// The router refused the polling client's login.
     #[error("router refused the polling login")]
     Auth,
+}
+
+impl PollError {
+    /// A request failure with the cause class `cause`.
+    fn request(cause: impl Into<String>) -> Self {
+        Self::Request {
+            cause: cause.into(),
+        }
+    }
+
+    /// The failure class for logs: never a router value.
+    fn class(&self) -> &str {
+        match self {
+            Self::Registry { reason: _ } => "registry",
+            Self::Request { cause } => cause,
+            Self::Auth => "auth",
+        }
+    }
+}
+
+/// The value-free class of a failed read: the same labels the client journal logs.
+fn request_cause(error: &RciError) -> String {
+    match error {
+        RciError::Transport(cause) => cause.label().to_owned(),
+        RciError::Timeout => "timeout".to_owned(),
+        RciError::Cancelled => "cancelled".to_owned(),
+        RciError::Http { status } => format!("http_{status}"),
+        RciError::Rci {
+            ident,
+            code,
+            pointer: _,
+            message: _,
+        } => format!("router_error {ident} {code}"),
+        RciError::NotFound => "not_found".to_owned(),
+        RciError::MethodNotAllowed => "method_not_allowed".to_owned(),
+        RciError::BodyTooLarge => "body_too_large".to_owned(),
+        RciError::Decode(detail) => format!("decode {detail}"),
+        RciError::Policy => "policy".to_owned(),
+        RciError::Validation => "validation".to_owned(),
+        RciError::Auth(_) | _ => "request".to_owned(),
+    }
 }
 
 impl From<RegistryError> for PollError {
@@ -403,7 +447,9 @@ impl Poller {
             *heavy =
                 Some(extended::fetch_heavy(&self.registry, router, &client, round.extended).await?);
         }
-        let items = heavy.as_ref().ok_or(PollError::Request)?;
+        let items = heavy
+            .as_ref()
+            .ok_or_else(|| PollError::request("no_heavy_items"))?;
         let system = show_json(&client, &["show", "system"])
             .await
             .unwrap_or(Value::Null);
@@ -499,16 +545,17 @@ async fn wan_stats(client: &RciClient, interfaces: &Value) -> Value {
 // NOT cancel-safe: it only sends one `show` read, but it may sign in first, and a sign-in dropped
 // mid-way can leave an orphaned router session.
 async fn show_json(client: &RciClient, segments: &[&str]) -> Result<Value, PollError> {
-    let path = RciPath::from_segments(segments).map_err(|_error| PollError::Request)?;
+    let path =
+        RciPath::from_segments(segments).map_err(|_error| PollError::request("invalid_path"))?;
     match client.show(&path, &()).await.map_err(|error| {
         if matches!(error, RciError::Auth(_)) {
             PollError::Auth
         } else {
-            PollError::Request
+            PollError::request(request_cause(&error))
         }
     })? {
         RciBody::Json(response) => Ok(response.value),
-        RciBody::Text(_) | _ => Err(PollError::Request),
+        RciBody::Text(_) | _ => Err(PollError::request("not_json")),
     }
 }
 

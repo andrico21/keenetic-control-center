@@ -11,6 +11,7 @@ use kcc_app::{
     audit::{Actor, ActorKind},
     schedules::ledger::{RunOutcome, Trigger},
 };
+use kcc_testkit::{FaultInjection, log_capture};
 use serde_json::Value;
 use tokio::time::timeout;
 
@@ -59,6 +60,43 @@ async fn a_policy_switch_changes_only_the_running_configuration() -> TestResult 
     assert_eq!(
         entry.params_redacted.get("requested_by"),
         Some(&Value::from("web:alice"))
+    );
+    Ok(())
+}
+
+/// Todo 9: a policy switch that cannot read the router's clients fails `router` and the
+/// WARN of the run names the schedule.
+#[tokio::test]
+async fn an_unreadable_router_is_logged_with_the_schedule() -> TestResult {
+    let (captured, _guard) = log_capture::start();
+    let id = "0000000000000a09";
+    let faults = FaultInjection::default().fail_read_matching("show/ip/hotspot", 100);
+    let bench = Bench::start_with(
+        Timings::default(),
+        vec![switch(id, PHONE, "Policy0")?],
+        faults,
+    )
+    .await?;
+
+    let report = bench.run(id, now()).await?;
+
+    assert_eq!(
+        report,
+        Report::Finished(RunOutcome::Failed {
+            code: "router".to_owned()
+        })
+    );
+    let warned: Vec<String> = captured
+        .lines_at("WARN")
+        .into_iter()
+        .filter(|line| line.contains("scheduled policy switch could not read the router"))
+        .collect();
+    assert_eq!(warned.len(), 1, "{warned:?}");
+    assert!(
+        warned
+            .iter()
+            .all(|line| line.contains(&format!("schedule=\"{id}\""))),
+        "{warned:?}"
     );
     Ok(())
 }

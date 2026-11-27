@@ -4,6 +4,7 @@
 
 use axum::http::StatusCode;
 use kcc_i18n::{keys, locale::Locale};
+use kcc_testkit::{FaultInjection, log_capture};
 
 use crate::{
     row,
@@ -269,4 +270,37 @@ fn pool_with(field: (&str, &'static str), existing: bool) -> String {
         fields.push(("existing", "1"));
     }
     form(&fields)
+}
+
+/// Todo 9: a broken client list logs one WARN however often the page is read, and the
+/// page still shows the leases, only without the device names.
+#[tokio::test]
+async fn a_broken_client_list_is_logged_and_the_leases_still_render() -> TestResult {
+    let (captured, _guard) = log_capture::start();
+    let faults = FaultInjection::default().fail_read_matching("show/ip/hotspot", 100);
+    let fixture = Fixture::with_faults(faults).await?;
+    let viewer = fixture.login("viewer").await?;
+
+    let response = fixture.get(&format!("{PAGE}/bindings"), &viewer).await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bindings = text(response).await?;
+    let again = fixture.get(&format!("{PAGE}/bindings"), &viewer).await?;
+    assert_eq!(again.status(), StatusCode::OK);
+    let bound = row(&bindings, "02:00:00:00:10:03").ok_or("binding row")?;
+    assert!(bound.contains("192.0.2.23"), "the lease renders: {bound}");
+    assert!(!bound.contains("phone-registered"), "no name: {bound}");
+    let warned: Vec<String> = captured
+        .lines_at("WARN")
+        .into_iter()
+        .filter(|line| line.contains("DHCP page: device names unavailable"))
+        .collect();
+    assert_eq!(warned.len(), 1, "{warned:?}");
+    assert!(
+        warned
+            .iter()
+            .all(|line| line.contains("router=home") && line.contains("error=")),
+        "{warned:?}"
+    );
+    Ok(())
 }

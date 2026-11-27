@@ -46,7 +46,7 @@ async fn a_late_subscriber_keeps_the_channel_entry() -> Result<(), Box<dyn Error
     assert!(!retired, "an entry with a live receiver is not retired");
     let channels = poller.channels.lock().await;
     let kept = channels.get("router").ok_or("entry kept")?;
-    kept.send(Some(Err(PollError::Request)))?;
+    kept.send(Some(Err(PollError::request("test"))))?;
     drop(channels);
     late.changed().await?;
     assert!(late.borrow().is_some(), "the late subscriber gets data");

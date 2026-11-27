@@ -27,7 +27,7 @@ use kcc_app::{
 use kcc_catalog::Catalog;
 use kcc_domain::{RouterCtx, clients};
 use kcc_migrate::{apply::SystemClock as ApplyClock, presets::store::PresetStore};
-use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, Handle, model::Profile};
+use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, model::Profile};
 use serde_json::json;
 use tempfile::TempDir;
 use tokio::time::timeout;
@@ -94,12 +94,23 @@ struct Bench {
 impl Bench {
     /// Serves the default KN-1811 fake and builds the run path with `timings`.
     async fn start(timings: Timings, schedules: Vec<Schedule>) -> TestResult<Self> {
+        Self::start_with(timings, schedules, FaultInjection::default()).await
+    }
+
+    /// Like [`Self::start`], with the router injecting `faults`.
+    async fn start_with(
+        timings: Timings,
+        schedules: Vec<Schedule>,
+        faults: FaultInjection,
+    ) -> TestResult<Self> {
         let directory = TempDir::new()?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut document = SchedulesDocument::default();
         document.schedules = schedules;
         state.write(&document)?;
-        let fake = FakeRouter::builder(Profile::default()).build()?;
+        let fake = FakeRouter::builder(Profile::default())
+            .faults(faults)
+            .build()?;
         let (address, router) = fake.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
         let password =
             kcc_testkit::write_secret_file(directory.path(), "router.password", DEFAULT_PASSWORD)?;

@@ -5,7 +5,7 @@
 
 use axum::http::StatusCode;
 use kcc_i18n::keys;
-use kcc_testkit::FaultInjection;
+use kcc_testkit::{FaultInjection, log_capture};
 
 use crate::support::{
     outcome::TestResult,
@@ -130,5 +130,29 @@ async fn an_unread_entware_drive_is_not_ejected() -> TestResult {
             "{read}"
         );
     }
+    Ok(())
+}
+
+/// Todo 9: a failed USB read logs its error and the page still lists the media.
+#[tokio::test]
+async fn an_unread_usb_list_is_logged_and_the_media_still_show() -> TestResult {
+    let (captured, _guard) = log_capture::start();
+    let faults = FaultInjection::default().fail_read_matching("show/usb", 100);
+    let fixture = Fixture::with_faults(faults).await?;
+    let viewer = fixture.login("viewer").await?;
+
+    let page = text(fixture.get(PAGE, &viewer).await?).await?;
+
+    assert!(page.contains(">Media0<"), "{page}");
+    let warned: Vec<String> = captured
+        .lines_at("WARN")
+        .into_iter()
+        .filter(|line| line.contains("router USB devices could not be read"))
+        .collect();
+    assert_eq!(warned.len(), 1, "{warned:?}");
+    assert!(
+        warned.iter().all(|line| line.contains("error=")),
+        "{warned:?}"
+    );
     Ok(())
 }

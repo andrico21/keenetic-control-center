@@ -1,13 +1,50 @@
 //! Round planning, heavy-item caching and the items read only for a metrics subscription.
 
 use core::time::Duration;
+use std::{
+    sync::{LazyLock, Mutex, PoisonError},
+    time::Instant as WallInstant,
+};
 
-use kcc_rci::{RciBody, RciClient, RciPath, capabilities::RouterInfo};
+use kcc_rci::{Admit, Deduper, RciBody, RciClient, RciPath, capabilities::RouterInfo};
 use serde_json::{Map, Value, json};
 use tokio::time::Instant;
 
 use super::{MetricsCadence, PollError, PollIntervals, show_json};
 use crate::registry::RouterRegistry;
+
+/// Collapses repeated fallback lines of the same router and item.
+static SEEN: LazyLock<Mutex<Deduper>> = LazyLock::new(|| Mutex::new(Deduper::default()));
+
+/// `read`, or `fallback` once the missing item is logged for the router of `client`.
+fn or_logged(
+    read: Result<Value, PollError>,
+    fallback: Value,
+    (client, item): (&RciClient, &str),
+) -> Value {
+    read.unwrap_or_else(|error| {
+        let key = (
+            client.log_id().to_owned(),
+            "show".to_owned(),
+            item.to_owned(),
+            error.class().to_owned(),
+        );
+        let admit = SEEN
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .admit(key, WallInstant::now());
+        if let Admit::Log { suppressed } = admit {
+            tracing::debug!(
+                router = %client.log_id(),
+                item = %item,
+                cause = %error.class(),
+                suppressed,
+                "telemetry item unavailable, using an empty value"
+            );
+        }
+        fallback
+    })
+}
 
 /// Timing and item set of one polling round.
 #[derive(Clone, Copy, Debug)]
@@ -84,13 +121,11 @@ pub(super) async fn fetch_heavy(
     let interfaces = if extended {
         Value::Null
     } else {
-        show_json(client, &["show", "interface"])
-            .await
-            .unwrap_or(Value::Null)
+        let interfaces = show_json(client, &["show", "interface"]).await;
+        or_logged(interfaces, Value::Null, (client, "show interface"))
     };
-    let hotspot = show_json(client, &["show", "ip", "hotspot"])
-        .await
-        .unwrap_or_else(|_| json!({}));
+    let listed = show_json(client, &["show", "ip", "hotspot"]).await;
+    let hotspot = or_logged(listed, json!({}), (client, "show ip hotspot"));
     let (dhcp_bindings, media, mesh_members) = if extended {
         heavy_items(client).await
     } else {
@@ -160,27 +195,144 @@ pub(super) fn wan_subset(counters: &Value, ids: &[String]) -> Value {
 // NOT cancel-safe: it only sends `show` reads, but it may sign in first, and a sign-in dropped
 // mid-way can leave an orphaned router session.
 pub(super) async fn heavy_items(client: &RciClient) -> (Value, Value, Value) {
-    let dhcp = show_json(client, &["show", "ip", "dhcp", "bindings"])
-        .await
-        .unwrap_or(Value::Null);
-    let media = show_json(client, &["show", "media"])
-        .await
-        .unwrap_or(Value::Null);
-    let mesh = show_json(client, &["show", "mws", "member"])
-        .await
-        .unwrap_or(Value::Null);
+    let bindings = show_json(client, &["show", "ip", "dhcp", "bindings"]).await;
+    let dhcp = or_logged(bindings, Value::Null, (client, "show ip dhcp bindings"));
+    let volumes = show_json(client, &["show", "media"]).await;
+    let media = or_logged(volumes, Value::Null, (client, "show media"));
+    let members = show_json(client, &["show", "mws", "member"]).await;
+    let mesh = or_logged(members, Value::Null, (client, "show mws member"));
     (dhcp, media, mesh)
 }
 
 #[cfg(test)]
 #[expect(
+    clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    reason = "test code is not rendered API documentation"
+    clippy::panic_in_result_fn,
+    reason = "test code is not rendered API documentation and fails by panicking"
 )]
 mod tests {
-    use serde_json::json;
+    extern crate alloc;
 
-    use super::{up_interface_ids, wan_subset};
+    use alloc::sync::Arc;
+    use core::{error::Error, net::SocketAddr};
+
+    use kcc_rci::RciClient;
+    use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, FaultInjection, log_capture, model::Profile};
+    use serde_json::{Value, json};
+    use tempfile::TempDir;
+    use url::Url;
+
+    use super::{heavy_items, or_logged, up_interface_ids, wan_subset};
+    use crate::{
+        permissions::{Permission, Role},
+        persist::StateStore,
+        poller::PollError,
+        registry::{ManagedRouterProfile, RouterRegistry},
+        settings::OutboundConfig,
+    };
+
+    /// A client for the fake router at `address`, registered as `id`.
+    async fn client_of(
+        directory: &TempDir,
+        id: &str,
+        address: SocketAddr,
+    ) -> Result<Arc<RciClient>, Box<dyn Error>> {
+        let password =
+            kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
+        let outbound = OutboundConfig {
+            allow_loopback: true,
+            ..OutboundConfig::default()
+        };
+        let registry = Arc::new(RouterRegistry::new(
+            StateStore::open(&directory.path().join("state"))?,
+            &[],
+            &outbound,
+        )?);
+        let profile = ManagedRouterProfile::new(
+            id.to_owned(),
+            Url::parse(&format!("http://{address}"))?,
+            "admin".to_owned(),
+            password,
+        );
+        let admin = Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]);
+        registry.create(&admin, profile).await?;
+        Ok(registry.client(id).await?)
+    }
+
+    /// Todo 9: the same item failing for two different causes is logged once per cause,
+    /// each line naming its own cause class.
+    #[tokio::test]
+    async fn distinct_causes_of_one_item_are_each_logged() -> Result<(), Box<dyn Error>> {
+        let (captured, _guard) = log_capture::start();
+        let directory = TempDir::new()?;
+        let (address, handle) = FakeRouter::builder(Profile::default())
+            .build()?
+            .serve(([127, 0, 0, 1], 0).into())
+            .await?;
+        let client = client_of(&directory, "cause-router", address).await?;
+
+        for cause in ["http_500", "timeout", "http_500"] {
+            let read = Err(PollError::request(cause));
+            let value = or_logged(read, Value::Null, (&client, "show media"));
+            assert_eq!(value, Value::Null, "the fallback is returned");
+        }
+
+        let lines: Vec<String> = captured
+            .lines_at("DEBUG")
+            .into_iter()
+            .filter(|line| line.contains("telemetry item unavailable"))
+            .collect();
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        let causes: Vec<bool> = [("cause=http_500"), ("cause=timeout")]
+            .iter()
+            .zip(&lines)
+            .map(|(cause, line)| line.contains(cause))
+            .collect();
+        assert_eq!(causes, [true, true], "{lines:?}");
+        handle.shutdown().await?;
+        Ok(())
+    }
+
+    /// Todo 9: an item that falls back to `Null` is logged at DEBUG once per router and
+    /// item however often it is read, and the other items stay unaffected.
+    #[tokio::test]
+    async fn a_missing_item_logs_its_cause_once_per_item() -> Result<(), Box<dyn Error>> {
+        let (captured, _guard) = log_capture::start();
+        let directory = TempDir::new()?;
+        let fake = FakeRouter::builder(Profile::default())
+            .faults(FaultInjection::default().fail_read_matching("show/media", 100))
+            .build()?;
+        let (address, handle) = fake.serve(([127, 0, 0, 1], 0).into()).await?;
+        let client = client_of(&directory, "lab-router", address).await?;
+
+        let first = heavy_items(&client).await;
+        let second = heavy_items(&client).await;
+
+        assert_eq!(
+            (first.1, second.1),
+            (Value::Null, Value::Null),
+            "media falls back"
+        );
+        assert!(
+            first.0.is_array() || first.0.is_object(),
+            "other items are read"
+        );
+        let lines: Vec<String> = captured
+            .lines_at("DEBUG")
+            .into_iter()
+            .filter(|line| line.contains("telemetry item unavailable"))
+            .collect();
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert!(
+            lines.iter().all(|line| line.contains("router=lab-router")
+                && line.contains("item=show media")
+                && line.contains("cause=http_500")),
+            "{lines:?}"
+        );
+        handle.shutdown().await?;
+        Ok(())
+    }
 
     /// Only interfaces in state `up` get counters; the WAN subset keeps the given ids.
     #[test]

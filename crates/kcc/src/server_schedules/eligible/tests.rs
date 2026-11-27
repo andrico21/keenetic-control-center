@@ -21,7 +21,9 @@ use kcc_migrate::{
     apply::SystemClock as ApplyClock,
     presets::model::{CaptureRequest, PresetSource, PresetSourceKind},
 };
-use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, Handle, migration, model::Profile};
+use kcc_testkit::{
+    DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, log_capture, migration, model::Profile,
+};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 use url::Url;
@@ -81,12 +83,18 @@ struct Bench {
 impl Bench {
     /// Serves the routers and builds the actions.
     async fn start() -> TestResult<Self> {
+        Self::start_with(FaultInjection::default()).await
+    }
+
+    /// Serves the routers, `home` with `faults`, and builds the actions.
+    async fn start_with(faults: FaultInjection) -> TestResult<Self> {
         let directory = TempDir::new()?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let local = SocketAddr::from(([127, 0, 0, 1], 0));
         let mut scenario = migration::Fixture::default();
         scenario.mode = Some("router".to_owned());
         let (address, home) = FakeRouter::builder(Profile::default())
+            .faults(faults)
             .build()?
             .with_migration(scenario)
             .serve(local)
@@ -218,6 +226,33 @@ async fn an_unreadable_router_is_refused() -> TestResult {
     let refused = bench.check(&admin(), (GONE, &switch(PHONE, POLICY)?)).await;
 
     assert_eq!(refused.map_err(ScheduleRefusal::code), Err("router"));
+    Ok(())
+}
+
+/// Todo 9: a failed read of the router's clients refuses the policy switch with `router`
+/// and logs the error at WARN first.
+#[tokio::test]
+async fn a_failed_read_is_logged_before_it_refuses() -> TestResult {
+    let (captured, _guard) = log_capture::start();
+    let bench =
+        Bench::start_with(FaultInjection::default().fail_read_matching("show/ip/hotspot", 100))
+            .await?;
+
+    let refused = bench
+        .check(&admin(), (ROUTER, &switch(PHONE, POLICY)?))
+        .await;
+
+    assert_eq!(refused.map_err(ScheduleRefusal::code), Err("router"));
+    let warned: Vec<String> = captured
+        .lines_at("WARN")
+        .into_iter()
+        .filter(|line| line.contains("scheduled policy switch could not read the router"))
+        .collect();
+    assert_eq!(warned.len(), 1, "{warned:?}");
+    assert!(
+        warned.iter().all(|line| line.contains("error=")),
+        "{warned:?}"
+    );
     Ok(())
 }
 

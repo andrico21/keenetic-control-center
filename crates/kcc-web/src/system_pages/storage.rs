@@ -183,7 +183,10 @@ async fn read(
         tracing::warn!(%error, "router media could not be read");
         keys::WEB_SYSTEM_READ_FAILED
     })?;
-    let devices = storage::read_usb(domain).await.unwrap_or_default();
+    let devices = storage::read_usb(domain).await.unwrap_or_else(|error| {
+        tracing::warn!(%error, "router USB devices could not be read");
+        Vec::new()
+    });
     let media = volumes
         .into_iter()
         .filter_map(|volume| {

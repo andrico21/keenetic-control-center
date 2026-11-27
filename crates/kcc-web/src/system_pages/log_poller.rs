@@ -30,8 +30,8 @@ enum Window {
     Pending,
     /// The latest lines.
     Lines(Arc<[String]>),
-    /// The first read failed; the next successful one replaces this.
-    Failed,
+    /// The first read failed with this error; the next successful one replaces this.
+    Failed(Arc<DomainError>),
 }
 
 /// A viewer's share of a router's poller; the poller stops when the last one is dropped.
@@ -51,15 +51,23 @@ impl Lease {
     {
         let (publish, window) = watch::channel(Window::Pending);
         let task = tokio::spawn(async move {
+            let mut warned = None;
             loop {
                 match read().await {
-                    Ok(found) => drop(publish.send_replace(Window::Lines(found.into()))),
+                    Ok(found) => {
+                        warned = None;
+                        drop(publish.send_replace(Window::Lines(found.into())));
+                    }
                     Err(error) => {
-                        tracing::debug!(%error, "router log poll failed");
+                        let shown = error.to_string();
+                        if warned.as_ref() != Some(&shown) {
+                            tracing::warn!(%error, "router log poll failed");
+                            warned = Some(shown);
+                        }
                         let _modified: bool = publish.send_if_modified(|latest| {
                             let first = matches!(latest, Window::Pending);
                             if first {
-                                *latest = Window::Failed;
+                                *latest = Window::Failed(Arc::new(error));
                             }
                             first
                         });
@@ -75,23 +83,24 @@ impl Lease {
     ///
     /// # Errors
     ///
-    /// Returns the failure of the first read.
+    /// Returns the failure of the first read, or a worker failure when the poller stopped
+    /// before it read anything.
     // cancel-safe: only waits for the published window.
-    pub(crate) async fn tail(&self) -> Result<Vec<String>, DomainError> {
+    pub(crate) async fn tail(&self) -> Result<Vec<String>, Arc<DomainError>> {
+        let stopped = || {
+            Arc::new(DomainError::Rci(RciError::Transport(
+                TransportCause::Local(LocalCause::Worker),
+            )))
+        };
         let mut window = self.window.clone();
         let latest = window
             .wait_for(|latest| !matches!(latest, Window::Pending))
             .await
-            .map_err(|_stopped| {
-                DomainError::Rci(RciError::Transport(TransportCause::Local(
-                    LocalCause::Worker,
-                )))
-            })?;
+            .map_err(|_stopped| stopped())?;
         match &*latest {
             Window::Lines(found) => Ok(found.to_vec()),
-            Window::Pending | Window::Failed => Err(DomainError::Rci(RciError::Transport(
-                TransportCause::Local(LocalCause::Worker),
-            ))),
+            Window::Failed(error) => Err(Arc::clone(error)),
+            Window::Pending => Err(stopped()),
         }
     }
 
@@ -104,7 +113,7 @@ impl Lease {
                 window.changed().await.ok()?;
                 let current = match &*window.borrow_and_update() {
                     Window::Lines(found) => found.to_vec(),
-                    Window::Pending | Window::Failed => continue,
+                    Window::Pending | Window::Failed(_) => continue,
                 };
                 let fresh = new_lines(&previous, &current);
                 if !fresh.is_empty() {
@@ -173,13 +182,20 @@ impl PolledLogs {
 mod tests {
     use alloc::sync::Arc;
     use core::{
+        future::pending,
         sync::atomic::{AtomicUsize, Ordering},
         time::Duration,
     };
 
     use futures_util::StreamExt as _;
     use kcc_domain::DomainError;
-    use tokio::{task::yield_now, time::advance};
+    use kcc_rci::{DecodeDetail, LocalCause, RciError, TransportCause};
+    use kcc_testkit::log_capture;
+    use tokio::{
+        sync::{Semaphore, mpsc},
+        task::yield_now,
+        time::advance,
+    };
 
     use super::PolledLogs;
 
@@ -224,6 +240,80 @@ mod tests {
             again.tail().await.expect("lines"),
             ["line 3"],
             "a new poller"
+        );
+    }
+
+    /// The unreadable answer the injected reader fails with.
+    fn unreadable() -> DomainError {
+        DomainError::UnreadableAnswer(DecodeDetail::new(
+            "show log",
+            "$.log",
+            kcc_rci::DecodeProblem::Missing {
+                field: "message".to_owned(),
+            },
+        ))
+    }
+
+    /// Todo 9: a failed poll keeps the router's real error for `tail()` and logs one
+    /// WARN however many polls fail the same way; polls run one per permit.
+    #[tokio::test]
+    async fn a_failing_poller_returns_its_error_and_warns_once() {
+        let (captured, _guard) = log_capture::start();
+        let gate = Arc::new(Semaphore::new(0));
+        let (announce, mut polls) = mpsc::unbounded_channel::<()>();
+        let read = {
+            let door = Arc::clone(&gate);
+            move || {
+                let this_door = Arc::clone(&door);
+                let this_poll = announce.clone();
+                async move {
+                    this_poll.send(()).expect("receiver alive");
+                    this_door.acquire().await.expect("open gate").forget();
+                    Err::<Vec<String>, _>(unreadable())
+                }
+            }
+        };
+        let lease = PolledLogs::default().join_with("home", read, Duration::ZERO);
+        for _poll in 0_u8..3 {
+            polls.recv().await.expect("poll started");
+            gate.add_permits(1);
+        }
+        polls.recv().await.expect("fourth poll started");
+
+        let error = lease.tail().await.expect_err("the poll failed");
+        assert_eq!(error.to_string(), unreadable().to_string());
+        assert!(
+            format!("{error:?}").contains("UnreadableAnswer"),
+            "{error:?}"
+        );
+        let warned = captured.lines_at("WARN");
+        assert_eq!(warned.len(), 1, "one WARN over three polls: {warned:?}");
+        assert!(
+            warned
+                .iter()
+                .all(|line| line.contains("router log poll failed")),
+            "{warned:?}"
+        );
+    }
+
+    /// Todo 9: a poller that ends before it published anything makes `tail()` return the
+    /// worker-stopped transport error.
+    #[tokio::test]
+    async fn a_stopped_poller_returns_the_worker_error() {
+        let read = || pending::<Result<Vec<String>, DomainError>>();
+        let lease = PolledLogs::default().join_with("home", read, EVERY);
+        lease.task.abort();
+
+        let error = lease.tail().await.expect_err("the poller stopped");
+
+        assert!(
+            matches!(
+                &*error,
+                DomainError::Rci(RciError::Transport(TransportCause::Local(
+                    LocalCause::Worker
+                )))
+            ),
+            "{error:?}"
         );
     }
 }

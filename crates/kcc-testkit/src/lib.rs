@@ -49,6 +49,7 @@ pub mod leak;
 pub mod live_matrix;
 #[cfg(unix)]
 mod local_socket;
+pub mod log_capture;
 pub mod migration;
 pub mod model;
 pub mod ndw2;
@@ -139,6 +140,8 @@ pub struct FaultInjection {
     refuse_management_bridge_down: bool,
     /// Parser substrings, each with its bounded number of matching failures.
     fail_parse_matching: Vec<(String, usize)>,
+    /// The message of every injected parser failure; `None` keeps the default text.
+    parse_failure_message: Option<String>,
     /// Read substrings, each with its bounded number of matching HTTP 500 answers.
     fail_read_matching: Vec<(String, usize)>,
     /// Whether one single-route removal wipes every static route in that address family.
@@ -333,6 +336,17 @@ impl FaultInjection {
         S: Into<String>,
     {
         self.fail_parse_matching.push((substring.into(), times));
+        self
+    }
+
+    /// Sets the message the injected parser failures answer with.
+    #[inline]
+    #[must_use]
+    pub fn parse_failure_message<S>(mut self, message: S) -> Self
+    where
+        S: Into<String>,
+    {
+        self.parse_failure_message = Some(message.into());
         self
     }
 

@@ -10,6 +10,7 @@ use axum::http::StatusCode;
 use futures_util::StreamExt as _;
 use kcc_i18n::keys;
 use kcc_rci::{RciBody, RciPath};
+use kcc_testkit::{FaultInjection, log_capture};
 use serde_json::Value;
 use tokio::time::{Instant, timeout_at};
 
@@ -195,6 +196,32 @@ async fn the_commit_needs_the_router_name_and_runs_as_a_job() -> TestResult {
     assert!(
         fixture.audited("web.components_commit", "started")?,
         "audited"
+    );
+    Ok(())
+}
+
+/// Todo 9: each failed components read logs its own error.
+#[tokio::test]
+async fn every_failed_components_read_is_logged() -> TestResult {
+    let (captured, _guard) = log_capture::start();
+    let faults = FaultInjection::default()
+        .fail_read_matching("show/components/list", 100)
+        .fail_read_matching("show/components/pending", 100);
+    let fixture = Fixture::with_faults(faults).await?;
+    let viewer = fixture.login("viewer").await?;
+
+    let page = text(fixture.get(PAGE, &viewer).await?).await?;
+
+    assert!(page.contains(&en(keys::WEB_SYSTEM_READ_FAILED)), "{page}");
+    let warned: Vec<String> = captured
+        .lines_at("WARN")
+        .into_iter()
+        .filter(|line| line.contains("router components could not be read"))
+        .collect();
+    assert_eq!(warned.len(), 2, "{warned:?}");
+    assert!(
+        warned.iter().all(|line| line.contains("error=")),
+        "{warned:?}"
     );
     Ok(())
 }

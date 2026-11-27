@@ -10,6 +10,7 @@ use kcc_catalog::{HttpMethod, ValidationIssue};
 use kcc_domain::DomainError;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::RciError;
+use kcc_telemetry::logs::redact::macs;
 
 use super::{family::Family, outcome::Failure};
 
@@ -81,11 +82,18 @@ pub(crate) fn rci_failure(family: Family, locale: Locale, error: &RciError) -> F
     match error {
         RciError::Rci {
             pointer: _,
-            code: _,
-            ident: _,
+            code,
+            ident,
             message,
-        } => Failure::new(tr(locale, family.rejected(), None), "rci_error")
-            .with_router_said(vec![message.clone()]),
+        } => {
+            tracing::warn!(?ident, ?code, "router refused the request");
+            tracing::debug!(
+                said = %macs(message),
+                "router refusal message as shown to the user"
+            );
+            Failure::new(tr(locale, family.rejected(), None), "rci_error")
+                .with_router_said(vec![message.clone()])
+        }
         RciError::Transport(_) | RciError::Policy => {
             Failure::new(tr(locale, family.unreachable(), None), "unreachable")
         }

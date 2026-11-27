@@ -22,7 +22,7 @@ use kcc_app::{
 };
 use kcc_catalog::Catalog;
 use kcc_domain::{
-    RouterCtx,
+    DomainError, RouterCtx,
     clients::{self, Client},
     policies::read::policies,
 };
@@ -95,7 +95,7 @@ pub(crate) async fn check(
     match draft.action {
         Action::PolicySwitch { mac, policy } => {
             let router = context(deps.registry(), draft.router).await?;
-            drop(registered(&router, (mac.as_str(), policy.as_str())).await?);
+            drop(registered(&router, (mac.as_str(), policy.as_str()), None).await?);
             Ok(None)
         }
         Action::Preset {
@@ -118,21 +118,31 @@ pub(crate) async fn check(
 /// # Errors
 ///
 /// [`ScheduleRefusal::ClientUnknown`], [`ScheduleRefusal::PolicyUnknown`], or
-/// [`ScheduleRefusal::Router`] for a failed read.
+/// [`ScheduleRefusal::Router`] for a failed read, logged with `schedule` when a run asks.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
 // router session. Apart from that, reads.
 pub(super) async fn registered(
     router: &RouterCtx,
     (mac, policy): (&str, &str),
+    schedule: Option<&str>,
 ) -> Result<Client, ScheduleRefusal> {
+    let unreadable = |error: DomainError| {
+        tracing::warn!(
+            target: super::TARGET,
+            schedule,
+            %error,
+            "scheduled policy switch could not read the router"
+        );
+        ScheduleRefusal::Router
+    };
     let client = clients::read_client(router, mac)
         .await
-        .map_err(|_error| ScheduleRefusal::Router)?
+        .map_err(unreadable)?
         .filter(|client| client.registered == Some(true))
         .ok_or(ScheduleRefusal::ClientUnknown)?;
     let known = policies(router)
         .await
-        .map_err(|_error| ScheduleRefusal::Router)?
+        .map_err(unreadable)?
         .iter()
         .any(|state| state.name.as_deref() == Some(policy));
     known

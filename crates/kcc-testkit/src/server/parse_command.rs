@@ -9,7 +9,12 @@ pub(super) fn intercept(shared: &Shared, line: &str) -> Option<Value> {
         return Some(tree::status("message", "saved."));
     }
     if shared.reject_parse(line) {
-        return Some(tree::status("error", "injected parser failure."));
+        let message = shared
+            .faults
+            .parse_failure_message
+            .as_deref()
+            .unwrap_or("injected parser failure.");
+        return Some(tree::status("error", message));
     }
     let intercepted = lock(&shared.migration).intercept(line);
     if let Some(response) = intercepted {
