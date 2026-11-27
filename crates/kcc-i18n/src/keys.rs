@@ -2960,6 +2960,24 @@ pub const WEB_KIT_UNREACHABLE: MessageKey = MessageKey::new("web-kit-unreachable
 /// `web-kit-not-found` in `web.ftl`.
 pub const WEB_KIT_NOT_FOUND: MessageKey = MessageKey::new("web-kit-not-found");
 
+/// `web-kit-http-error` in `web.ftl`.
+pub const WEB_KIT_HTTP_ERROR: MessageKey = MessageKey::new("web-kit-http-error");
+
+/// `web-kit-router-error` in `web.ftl`.
+pub const WEB_KIT_ROUTER_ERROR: MessageKey = MessageKey::new("web-kit-router-error");
+
+/// `web-kit-too-large` in `web.ftl`.
+pub const WEB_KIT_TOO_LARGE: MessageKey = MessageKey::new("web-kit-too-large");
+
+/// `web-kit-policy` in `web.ftl`.
+pub const WEB_KIT_POLICY: MessageKey = MessageKey::new("web-kit-policy");
+
+/// `web-kit-unreadable` in `web.ftl`.
+pub const WEB_KIT_UNREADABLE: MessageKey = MessageKey::new("web-kit-unreadable");
+
+/// `web-kit-details` in `web.ftl`.
+pub const WEB_KIT_DETAILS: MessageKey = MessageKey::new("web-kit-details");
+
 /// `web-kit-verification-failed` in `web.ftl`.
 pub const WEB_KIT_VERIFICATION_FAILED: MessageKey = MessageKey::new("web-kit-verification-failed");
 
@@ -3194,9 +3212,6 @@ pub const WEB_CLIENTS_REMOVE_TITLE: MessageKey = MessageKey::new("web-clients-re
 /// `web-clients-remove-text` in `web.ftl`.
 pub const WEB_CLIENTS_REMOVE_TEXT: MessageKey = MessageKey::new("web-clients-remove-text");
 
-/// `web-clients-read-error` in `web.ftl`.
-pub const WEB_CLIENTS_READ_ERROR: MessageKey = MessageKey::new("web-clients-read-error");
-
 /// `web-clients-missing` in `web.ftl`.
 pub const WEB_CLIENTS_MISSING: MessageKey = MessageKey::new("web-clients-missing");
 
@@ -3347,9 +3362,6 @@ pub const WEB_DHCP_ERROR_OUTSIDE: MessageKey = MessageKey::new("web-dhcp-error-o
 
 /// `web-dhcp-error-in-use` in `web.ftl`.
 pub const WEB_DHCP_ERROR_IN_USE: MessageKey = MessageKey::new("web-dhcp-error-in-use");
-
-/// `web-dhcp-read-error` in `web.ftl`.
-pub const WEB_DHCP_READ_ERROR: MessageKey = MessageKey::new("web-dhcp-read-error");
 
 /// `web-segments-title` in `web.ftl`.
 pub const WEB_SEGMENTS_TITLE: MessageKey = MessageKey::new("web-segments-title");
@@ -4507,9 +4519,6 @@ pub const WEB_SYSTEM_USERS_TITLE: MessageKey = MessageKey::new("web-system-users
 /// `web-system-services-title` in `web.ftl`.
 pub const WEB_SYSTEM_SERVICES_TITLE: MessageKey = MessageKey::new("web-system-services-title");
 
-/// `web-system-read-failed` in `web.ftl`.
-pub const WEB_SYSTEM_READ_FAILED: MessageKey = MessageKey::new("web-system-read-failed");
-
 /// `web-system-actions` in `web.ftl`.
 pub const WEB_SYSTEM_ACTIONS: MessageKey = MessageKey::new("web-system-actions");
 
@@ -5061,9 +5070,6 @@ pub const WEB_CONFIG_CHANGED_BY: MessageKey = MessageKey::new("web-config-change
 
 /// `web-config-save` in `web.ftl`.
 pub const WEB_CONFIG_SAVE: MessageKey = MessageKey::new("web-config-save");
-
-/// `web-config-status-failed` in `web.ftl`.
-pub const WEB_CONFIG_STATUS_FAILED: MessageKey = MessageKey::new("web-config-status-failed");
 
 /// `web-config-timer-title` in `web.ftl`.
 pub const WEB_CONFIG_TIMER_TITLE: MessageKey = MessageKey::new("web-config-timer-title");
@@ -7267,9 +7273,6 @@ pub const WEB_SEGMENTS_DELETE_CHANGED: MessageKey = MessageKey::new("web-segment
 
 /// `web-segments-delete-gone` in `web.ftl`.
 pub const WEB_SEGMENTS_DELETE_GONE: MessageKey = MessageKey::new("web-segments-delete-gone");
-
-/// `web-segments-read-error` in `web.ftl`.
-pub const WEB_SEGMENTS_READ_ERROR: MessageKey = MessageKey::new("web-segments-read-error");
 
 /// `web-secret-new-password` in `web.ftl`.
 pub const WEB_SECRET_NEW_PASSWORD: MessageKey = MessageKey::new("web-secret-new-password");
@@ -9608,7 +9611,7 @@ pub const WEB_ROUTER_NAME_HELP: MessageKey = MessageKey::new("web-router-name-he
 pub const WEB_ROUTER_ERROR_NAME: MessageKey = MessageKey::new("web-router-error-name");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2957] = [
+pub static ALL: [MessageKey; 2958] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -10550,6 +10553,12 @@ pub static ALL: [MessageKey; 2957] = [
     WEB_KIT_FAILED,
     WEB_KIT_UNREACHABLE,
     WEB_KIT_NOT_FOUND,
+    WEB_KIT_HTTP_ERROR,
+    WEB_KIT_ROUTER_ERROR,
+    WEB_KIT_TOO_LARGE,
+    WEB_KIT_POLICY,
+    WEB_KIT_UNREADABLE,
+    WEB_KIT_DETAILS,
     WEB_KIT_VERIFICATION_FAILED,
     WEB_KIT_TABLE_FILTER,
     WEB_KIT_TABLE_CLEAR,
@@ -10627,7 +10636,6 @@ pub static ALL: [MessageKey; 2957] = [
     WEB_CLIENTS_PRIORITY_ERROR,
     WEB_CLIENTS_REMOVE_TITLE,
     WEB_CLIENTS_REMOVE_TEXT,
-    WEB_CLIENTS_READ_ERROR,
     WEB_CLIENTS_MISSING,
     WEB_CLIENTS_NOT_REGISTERED,
     WEB_DHCP_TITLE,
@@ -10678,7 +10686,6 @@ pub static ALL: [MessageKey; 2957] = [
     WEB_DHCP_ERROR_MAC,
     WEB_DHCP_ERROR_OUTSIDE,
     WEB_DHCP_ERROR_IN_USE,
-    WEB_DHCP_READ_ERROR,
     WEB_SEGMENTS_TITLE,
     WEB_SEGMENTS_CREATE,
     WEB_SEGMENTS_WIZARD_TITLE,
@@ -11061,7 +11068,6 @@ pub static ALL: [MessageKey; 2957] = [
     WEB_SYSTEM_TABS,
     WEB_SYSTEM_USERS_TITLE,
     WEB_SYSTEM_SERVICES_TITLE,
-    WEB_SYSTEM_READ_FAILED,
     WEB_SYSTEM_ACTIONS,
     WEB_SYSTEM_UNCHANGED,
     WEB_SYSTEM_USERS_ADD,
@@ -11227,7 +11233,6 @@ pub static ALL: [MessageKey; 2957] = [
     WEB_CONFIG_UNSAVED_TEXT,
     WEB_CONFIG_CHANGED_BY,
     WEB_CONFIG_SAVE,
-    WEB_CONFIG_STATUS_FAILED,
     WEB_CONFIG_TIMER_TITLE,
     WEB_CONFIG_ARMED,
     WEB_CONFIG_NOT_ARMED_LABEL,
@@ -11916,7 +11921,6 @@ pub static ALL: [MessageKey; 2957] = [
     WEB_SEGMENTS_DELETE_CONFIRM,
     WEB_SEGMENTS_DELETE_CHANGED,
     WEB_SEGMENTS_DELETE_GONE,
-    WEB_SEGMENTS_READ_ERROR,
     WEB_SECRET_NEW_PASSWORD,
     WEB_SECRET_NEW_KEY,
     WEB_SECRET_PASSWORD,

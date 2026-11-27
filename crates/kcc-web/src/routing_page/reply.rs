@@ -21,6 +21,7 @@ use crate::{
         confirm::{Ask, Dialog, Resubmit, Words},
         context::fragment_shell,
         outcome::{Failure, Outcome, with_status},
+        read_failure::ReadProblem,
         request::rendered,
         respond,
         respond::Changed,
@@ -148,9 +149,9 @@ pub(crate) async fn refused(action: Action<'_>, failure: Failure) -> Response {
     answer(Outcome::failed(failure), None, locale)
 }
 
-/// The failure of a change whose router could not be read first: `message`, nothing sent.
-pub(crate) fn unread(locale: Locale, message: MessageKey) -> Failure {
-    Failure::new(tr(locale, message, None), "unreachable")
+/// The failure of a change whose router could not be read first: `problem`, nothing sent.
+pub(crate) fn unread(locale: Locale, problem: &ReadProblem) -> Failure {
+    problem.failure(locale, "unreachable")
 }
 
 /// The failure of a change of something the router no longer has.

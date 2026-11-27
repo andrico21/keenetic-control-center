@@ -16,10 +16,7 @@ use axum::{
 use fluent_bundle::FluentArgs;
 use kcc_app::{permissions::Permission, workflow::CliCommand as ValidatedCli};
 use kcc_catalog::{Catalog, RawAuthorization, Risk, ValidatedRequest, ValidationIssue};
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-};
+use kcc_i18n::{bundle::tr, keys};
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::Deserialize;
 use serde_json::json;
@@ -42,6 +39,7 @@ use crate::{
         context::{self, Caller},
         family::Family,
         gate::{allowed, command_permissions},
+        read_failure::ReadProblem,
         respond,
     },
 };
@@ -87,7 +85,7 @@ struct Page {
     /// Localized catalog line.
     catalog_note: String,
     /// Why no catalog is available.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// Whether the user may send lines without validation.
     can_escape: bool,
 }
@@ -113,7 +111,7 @@ pub(crate) async fn page(
     };
     let (catalog_note, problem) = match target.facts(&state).await {
         Ok(facts) => (catalog_note(&facts, user.locale()), None),
-        Err(error) => (String::new(), Some(problem(error))),
+        Err(error) => (String::new(), Some(problem(&error))),
     };
     errors::render(&Page {
         shell,

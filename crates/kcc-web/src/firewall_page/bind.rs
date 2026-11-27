@@ -63,10 +63,10 @@ pub(crate) async fn bind_dialog(
     let domain = action.context().await?;
     let firewall = snapshot::read(&domain)
         .await
-        .map_err(|message| unusable(locale, message))?;
+        .map_err(|message| unusable(locale, &message))?;
     let names = interface_names(&domain)
         .await
-        .map_err(|message| unusable(locale, message))?;
+        .map_err(|message| unusable(locale, &message))?;
     let values = Params::new(merged(query.as_deref(), Vec::new()), Vec::new());
     let mut dialog = form(locale, &router, &values, (&firewall, &names));
     if firewall.lists().is_empty() {
@@ -97,11 +97,11 @@ pub(crate) async fn bind(
     let domain = action.context().await?;
     let firewall = match snapshot::read(&domain).await {
         Ok(found) => found,
-        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+        Err(message) => return Ok(refused(action, unread(locale, &message)).await),
     };
     let names = match interface_names(&domain).await {
         Ok(found) => found,
-        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+        Err(message) => return Ok(refused(action, unread(locale, &message)).await),
     };
     let values = Params::of(pairs.clone());
     let dialog = form(locale, &router, &values, (&firewall, &names));
@@ -191,7 +191,7 @@ pub(crate) async fn unbind(
             async |_params, domain| {
                 let firewall = snapshot::read(domain)
                     .await
-                    .map_err(|message| unread(locale, message))?;
+                    .map_err(|message| unread(locale, &message))?;
                 if firewall.bindings().contains(&binding) {
                     Ok(())
                 } else {

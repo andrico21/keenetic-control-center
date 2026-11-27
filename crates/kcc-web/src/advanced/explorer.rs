@@ -12,11 +12,7 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_app::permissions::Permission;
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde::Deserialize;
 
 use super::{
@@ -33,6 +29,7 @@ use crate::{
         context::{self, Caller, fragment_shell},
         facts::RouterFacts,
         gate::Controls,
+        read_failure::ReadProblem,
     },
 };
 
@@ -82,7 +79,7 @@ struct Page {
     /// Localized catalog line, such as "Command catalog 5.1 for KN-1811".
     catalog_note: String,
     /// Why no catalog is available.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// The search text.
     query: String,
     /// Search results, when searching.
@@ -200,7 +197,7 @@ pub(crate) async fn page(
     let facts = match target.facts(&state).await {
         Ok(found) => found,
         Err(error) => {
-            page.problem = Some(problem(error));
+            page.problem = Some(problem(&error));
             return errors::render(&page);
         }
     };

@@ -33,7 +33,7 @@ use crate::{
         action::Operation,
         change::Applied,
         confirm::{Confirmation, Resubmit},
-        family::Family,
+        read_failure::domain_problem,
         request::Params,
         respond::Answer,
         submit::{Invalid, Planned, Submission},
@@ -186,7 +186,7 @@ async fn accounts(
 ) -> Result<Vec<String>, Answer> {
     let users = router_users::read_users(domain)
         .await
-        .map_err(|_error| unusable(locale, Family::Changes.unreachable()))?;
+        .map_err(|error| unusable(locale, &domain_problem(&error)))?;
     Ok(users
         .into_iter()
         .filter_map(|user| user.name)

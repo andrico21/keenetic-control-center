@@ -7,7 +7,7 @@ use kcc_testkit::FaultInjection;
 
 use crate::support::{
     outcome::TestResult,
-    page::{en, form, text},
+    page::{en_with, form, text},
     web::Fixture,
 };
 
@@ -32,7 +32,7 @@ async fn a_dialog_whose_read_fails_shows_the_failure() -> TestResult {
         let admin = fixture.login("admin").await?;
         let answer = text(fixture.get(path, &admin).await?).await?;
         assert!(
-            answer.contains(&en(keys::WEB_KIT_UNREACHABLE)),
+            answer.contains(&en_with(keys::WEB_KIT_HTTP_ERROR, &[("status", "500")])),
             "{path}: {answer}"
         );
         assert!(!answer.contains("<form"), "{path} offers no form: {answer}");
@@ -62,7 +62,10 @@ async fn a_schedule_dialog_whose_read_fails_shows_the_failure() -> TestResult {
     assert_eq!(created.status(), StatusCode::OK, "the rule");
     let path = "/ui/r/home/firewall/rule/schedule?list=WebAcl&index=0&rule=deny+ip+192.0.2.5+255.255.255.255+198.51.100.5+255.255.255.255";
     let answer = text(fixture.get(path, &admin).await?).await?;
-    assert!(answer.contains(&en(keys::WEB_KIT_UNREACHABLE)), "{answer}");
+    assert!(
+        answer.contains(&en_with(keys::WEB_KIT_HTTP_ERROR, &[("status", "500")])),
+        "{answer}"
+    );
     assert!(!answer.contains("<form"), "no form: {answer}");
     Ok(())
 }

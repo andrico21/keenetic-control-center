@@ -25,7 +25,8 @@ use crate::{
         context,
         facts::RouterFacts,
         family::Family,
-        outcome::{Failure, Outcome},
+        outcome::Outcome,
+        read_failure::{ReadProblem, domain_problem},
         request::with_query,
         respond,
         respond::Answer,
@@ -98,12 +99,12 @@ pub(crate) async fn reader(
     target
         .context(state)
         .await
-        .map_err(|error| unusable(user.locale(), error.message(Family::Changes)))
+        .map_err(|error| unusable(user.locale(), &error.problem(Family::Changes)))
 }
 
-/// A router that could not be read, answered with `message` in the page's outcome region.
-pub(crate) fn unusable(locale: Locale, message: MessageKey) -> Answer {
-    let failure = Failure::new(tr(locale, message, None), "unreachable");
+/// A router that could not be read, answered with `problem` in the page's outcome region.
+pub(crate) fn unusable(locale: Locale, problem: &ReadProblem) -> Answer {
+    let failure = problem.failure(locale, "unreachable");
     respond::retarget(Outcome::failed(failure).render(locale), "#page-outcome").into()
 }
 
@@ -111,7 +112,7 @@ pub(crate) fn unusable(locale: Locale, message: MessageKey) -> Answer {
 /// region instead of a form filled in from nothing.
 pub(crate) fn unread(locale: Locale, error: &DomainError) -> Answer {
     tracing::warn!(%error, "network page: router read failed");
-    unusable(locale, Family::Changes.unreachable())
+    unusable(locale, &domain_problem(error))
 }
 
 /// Ends `action` because the router read its change is checked against failed with

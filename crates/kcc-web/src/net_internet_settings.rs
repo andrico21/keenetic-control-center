@@ -19,8 +19,8 @@ use crate::{
     net_wan::{Kind, Link, links},
     page_kit::{
         context::fragment_shell,
-        family::Family,
         gate::Controls,
+        read_failure::domain_problem,
         request::{Params, missing},
         respond::Answer,
     },
@@ -44,7 +44,7 @@ pub(crate) async fn settings(
     let (facts, domain) = reader(&state, &user, &router).await?;
     let link = links(&domain)
         .await
-        .map_err(|_error| unusable(user.locale(), Family::Changes.unreachable()))?
+        .map_err(|error| unusable(user.locale(), &domain_problem(&error)))?
         .into_iter()
         .find(|link| link.id() == name.as_str())
         .ok_or_else(missing)?;

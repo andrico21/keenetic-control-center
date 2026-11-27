@@ -16,7 +16,7 @@ use tokio::time::{Instant, timeout_at};
 
 use crate::support::{
     outcome::TestResult,
-    page::{en, text},
+    page::{en, en_with, text},
     web::{Fixture, ROUTER},
 };
 
@@ -212,7 +212,10 @@ async fn every_failed_components_read_is_logged() -> TestResult {
 
     let page = text(fixture.get(PAGE, &viewer).await?).await?;
 
-    assert!(page.contains(&en(keys::WEB_SYSTEM_READ_FAILED)), "{page}");
+    assert!(
+        page.contains(&en_with(keys::WEB_KIT_HTTP_ERROR, &[("status", "500")])),
+        "{page}"
+    );
     let warned: Vec<String> = captured
         .lines_at("WARN")
         .into_iter()

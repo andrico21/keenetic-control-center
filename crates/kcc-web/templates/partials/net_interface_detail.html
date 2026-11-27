@@ -4,7 +4,7 @@
 {% call ui::dialog_body(title) %}
 <div class="drawer">
   {%- if let Some(message) = problem %}
-  <p class="notice" data-tone="error">{{ message }}</p>
+  {{ kit::read_problem(message) }}
   {%- else %}
   {%- if let Some(button) = toggle %}
   <div class="drawer__actions">

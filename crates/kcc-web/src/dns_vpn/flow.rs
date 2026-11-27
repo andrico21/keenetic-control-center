@@ -21,6 +21,7 @@ use crate::{
         form::FormDialog,
         gate::Controls,
         outcome::{Failure, Outcome},
+        read_failure::ReadProblem,
         request::{Params, missing},
         respond,
         submit::{self, Invalid, unplanned::Unplanned},
@@ -103,11 +104,7 @@ impl<'call> Visit<'call> {
                     Viewer::new(self.router, locale, controls).with_table_query(self.query);
                 Ok((ctx, viewer))
             }
-            Err(error) => Err(Closed::Unreadable(tr(
-                locale,
-                error.message(Family::Changes),
-                None,
-            ))),
+            Err(error) => Err(Closed::Unreadable(error.problem(Family::Changes))),
         }
     }
 }
@@ -116,8 +113,8 @@ impl<'call> Visit<'call> {
 pub(crate) enum Closed {
     /// The user may not see the router: 404, 403 or 500.
     Refused(Refusal),
-    /// The router cannot be read now; the localized reason.
-    Unreadable(String),
+    /// The router cannot be read now, and why.
+    Unreadable(ReadProblem),
 }
 
 /// Who views a region: the router, the locale, what the role may change and the table

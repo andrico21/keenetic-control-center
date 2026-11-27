@@ -14,7 +14,7 @@ use kcc_i18n::{
     locale::Locale,
 };
 
-use crate::nav::Section;
+use crate::{nav::Section, page_kit::read_failure::ReadProblem};
 
 /// Colour theme picked in the header and stored in the `kcc_theme` cookie.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
@@ -522,6 +522,11 @@ pub(crate) trait Localize {
         let mut args = FluentArgs::new();
         args.set("count", count);
         tr(self.shell().locale, key, Some(&args))
+    }
+
+    /// Formats the message of a failed router read in the page's locale.
+    fn t_read(&self, problem: &ReadProblem) -> String {
+        problem.text(self.shell().locale)
     }
 }
 

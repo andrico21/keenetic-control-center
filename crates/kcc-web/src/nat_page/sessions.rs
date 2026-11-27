@@ -28,6 +28,7 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::{
         context::fragment_shell,
+        read_failure::domain_problem,
         request::{rendered, with_query},
     },
     routing_page::frame::{Frame, Tab, Visit, protocol_text},
@@ -225,7 +226,7 @@ pub(crate) async fn sessions(
                 ))),
                 Err(error) => {
                     tracing::warn!(%error, "port forwarding page: connections unavailable");
-                    Err(keys::WEB_KIT_UNREACHABLE)
+                    Err(domain_problem(&error))
                 }
             }
         }

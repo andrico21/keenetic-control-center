@@ -249,7 +249,9 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
   names no login, so kcc cannot tell its own account there and refuses every password
   change, tag change and deletion of a router account. When the router cannot be read
   to check whether an account, component, medium or KeenDNS name exists, the change
-  answers that the router did not answer and sends nothing.
+  says why (no answer, a timeout, a refused sign-in, kcc's outbound policy, an HTTP
+  error, a router error, a missing feature, an answer too large to show or one kcc
+  cannot read) and sends nothing.
 - **Services**: turn router services on or off. kcc refuses to move, close or redirect the
   HTTP or HTTPS listener that its own router address uses; change it on the router, then
   the address in kcc.

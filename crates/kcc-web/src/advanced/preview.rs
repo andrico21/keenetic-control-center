@@ -28,7 +28,7 @@ use secrecy::{ExposeSecret as _, zeroize::Zeroizing};
 use super::{
     check::{Problem, sentence},
     explorer::PageQuery,
-    lookup::{clip, facts_for, notice},
+    lookup::{clip, facts_for, notice, unread},
     request,
 };
 use crate::{
@@ -38,6 +38,8 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::{
         context::{self, fragment_shell},
+        family::Family,
+        read_failure::{rci_problem, registry_problem},
         respond,
     },
 };
@@ -162,7 +164,7 @@ pub(crate) async fn stored(
         Ok(found) => found,
         Err(error) => {
             tracing::warn!(%error, "stored lines: no router client");
-            return notice(locale, "error", keys::WEB_EXPLORER_UNREACHABLE);
+            return unread(locale, registry_problem(Family::Commands, &error));
         }
     };
     let lines = match client.download_config(ConfigKind::Running).await {
@@ -172,7 +174,7 @@ pub(crate) async fn stored(
             .map(|ast| matching_lines(facts.catalog(), &flatten(&redact(&ast)), path)),
         Err(error) => {
             tracing::warn!(?error, "stored lines: running configuration unavailable");
-            return notice(locale, "error", keys::WEB_EXPLORER_UNREACHABLE);
+            return unread(locale, rci_problem(Family::Commands, &error));
         }
     };
     let Some(all) = lines else {

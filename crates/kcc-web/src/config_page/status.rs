@@ -7,11 +7,7 @@ use kcc_domain::{
     RouterCtx,
     configuration::{self, LastChangeState},
 };
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    format, keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::tr, format, keys, locale::Locale};
 
 use crate::{
     WebState,
@@ -22,6 +18,7 @@ use crate::{
         context::{Target, fragment_shell},
         family::Family,
         gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
     },
 };
 
@@ -91,7 +88,7 @@ pub(crate) struct StatusRegion {
     /// The router's answer.
     facts: Option<Facts>,
     /// Why the router could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// The configuration operations the role may run and the router's catalog has.
     controls: Controls,
     /// The scheduled action whose change the router has not saved, as a sentence.
@@ -130,7 +127,7 @@ impl StatusRegion {
                     Err(message) => region.problem = Some(message),
                 }
             }
-            Err(error) => region.problem = Some(error.message(Family::Changes)),
+            Err(error) => region.problem = Some(error.problem(Family::Changes)),
         }
         region
     }
@@ -201,11 +198,11 @@ async fn scheduled(target: Target<'_>, state: &LastChangeState, locale: Locale) 
 /// Returns the message to show when the router did not answer with it.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, reads only.
-pub(crate) async fn last_change(domain: &RouterCtx) -> Result<LastChangeState, MessageKey> {
+pub(crate) async fn last_change(domain: &RouterCtx) -> Result<LastChangeState, ReadProblem> {
     configuration::read_last_change(domain)
         .await
         .map_err(|error| {
             tracing::warn!(%error, "router last change could not be read");
-            keys::WEB_CONFIG_STATUS_FAILED
+            domain_problem(&error)
         })
 }

@@ -200,7 +200,7 @@ pub(crate) async fn delete_dialog(
     let domain = action.context().await?;
     let policy = find(&domain, query.name())
         .await
-        .map_err(|message| unusable(action.locale(), message))?
+        .map_err(|message| unusable(action.locale(), &message))?
         .ok_or_else(missing)?;
     let dialog = confirmation(action.locale(), &router, policy.name());
     Ok(respond::in_dialog(errors::render(&dialog)))

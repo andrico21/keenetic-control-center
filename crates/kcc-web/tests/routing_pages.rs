@@ -165,3 +165,13 @@ mod unread;
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 #[path = "routing_pages/route_spelling.rs"]
 mod route_spelling;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "routing_pages/read_classes.rs"]
+mod read_classes;

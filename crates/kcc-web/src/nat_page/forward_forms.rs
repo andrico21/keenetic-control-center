@@ -38,6 +38,7 @@ use crate::{
         change::Applied,
         confirm::Resubmit,
         form::{Choice, FormDialog, Input},
+        read_failure::domain_problem,
         request::{Params, rendered, shown_query},
         respond::Answer,
         submit::{Invalid, Planned, Submission},
@@ -68,7 +69,7 @@ pub(crate) async fn dialog(
     let domain = action.context().await?;
     let names = interface_names(&domain)
         .await
-        .map_err(|message| unusable(action.locale(), message))?;
+        .map_err(|message| unusable(action.locale(), &message))?;
     Ok(form(action.locale(), &router, &Params::default(), &names).show())
 }
 
@@ -91,7 +92,7 @@ pub(crate) async fn add(
     let locale = action.locale();
     let names = match interface_names(&action.context().await?).await {
         Ok(found) => found,
-        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+        Err(message) => return Ok(refused(action, unread(locale, &message)).await),
     };
     let values = Params::new(Vec::new(), pairs);
     let dialog = Replying::new(form(locale, &router, &values, &names));
@@ -106,7 +107,7 @@ pub(crate) async fn add(
                     .ok_or_else(|| Invalid::at("target", keys::WEB_NAT_ERROR_TARGET))?;
                 let known = read::running_forwards(domain)
                     .await
-                    .map_err(|_error| unread(locale, keys::WEB_KIT_UNREACHABLE))?;
+                    .map_err(|error| unread(locale, &domain_problem(&error)))?;
                 if forwards(&known).contains(&rule) {
                     return Err(Invalid::at("port", keys::WEB_ROUTING_ERROR_DUPLICATE).into());
                 }

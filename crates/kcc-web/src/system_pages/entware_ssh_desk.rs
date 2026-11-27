@@ -212,11 +212,10 @@ impl<'call> Desk<'call> {
         match self.target.context(self.state).await {
             Ok((_facts, domain)) => Ok(domain),
             Err(error) => {
-                let message = tr(self.locale(), error.message(Family::Changes), None);
-                Err(self
-                    .refuse(Failure::new(message, "unreachable"))
-                    .await
-                    .into())
+                let failure = error
+                    .problem(Family::Changes)
+                    .failure(self.locale(), "unreachable");
+                Err(self.refuse(failure).await.into())
             }
         }
     }

@@ -34,6 +34,7 @@ use crate::{
         family::Family,
         form::FormDialog,
         gate::Controls,
+        read_failure::domain_problem,
         request::{Params, missing, shown_query},
         respond::Answer,
         submit::{Invalid, Planned, Submission},
@@ -93,7 +94,7 @@ async fn show(visit: Visit<'_>, caller: Caller<'_>, tab: Tab) -> Response {
     let (region, actions) = match visit.open(dns::DESCRIPTOR.write_ops).await {
         Ok((ctx, viewer)) => region(&ctx, tab, &viewer).await,
         Err(Closed::Refused(refusal)) => return refusal.page(shell),
-        Err(Closed::Unreadable(reason)) => (Region::failed(locale, reason), Vec::new()),
+        Err(Closed::Unreadable(problem)) => (Region::unread(locale, &problem), Vec::new()),
     };
     errors::render(&Page::new(shell, (router, tab), region).with_actions(actions))
 }
@@ -104,14 +105,10 @@ async fn show(visit: Visit<'_>, caller: Caller<'_>, tab: Tab) -> Response {
 async fn region(ctx: &RouterCtx, tab: Tab, viewer: &Viewer) -> (Region, Vec<Act>) {
     match DnsState::read(ctx).await {
         Ok(state) => dns_tabs::tab(&state, tab, viewer),
-        Err(error) => {
-            let locale = viewer.locale();
-            let failure = plan_failure(Family::Changes, locale, &error);
-            (
-                Region::failed(locale, failure.message().to_owned()),
-                Vec::new(),
-            )
-        }
+        Err(error) => (
+            Region::unread(viewer.locale(), &domain_problem(&error)),
+            Vec::new(),
+        ),
     }
 }
 

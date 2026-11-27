@@ -1433,10 +1433,9 @@ async fn rci_get(
     Path(path): Path<String>,
     Query(query): Query<BTreeMap<String, String>>,
 ) -> Response {
-    if shared
-        .faults
-        .show_requires_post
-        .contains(path.trim_end_matches('/'))
+    let resource = path.trim_end_matches('/');
+    if shared.faults.show_requires_post.contains(resource)
+        || shared.faults.show_absent.contains(resource)
     {
         return empty(StatusCode::NOT_FOUND);
     }
@@ -1512,6 +1511,13 @@ async fn rci_post(
     let Some(parsed) = parse_body(&body) else {
         return empty(StatusCode::BAD_REQUEST);
     };
+    if shared
+        .faults
+        .show_absent
+        .contains(path.trim_end_matches('/'))
+    {
+        return empty(StatusCode::NOT_FOUND);
+    }
     if path.starts_with("show/") && shared.reject_read(&path) {
         return empty(StatusCode::INTERNAL_SERVER_ERROR);
     }
@@ -1603,6 +1609,9 @@ async fn rci_delete(
 async fn ci_config(State(shared): State<Arc<Shared>>, Path(name): Path<String>) -> Response {
     if shared.reject_read(&name) {
         return empty(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+    if let Some(text) = shared.faults.config_text.get(&name) {
+        return text.clone().into_response();
     }
     match name.as_str() {
         "running-config.txt" => shared.config_text(false).into_response(),

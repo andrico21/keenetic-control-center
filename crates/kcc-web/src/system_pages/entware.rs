@@ -44,7 +44,13 @@ use crate::{
     errors,
     markup::Rendered,
     page::{Localize as _, Shell},
-    page_kit::{action::Operation, context::fragment_shell, gate::Controls, request::rendered},
+    page_kit::{
+        action::Operation,
+        context::fragment_shell,
+        gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
+        request::rendered,
+    },
 };
 
 /// The page.
@@ -58,7 +64,7 @@ struct Page {
     /// Router profile id.
     router: String,
     /// Why Entware could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// The status, the settings and the actions.
     region: Option<Region>,
 }
@@ -287,7 +293,7 @@ pub(crate) async fn page(
             }
             Err(error) => {
                 tracing::warn!(%error, "Entware status could not be read");
-                page.problem = Some(keys::WEB_SYSTEM_READ_FAILED);
+                page.problem = Some(domain_problem(&error));
             }
         },
         Err(message) => page.problem = Some(message),

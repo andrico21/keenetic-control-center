@@ -3,19 +3,19 @@
 //! The router's `show ip policy` answer and the configured `ip policy` lines of `show rc`
 //! are joined by name, each policy with its permitted interfaces in order and multipath.
 
-use core::fmt::Display;
-
 use kcc_domain::{
     DomainError, RouterCtx,
     policies::{model::PolicyState, read},
 };
-use kcc_i18n::{bundle::MessageKey, keys};
 use serde_json::{Value, json};
 
 use super::route_rows::text_key;
-use crate::table::{
-    Direction, Sort,
-    rows::{Row, SortKey},
+use crate::{
+    page_kit::read_failure::{ReadProblem, domain_problem},
+    table::{
+        Direction, Sort,
+        rows::{Row, SortKey},
+    },
 };
 
 /// One interface a policy may use, and its order.
@@ -147,10 +147,10 @@ impl Row for Policy {
 /// Returns why the router did not answer.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, reads only.
-pub(crate) async fn read_policies(domain: &RouterCtx) -> Result<Vec<Policy>, MessageKey> {
-    let unreachable = |error: &dyn Display| {
+pub(crate) async fn read_policies(domain: &RouterCtx) -> Result<Vec<Policy>, ReadProblem> {
+    let unreachable = |error: &DomainError| {
         tracing::warn!(%error, "routing page: policies unavailable");
-        keys::WEB_KIT_UNREACHABLE
+        domain_problem(error)
     };
     let states = read::policies(domain)
         .await

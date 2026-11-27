@@ -24,6 +24,7 @@ use crate::{
         context::{self, Caller},
         family::Family,
         gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
     },
     table::rows::TableQuery,
 };
@@ -45,7 +46,7 @@ struct Page {
     /// The table, when the router answered.
     region: Option<Region>,
     /// Why the router could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
 }
 
 localized!(Page);
@@ -86,7 +87,7 @@ impl Visit<'_> {
         let (facts, domain) = match target.context(self.state).await {
             Ok(found) => found,
             Err(error) => {
-                page.problem = Some(error.message(Family::Changes));
+                page.problem = Some(error.problem(Family::Changes));
                 return errors::render(&page);
             }
         };
@@ -108,7 +109,7 @@ impl Visit<'_> {
             Ok(region) => page.region = Some(region.with_controls(controls)),
             Err(error) => {
                 tracing::warn!(%error, "DHCP page: the router could not be read");
-                page.problem = Some(keys::WEB_DHCP_READ_ERROR);
+                page.problem = Some(domain_problem(&error));
             }
         }
         errors::render(&page)

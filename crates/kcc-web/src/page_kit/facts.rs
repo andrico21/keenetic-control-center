@@ -4,11 +4,15 @@
 use alloc::collections::BTreeMap;
 use std::sync::Mutex;
 
-use kcc_app::registry::RouterRegistry;
+use kcc_app::registry::{RegistryError, RouterRegistry};
 use kcc_catalog::{Catalog, ModelMatch};
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::keys;
+use kcc_rci::RciError;
 
-use super::family::Family;
+use super::{
+    family::Family,
+    read_failure::{ReadProblem, rci_problem},
+};
 use crate::sync::lock;
 
 /// Seconds detected router facts are reused before the router is asked again.
@@ -27,20 +31,38 @@ pub(crate) struct RouterFacts {
 }
 
 /// Why the facts of a router are unknown.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug)]
 pub(crate) enum FactsError {
-    /// The router could not be reached or identified.
-    Unreachable,
+    /// The router could not be reached or identified: the router error that stopped it,
+    /// or none when kcc could not even build a client for it.
+    Unreachable(Option<RciError>),
     /// The router's firmware is older than every generated catalog.
     Unsupported,
 }
 
 impl FactsError {
+    /// The failure of reaching the router through the registry, which `error` explains.
+    pub(crate) fn unreachable(error: RegistryError) -> Self {
+        let RegistryError::Rci(rci) = error else {
+            return Self::Unreachable(None);
+        };
+        Self::Unreachable(Some(rci))
+    }
+
     /// Why the page cannot use the router, in `family`'s words.
-    pub(crate) const fn message(self, family: Family) -> MessageKey {
+    pub(crate) fn problem(&self, family: Family) -> ReadProblem {
         match self {
-            Self::Unreachable => family.unreachable(),
-            Self::Unsupported => keys::WEB_EXPLORER_UNSUPPORTED,
+            Self::Unreachable(Some(error)) => rci_problem(family, error),
+            Self::Unreachable(None) => ReadProblem::from(family.unreachable()),
+            Self::Unsupported => ReadProblem::from(keys::WEB_EXPLORER_UNSUPPORTED),
+        }
+    }
+
+    /// The stable audit outcome id.
+    pub(crate) const fn audit(&self) -> &'static str {
+        match self {
+            Self::Unreachable(_) => "unreachable",
+            Self::Unsupported => "unsupported",
         }
     }
 }
@@ -77,7 +99,7 @@ impl FactsCache {
         }
         let info = registry.poll_info(router).await.map_err(|error| {
             tracing::warn!(%error, router, "pages could not identify the router");
-            FactsError::Unreachable
+            FactsError::unreachable(error)
         })?;
         let catalog = Catalog::for_router(&info).map_err(|_error| FactsError::Unsupported)?;
         let facts = RouterFacts {

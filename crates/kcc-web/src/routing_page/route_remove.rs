@@ -187,7 +187,7 @@ pub(crate) async fn remove(
     let domain = action.context().await?;
     let before = match read_table(&domain, family).await {
         Ok(entries) => static_routes(family, &entries),
-        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+        Err(message) => return Ok(refused(action, unread(locale, &message)).await),
     };
     if !before.contains(&route) {
         return Ok(refused(action, gone(locale)).await);

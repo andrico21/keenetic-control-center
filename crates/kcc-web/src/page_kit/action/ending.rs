@@ -70,10 +70,8 @@ pub(super) async fn finished(
 }
 
 /// The failure of a router whose catalog is unknown.
-pub(super) fn unknown(locale: Locale, error: FactsError) -> Failure {
-    let audit = match error {
-        FactsError::Unreachable => "unreachable",
-        FactsError::Unsupported => "unsupported",
-    };
-    Failure::new(tr(locale, error.message(Family::Changes), None), audit)
+pub(super) fn unknown(locale: Locale, error: &FactsError) -> Failure {
+    error
+        .problem(Family::Changes)
+        .failure(locale, error.audit())
 }

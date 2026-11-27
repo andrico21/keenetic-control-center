@@ -16,10 +16,10 @@ use kcc_app::{
     registry::RouterRegistry,
     workflow::ChangeWorkflow,
 };
-use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_migrate::{
     apply::{Applier, ApplyError, ApplyRequest, ApplySource, RawRestore},
-    inventory::{InventoryClient, TargetInventory},
+    inventory::{InventoryClient, InventoryError, TargetInventory},
     planner::{Choices, MigrationMaps, PlanError, Planner},
     source::SourceConfig,
 };
@@ -27,6 +27,11 @@ use kcc_rci::{ConfigKind, SecretBytes};
 use secrecy::ExposeSecret as _;
 
 use super::store::Opened;
+use crate::page_kit::{
+    family::Family,
+    outcome::Failure,
+    read_failure::{ReadProblem, rci_problem, registry_problem},
+};
 
 /// Everything one raw restore needs, owned by its task.
 pub(crate) struct RawJob {
@@ -68,12 +73,12 @@ impl RawJob {
 }
 
 /// Why a raw restore stopped.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum RawFailure {
     /// The backup is not a configuration.
     Unreadable,
-    /// The router could not be read to plan the restore.
-    Router,
+    /// The router could not be read to plan the restore, for this reason.
+    Router(ReadProblem),
     /// The plan needs choices only the migration wizard asks for.
     NeedsWizard,
     /// The applier refused or failed.
@@ -81,11 +86,11 @@ pub(crate) enum RawFailure {
 }
 
 impl RawFailure {
-    /// The localized explanation and the audit outcome.
-    pub(crate) const fn describe(self) -> (MessageKey, &'static str) {
-        match self {
+    /// The failure a page shows, in `locale`, with its audit outcome.
+    pub(crate) fn failure(&self, locale: Locale) -> Failure {
+        let (key, audit) = match self {
+            Self::Router(problem) => return problem.failure(locale, "unreachable"),
             Self::Unreadable => (keys::WEB_CONFIG_RAW_UNREADABLE, "unreadable"),
-            Self::Router => (keys::WEB_KIT_UNREACHABLE, "unreachable"),
             Self::NeedsWizard => (keys::WEB_CONFIG_RAW_WIZARD, "needs_wizard"),
             Self::Apply(ApplyError::HardwareMismatch) => {
                 (keys::WEB_CONFIG_RAW_HARDWARE, "hardware_mismatch")
@@ -104,7 +109,26 @@ impl RawFailure {
                 (keys::WEB_CONFIG_RAW_LOST, "unreachable")
             }
             Self::Apply(_) => (keys::WEB_CONFIG_RAW_FAILED, "failed"),
+        };
+        Failure::new(tr(locale, key, None), audit)
+    }
+}
+
+/// Why reading the router's inventory failed with `error`, as the page says it.
+fn inventory_problem(error: &InventoryError) -> ReadProblem {
+    match error {
+        InventoryError::Rci(rci) => rci_problem(Family::Changes, rci),
+        InventoryError::ConfigEncoding | InventoryError::Parse(_) => {
+            ReadProblem::from(keys::WEB_KIT_UNREADABLE)
         }
+        InventoryError::SourceVersionRequired
+        | InventoryError::UnsupportedFirmware
+        | InventoryError::TargetFirmwareOlder {
+            source_version: _,
+            target_version: _,
+        }
+        | InventoryError::Catalog
+        | _ => ReadProblem::from(Family::Changes.failed()),
     }
 }
 
@@ -118,20 +142,20 @@ impl RawFailure {
 pub(crate) async fn run(job: RawJob) -> Result<(), RawFailure> {
     let client = job.registry.client(&job.router).await.map_err(|error| {
         tracing::warn!(%error, router = job.router, "raw restore: no router client");
-        RawFailure::Router
+        RawFailure::Router(registry_problem(Family::Changes, &error))
     })?;
     let running = client
         .download_config(ConfigKind::Running)
         .await
-        .map_err(|_error| RawFailure::Router)?;
-    let current =
-        SourceConfig::from_bytes(running.expose_secret()).map_err(|_error| RawFailure::Router)?;
+        .map_err(|error| RawFailure::Router(rci_problem(Family::Changes, &error)))?;
+    let current = SourceConfig::from_bytes(running.expose_secret())
+        .map_err(|_error| RawFailure::Router(ReadProblem::from(keys::WEB_KIT_UNREADABLE)))?;
     let inventory =
         TargetInventory::collect(&InventoryClient::from_client(&client), current.firmware)
             .await
             .map_err(|error| {
                 tracing::warn!(%error, router = job.router, "raw restore: inventory failed");
-                RawFailure::Router
+                RawFailure::Router(inventory_problem(&error))
             })?;
     let plan = Planner::plan(
         &current,

@@ -12,7 +12,11 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::RciError;
 use kcc_telemetry::logs::redact::macs;
 
-use super::{family::Family, outcome::Failure};
+use super::{
+    family::Family,
+    outcome::Failure,
+    read_failure::{rci_problem, read_problem},
+};
 
 /// What a failure says about the request beyond its audit id.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,15 +99,15 @@ pub(crate) fn rci_failure(family: Family, locale: Locale, error: &RciError) -> F
                 .with_router_said(vec![message.clone()])
         }
         RciError::Transport(_) | RciError::Policy => {
-            Failure::new(tr(locale, family.unreachable(), None), "unreachable")
+            rci_problem(family, error).failure(locale, "unreachable")
         }
+        RciError::Decode(_) => rci_problem(family, error).failure(locale, "rci_error"),
         RciError::Timeout => Failure::new(tr(locale, keys::ERRORS_TIMEOUT, None), "timeout"),
         RciError::NotFound => Failure::new(tr(locale, family.not_found(), None), "rci_error"),
         RciError::Auth(_) => Failure::new(tr(locale, keys::ERRORS_ROUTER_AUTH, None), "rci_error"),
         RciError::Http { status: _ }
         | RciError::MethodNotAllowed
         | RciError::BodyTooLarge
-        | RciError::Decode(_)
         | RciError::Validation
         | _ => {
             tracing::debug!(?error, "router request failed");
@@ -130,8 +134,11 @@ pub(crate) fn plan_failure(family: Family, locale: Locale, error: &DomainError) 
             tr(locale, keys::DOMAINS_ENTWARE_DRIVE_IN_USE, None),
             "entware_drive_in_use",
         ),
+        DomainError::UnreadableAnswer(_) => {
+            tracing::warn!(%error, "change could not be planned");
+            read_problem(family, error).failure(locale, "failed")
+        }
         DomainError::InvalidResponse
-        | DomainError::UnreadableAnswer(_)
         | DomainError::ConfirmationMismatch
         | DomainError::StaticLeaseOutsidePool
         | DomainError::StaticLeaseAddressInUse

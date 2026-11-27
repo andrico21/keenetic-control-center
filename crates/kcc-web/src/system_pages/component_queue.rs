@@ -103,8 +103,9 @@ pub(crate) async fn queue(
         .await?;
     let domain = action.context().await?;
     let name = value(&pairs, "name").unwrap_or_default().to_owned();
-    let Ok(listed) = read(&domain).await else {
-        return Err(unread(action).await);
+    let listed = match read(&domain).await {
+        Ok(listed) => listed,
+        Err(problem) => return Err(unread(action, &problem).await),
     };
     let offered = listed
         .into_iter()

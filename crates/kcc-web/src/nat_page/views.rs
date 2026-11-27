@@ -13,11 +13,7 @@ use kcc_domain::{
     DomainError, RouterCtx,
     nat::{descriptor::DESCRIPTOR, read},
 };
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::forwards::{Forward, forwards};
 use crate::{
@@ -28,6 +24,7 @@ use crate::{
     page_kit::{
         context::fragment_shell,
         gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
         request::{rendered, with_query},
     },
     routing_page::frame::{Frame, Tab, Visit, view},
@@ -183,7 +180,7 @@ pub(crate) async fn rules_region(
     domain: &RouterCtx,
     (router, query): (&str, &TableQuery),
     (removable, locale): (bool, Locale),
-) -> Result<RulesRegion, MessageKey> {
+) -> Result<RulesRegion, ReadProblem> {
     let rules = read::running_forwards(domain)
         .await
         .map_err(|error| unreachable(&error))?;
@@ -195,10 +192,10 @@ pub(crate) async fn rules_region(
     })
 }
 
-/// The message of a router that did not answer a read.
-pub(crate) fn unreachable(error: &DomainError) -> MessageKey {
+/// What the page says about a read that failed with `error`.
+pub(crate) fn unreachable(error: &DomainError) -> ReadProblem {
     tracing::warn!(%error, "port forwarding page: read failed");
-    keys::WEB_KIT_UNREACHABLE
+    domain_problem(error)
 }
 
 /// The page's views.

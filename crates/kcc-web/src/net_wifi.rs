@@ -14,7 +14,7 @@ use axum::{
     response::Response,
 };
 use kcc_domain::{DomainError, RouterCtx, wifi};
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::keys;
 
 use crate::{
     WebState,
@@ -31,6 +31,7 @@ use crate::{
         context::{Caller, fragment_shell},
         family::Family,
         gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
         request::rendered,
     },
     table::{
@@ -52,7 +53,7 @@ struct Page {
     /// Radios, access points and devices, when the router answered.
     listing: Option<Listing>,
     /// Why the router could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
 }
 
 localized!(Page);
@@ -91,11 +92,11 @@ pub(crate) async fn page(
                 Ok(listing) => page.listing = Some(listing),
                 Err(error) => {
                     tracing::warn!(%error, "Wi-Fi page: router read failed");
-                    page.problem = Some(Family::Changes.unreachable());
+                    page.problem = Some(domain_problem(&error));
                 }
             }
         }
-        Err(error) => page.problem = Some(error.message(Family::Changes)),
+        Err(error) => page.problem = Some(error.problem(Family::Changes)),
     }
     errors::render(&page)
 }

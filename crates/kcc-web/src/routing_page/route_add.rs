@@ -16,7 +16,7 @@ use kcc_domain::{
     ChangeOp, RouterCtx,
     routing::{change, descriptor::DESCRIPTOR, read},
 };
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::keys;
 use serde::Deserialize;
 
 use super::{
@@ -34,6 +34,7 @@ use crate::{
         action::Operation,
         change::Applied,
         confirm::Resubmit,
+        read_failure::ReadProblem,
         request::{Params, missing, rendered, shown_query},
         respond::Answer,
         submit::{Invalid, Planned, Submission},
@@ -85,7 +86,7 @@ pub(crate) async fn dialog(
     let domain = action.context().await?;
     let names = interface_names(&domain)
         .await
-        .map_err(|message| unusable(action.locale(), message))?;
+        .map_err(|message| unusable(action.locale(), &message))?;
     Ok(form(
         action.locale(),
         (&router, family),
@@ -120,7 +121,7 @@ pub(crate) async fn add(
     let values = Params::new(Vec::new(), pairs);
     let names = match interface_names(&action.context().await?).await {
         Ok(found) => found,
-        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+        Err(message) => return Ok(refused(action, unread(locale, &message)).await),
     };
     let dialog = Replying::new(form(locale, (&router, family), &values, &names));
     let resubmit = Resubmit::new(format!("/ui/r/{router}/routing/route/new"), "#page-outcome");
@@ -131,7 +132,7 @@ pub(crate) async fn add(
                     .map_err(|(field, rule)| Invalid::at(field, rule))?;
                 let stored = read_static(domain, family)
                     .await
-                    .map_err(|message| unread(locale, message))?;
+                    .map_err(|message| unread(locale, &message))?;
                 if stored.contains(&route) {
                     let field = destination_field(family);
                     return Err(Invalid::at(field, keys::WEB_ROUTING_ERROR_DUPLICATE).into());
@@ -196,7 +197,7 @@ fn added(operation: &ChangeOp, route: StaticRoute, request: CliChangeRequest) ->
 pub(crate) async fn read_static(
     domain: &RouterCtx,
     family: Family,
-) -> Result<Vec<StaticRoute>, MessageKey> {
+) -> Result<Vec<StaticRoute>, ReadProblem> {
     read_table(domain, family)
         .await
         .map(|entries| static_routes(family, &entries))

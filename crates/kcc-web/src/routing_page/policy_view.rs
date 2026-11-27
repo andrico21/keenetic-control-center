@@ -8,7 +8,7 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use kcc_domain::{RouterCtx, policies::descriptor::DESCRIPTOR};
-use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
+use kcc_i18n::{keys, locale::Locale};
 
 use super::{
     frame::{Frame, Tab, Visit},
@@ -19,7 +19,9 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
+    page_kit::{
+        context::fragment_shell, gate::Controls, read_failure::ReadProblem, request::rendered,
+    },
     table::{
         rows::{Table, TableQuery},
         view::TableView,
@@ -95,7 +97,7 @@ pub(crate) async fn policies_region(
     domain: &RouterCtx,
     (router, query): (&str, &TableQuery),
     (controls, locale): (Controls, Locale),
-) -> Result<PoliciesRegion, MessageKey> {
+) -> Result<PoliciesRegion, ReadProblem> {
     let policies = read_policies(domain).await?;
     let table = Table::new(policies, query, format!("/ui/r/{router}/routing/policies"));
     Ok(PoliciesRegion {

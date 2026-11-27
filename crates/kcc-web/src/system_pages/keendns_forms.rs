@@ -23,6 +23,7 @@ use crate::{
         confirm::{FAIL_SAFE_MINUTES, Resubmit},
         form::{Choice, FormDialog, Input, Problem},
         outcome::Failure,
+        read_failure::domain_problem,
         request::{Params, missing},
         respond::Answer,
         submit::{self, Invalid, Planned, Submission},
@@ -235,7 +236,7 @@ pub(crate) async fn drop_name(
         Ok(status) => status,
         Err(error) => {
             tracing::warn!(%error, "KeenDNS status could not be read");
-            return Err(unread(action).await);
+            return Err(unread(action, &domain_problem(&error)).await);
         }
     };
     let booked = (status.booked == Some(true))

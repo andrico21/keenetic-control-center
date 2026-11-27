@@ -129,7 +129,7 @@ impl<'state> Target<'state> {
             .await
             .map_err(|error| {
                 tracing::warn!(%error, router = self.router, "router page: no router client");
-                FactsError::Unreachable
+                FactsError::unreachable(error)
             })?;
         let context = RouterCtx::new(client, facts.catalog().clone());
         Ok((facts, context))

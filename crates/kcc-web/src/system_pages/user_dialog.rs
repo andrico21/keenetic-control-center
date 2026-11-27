@@ -29,7 +29,6 @@ use crate::{
     net_change::unusable,
     page_kit::{
         confirm::FAIL_SAFE_MINUTES,
-        family::Family,
         form::{Choice, FormDialog, Input},
         request::missing,
         respond::Answer,
@@ -216,10 +215,9 @@ pub(crate) async fn tags_dialog(
     let action = SET_TAG.open(&state, &user, &router).await?;
     let domain = action.context().await?;
     let name = value(&query, "name").unwrap_or_default();
-    let unreachable = Family::Changes.unreachable();
     let account = find(&domain, name)
         .await
-        .map_err(|_logged| unusable(action.locale(), unreachable))?
+        .map_err(|problem| unusable(action.locale(), &problem))?
         .ok_or_else(missing)?;
     let offered = offered_tags(&domain.catalog);
     let dialog = UserDialog::base(action.locale(), &offered).tagging(&router, &account);

@@ -31,7 +31,7 @@ use crate::{
         action::Operation,
         change::Applied,
         confirm::Resubmit,
-        family::Family,
+        read_failure::domain_problem,
         request::{Params, missing, with_query},
         respond::Answer,
         submit::{Planned, Submission},
@@ -248,9 +248,9 @@ pub(crate) async fn credential(
                 action.abandon("not_found").await;
                 return Err(missing());
             }
-            Err(_) => {
+            Err(error) => {
                 action.abandon("unreachable").await;
-                return Err(unusable(locale, Family::Changes.unreachable()));
+                return Err(unusable(locale, &domain_problem(&error)));
             }
         }
     }

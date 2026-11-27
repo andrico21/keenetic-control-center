@@ -27,7 +27,7 @@ use axum::{
     routing::{get, post},
 };
 use kcc_domain::system;
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::keys;
 
 use self::{
     fields::{Field, ValueForm},
@@ -46,6 +46,7 @@ use crate::{
         context::{self, Caller},
         family::Family,
         gate::Controls,
+        read_failure::ReadProblem,
         request::{Params, missing, rendered},
         respond::Answer,
         submit::{Formless, Invalid, Planned, Submission},
@@ -81,7 +82,7 @@ struct Page {
     /// The settings, when the router answered.
     facts: Option<Facts>,
     /// Why the router could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// Whether the role may restart the router.
     restart: bool,
     /// Whether the role may reset the router to its factory settings.
@@ -126,7 +127,7 @@ pub(crate) async fn page(
             let general = General::read(&domain).await;
             page.facts = Some(Facts::new(user.locale(), router, general).with_controls(allowed));
         }
-        Err(error) => page.problem = Some(error.message(Family::Changes)),
+        Err(error) => page.problem = Some(error.problem(Family::Changes)),
     }
     errors::render(&page)
 }

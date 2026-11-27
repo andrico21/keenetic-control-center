@@ -11,7 +11,7 @@ use axum::{
     response::Response,
 };
 use kcc_domain::{RouterCtx, firewall::descriptor::DESCRIPTOR, schedules};
-use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
+use kcc_i18n::{keys, locale::Locale};
 
 use super::{
     checks::description,
@@ -28,6 +28,7 @@ use crate::{
     page_kit::{
         action::Operation,
         form::{Choice, FormDialog, Input},
+        read_failure::{ReadProblem, domain_problem},
         request::{Params, with_query},
         respond::Answer,
         submit::{Invalid, rejected::Rejected},
@@ -142,7 +143,7 @@ pub(crate) async fn schedule_dialog(
     let (action, _firewall, entry) = located(opened, &domain, &named).await?;
     let schedules = schedule_names(&domain)
         .await
-        .map_err(|message| unusable(action.locale(), message))?;
+        .map_err(|message| unusable(action.locale(), &message))?;
     let current = entry.schedule().unwrap_or_default().to_owned();
     let values = Params::new(vec![("schedule".to_owned(), current)], Vec::new());
     let form = schedule_form(
@@ -177,7 +178,7 @@ pub(crate) async fn schedule(
     let locale = action.locale();
     let schedules = match schedule_names(&action.context().await?).await {
         Ok(found) => found,
-        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+        Err(message) => return Ok(refused(action, unread(locale, &message)).await),
     };
     let values = Params::of(pairs.clone());
     let dialog = schedule_form(locale, (&router, &named, &pairs), &values, &schedules);
@@ -221,11 +222,11 @@ pub(crate) async fn schedule(
 /// Returns the message saying the router could not be read.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, reads only.
-async fn schedule_names(domain: &RouterCtx) -> Result<Vec<String>, MessageKey> {
+async fn schedule_names(domain: &RouterCtx) -> Result<Vec<String>, ReadProblem> {
     schedules::read_schedules(domain).await.map_or_else(
         |error| {
             tracing::warn!(%error, "firewall page: schedules unavailable");
-            Err(keys::WEB_KIT_UNREACHABLE)
+            Err(domain_problem(&error))
         },
         |found| Ok(found.into_iter().filter_map(|item| item.name).collect()),
     )

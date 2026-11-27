@@ -8,7 +8,7 @@ use axum::{
 use kcc_domain::{
     DomainError, Result as DomainResult, RouterCtx, router_users::protection::OwnLogins,
 };
-use kcc_i18n::{bundle::MessageKey, locale::Locale};
+use kcc_i18n::locale::Locale;
 use url::form_urlencoded;
 
 use crate::{
@@ -26,6 +26,7 @@ use crate::{
         facts::RouterFacts,
         family::Family,
         outcome::{Failure, Outcome},
+        read_failure::ReadProblem,
         request::{last, missing},
         respond::{Answer, changed},
         submit::{self, Invalid},
@@ -34,7 +35,7 @@ use crate::{
 
 /// The router a system page reads: its catalog facts and the domain context, or why the
 /// router cannot be read now.
-pub(crate) type Reading = Result<(RouterFacts, RouterCtx), MessageKey>;
+pub(crate) type Reading = Result<(RouterFacts, RouterCtx), ReadProblem>;
 
 /// Who opens a page: the request headers, the session and the signed-in user.
 #[derive(Clone, Copy)]
@@ -85,7 +86,7 @@ impl<'request> Visit<'request> {
         let reading = target
             .context(state)
             .await
-            .map_err(|error| error.message(Family::Changes));
+            .map_err(|error| error.problem(Family::Changes));
         Ok((shell, reading))
     }
 }
@@ -176,10 +177,10 @@ pub(crate) async fn profile_login(
 /// Ends `action` because the router could not be read to check what the change names:
 /// the change is not taken as one on an absent object, it answers unreachable.
 // NOT cancel-safe: an abandoned append may still be written.
-pub(crate) async fn unread(action: Action<'_>) -> Answer {
+pub(crate) async fn unread(action: Action<'_>, problem: &ReadProblem) -> Answer {
     let locale = action.locale();
     action.abandon("unreachable").await;
-    unusable(locale, Family::Changes.unreachable())
+    unusable(locale, problem)
 }
 
 #[cfg(test)]

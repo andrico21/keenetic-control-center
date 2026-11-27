@@ -7,7 +7,7 @@ use kcc_domain::{
     ChangeOp, RouterCtx,
     policies::{change::apply, descriptor::DESCRIPTOR},
 };
-use kcc_i18n::{bundle::MessageKey, locale::Locale};
+use kcc_i18n::locale::Locale;
 use serde::Deserialize;
 
 use super::{
@@ -24,6 +24,7 @@ use crate::{
         confirm::Resubmit,
         gate::Controls,
         outcome::Failure,
+        read_failure::ReadProblem,
         request::{Params, rendered, shown_query},
         submit::{Form, Planned, Submission},
     },
@@ -51,7 +52,7 @@ impl NameQuery {
 /// Returns the message saying the router's policies could not be read.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, reads only.
-pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Result<Option<Policy>, MessageKey> {
+pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Result<Option<Policy>, ReadProblem> {
     Ok(read_policies(domain)
         .await?
         .into_iter()
@@ -73,7 +74,7 @@ pub(crate) async fn known(
 ) -> Result<Policy, Failure> {
     find(domain, name)
         .await
-        .map_err(|message| unread(locale, message))?
+        .map_err(|message| unread(locale, &message))?
         .ok_or_else(|| gone(locale))
 }
 

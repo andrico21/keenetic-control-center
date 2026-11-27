@@ -11,7 +11,7 @@ use kcc_domain::{
     RouterCtx,
     firewall::{descriptor::DESCRIPTOR, lists::Firewall, read},
 };
-use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
+use kcc_i18n::{keys, locale::Locale};
 
 use super::{
     lists_region::ListsRegion,
@@ -26,6 +26,7 @@ use crate::{
     page_kit::{
         context::fragment_shell,
         gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
         request,
         request::{rendered, shown_query},
     },
@@ -164,7 +165,7 @@ pub(crate) async fn upnp(
             }
             Err(error) => {
                 tracing::warn!(%error, "firewall page: UPnP redirects unavailable");
-                Err(keys::WEB_KIT_UNREACHABLE)
+                Err(domain_problem(&error))
             }
         },
         Err(problem) => Err(problem),
@@ -184,7 +185,7 @@ pub(crate) async fn lists_region(
     router: &str,
     allowed: (bool, bool),
     locale: Locale,
-) -> Result<ListsRegion, MessageKey> {
+) -> Result<ListsRegion, ReadProblem> {
     let firewall = snapshot::read(domain).await?;
     Ok(lists_of(&firewall, (router, domain), allowed, locale))
 }
@@ -221,7 +222,7 @@ pub(crate) async fn bindings_region(
     (router, query): (&str, &TableQuery),
     removable: bool,
     locale: Locale,
-) -> Result<BindingsRegion, MessageKey> {
+) -> Result<BindingsRegion, ReadProblem> {
     let firewall = snapshot::read(domain).await?;
     let table = Table::new(
         firewall.bindings().to_vec(),

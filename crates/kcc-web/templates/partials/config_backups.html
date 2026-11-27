@@ -1,4 +1,5 @@
 {#- The backups of one router (`#config-backups`), replaced out of band after a backup is created, stored or deleted: the retention, Create and Upload, the table with each row's actions, and the comparison form. -#}
+{%- import "partials/kit_macros.html" as kit -%}
 <section class="config-backups" id="config-backups" aria-labelledby="config-backups-title"{% if oob %} hx-swap-oob="true"{% endif %}>
   <div class="page-head">
     <h2 id="config-backups-title">{{ t(keys::WEB_CONFIG_BACKUPS_TITLE) }}</h2>
@@ -13,7 +14,7 @@
   <p class="page__text">{{ retention }}</p>
   {%- endif %}
   {%- if let Some(message) = problem %}
-  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {{ kit::read_problem(message) }}
   {%- endif %}
   {%- if let Some(table) = self.backups() %}
   {%- include "partials/kit_table.html" %}

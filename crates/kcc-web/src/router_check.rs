@@ -35,7 +35,12 @@ use crate::{
     errors,
     fleet::Fleet,
     page::{Localize as _, Shell, Theme},
-    page_kit::{audit::Record, context::managed},
+    page_kit::{
+        audit::Record,
+        context::managed,
+        family::Family,
+        read_failure::{ReadProblem, rci_problem},
+    },
     router_form::{FieldErrors, RouterForm, address::is_slug},
     wizard::analysis::model_text,
 };
@@ -172,6 +177,8 @@ pub(crate) struct TestResult {
     shell: Shell,
     /// The localized failure, or empty on success.
     error: String,
+    /// kcc's technical detail of the failure.
+    detail: Option<String>,
     /// Detected model and hardware id.
     model: String,
     /// Detected firmware.
@@ -194,6 +201,7 @@ impl TestResult {
             Ok(info) => Self {
                 shell,
                 error: String::new(),
+                detail: None,
                 model: model_text(info),
                 firmware: info
                     .firmware
@@ -222,7 +230,13 @@ impl TestResult {
             Err(RegistryError::CredentialPermissions { path: _ }) => {
                 Self::failed(shell, tr(locale, keys::WEB_ROUTER_ERROR_PERMISSIONS, None))
             }
-            Err(error) => Self::failed(shell, tr(locale, failure(error), None)),
+            Err(error) => {
+                let problem = failure(error);
+                Self {
+                    detail: problem.detail().map(str::to_owned),
+                    ..Self::failed(shell, problem.text(locale))
+                }
+            }
         }
     }
 
@@ -243,6 +257,7 @@ impl TestResult {
         Self {
             shell,
             error,
+            detail: None,
             model: String::new(),
             firmware: String::new(),
             tier: keys::WEB_TIER_UNSUPPORTED,
@@ -253,23 +268,25 @@ impl TestResult {
 
 localized!(TestResult);
 
-/// The message explaining why a connection test failed.
-pub(crate) const fn failure(error: &RegistryError) -> MessageKey {
+/// Why a connection test failed: the router error's class, in the connection test's
+/// words where it has its own.
+pub(crate) fn failure(error: &RegistryError) -> ReadProblem {
     match error {
-        RegistryError::Rci(RciError::Policy) => keys::WEB_ROUTER_ERROR_POLICY,
-        RegistryError::Rci(RciError::Auth(_)) => keys::ERRORS_ROUTER_AUTH,
-        RegistryError::Rci(RciError::Transport(_) | RciError::Timeout) => {
-            keys::WEB_ROUTER_ERROR_UNREACHABLE
+        RegistryError::Rci(RciError::Policy) => keys::WEB_ROUTER_ERROR_POLICY.into(),
+        RegistryError::Rci(rci @ RciError::Transport(_)) => {
+            rci_problem(Family::Changes, rci).saying(keys::WEB_ROUTER_ERROR_UNREACHABLE)
         }
-        RegistryError::InvalidProfile { reason: _ } => keys::WEB_ROUTER_ERROR_URL,
-        RegistryError::CredentialFile { path: _, source: _ } => keys::WEB_ROUTER_ERROR_PASSWORD,
+        RegistryError::Rci(rci) => rci_problem(Family::Changes, rci),
+        RegistryError::InvalidProfile { reason: _ } => keys::WEB_ROUTER_ERROR_URL.into(),
+        RegistryError::CredentialFile { path: _, source: _ } => {
+            keys::WEB_ROUTER_ERROR_PASSWORD.into()
+        }
         RegistryError::State(_)
         | RegistryError::PermissionDenied { router: _ }
         | RegistryError::AlreadyExists { id: _ }
         | RegistryError::NotFound { id: _ }
         | RegistryError::ConfigDefined { id: _ }
         | RegistryError::ConfigRoute { id: _, url: _, .. }
-        | RegistryError::Rci(_)
-        | _ => keys::WEB_ROUTER_ERROR_CHECK,
+        | _ => keys::WEB_ROUTER_ERROR_CHECK.into(),
     }
 }

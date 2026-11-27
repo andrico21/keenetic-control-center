@@ -13,11 +13,7 @@ use axum::{
     response::Response,
 };
 use kcc_domain::{DomainError, RouterCtx, internet, wan};
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde_json::Value;
 
 use crate::{
@@ -35,6 +31,7 @@ use crate::{
         context::{Caller, fragment_shell},
         family::Family,
         gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
         request::rendered,
     },
     table::{
@@ -58,7 +55,7 @@ struct Page {
     /// The connections, when the router answered.
     listing: Option<Listing>,
     /// Why the router could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// Whether the role may add a connection.
     can_create: bool,
 }
@@ -102,11 +99,11 @@ pub(crate) async fn page(
                 Ok(listing) => page.listing = Some(listing),
                 Err(error) => {
                     tracing::warn!(%error, "internet page: router read failed");
-                    page.problem = Some(Family::Changes.unreachable());
+                    page.problem = Some(domain_problem(&error));
                 }
             }
         }
-        Err(error) => page.problem = Some(error.message(Family::Changes)),
+        Err(error) => page.problem = Some(error.problem(Family::Changes)),
     }
     errors::render(&page)
 }

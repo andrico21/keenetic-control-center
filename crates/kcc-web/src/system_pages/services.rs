@@ -16,7 +16,7 @@ use axum::{
 use kcc_app::permissions::Permission;
 use kcc_catalog::{Catalog, Risk};
 use kcc_domain::{RouterCtx, configuration::SafetyNet, services};
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::keys;
 
 use super::{
     shared::Visit,
@@ -29,7 +29,12 @@ use crate::{
     errors,
     markup::Rendered,
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
+    page_kit::{
+        context::fragment_shell,
+        gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
+        request::rendered,
+    },
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},
@@ -48,7 +53,7 @@ struct Page {
     /// Router profile id.
     router: String,
     /// Why the services could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// The services.
     region: Option<Region>,
 }
@@ -131,10 +136,10 @@ pub(crate) fn known(catalog: &Catalog) -> Vec<String> {
 /// Returns the message to show when the router did not answer with its services.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, reads only.
-async fn read(domain: &RouterCtx) -> Result<Vec<Service>, MessageKey> {
+async fn read(domain: &RouterCtx) -> Result<Vec<Service>, ReadProblem> {
     let configured = services::read_services(domain).await.map_err(|error| {
         tracing::warn!(%error, "router services could not be read");
-        keys::WEB_SYSTEM_READ_FAILED
+        domain_problem(&error)
     })?;
     Ok(known(&domain.catalog)
         .into_iter()

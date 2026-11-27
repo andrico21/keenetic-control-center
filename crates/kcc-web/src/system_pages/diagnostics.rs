@@ -18,11 +18,7 @@ use axum::{
 };
 use kcc_catalog::HttpMethod;
 use kcc_domain::diagnostics;
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde_json::json;
 
 use super::{
@@ -43,6 +39,7 @@ use crate::{
         failure::issue_sentence,
         family::Family,
         outcome::{Failure, Outcome},
+        read_failure::ReadProblem,
         request::Params,
         respond::Answer,
         submit::{self, Invalid, Submission},
@@ -75,7 +72,7 @@ struct Page {
     /// Router profile id.
     router: String,
     /// Why the router cannot be used now.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// Whether the job runner is attached.
     jobs: bool,
     /// The tools.

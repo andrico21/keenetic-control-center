@@ -36,7 +36,11 @@ use crate::{
     errors,
     nav::Section,
     page::{Localize as _, Shell},
-    page_kit::context::{self, Caller, Target},
+    page_kit::{
+        context::{self, Caller, Target},
+        family::Family,
+        read_failure::{ReadProblem, rci_problem, registry_problem},
+    },
 };
 
 /// The comparison a request asks for.
@@ -70,7 +74,7 @@ struct DiffPage {
     /// The changes, once both sides were read.
     changes: Option<ShownChanges>,
     /// Why the comparison could not be shown.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// What to do first, when nothing was compared yet.
     note: Option<MessageKey>,
     /// Whether the changes show side by side.
@@ -154,7 +158,7 @@ async fn compare(
     page: &mut DiffPage,
     (target, visit): (Target<'_>, Visit<'_>),
     query: &DiffQuery,
-) -> Result<(), MessageKey> {
+) -> Result<(), ReadProblem> {
     let services = visit.backups().ok_or(keys::WEB_CONFIG_NO_STORE)?;
     let listed = store::list(services, visit.router())
         .await
@@ -182,7 +186,7 @@ async fn compare(
     };
     page.form = Some(form.chosen((from, to), page.split));
     let (Some(older), Some(newer)) = (from_label, to_label) else {
-        return Err(keys::WEB_CONFIG_DIFF_MISSING);
+        return Err(keys::WEB_CONFIG_DIFF_MISSING.into());
     };
     page.from_label = older;
     page.to_label = newer;
@@ -215,18 +219,18 @@ async fn changes(old: Lines, new: Lines) -> Result<ShownChanges, MessageKey> {
 /// Returns why the side cannot be read.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, reads only.
-async fn side(target: Target<'_>, visit: Visit<'_>, choice: &str) -> Result<Lines, MessageKey> {
+async fn side(target: Target<'_>, visit: Visit<'_>, choice: &str) -> Result<Lines, ReadProblem> {
     let text = if choice == RUNNING {
         let client = target
             .fleet()
             .registry()
             .client(visit.router())
             .await
-            .map_err(|_error| keys::WEB_KIT_UNREACHABLE)?;
+            .map_err(|error| registry_problem(Family::Changes, &error))?;
         let bytes = client
             .download_config(ConfigKind::Running)
             .await
-            .map_err(|_error| keys::WEB_KIT_UNREACHABLE)?;
+            .map_err(|error| rci_problem(Family::Changes, &error))?;
         let plain = str::from_utf8(bytes.expose_secret())
             .map_err(|_error| keys::WEB_CONFIG_DIFF_UNREADABLE)?;
         SecretString::from(plain.to_owned())
@@ -239,7 +243,7 @@ async fn side(target: Target<'_>, visit: Visit<'_>, choice: &str) -> Result<Line
                 StoreError::Failed => keys::WEB_CONFIG_STORE_FAILED,
             })?
     };
-    Lines::read(text.expose_secret()).map_err(|_error| keys::WEB_CONFIG_DIFF_UNREADABLE)
+    Lines::read(text.expose_secret()).map_err(|_error| keys::WEB_CONFIG_DIFF_UNREADABLE.into())
 }
 
 #[cfg(test)]

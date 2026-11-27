@@ -33,6 +33,7 @@ use crate::{
         failure::{plan_failure, workflow_failure},
         family::Family,
         outcome::{Failure, Outcome},
+        read_failure::registry_problem,
         respond::Answer,
     },
 };
@@ -132,10 +133,9 @@ fn commit_failure(error: &CommitError, locale: Locale) -> Failure {
         CommitError::Job(JobError::RouterBusy { router: _ }) => {
             Failure::new(tr(locale, keys::WEB_SYSTEM_JOB_BUSY, None), "busy")
         }
-        CommitError::Registry(_) => Failure::new(
-            tr(locale, Family::Changes.unreachable(), None),
-            "unreachable",
-        ),
+        CommitError::Registry(registry) => {
+            registry_problem(Family::Changes, registry).failure(locale, "unreachable")
+        }
         CommitError::ConfirmationRequired | CommitError::Job(_) | _ => {
             tracing::error!(%error, "component commit did not start");
             Failure::new(tr(locale, Family::Changes.failed(), None), "failed")

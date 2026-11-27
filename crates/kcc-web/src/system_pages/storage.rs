@@ -14,7 +14,7 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use kcc_domain::{RouterCtx, storage};
-use kcc_i18n::{bundle::MessageKey, format, keys, locale::Locale};
+use kcc_i18n::{format, keys, locale::Locale};
 use serde_json::Value;
 
 use super::{
@@ -28,7 +28,10 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize as _, Shell},
-    page_kit::gate::Controls,
+    page_kit::{
+        gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
+    },
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},
@@ -47,7 +50,7 @@ struct Page {
     /// Router profile id.
     router: String,
     /// Why the storage could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// The media.
     media: Option<TableView>,
     /// The USB devices.
@@ -178,10 +181,10 @@ impl Device {
 async fn read(
     domain: &RouterCtx,
     locale: Locale,
-) -> Result<(Vec<Medium>, Vec<Device>), MessageKey> {
+) -> Result<(Vec<Medium>, Vec<Device>), ReadProblem> {
     let volumes = storage::read_media(domain).await.map_err(|error| {
         tracing::warn!(%error, "router media could not be read");
-        keys::WEB_SYSTEM_READ_FAILED
+        domain_problem(&error)
     })?;
     let devices = storage::read_usb(domain).await.unwrap_or_else(|error| {
         tracing::warn!(%error, "router USB devices could not be read");

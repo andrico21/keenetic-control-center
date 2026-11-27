@@ -40,6 +40,7 @@ use crate::{
         context,
         family::Family,
         outcome::{Failure, Outcome},
+        read_failure::ReadProblem,
         request::with_query,
         respond::{Answer, changed},
     },
@@ -108,10 +109,9 @@ pub(crate) async fn raw_restore(
     };
     let checked = model
         .map_err(|error| {
-            Failure::new(
-                tr(locale, error.message(Family::Changes), None),
-                "unreachable",
-            )
+            error
+                .problem(Family::Changes)
+                .failure(locale, "unreachable")
         })
         .and_then(|found| {
             let shown = state.router_name(&router);
@@ -132,23 +132,20 @@ pub(crate) async fn raw_restore(
     let (task_state, task_user) = (state.clone(), user.clone());
     let task = tokio::spawn(async move {
         let result = raw::run(job).await;
-        let ended = match result {
+        let ended = match &result {
             Ok(()) => "success",
-            Err(failure) => failure.describe().1,
+            Err(failure) => failure.failure(locale).audit(),
         };
         record.append(&task_state, &task_user, ended).await;
         result
     });
     let outcome = match timeout(RAW_WAIT, task).await {
         Ok(Ok(Ok(()))) => Outcome::done(tr(locale, keys::WEB_CONFIG_RAW_DONE, None), false),
-        Ok(Ok(Err(failure))) => {
-            let (key, audit) = failure.describe();
-            Outcome::failed(Failure::new(tr(locale, key, None), audit))
-        }
+        Ok(Ok(Err(failure))) => Outcome::failed(failure.failure(locale)),
         Ok(Err(error)) => {
             tracing::error!(%error, "raw restore task failed");
-            let (key, audit) = RawFailure::Router.describe();
-            Outcome::failed(Failure::new(tr(locale, key, None), audit))
+            let unknown = RawFailure::Router(ReadProblem::from(Family::Changes.unreachable()));
+            Outcome::failed(unknown.failure(locale))
         }
         Err(_elapsed) => Outcome::info(tr(locale, keys::WEB_CONFIG_RAW_PENDING, None), "pending"),
     };
@@ -167,8 +164,7 @@ fn same_model(
     (named, locale): (&str, Locale),
 ) -> Result<(), Failure> {
     let Ok(source) = SourceConfig::from_bytes(text.as_bytes()) else {
-        let (key, audit) = RawFailure::Unreadable.describe();
-        return Err(Failure::new(tr(locale, key, None), audit));
+        return Err(RawFailure::Unreadable.failure(locale));
     };
     let mut args = FluentArgs::new();
     args.set("router", named.to_owned());

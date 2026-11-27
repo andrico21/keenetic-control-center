@@ -26,6 +26,7 @@ use crate::{
         action::{Action, Operation},
         change::Change,
         confirm::Resubmit,
+        read_failure::domain_problem,
         request::{Params, missing, with_query},
         respond::Answer,
         submit::{Planned, Submission},
@@ -83,14 +84,14 @@ where
         }
         Err(error) => {
             tracing::warn!(%error, "router media could not be read");
-            return Err(unread(action).await);
+            return Err(unread(action, &domain_problem(&error)).await);
         }
     }
     let entware_media = match entware::configured_media(&domain).await {
         Ok(found) => found,
         Err(error) => {
             tracing::warn!(%error, "the Entware drive could not be read");
-            return Err(unread(action).await);
+            return Err(unread(action, &domain_problem(&error)).await);
         }
     };
     let slug = match act {

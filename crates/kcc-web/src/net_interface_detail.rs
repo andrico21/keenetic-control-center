@@ -32,6 +32,7 @@ use crate::{
         context::fragment_shell,
         family::Family,
         gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
         request::{Params, missing, with_query},
         respond,
         respond::Answer,
@@ -47,7 +48,7 @@ struct Drawer {
     /// "Interface Bridge0".
     title: String,
     /// Why the interface could not be read.
-    problem: Option<String>,
+    problem: Option<ReadProblem>,
     /// The settings, with Edit where the role may change them.
     facts: Vec<Fact>,
     /// Byte and packet counters.
@@ -265,7 +266,7 @@ pub(crate) async fn drawer(
                 Ok(found) => found,
                 Err(error) => {
                     tracing::warn!(%error, "interface drawer: router read failed");
-                    drawer.problem = Some(about.text(Family::Changes.unreachable()));
+                    drawer.problem = Some(domain_problem(&error));
                     return Ok(respond::in_dialog(errors::render(&drawer)));
                 }
             };
@@ -279,7 +280,7 @@ pub(crate) async fn drawer(
                 drawer.counters = about.counters(&stats);
             }
         }
-        Err(error) => drawer.problem = Some(about.text(error.message(Family::Changes))),
+        Err(error) => drawer.problem = Some(error.problem(Family::Changes)),
     }
     Ok(respond::in_dialog(errors::render(&drawer)))
 }

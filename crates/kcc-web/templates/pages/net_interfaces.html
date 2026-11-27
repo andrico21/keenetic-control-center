@@ -14,7 +14,7 @@
   <p class="identity"><a href="/ui/r/{{ router }}">{{ router_name(router) }}</a></p>
   {{ kit::outcome_region() }}
   {%- if let Some(message) = problem %}
-  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {{ kit::read_problem(message) }}
   {%- endif %}
   {%- if let Some(region) = listing %}
   {{ region }}

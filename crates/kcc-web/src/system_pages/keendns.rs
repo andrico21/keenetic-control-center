@@ -14,7 +14,7 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use kcc_domain::{RouterCtx, keendns};
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::keys;
 
 use super::{
     shared::Visit,
@@ -26,7 +26,12 @@ use crate::{
     errors,
     markup::Rendered,
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
+    page_kit::{
+        context::fragment_shell,
+        gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
+        request::rendered,
+    },
 };
 
 /// The page.
@@ -40,7 +45,7 @@ struct Page {
     /// Router profile id.
     router: String,
     /// Why KeenDNS could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// The name and its state.
     status: Option<StatusPanel>,
     /// What the role may change.
@@ -132,10 +137,10 @@ impl<'call> Viewer<'call> {
     /// Returns the message to show when the router did not answer.
     // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
     // router session. Apart from that, reads only.
-    async fn panel(&self, domain: &RouterCtx) -> Result<StatusPanel, MessageKey> {
+    async fn panel(&self, domain: &RouterCtx) -> Result<StatusPanel, ReadProblem> {
         let found = keendns::read_status(domain).await.map_err(|error| {
             tracing::warn!(%error, "KeenDNS could not be read");
-            keys::WEB_SYSTEM_READ_FAILED
+            domain_problem(&error)
         })?;
         let allowed = controls(self.user, self.router, domain);
         let booked = found.booked.unwrap_or(false);

@@ -3,6 +3,9 @@
 <div class="domain-region" id="domain-region"{% if oob %} hx-swap-oob="true"{% endif %}>
   {%- if !problem.is_empty() %}
   <p class="notice" data-tone="error">{{ problem }}</p>
+  {%- if let Some(detail) = detail %}
+  {{ kit::details(detail) }}
+  {%- endif %}
   {%- endif %}
   {%- if !panels.is_empty() %}
   <div class="panels">

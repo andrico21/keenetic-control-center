@@ -1,9 +1,10 @@
 {#- Unsaved changes and the fail-safe timer of one router (`#config-status`), replaced out of band after Save and Keep changes. One primary action: Save while nothing is armed, Keep changes while the timer runs. -#}
+{%- import "partials/kit_macros.html" as kit -%}
 <div class="panels config-status" id="config-status"{% if oob %} hx-swap-oob="true"{% endif %}>
   <section class="panel" aria-labelledby="config-changes-title">
     <h2 class="panel__title" id="config-changes-title">{{ t(keys::WEB_CONFIG_CHANGES_TITLE) }}</h2>
     {%- if let Some(message) = problem %}
-    <p class="notice" data-tone="error">{{ t(**message) }}</p>
+    {{ kit::read_problem(message) }}
     {%- endif %}
     {%- if let Some(state) = facts %}
     {%- if state.unsaved() %}

@@ -9,7 +9,7 @@ use kcc_testkit::{FaultInjection, log_capture};
 
 use crate::support::{
     outcome::TestResult,
-    page::{en, text},
+    page::{en, en_with, text},
     web::Fixture,
 };
 
@@ -114,7 +114,7 @@ async fn an_unread_entware_drive_is_not_ejected() -> TestResult {
         .await?;
 
         assert!(
-            answer.contains(&en(keys::WEB_KIT_UNREACHABLE)),
+            answer.contains(&en_with(keys::WEB_KIT_HTTP_ERROR, &[("status", "500")])),
             "{read}: {answer}"
         );
         assert!(

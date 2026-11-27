@@ -8,7 +8,7 @@ use axum::{
     response::Response,
 };
 use kcc_domain::clients;
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::keys;
 
 use super::{
     Tab, TabLink,
@@ -24,6 +24,7 @@ use crate::{
         context::{self, Caller},
         family::Family,
         gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
     },
     table::rows::TableQuery,
 };
@@ -41,7 +42,7 @@ struct Page {
     /// The filter form and the table, when the router answered.
     region: Option<Region>,
     /// Why the router could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
 }
 
 localized!(Page);
@@ -82,10 +83,10 @@ pub(crate) async fn page(
             }
             Err(error) => {
                 tracing::warn!(%error, "clients page: the client list could not be read");
-                page.problem = Some(keys::WEB_CLIENTS_READ_ERROR);
+                page.problem = Some(domain_problem(&error));
             }
         },
-        Err(error) => page.problem = Some(error.message(Family::Changes)),
+        Err(error) => page.problem = Some(error.problem(Family::Changes)),
     }
     errors::render(&page)
 }

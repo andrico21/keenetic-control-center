@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{%- import "partials/kit_macros.html" as kit -%}
 {%- block title %}{{ t(keys::WEB_CONFIG_COMPARE_TITLE) }}{% endblock %}
 {%- block content %}
 <div class="page config-page">
@@ -7,7 +8,7 @@
   </div>
   <p class="identity"><a href="/ui/r/{{ router }}">{{ router_name(router) }}</a><a href="/ui/r/{{ router }}/config">{{ t(keys::WEB_CONFIG_TITLE) }}</a></p>
   {%- if let Some(message) = problem %}
-  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {{ kit::read_problem(message) }}
   {%- endif %}
   {%- if let Some(message) = note %}
   <p class="notice" data-tone="neutral" role="note">{{ t(**message) }}</p>

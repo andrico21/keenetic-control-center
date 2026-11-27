@@ -96,7 +96,7 @@ pub(crate) async fn create(
                 .map_err(|rule| Invalid::at("description", rule))?;
             let existing = find(domain, &name)
                 .await
-                .map_err(|message| unread(locale, message))?;
+                .map_err(|message| unread(locale, &message))?;
             if existing.is_some() {
                 return Err(Invalid::at("name", keys::WEB_ROUTING_ERROR_POLICY_EXISTS).into());
             }
@@ -132,7 +132,7 @@ pub(crate) async fn description_dialog(
     let domain = action.context().await?;
     let policy = find(&domain, query.name())
         .await
-        .map_err(|message| unusable(action.locale(), message))?
+        .map_err(|message| unusable(action.locale(), &message))?
         .ok_or_else(missing)?;
     let values = policy.description().map_or_else(Params::default, |text| {
         Params::new(
@@ -202,11 +202,11 @@ pub(crate) async fn permit_dialog(
     let domain = action.context().await?;
     let policy = find(&domain, query.name())
         .await
-        .map_err(|message| unusable(action.locale(), message))?
+        .map_err(|message| unusable(action.locale(), &message))?
         .ok_or_else(missing)?;
     let names = interface_names(&domain)
         .await
-        .map_err(|message| unusable(action.locale(), message))?;
+        .map_err(|message| unusable(action.locale(), &message))?;
     let form = permit_form(
         action.locale(),
         (&router, policy.name()),
@@ -236,7 +236,7 @@ pub(crate) async fn permit(
     let locale = action.locale();
     let names = match interface_names(&action.context().await?).await {
         Ok(found) => found,
-        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+        Err(message) => return Ok(refused(action, unread(locale, &message)).await),
     };
     let values = Params::new(Vec::new(), pairs);
     let dialog = permit_form(locale, (&router, query.name()), &values, &names);

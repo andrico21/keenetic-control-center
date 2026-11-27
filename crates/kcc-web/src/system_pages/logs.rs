@@ -18,7 +18,7 @@ use futures_util::{
     StreamExt as _,
     stream::{self, BoxStream},
 };
-use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
+use kcc_i18n::{keys, locale::Locale};
 
 use super::{
     log_source::source,
@@ -34,6 +34,7 @@ use crate::{
     page_kit::{
         audit::Record,
         context::{self, fragment_shell},
+        read_failure::{ReadProblem, domain_problem},
         request::with_query,
         respond,
     },
@@ -54,7 +55,7 @@ struct Page {
     /// Router profile id.
     router: String,
     /// Why the log could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// The filter text; empty for none.
     filter: String,
     /// The latest lines matching the filter.
@@ -127,7 +128,7 @@ pub(crate) async fn page(
             Ok(found) => (matching(found, &filter), None),
             Err(error) => {
                 tracing::warn!(%error, "router log could not be read");
-                (Vec::new(), Some(keys::WEB_SYSTEM_READ_FAILED))
+                (Vec::new(), Some(domain_problem(&error)))
             }
         },
         Err(message) => (Vec::new(), Some(message)),

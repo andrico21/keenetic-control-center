@@ -5,6 +5,7 @@
 use axum::http::StatusCode;
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_testkit::FaultInjection;
 
 use crate::{
     PAGE, backup_names,
@@ -144,6 +145,28 @@ async fn a_backup_of_the_same_model_restores_raw_after_the_router_name() -> Test
     Ok(())
 }
 
+/// The page of a confirmed raw restore of a fresh backup, on a router whose answers go
+/// wrong as `faults` says; the restore stops at its router reads and is audited so.
+async fn raw_restore_with(faults: FaultInjection) -> TestResult<String> {
+    let fixture = Fixture::with_faults(faults).await?;
+    let admin = fixture.login("admin").await?;
+    drop(fixture.post(&format!("{PAGE}/backups"), &admin, "").await?);
+    let page = text(fixture.get(PAGE, &admin).await?).await?;
+    let name = backup_names(&page).into_iter().next().ok_or("one backup")?;
+    let restore = format!("{PAGE}/backups/raw-restore?name={name}");
+    let named = form(&[("confirm", "yes"), ("confirm_name", "home")]);
+    let stopped = text(fixture.post(&restore, &admin, &named).await?).await?;
+    assert!(
+        fixture.audited("web.config_raw_restore", "unreachable")?,
+        "audited: {stopped}"
+    );
+    assert!(
+        !stopped.contains(&en(keys::WEB_KIT_UNREACHABLE)),
+        "{stopped}"
+    );
+    Ok(stopped)
+}
+
 /// Todo 11: the raw-restore dialog of a labelled router names it by its name and asks for
 /// its id: the name typed back is refused and nothing is restored, the id restores.
 #[tokio::test]
@@ -194,5 +217,29 @@ async fn the_raw_restore_dialog_names_the_router_and_asks_for_its_id() -> TestRe
         done.contains(&en(keys::WEB_CONFIG_RAW_DONE)),
         "the id passes the gate: {done}"
     );
+    Ok(())
+}
+
+/// Todo 8: an HTTP error on the running configuration a raw restore reads first is told
+/// with its status, not as no answer.
+#[tokio::test]
+async fn a_raw_restore_names_the_http_error_of_its_router_read() -> TestResult {
+    let faults = FaultInjection::default().fail_read_matching("running-config.txt", 1);
+    let page = raw_restore_with(faults).await?;
+    assert!(
+        page.contains(&en_with(keys::WEB_KIT_HTTP_ERROR, &[("status", "500")])),
+        "{page}"
+    );
+    Ok(())
+}
+
+/// Todo 8: a running configuration kcc cannot parse is told as unreadable, not as no
+/// answer.
+#[tokio::test]
+async fn a_raw_restore_names_an_unreadable_running_configuration() -> TestResult {
+    let faults = FaultInjection::default()
+        .config_answers_text("running-config.txt", "system\n description \"open\n");
+    let page = raw_restore_with(faults).await?;
+    assert!(page.contains(&en(keys::WEB_KIT_UNREADABLE)), "{page}");
     Ok(())
 }

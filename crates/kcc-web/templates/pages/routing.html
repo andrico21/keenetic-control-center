@@ -22,7 +22,7 @@
   {%- endif %}
   {{ kit::outcome_region() }}
   {%- if let Some(message) = problem %}
-  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {{ kit::read_problem(message) }}
   {%- endif %}
   {%- if let Some(shown) = region %}
   {{ shown }}

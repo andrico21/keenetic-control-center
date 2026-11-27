@@ -11,7 +11,7 @@ use kcc_domain::{
     RouterCtx,
     routing::{descriptor::DESCRIPTOR, model::RouteTableEntry, read},
 };
-use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
+use kcc_i18n::{keys, locale::Locale};
 
 use super::{
     frame::{Frame, Tab, Visit, view},
@@ -24,7 +24,12 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     clients_pages::TabLink,
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
+    page_kit::{
+        context::fragment_shell,
+        gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
+        request::rendered,
+    },
     table::{
         rows::{Table, TableQuery},
         view::TableView,
@@ -206,7 +211,7 @@ pub(crate) async fn static_region(
     (router, family): (&str, Family),
     query: &TableQuery,
     (removable, locale): (bool, Locale),
-) -> Result<StaticRegion, MessageKey> {
+) -> Result<StaticRegion, ReadProblem> {
     let entries = read_table(domain, family).await?;
     let shown = Table::new(
         static_routes(family, &entries),
@@ -230,14 +235,14 @@ pub(crate) async fn static_region(
 pub(crate) async fn read_table(
     domain: &RouterCtx,
     family: Family,
-) -> Result<Vec<RouteTableEntry>, MessageKey> {
+) -> Result<Vec<RouteTableEntry>, ReadProblem> {
     let read = match family {
         Family::V4 => read::ipv4_table(domain).await,
         Family::V6 => read::ipv6_table(domain).await,
     };
     read.map_err(|error| {
         tracing::warn!(%error, "routing page: route table unavailable");
-        keys::WEB_KIT_UNREACHABLE
+        domain_problem(&error)
     })
 }
 

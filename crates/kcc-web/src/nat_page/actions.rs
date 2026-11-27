@@ -29,6 +29,7 @@ use crate::{
         action::Operation,
         confirm::Resubmit,
         form::{Choice, FormDialog, Input},
+        read_failure::domain_problem,
         request::{Params, missing, rendered, shown_query, with_query},
         respond::Answer,
         submit::{Formless, Invalid, Submission},
@@ -146,7 +147,7 @@ pub(crate) async fn remove(
                 async |_params, domain| {
                     let known = read::running_forwards(domain)
                         .await
-                        .map_err(|_error| unread(locale, keys::WEB_KIT_UNREACHABLE))?;
+                        .map_err(|error| unread(locale, &domain_problem(&error)))?;
                     if forwards(&known).contains(&rule) {
                         Ok(())
                     } else {
@@ -176,7 +177,7 @@ pub(crate) async fn translate_dialog(
     let domain = action.context().await?;
     let names = interface_names(&domain)
         .await
-        .map_err(|message| unusable(action.locale(), message))?;
+        .map_err(|message| unusable(action.locale(), &message))?;
     Ok(translate_form(action.locale(), &router, "", &names).show())
 }
 
@@ -199,7 +200,7 @@ pub(crate) async fn translate(
     let locale = action.locale();
     let names = match interface_names(&action.context().await?).await {
         Ok(found) => found,
-        Err(message) => return Ok(refused(action, unread(locale, message)).await),
+        Err(message) => return Ok(refused(action, unread(locale, &message)).await),
     };
     let values = Params::new(Vec::new(), pairs);
     let interface = values.text("interface").trim().to_owned();
@@ -210,7 +211,7 @@ pub(crate) async fn translate(
             async |_values, domain| {
                 let translated = nat_interfaces(domain)
                     .await
-                    .map_err(|message| unread(locale, message))?;
+                    .map_err(|message| unread(locale, &message))?;
                 if !names.contains(&interface) {
                     Err(Invalid::at("interface", keys::WEB_ROUTING_ERROR_CHOICE).into())
                 } else if translated.contains(&interface) {
@@ -278,7 +279,7 @@ pub(crate) async fn untranslate(
                 async |_params, domain| {
                     let translated = nat_interfaces(domain)
                         .await
-                        .map_err(|message| unread(locale, message))?;
+                        .map_err(|message| unread(locale, &message))?;
                     if translated.contains(&query.name) {
                         Ok(())
                     } else {

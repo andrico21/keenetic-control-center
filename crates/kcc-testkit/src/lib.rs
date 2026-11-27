@@ -154,8 +154,13 @@ pub struct FaultInjection {
     show_requires_post: BTreeSet<String>,
     /// Show resources whose `GET` answers 405 while `POST` answers normally.
     show_get_not_allowed: BTreeSet<String>,
+    /// Show resources whose `GET` and `POST` both answer 404.
+    show_absent: BTreeSet<String>,
     /// Show resources whose `GET` answers 200 with this text instead of JSON.
     show_text: BTreeMap<String, String>,
+    /// Configuration files whose `GET /ci/<name>` answers this text instead of the
+    /// generated configuration.
+    config_text: BTreeMap<String, String>,
     /// JSON pointers into the `show rc` answer, each replaced by its value.
     rc_overrides: Vec<(String, Value)>,
     /// Answers left out at the end of every root batch reply.
@@ -248,6 +253,19 @@ impl FaultInjection {
         self
     }
 
+    /// Answers `GET /ci/<name>` for the configuration file `name` (for example
+    /// `running-config.txt`) with 200 and `text` instead of the generated configuration.
+    #[inline]
+    #[must_use]
+    pub fn config_answers_text<S, T>(mut self, name: S, text: T) -> Self
+    where
+        S: Into<String>,
+        T: Into<String>,
+    {
+        drop(self.config_text.insert(name.into(), text.into()));
+        self
+    }
+
     /// Replaces the value at JSON `pointer` (for example `/user`) of every `show rc` answer
     /// with `value`, creating missing parents, so a test can serve a shape the profile never
     /// produces.
@@ -270,6 +288,18 @@ impl FaultInjection {
         S: Into<String>,
     {
         let _: bool = self.show_get_not_allowed.insert(path.into());
+        self
+    }
+
+    /// Answers `GET` and `POST /rci/<path>` for the show resource `path` (for example
+    /// `show/ip/route`) with 404, as a firmware without that resource does.
+    #[inline]
+    #[must_use]
+    pub fn show_absent<S>(mut self, path: S) -> Self
+    where
+        S: Into<String>,
+    {
+        let _: bool = self.show_absent.insert(path.into());
         self
     }
 

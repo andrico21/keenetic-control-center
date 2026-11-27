@@ -1,5 +1,9 @@
+{%- import "partials/kit_macros.html" as kit -%}
 {%- if !error.is_empty() %}
 <p class="notice" data-tone="error">{{ error }}</p>
+{%- if let Some(detail) = detail %}
+{{ kit::details(detail) }}
+{%- endif %}
 {%- else %}
 <div class="notice" data-tone="success">
   <p class="notice__title">{{ t(keys::WEB_TEST_SUCCESS) }}</p>

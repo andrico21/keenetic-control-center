@@ -106,6 +106,8 @@ pub(crate) struct Failure {
     message: String,
     /// The router's own status messages: message text only.
     router_said: Vec<String>,
+    /// Untranslated technical detail of a failed read, free of router values.
+    detail: Option<String>,
     /// Stable audit outcome id.
     audit: &'static str,
     /// Whether the recovery timer may still be armed.
@@ -119,6 +121,7 @@ impl Failure {
             kind: FailureKind::Failed,
             message,
             router_said: Vec::new(),
+            detail: None,
             audit,
             fail_safe_armed: false,
         }
@@ -149,6 +152,12 @@ impl Failure {
         self
     }
 
+    /// Adds the technical detail of a failed read.
+    pub(crate) fn with_detail(mut self, detail: Option<String>) -> Self {
+        self.detail = detail;
+        self
+    }
+
     /// Localized explanation.
     pub(crate) fn message(&self) -> &str {
         &self.message
@@ -171,6 +180,8 @@ pub(crate) struct Outcome {
     problems: Vec<String>,
     /// The router's own status messages when it refused.
     router_said: Vec<String>,
+    /// Untranslated technical detail of a failed read.
+    detail: Option<String>,
     /// Toasts sent along.
     toasts: Vec<Toast>,
     /// Whether the router now has unsaved changes, which shows the header badge.
@@ -196,6 +207,7 @@ impl Outcome {
             headline,
             problems: Vec::new(),
             router_said: Vec::new(),
+            detail: None,
             toasts: Vec::new(),
             unsaved: false,
             status: StatusCode::OK,
@@ -223,6 +235,7 @@ impl Outcome {
     pub(crate) fn failed(failure: Failure) -> Self {
         Self {
             router_said: failure.router_said,
+            detail: failure.detail,
             fail_safe_armed: failure.fail_safe_armed,
             ..Self::base(Tone::Error, failure.message, failure.audit)
         }
@@ -310,6 +323,11 @@ impl Outcome {
     /// The router's own words.
     pub(crate) fn router_said(&self) -> &[String] {
         &self.router_said
+    }
+
+    /// Untranslated technical detail of a failed read.
+    pub(crate) fn detail(&self) -> Option<&str> {
+        self.detail.as_deref()
     }
 
     /// Toasts sent along.

@@ -19,17 +19,18 @@ use crate::{
         context::{self, Target, fragment_shell},
         facts::{FactsError, RouterFacts},
         family::Family,
+        read_failure::ReadProblem,
     },
 };
 
 /// Longest search query or command path read from a request.
 const MAX_INPUT: usize = 200;
 
-/// A one-line notice fragment.
+/// A one-line notice fragment, with kcc's technical detail of a failed read.
 #[derive(Template)]
 #[template(
     ext = "html",
-    source = "<p class=\"notice\" data-tone=\"{{ tone }}\">{{ t(*message) }}</p>"
+    source = "{%- import \"partials/kit_macros.html\" as kit -%}<p class=\"notice\" data-tone=\"{{ tone }}\">{{ t_read(message) }}</p>{%- if let Some(detail) = message.detail() %}{{ kit::details(detail) }}{%- endif %}"
 )]
 struct Notice {
     /// Locale carrier.
@@ -37,7 +38,7 @@ struct Notice {
     /// Notice tone.
     tone: &'static str,
     /// The message.
-    message: MessageKey,
+    message: ReadProblem,
 }
 
 localized!(Notice);
@@ -60,7 +61,7 @@ pub(crate) async fn facts_for<'state>(
     let facts = target
         .facts(state)
         .await
-        .map_err(|error| Box::new(notice(user.locale(), "error", problem(error))))?;
+        .map_err(|error| Box::new(unread(user.locale(), problem(&error))))?;
     Ok((target, facts))
 }
 
@@ -69,13 +70,22 @@ pub(crate) fn notice(locale: Locale, tone: &'static str, message: MessageKey) ->
     errors::render(&Notice {
         shell: fragment_shell(locale),
         tone,
-        message,
+        message: message.into(),
+    })
+}
+
+/// An error notice fragment saying why a router read failed.
+pub(crate) fn unread(locale: Locale, problem: ReadProblem) -> Response {
+    errors::render(&Notice {
+        shell: fragment_shell(locale),
+        tone: "error",
+        message: problem,
     })
 }
 
 /// The message explaining why no catalog is available.
-pub(crate) const fn problem(error: FactsError) -> MessageKey {
-    error.message(Family::Commands)
+pub(crate) fn problem(error: &FactsError) -> ReadProblem {
+    error.problem(Family::Commands)
 }
 
 /// `text` trimmed and cut to [`MAX_INPUT`] bytes at a character boundary.

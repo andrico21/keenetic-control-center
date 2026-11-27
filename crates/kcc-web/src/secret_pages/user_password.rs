@@ -25,7 +25,7 @@ use crate::{
         action::{Action, Operation},
         change::Change,
         confirm::{Confirmation, Resubmit},
-        family::Family,
+        read_failure::domain_problem,
         request::{Params, missing, with_query},
         respond::Answer,
         submit::{Invalid, Planned, Submission},
@@ -172,10 +172,10 @@ pub(crate) async fn confirming<'call>(
             action.abandon("not_found").await;
             Err(missing())
         }
-        Err(_) => {
+        Err(error) => {
             let locale = action.locale();
             action.abandon("unreachable").await;
-            Err(unusable(locale, Family::Changes.unreachable()))
+            Err(unusable(locale, &domain_problem(&error)))
         }
     }
 }

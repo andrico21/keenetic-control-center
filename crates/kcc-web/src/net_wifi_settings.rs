@@ -28,8 +28,8 @@ use crate::{
         change::Change,
         confirm::Resubmit,
         context::fragment_shell,
-        family::Family,
         gate::Controls,
+        read_failure::domain_problem,
         request::{Params, missing},
         respond::Answer,
         submit::{Formless, Planned, Submission},
@@ -61,7 +61,7 @@ pub(crate) async fn settings(
     let controls = Controls::new(user.role(), &router)
         .with_operations(wifi::DESCRIPTOR.write_ops, Some(facts.catalog()));
     let subject = Subject::new(&router, &name, user.locale());
-    let unread = |_error: DomainError| unusable(user.locale(), Family::Changes.unreachable());
+    let unread = |error: DomainError| unusable(user.locale(), &domain_problem(&error));
     let radio = radios(&domain)
         .await
         .map_err(unread)?

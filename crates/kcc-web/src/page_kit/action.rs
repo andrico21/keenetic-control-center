@@ -146,7 +146,7 @@ impl Operation {
         let facts = match target.facts(state).await {
             Ok(facts) => facts,
             Err(error) => {
-                let failure = ending::unknown(locale, error);
+                let failure = ending::unknown(locale, &error);
                 let outcome = Outcome::failed(failure);
                 record.append(state, user, outcome.audit()).await;
                 return Err(outcome.render(locale).into());

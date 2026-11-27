@@ -34,6 +34,7 @@ use crate::{
         family::Family,
         gate::Controls,
         outcome::Outcome,
+        read_failure::domain_problem,
         request::{Params, missing, shown_query},
         respond::{self, Answer},
         submit::{Invalid, Planned, Submission},
@@ -136,7 +137,7 @@ async fn show(visit: Visit<'_>, caller: Caller<'_>, spot: Spot) -> Response {
     let (region, actions) = match visit.open(spot.operations()).await {
         Ok((ctx, viewer)) => region(&ctx, &spot, &viewer).await,
         Err(Closed::Refused(refusal)) => return refusal.page(shell),
-        Err(Closed::Unreadable(reason)) => (Region::failed(locale, reason), Vec::new()),
+        Err(Closed::Unreadable(problem)) => (Region::unread(locale, &problem), Vec::new()),
     };
     let page = Page::new(shell, (router.clone(), tab), region).with_actions(actions);
     errors::render(&match spot {
@@ -156,13 +157,7 @@ async fn show(visit: Visit<'_>, caller: Caller<'_>, spot: Spot) -> Response {
 // session. Apart from that, reads only.
 pub(crate) async fn region(ctx: &RouterCtx, spot: &Spot, viewer: &Viewer) -> (Region, Vec<Act>) {
     let locale = viewer.locale();
-    let failed = |error| {
-        let failure = plan_failure(Family::Changes, locale, &error);
-        (
-            Region::failed(locale, failure.message().to_owned()),
-            Vec::new(),
-        )
-    };
+    let failed = |error| (Region::unread(locale, &domain_problem(&error)), Vec::new());
     match spot {
         Spot::Servers => match vpn_servers::read_servers(ctx).await {
             Ok(status) => vpn_servers_tab::servers(&status, viewer),

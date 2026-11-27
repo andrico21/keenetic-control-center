@@ -10,7 +10,7 @@ use kcc_i18n::{
 
 use crate::{
     page::{Localize as _, Shell},
-    page_kit::context::fragment_shell,
+    page_kit::{context::fragment_shell, read_failure::ReadProblem},
     table::{acts::Act, cells::Cell, view::TableView},
 };
 
@@ -94,6 +94,8 @@ pub(crate) struct Region {
     shell: Shell,
     /// Why the router could not be read; empty when it was.
     problem: String,
+    /// kcc's technical detail of a failed read.
+    detail: Option<String>,
     /// Panels above the table.
     panels: Vec<Panel>,
     /// The table.
@@ -111,6 +113,7 @@ impl Region {
         Self {
             shell: fragment_shell(locale),
             problem: String::new(),
+            detail: None,
             panels: Vec::new(),
             table: None,
             oob: false,
@@ -121,6 +124,15 @@ impl Region {
     pub(crate) fn failed(locale: Locale, reason: String) -> Self {
         Self {
             problem: reason,
+            ..Self::new(locale)
+        }
+    }
+
+    /// A region saying why a router read failed: `problem` and its detail.
+    pub(crate) fn unread(locale: Locale, problem: &ReadProblem) -> Self {
+        Self {
+            problem: problem.text(locale),
+            detail: problem.detail().map(str::to_owned),
             ..Self::new(locale)
         }
     }

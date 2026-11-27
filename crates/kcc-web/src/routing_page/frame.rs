@@ -23,6 +23,7 @@ use crate::{
     page_kit::{
         context::{self, Caller},
         family::Family,
+        read_failure::{ReadProblem, domain_problem},
         respond::Answer,
     },
     system_pages::shared::Reading,
@@ -148,7 +149,7 @@ impl<'request> Visit<'request> {
         let reading = target
             .context(state)
             .await
-            .map_err(|error| error.message(Family::Changes));
+            .map_err(|error| error.problem(Family::Changes));
         Ok((shell, reading))
     }
 }
@@ -173,7 +174,7 @@ pub(crate) struct Frame {
     /// The view's primary action: the dialog it opens and its label.
     add: Option<(String, MessageKey)>,
     /// Why the router could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// The view's region, rendered.
     region: Option<Rendered>,
 }
@@ -210,7 +211,7 @@ impl Frame {
     }
 
     /// The page with the view's `region`, or why the router could not be read.
-    pub(crate) fn show(mut self, region: Result<Option<Rendered>, MessageKey>) -> Response {
+    pub(crate) fn show(mut self, region: Result<Option<Rendered>, ReadProblem>) -> Response {
         match region {
             Ok(shown) => self.region = shown,
             Err(problem) => self.problem = Some(problem),
@@ -246,11 +247,11 @@ pub(crate) fn protocol_text(locale: Locale, name: &str) -> String {
 /// Returns the message saying the router could not be read.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, reads only.
-pub(crate) async fn interface_names(domain: &RouterCtx) -> Result<Vec<String>, MessageKey> {
+pub(crate) async fn interface_names(domain: &RouterCtx) -> Result<Vec<String>, ReadProblem> {
     interfaces::read_interfaces(domain).await.map_or_else(
         |error| {
             tracing::warn!(%error, "routing page: interfaces unavailable");
-            Err(keys::WEB_KIT_UNREACHABLE)
+            Err(domain_problem(&error))
         },
         |found| Ok(found.into_keys().collect()),
     )

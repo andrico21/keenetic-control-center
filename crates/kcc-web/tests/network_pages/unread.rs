@@ -2,12 +2,12 @@
 //! value read as missing preselects a choice or lets a change through.
 
 use axum::http::StatusCode;
-use kcc_i18n::{keys, locale::Locale};
+use kcc_i18n::keys;
 use kcc_testkit::FaultInjection;
 
 use crate::support::{
     outcome::TestResult,
-    page::{form, said, text},
+    page::{en_with, form, text},
     web::Fixture,
 };
 
@@ -50,7 +50,7 @@ async fn a_dialog_whose_read_fails_shows_the_failure() -> TestResult {
         let admin = fixture.login("admin").await?;
         let answer = text(fixture.get(path, &admin).await?).await?;
         assert!(
-            answer.contains(&said(Locale::En, keys::WEB_KIT_UNREACHABLE)),
+            answer.contains(&en_with(keys::WEB_KIT_HTTP_ERROR, &[("status", "500")])),
             "{path}: {answer}"
         );
         assert!(!answer.contains("<form"), "{path} offers no form: {answer}");

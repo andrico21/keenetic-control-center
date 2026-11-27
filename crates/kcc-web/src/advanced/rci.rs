@@ -17,10 +17,7 @@ use kcc_app::{
     workflow::{BatchItem, ChangeRequest},
 };
 use kcc_catalog::{HttpMethod, Risk};
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-};
+use kcc_i18n::{bundle::tr, keys};
 use kcc_rci::{RciError, RciPath};
 use serde_json::{Value, json};
 
@@ -44,6 +41,7 @@ use crate::{
         context::{self, Caller},
         family::Family,
         gate::{allowed, command_permissions},
+        read_failure::ReadProblem,
         respond,
     },
 };
@@ -59,7 +57,7 @@ struct Page {
     /// Localized catalog line.
     catalog_note: String,
     /// Why no catalog is available.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// The method choices.
     methods: [&'static str; 3],
 }
@@ -85,7 +83,7 @@ pub(crate) async fn page(
     };
     let (catalog_note, problem) = match target.facts(&state).await {
         Ok(facts) => (catalog_note(&facts, user.locale()), None),
-        Err(error) => (String::new(), Some(problem(error))),
+        Err(error) => (String::new(), Some(problem(&error))),
     };
     errors::render(&Page {
         shell,

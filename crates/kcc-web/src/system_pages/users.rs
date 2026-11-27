@@ -20,7 +20,7 @@ use kcc_domain::{
     RouterCtx,
     router_users::{self, protection::OwnLogins},
 };
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::keys;
 
 use super::{
     shared::{Visit, profile_login},
@@ -33,7 +33,12 @@ use crate::{
     errors,
     markup::Rendered,
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
+    page_kit::{
+        context::fragment_shell,
+        gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
+        request::rendered,
+    },
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},
@@ -55,7 +60,7 @@ struct Page {
     /// Router profile id.
     router: String,
     /// Why the accounts could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// The accounts.
     region: Option<Region>,
     /// Whether the role may add accounts.
@@ -147,10 +152,10 @@ impl Account {
 pub(crate) async fn accounts(
     domain: &RouterCtx,
     own: Option<&OwnLogins>,
-) -> Result<Vec<Account>, MessageKey> {
+) -> Result<Vec<Account>, ReadProblem> {
     let users = router_users::read_users(domain).await.map_err(|error| {
         tracing::warn!(%error, "router accounts could not be read");
-        keys::WEB_SYSTEM_READ_FAILED
+        domain_problem(&error)
     })?;
     Ok(users
         .into_iter()

@@ -23,6 +23,27 @@
   </ul>
 </details>
 {%- endif %}
+{%- if let Some(detail) = outcome.detail() %}
+{{ details(detail) }}
+{%- endif %}
+{%- endmacro -%}
+
+{#- A failed router read: its class in the user's words, then kcc's technical detail. -#}
+{%- macro read_problem(problem) -%}
+<p class="notice" data-tone="error">{{ t_read(problem) }}</p>
+{%- if let Some(detail) = problem.detail() %}
+{{ details(detail) }}
+{%- endif %}
+{%- endmacro -%}
+
+{#- kcc's technical detail of a failed read, untranslated, under its localized label. -#}
+{%- macro details(detail) -%}
+<details class="router-said" open>
+  <summary class="router-said__summary">{{ t(keys::WEB_KIT_DETAILS) }}</summary>
+  <ul class="router-said__list">
+    <li>{{ detail }}</li>
+  </ul>
+</details>
 {%- endmacro -%}
 
 {#- Toasts appended to the page's live #toasts region. -#}

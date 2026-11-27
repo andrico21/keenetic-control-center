@@ -7,11 +7,7 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use kcc_domain::{RouterCtx, nat::read};
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::views::{View, allows, unreachable, views};
 use crate::{
@@ -20,6 +16,7 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::{
         context::fragment_shell,
+        read_failure::ReadProblem,
         request::{rendered, with_query},
     },
     routing_page::frame::{Frame, Tab, Visit},
@@ -166,7 +163,7 @@ pub(crate) async fn interfaces_region(
     domain: &RouterCtx,
     (router, query): (&str, &TableQuery),
     (removable, locale): (bool, Locale),
-) -> Result<InterfacesRegion, MessageKey> {
+) -> Result<InterfacesRegion, ReadProblem> {
     let names = nat_interfaces(domain).await?;
     let rows = names
         .into_iter()
@@ -187,7 +184,7 @@ pub(crate) async fn interfaces_region(
 /// Returns why the router did not answer.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, reads only.
-pub(crate) async fn nat_interfaces(domain: &RouterCtx) -> Result<Vec<String>, MessageKey> {
+pub(crate) async fn nat_interfaces(domain: &RouterCtx) -> Result<Vec<String>, ReadProblem> {
     let rows = read::interfaces(domain)
         .await
         .map_err(|error| unreachable(&error))?;

@@ -18,11 +18,7 @@ use kcc_domain::{
     RouterCtx,
     segments::{self, SegmentError},
 };
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::{
     Tab, TabLink,
@@ -44,6 +40,7 @@ use crate::{
         family::Family,
         gate::Controls,
         outcome::Outcome,
+        read_failure::{ReadProblem, domain_problem},
         respond::{self, Answer},
         submit::work::{Report, Stopped},
     },
@@ -68,7 +65,7 @@ struct Page {
     /// The segments, when the router answered.
     region: Option<Region>,
     /// Why the router could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
 }
 
 localized!(Page);
@@ -102,7 +99,7 @@ pub(crate) async fn page(
     let (facts, domain) = match target.context(&state).await {
         Ok(found) => found,
         Err(error) => {
-            page.problem = Some(error.message(Family::Changes));
+            page.problem = Some(error.problem(Family::Changes));
             return errors::render(&page);
         }
     };
@@ -113,7 +110,7 @@ pub(crate) async fn page(
         Ok(region) => page.region = Some(region.deletable(controls.allows("delete"))),
         Err(error) => {
             tracing::warn!(%error, "segments page: the router could not be read");
-            page.problem = Some(keys::WEB_SEGMENTS_READ_ERROR);
+            page.problem = Some(domain_problem(&error));
         }
     }
     errors::render(&page)

@@ -25,7 +25,9 @@ use super::{
 };
 use crate::{
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls, request::with_query},
+    page_kit::{
+        context::fragment_shell, gate::Controls, read_failure::ReadProblem, request::with_query,
+    },
     table::{
         acts::{Act, MenuItem},
         cells::{Cell, Layout},
@@ -47,7 +49,7 @@ pub(crate) struct BackupsRegion {
     /// The table; `None` when the backups could not be listed.
     table: Option<Table<BackupRow>>,
     /// Why the backups could not be listed.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// Size of each shown backup, as people read it.
     sizes: BTreeMap<String, String>,
     /// The retention, as a sentence.
@@ -74,7 +76,7 @@ impl BackupsRegion {
             shell: fragment_shell(locale),
             router: router.to_owned(),
             table: None,
-            problem: Some(keys::WEB_CONFIG_NO_STORE),
+            problem: Some(keys::WEB_CONFIG_NO_STORE.into()),
             sizes: BTreeMap::new(),
             retention: String::new(),
             compare: CompareForm::new(locale, router, &[]),
@@ -92,7 +94,7 @@ impl BackupsRegion {
         let listed = match store::list(services, router).await {
             Ok(found) => found,
             Err(StoreError::Missing | StoreError::Failed) => {
-                region.problem = Some(keys::WEB_CONFIG_STORE_FAILED);
+                region.problem = Some(keys::WEB_CONFIG_STORE_FAILED.into());
                 return region;
             }
         };

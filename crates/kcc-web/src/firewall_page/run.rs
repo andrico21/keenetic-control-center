@@ -240,7 +240,7 @@ pub(crate) async fn find(
 ) -> Result<(lists::Firewall, ListEntry), Failure> {
     let firewall = snapshot::read(domain)
         .await
-        .map_err(|message| unread(locale, message))?;
+        .map_err(|message| unread(locale, &message))?;
     let entry = named.find(&firewall).cloned().ok_or_else(|| gone(locale))?;
     Ok((firewall, entry))
 }

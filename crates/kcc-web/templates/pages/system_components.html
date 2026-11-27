@@ -10,7 +10,7 @@
   {%- include "partials/system_tabs.html" %}
   {{ kit::outcome_region() }}
   {%- if let Some(message) = problem %}
-  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {{ kit::read_problem(message) }}
   {%- endif %}
   <section class="panel" aria-labelledby="firmware-title">
     <h2 class="panel__title" id="firmware-title">{{ t(keys::WEB_SYSTEM_COMPONENTS_FIRMWARE) }}</h2>

@@ -18,6 +18,9 @@
 //! - [`family`]: the page family, whose words the confirmations and the outcomes use.
 //! - [`outcome`] and [`failure`]: a success toast and the unsaved badge, or a localized
 //!   error with the router's own message in a collapsible "router said" block.
+//! - [`read_failure`]: what a page says when a router read fails: the failure class (no
+//!   answer, an HTTP error, a router error, a refusal, an unreadable answer) and kcc's
+//!   value-free technical detail under "Details".
 //! - [`change`]: the change workflow run (backup, conflict check, read-back, audit), with
 //!   the fail-safe timer around management changes.
 //! - [`form`]: the dialog forms, from a one-field edit to a whole configuration.
@@ -42,6 +45,7 @@ pub(crate) mod family;
 pub(crate) mod form;
 pub(crate) mod gate;
 pub(crate) mod outcome;
+pub(crate) mod read_failure;
 pub(crate) mod request;
 pub(crate) mod respond;
 pub(crate) mod secret;

@@ -1,18 +1,19 @@
 //! The connection test of the router form signs in the way the form says and never shows
 //! a server path.
 
-use core::sync::atomic::Ordering;
+use core::{net::SocketAddr, sync::atomic::Ordering};
 
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_testkit::{
-    DEFAULT_LOGIN, DEFAULT_PASSWORD,
+    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection,
     auth_fixture::{self, Options, Protocol},
+    model::Profile,
 };
 
 use crate::{
     support::{
         outcome::TestResult,
-        page::{form, text},
+        page::{en, en_with, form, html, text},
     },
     tests::fleet,
 };
@@ -102,6 +103,60 @@ async fn the_test_uses_the_selected_password_sign_in_mode() -> TestResult {
     Ok(())
 }
 
+/// The connection test page for a fake router with `faults`, signed in with typed
+/// credentials.
+async fn test_page_with(faults: FaultInjection) -> TestResult<String> {
+    let fixture = fleet(&[]).await?;
+    let browser = fixture.login("admin").await?;
+    let (address, handle) = FakeRouter::builder(Profile::default())
+        .user(DEFAULT_LOGIN, DEFAULT_PASSWORD, ["cli", "http-proxy"])
+        .faults(faults)
+        .build()?
+        .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
+        .await?;
+    let body = form(&[
+        ("id", "lab"),
+        ("url", &format!("http://{address}")),
+        ("login", DEFAULT_LOGIN),
+        ("password", DEFAULT_PASSWORD),
+        ("tls", "verify"),
+    ]);
+    let page = text(fixture.post("/ui/routers/test", &browser, &body).await?).await?;
+    handle.shutdown().await?;
+    Ok(page)
+}
+
+/// Todo 8: a router that closed the connection did not answer, and the test shows how
+/// under the "Details" label.
+#[tokio::test]
+async fn a_closed_connection_shows_its_cause_under_details() -> TestResult {
+    let page =
+        test_page_with(FaultInjection::default().close_before_answer("show/version")).await?;
+    assert!(
+        page.contains(&en(keys::WEB_ROUTER_ERROR_UNREACHABLE)),
+        "{page}"
+    );
+    assert!(page.contains(&en(keys::WEB_KIT_DETAILS)), "{page}");
+    assert!(
+        page.contains(&html("the router closed the connection before answering")),
+        "{page}"
+    );
+    Ok(())
+}
+
+/// Todo 8: an HTTP error status is told with its status, not as a failed check.
+#[tokio::test]
+async fn an_http_error_names_its_status() -> TestResult {
+    let page =
+        test_page_with(FaultInjection::default().fail_read_matching("show/version", 1)).await?;
+    assert!(
+        page.contains(&en_with(keys::WEB_KIT_HTTP_ERROR, &[("status", "500")])),
+        "{page}"
+    );
+    assert!(!page.contains(&en(keys::WEB_ROUTER_ERROR_CHECK)), "{page}");
+    Ok(())
+}
+
 /// W1-15: a credential file that others can read gets the chmod hint without its path.
 ///
 /// The page the Web user sees does not name the file.
@@ -111,7 +166,6 @@ async fn a_readable_credential_file_is_refused_without_its_path() -> TestResult 
     use std::{fs, os::unix::fs::PermissionsExt as _};
 
     use kcc_app::registry::ManagedRouterProfile;
-    use kcc_testkit::model::Profile;
 
     use crate::{
         router_credentials::{dummy, origin},

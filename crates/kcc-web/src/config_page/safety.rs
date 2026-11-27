@@ -18,7 +18,7 @@ use kcc_app::{
 };
 use kcc_catalog::HttpMethod;
 use kcc_domain::configuration;
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{keys, locale::Locale};
 use serde_json::json;
 
 use super::{
@@ -195,7 +195,7 @@ enum Timer {
 async fn with_timer(action: Action<'_>, needed: Timer) -> Result<Action<'_>, Answer> {
     let locale = action.locale();
     let domain = action.context().await?;
-    let (message, audit) = match status::last_change(&domain).await {
+    let (problem, audit) = match status::last_change(&domain).await {
         Ok(found) => {
             let running = found
                 .fail_safe
@@ -204,14 +204,14 @@ async fn with_timer(action: Action<'_>, needed: Timer) -> Result<Action<'_>, Ans
                 .unwrap_or(false);
             match (needed, running) {
                 (Timer::Running, true) | (Timer::Idle, false) => return Ok(action),
-                (Timer::Running, false) => (keys::WEB_CONFIG_NOT_ARMED, "not_armed"),
-                (Timer::Idle, true) => (keys::WEB_CONFIG_SAVE_ARMED, "armed"),
+                (Timer::Running, false) => (keys::WEB_CONFIG_NOT_ARMED.into(), "not_armed"),
+                (Timer::Idle, true) => (keys::WEB_CONFIG_SAVE_ARMED.into(), "armed"),
             }
         }
         Err(unread) => (unread, "unreachable"),
     };
     action.abandon(audit).await;
-    Err(refused(locale, Failure::new(tr(locale, message, None), audit)).into())
+    Err(refused(locale, problem.failure(locale, audit)).into())
 }
 
 /// The answer to an action stopped by `failure`.

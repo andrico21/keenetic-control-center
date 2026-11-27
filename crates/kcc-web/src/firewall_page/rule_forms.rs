@@ -97,7 +97,7 @@ pub(crate) async fn add(
                     check(submitted).map_err(|(field, rule)| Invalid::at(field, rule))?;
                 let firewall = snapshot::read(domain)
                     .await
-                    .map_err(|message| unread(locale, message))?;
+                    .map_err(|message| unread(locale, &message))?;
                 let words = rule.words();
                 let count = firewall.list(&list).map_or(0, |found| {
                     found

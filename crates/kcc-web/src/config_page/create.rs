@@ -29,6 +29,7 @@ use crate::{
         failure::rci_failure,
         family::Family,
         outcome::{Failure, Outcome},
+        read_failure::registry_problem,
         request::{missing, with_query},
         respond::Answer,
     },
@@ -145,7 +146,7 @@ async fn saved(state: &WebState, router: &str, locale: Locale) -> Result<SecretS
     let fleet = state.fleet().ok_or_else(unreachable)?;
     let client = fleet.registry().client(router).await.map_err(|error| {
         tracing::warn!(%error, router, "backup: no router client");
-        unreachable()
+        registry_problem(Family::Changes, &error).failure(locale, "unreachable")
     })?;
     let bytes = client
         .download_config(ConfigKind::Startup)

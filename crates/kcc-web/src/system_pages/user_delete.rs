@@ -29,7 +29,6 @@ use crate::{
         action::Operation,
         change::Change,
         confirm::{Dialog, Resubmit, TypedNameForm},
-        family::Family,
         outcome::Failure,
         request::{Params, missing, shown_query},
         respond::{self, Answer},
@@ -74,10 +73,9 @@ pub(crate) async fn delete_dialog(
     let action = DELETE.open(&state, &user, &router).await?;
     let domain = action.context().await?;
     let name = value(&query, "name").unwrap_or_default();
-    let unreachable = Family::Changes.unreachable();
     let account = find(&domain, name)
         .await
-        .map_err(|_logged| unusable(action.locale(), unreachable))?
+        .map_err(|problem| unusable(action.locale(), &problem))?
         .ok_or_else(missing)?;
     Ok(errors::render(&confirmation(
         &router,

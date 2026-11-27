@@ -14,7 +14,7 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use kcc_domain::{
-    RouterCtx,
+    DomainError, RouterCtx,
     components::{self, QueueAction},
     system,
 };
@@ -31,7 +31,12 @@ use crate::{
     errors,
     markup::Rendered,
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
+    page_kit::{
+        context::fragment_shell,
+        gate::Controls,
+        read_failure::{ReadProblem, domain_problem},
+        request::rendered,
+    },
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},
@@ -50,7 +55,7 @@ struct Page {
     /// Router profile id.
     router: String,
     /// Why the components could not be read.
-    problem: Option<MessageKey>,
+    problem: Option<ReadProblem>,
     /// The firmware title, when the router reported it.
     firmware: Option<String>,
     /// Whether the role may check for updates.
@@ -173,30 +178,45 @@ impl Component {
 ///
 /// # Errors
 ///
-/// Returns the message to show when the router did not answer with its components.
+/// Returns the class of the first failure when the router did not answer with its components.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, reads only.
-pub(crate) async fn read(domain: &RouterCtx) -> Result<Vec<Component>, MessageKey> {
-    let read = (
-        components::read_components(domain).await,
-        components::read_pending(domain).await,
-    );
-    let (listed, pending) = match read {
-        (Ok(listed), Ok(pending)) => (listed, pending),
-        (listed, pending) => {
-            for error in [listed.err(), pending.err()].into_iter().flatten() {
-                tracing::warn!(%error, "router components could not be read");
-            }
-            return Err(keys::WEB_SYSTEM_READ_FAILED);
-        }
+pub(crate) async fn read(domain: &RouterCtx) -> Result<Vec<Component>, ReadProblem> {
+    let listed = components::read_components(domain).await;
+    let pending = components::read_pending(domain).await;
+
+    // Log each failure, returning the class of the first error.
+    let first_error = if let Err(error) = &listed {
+        tracing::warn!(%error, "router components could not be read");
+        Some(domain_problem(error))
+    } else {
+        None
     };
-    Ok(listed
+    if let Err(error) = &pending {
+        tracing::warn!(%error, "router components could not be read");
+    }
+
+    if let Some(problem) = first_error {
+        return Err(problem);
+    }
+    if let Err(error) = &pending {
+        return Err(domain_problem(error));
+    }
+
+    // Extract successfully, knowing both are Ok.
+    let Ok(listed_ok) = listed else {
+        return Err(domain_problem(&DomainError::Validation { issues: vec![] }));
+    };
+    let Ok(pending_ok) = pending else {
+        return Err(domain_problem(&DomainError::Validation { issues: vec![] }));
+    };
+    Ok(listed_ok
         .into_iter()
         .filter_map(|component| {
             let name = component.name?;
-            let stage = if pending.install.contains(&name) {
+            let stage = if pending_ok.install.contains(&name) {
                 Stage::Installing
-            } else if pending.remove.contains(&name) {
+            } else if pending_ok.remove.contains(&name) {
                 Stage::Removing
             } else if component.installed == Some(true) {
                 Stage::Installed

@@ -23,11 +23,7 @@ use kcc_domain::{
     ChangeOp, DomainError, Result as DomainResult, RouterCtx,
     router_users::{self, protection::OwnLogins},
 };
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use secrecy::SecretString;
 
 use super::{
@@ -46,6 +42,7 @@ use crate::{
         failure::plan_failure,
         family::Family,
         outcome::Outcome,
+        read_failure::ReadProblem,
         request::{Params, missing, shown_query, with_query},
         respond::{Answer, changed},
         submit::{Invalid, Planned, Submission},
@@ -107,7 +104,7 @@ pub(crate) async fn create(
         Ok(kept) => match find(&domain, &name).await {
             Ok(None) => Ok(kept),
             Ok(Some(_)) => Err((Field::Name, keys::WEB_SYSTEM_USERS_NAME_TAKEN)),
-            Err(_logged) => return Err(unread(action).await),
+            Err(problem) => return Err(unread(action, &problem).await),
         },
         Err(problem) => Err(problem),
     };
@@ -170,7 +167,7 @@ pub(crate) async fn set_tags(
             action.abandon("not_found").await;
             return Err(missing());
         }
-        Err(_logged) => return Err(unread(action).await),
+        Err(problem) => return Err(unread(action, &problem).await),
     };
     let dialog = UserDialog::base(locale, &offered)
         .tagging(&router, &account)
@@ -224,7 +221,7 @@ pub(crate) async fn set_tags(
 /// taken as absent.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, reads only.
-pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Result<Option<Account>, MessageKey> {
+pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Result<Option<Account>, ReadProblem> {
     Ok(accounts(domain, None)
         .await?
         .into_iter()
