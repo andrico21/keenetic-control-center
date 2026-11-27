@@ -32,6 +32,8 @@ mod bracket_failures;
 mod busy;
 #[path = "cli/cli_contract.rs"]
 mod cli_contract;
+#[path = "cli/cli_logging.rs"]
+mod cli_logging;
 #[path = "cli/dns.rs"]
 mod dns;
 #[path = "cli/failsafe.rs"]

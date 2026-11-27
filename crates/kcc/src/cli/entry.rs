@@ -1,9 +1,10 @@
 //! Command dispatch: parses nothing, runs one command, returns the exit code.
 
 use core::pin::Pin;
-use std::env;
+use std::{env, io};
 
 use kcc_i18n::{keys, locale::Locale};
+use tracing_subscriber::EnvFilter;
 
 use super::{
     accounts, api_keys,
@@ -45,10 +46,19 @@ pub async fn run(cli: Cli) -> u8 {
         Command::Mcp(McpCommand::Stdio) => {
             return server_code(server::run_stdio(cli.config).await, out);
         }
-        Command::Mcp(command) => mcp_command(command, globals, out).await,
+        Command::Mcp(command) => {
+            init_stderr_logging();
+            mcp_command(command, globals, out).await
+        }
         Command::Completions { shell } => tls::completions(shell),
-        Command::Local(command) => local(command, globals, out).await,
-        Command::Domain(command) => domain(command, globals, out).await,
+        Command::Local(command) => {
+            init_stderr_logging();
+            local(command, globals, out).await
+        }
+        Command::Domain(command) => {
+            init_stderr_logging();
+            domain(command, globals, out).await
+        }
     };
     match outcome {
         Ok(()) => 0,
@@ -57,6 +67,23 @@ pub async fn run(cli: Cli) -> u8 {
             failure.exit().code()
         }
     }
+}
+
+/// Installs the process's log subscriber on stderr when `RUST_LOG` is set and not empty.
+///
+/// Only the short-lived commands call it: `serve` and `mcp stdio` install their own
+/// subscriber, which fails when one already exists. An existing subscriber is left alone.
+fn init_stderr_logging() {
+    if env::var_os("RUST_LOG").is_none_or(|filter| filter.is_empty()) {
+        return;
+    }
+    drop(
+        tracing_subscriber::fmt()
+            .with_writer(io::stderr)
+            .with_ansi(false)
+            .with_env_filter(EnvFilter::from_default_env())
+            .try_init(),
+    );
 }
 
 /// Reports a command-line parse failure and returns the process exit code.

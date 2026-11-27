@@ -51,6 +51,10 @@ async fn a_writer_dying_after_the_arm_still_disarms() -> TestResult {
     let commands = commands_after(&handle, 0);
     let (arm, disarm) = edges("router");
     assert_eq!(run.code, 1_i32, "the dead writer is the failure: {run:?}");
+    assert!(
+        !run.stderr.contains("audit writer failed"),
+        "stderr must not contain audit error when RUST_LOG is unset (todo 10): {run:?}"
+    );
     assert_eq!(commands.first().map(String::as_str), Some(arm), "{run:?}");
     assert_eq!(commands.last().map(String::as_str), Some(disarm), "{run:?}");
     assert!(!handle.recovery_armed(), "the disarm was accepted");
