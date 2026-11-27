@@ -2,6 +2,9 @@
 //! self-check refuses a leaked one, and `--identifiers-out` lists every learned one.
 
 #[cfg(test)]
+#[path = "capture/fidelity.rs"]
+mod fidelity;
+#[cfg(test)]
 #[path = "capture/hardening.rs"]
 mod hardening;
 #[cfg(test)]

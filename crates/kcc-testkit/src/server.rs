@@ -45,6 +45,9 @@ mod media_init;
 /// Parser interception before ordinary command dispatch.
 #[path = "server/parse_command.rs"]
 mod parse_command;
+/// Captured answers the fake replays.
+#[path = "server/replay.rs"]
+mod replay;
 /// The sanitized request log.
 #[path = "server/request_log.rs"]
 mod request_log;
@@ -226,6 +229,8 @@ pub(crate) struct Shared {
     show: Map<String, Value>,
     /// `show rc` answers keyed by the JSON pointer of the root they replace.
     rc_overrides: Map<String, Value>,
+    /// Captured answers replayed instead of the simulation.
+    replay: replay::Replay,
     /// Independent running/startup CLI configuration.
     config: Mutex<ConfigState>,
     /// Installed, staged, and committing component state.
@@ -361,6 +366,7 @@ impl Shared {
             settings: Mutex::new(settings),
             show,
             rc_overrides: Map::new(),
+            replay: replay::Replay::default(),
             config: Mutex::new(config),
             components: Mutex::new(components),
             migration: Mutex::new(MigrationState::default()),
@@ -915,6 +921,11 @@ impl Shared {
 
     /// Answers one show request below `show/`, or `None` when no fixture exists.
     fn show(&self, path: &str, selector: Option<Selector<'_>>) -> Option<Value> {
+        if let Some(replayed) = self.replay.verbatim() {
+            return replayed
+                .get(path.trim_end_matches('/'))
+                .and_then(|found| tree::select_show(found, selector));
+        }
         let migration_answer = lock(&self.migration).show(path);
         if let Some(answer) = migration_answer {
             return Some(answer);
@@ -1018,10 +1029,28 @@ impl Shared {
         self
     }
 
+    /// Replays the answers of `continued` exchanges by resource path; with `verbatim` (the
+    /// `show` fixtures by path) `show` and `show rc` answer only from those fixtures and the
+    /// `show rc` roots set before.
+    pub(crate) fn with_replay(
+        mut self,
+        continued: BTreeMap<String, Vec<Value>>,
+        verbatim: Option<Map<String, Value>>,
+    ) -> Self {
+        self.replay = replay::Replay::new(continued, verbatim, &self.rc_overrides);
+        self
+    }
+
     /// Answers the value of a `{"show": ..}` member of a root POST.
     fn show_member(&self, settings: &Value, request: &Value) -> Value {
         let mut answer = Map::new();
         for (key, sub) in request.as_object().into_iter().flatten() {
+            if key == "rc"
+                && let Some(replayed) = self.replay.rc(sub)
+            {
+                drop(answer.insert(key.clone(), replayed));
+                continue;
+            }
             if key == "rc" || key == "sc" {
                 let fixture = tree::read_through(settings, sub);
                 let projected = lock(&self.config).projection(key == "sc");
@@ -1430,9 +1459,13 @@ async fn rci_get_root(State(shared): State<Arc<Shared>>) -> Response {
 async fn rci_get(
     State(shared): State<Arc<Shared>>,
     Extension(Login(login)): Extension<Login>,
+    headers: HeaderMap,
     Path(path): Path<String>,
     Query(query): Query<BTreeMap<String, String>>,
 ) -> Response {
+    if let Some(replayed) = shared.replay.next(&path, shared.session_id(&headers)) {
+        return replayed;
+    }
     let resource = path.trim_end_matches('/');
     if shared.faults.show_requires_post.contains(resource)
         || shared.faults.show_absent.contains(resource)
@@ -1504,6 +1537,7 @@ async fn rci_post(
     State(shared): State<Arc<Shared>>,
     Extension(Login(login)): Extension<Login>,
     Extension(record): Extension<request_log::RecordIndex>,
+    headers: HeaderMap,
     Path(path): Path<String>,
     Query(query): Query<BTreeMap<String, String>>,
     body: Bytes,
@@ -1511,6 +1545,9 @@ async fn rci_post(
     let Some(parsed) = parse_body(&body) else {
         return empty(StatusCode::BAD_REQUEST);
     };
+    if let Some(replayed) = shared.replay.start(&path, shared.session_id(&headers)) {
+        return replayed;
+    }
     if shared
         .faults
         .show_absent

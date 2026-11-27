@@ -102,6 +102,11 @@ Models: `KN-1811`, `KN-1010`, `KN-3810`, `NC-3013`.
   installs and removes a package, checks one service and always revokes the key.
 - `KCC_LIVE_ENTWARE_PACKAGE`: the package the SSH suite installs and removes (default
   `nano`); it must not be installed before the run.
+- `KCC_LIVE_CAPTURE_DIR`: absolute path of a `kcc-capture` output directory (with its
+  `manifest.json`). `cargo test -p kcc-domain --test live_capture_decode -- --ignored`
+  replays it through a fake router against kcc's reads (one `live_*` test per read) and
+  contacts no router; `KCC_LIVE_FIXTURE_DIR` (absolute) replaces the committed real-shape
+  fixture directory its parity test compares.
 
 A missing variable makes the live test log `live-skip:<reason>` through `tracing` and
 return `Ok(())`. It never passes silently.

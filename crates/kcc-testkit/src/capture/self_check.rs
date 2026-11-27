@@ -1,18 +1,14 @@
 //! The self-check of a written capture.
 
+pub mod hits;
+
 use alloc::collections::BTreeSet;
-use core::net::{IpAddr, Ipv4Addr};
 use std::{fs, io, path::Path};
 
 use serde_json::Value;
 
-use super::{CaptureError, MANIFEST, Rendered, items};
-use crate::anonymize::{
-    Identifier, IdentifierKind,
-    fold::{contains_folded, fold, percent_decoded},
-    ipv4_forms, mac_forms,
-    runs::{self, has_foreign_ipv6},
-};
+use self::hits::Explain;
+use super::{CaptureError, INTERFACE_STAT_PREFIX, MANIFEST, Rendered, detector::Detector, items};
 
 /// Scans every file this run wrote into `directory` (`rendered`'s files and the manifest)
 /// for every identifier; on a hit or any error it deletes `directory`.
@@ -28,9 +24,9 @@ use crate::anonymize::{
 ///
 /// # Errors
 ///
-/// [`CaptureError::IdentifierLeaked`] naming the file and the kind of identifier, never the
-/// value; [`CaptureError::Io`] when reading or deleting fails. Either way the directory is
-/// deleted first.
+/// [`CaptureError::IdentifierLeaked`] naming the first file and the kind of identifier and
+/// listing every hit without a value (see [`hits::LeakHit`]); [`CaptureError::Io`] when
+/// reading or deleting fails. Either way the directory is deleted first.
 #[inline]
 pub fn self_check(directory: &Path, rendered: &Rendered) -> Result<(), CaptureError> {
     let outcome = scan(directory, rendered);
@@ -40,90 +36,53 @@ pub fn self_check(directory: &Path, rendered: &Rendered) -> Result<(), CaptureEr
     outcome
 }
 
-/// The self-check without the deletion: the first leak, or the first I/O error.
+/// The self-check without the deletion: every leak, or the first I/O error.
 ///
 /// # Errors
 ///
 /// As [`self_check`].
 fn scan(directory: &Path, rendered: &Rendered) -> Result<(), CaptureError> {
-    let needles: Vec<(String, IdentifierKind)> = rendered
-        .identifiers
-        .iter()
-        .flat_map(|identifier| {
-            let spellings = if identifier.kind == IdentifierKind::Mac {
-                mac_forms::spellings(&identifier.value).to_vec()
-            } else {
-                vec![fold(&identifier.value)]
-            };
-            spellings
-                .into_iter()
-                .map(|needle| (needle, identifier.kind))
-        })
-        .collect();
-    let (ipv4, prefixes) = learned_addresses(&rendered.identifiers);
+    let detector = Detector::new(&rendered.identifiers);
     let fixed = fixed_words();
+    let tokens = fixed_tokens(&fixed);
     let names: BTreeSet<&str> = rendered
         .files
         .keys()
         .map(String::as_str)
         .chain([MANIFEST])
         .collect();
+    let mut first = None;
+    let mut found = Vec::new();
     for name in names {
         let written = fs::read_to_string(directory.join(name))?;
-        let text = if name == MANIFEST {
-            router_words(&written, &fixed)?
-        } else {
-            written
+        let manifest = (name == MANIFEST)
+            .then(|| serde_json::from_str::<Value>(&written).map_err(io::Error::other))
+            .transpose()?;
+        let scanned = manifest
+            .as_ref()
+            .map_or_else(|| written.clone(), |parsed| router_words(parsed, &fixed));
+        let Some((kind, _)) = detector.finding(&scanned) else {
+            continue;
         };
-        let decoded = text
-            .contains(['%', '+'])
-            .then(|| fold(&percent_decoded(&text)));
-        let haystacks = [Some(fold(&text)), decoded];
-        let leaked = needles
-            .iter()
-            .find(|(needle, _)| {
-                haystacks
-                    .iter()
-                    .flatten()
-                    .any(|haystack| contains_folded(haystack, needle))
-            })
-            .map(|(_, kind)| *kind)
-            .or_else(|| {
-                haystacks
-                    .iter()
-                    .flatten()
-                    .any(|haystack| {
-                        has_foreign_ipv6(haystack)
-                            || ipv4_forms::holds_learned(haystack, &ipv4)
-                            || runs::holds_prefix(haystack, &prefixes)
-                    })
-                    .then_some(IdentifierKind::Address)
-            });
-        if let Some(kind) = leaked {
-            return Err(CaptureError::IdentifierLeaked {
-                item: name.to_owned(),
-                kind,
-            });
+        let _: &mut (String, _) = first.get_or_insert_with(|| (name.to_owned(), kind));
+        let explain = Explain::new(name, &detector, rendered);
+        let mut file_hits = manifest.as_ref().map_or_else(
+            || explain.in_lines(&written),
+            |parsed| explain.in_manifest(parsed, &fixed, &tokens),
+        );
+        if file_hits.is_empty() {
+            file_hits.push(explain.whole_file(kind));
         }
+        found.extend(file_hits);
     }
-    Ok(())
-}
-
-/// The learned IPv4 addresses and the `/48` prefixes of the learned IPv6 addresses among
-/// `identifiers`, which the self-check also looks for in other spellings.
-fn learned_addresses(identifiers: &[Identifier]) -> (BTreeSet<Ipv4Addr>, BTreeSet<[u16; 3]>) {
-    let mut ipv4 = BTreeSet::new();
-    let mut prefixes = BTreeSet::new();
-    for identifier in identifiers {
-        match identifier.value.parse::<IpAddr>() {
-            Ok(IpAddr::V4(address)) => {
-                let _: bool = ipv4.insert(address);
-            }
-            Ok(IpAddr::V6(address)) => prefixes.extend(runs::learned_prefixes(address)),
-            Err(_) => {}
-        }
+    match first {
+        Some((item, kind)) => Err(CaptureError::IdentifierLeaked {
+            item,
+            kind,
+            hits: found,
+        }),
+        None => Ok(()),
     }
-    (ipv4, prefixes)
 }
 
 /// The words of the manifest that never come from the router: its keys and the name and
@@ -142,15 +101,23 @@ fn fixed_words() -> BTreeSet<String> {
         .collect()
 }
 
-/// Every key and string of the manifest `text` that is not in `fixed`, one per line: the
-/// parts the router decided (identity, interface ids, skip reasons).
-///
-/// # Errors
-///
-/// [`io::ErrorKind::InvalidData`] when the manifest is not JSON.
-fn router_words(text: &str, fixed: &BTreeSet<String>) -> io::Result<String> {
-    let manifest: Value = serde_json::from_str(text).map_err(io::Error::other)?;
-    let mut pending = vec![&manifest];
+/// The parts of the fixed words and of the interface-stat item prefix between the
+/// separators `-`, `_`, `.` and `/`: the only text a diagnostic shows beside a match.
+fn fixed_tokens(fixed: &BTreeSet<String>) -> BTreeSet<String> {
+    fixed
+        .iter()
+        .map(String::as_str)
+        .chain([INTERFACE_STAT_PREFIX])
+        .flat_map(|word| word.split(['-', '_', '.', '/']))
+        .filter(|part| !part.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+/// Every key and string of `manifest` that is not in `fixed`, one per line: the parts the
+/// router decided (identity, interface ids, skip reasons).
+fn router_words(manifest: &Value, fixed: &BTreeSet<String>) -> String {
+    let mut pending = vec![manifest];
     let mut words = String::new();
     let mut push = |word: &str| {
         if !fixed.contains(word) {
@@ -171,9 +138,13 @@ fn router_words(text: &str, fixed: &BTreeSet<String>) -> io::Result<String> {
             Value::Null | Value::Bool(_) | Value::Number(_) => {}
         }
     }
-    Ok(words)
+    words
 }
 
+#[cfg(test)]
+mod context_tests;
+#[cfg(test)]
+mod hit_tests;
 #[cfg(test)]
 mod render_tests;
 #[cfg(test)]
@@ -191,7 +162,7 @@ mod tests {
 
     use super::self_check;
     use crate::{
-        anonymize::{Identifier, IdentifierKind},
+        anonymize::{Identifier, IdentifierKind, vocabulary::Vocabulary},
         capture::{CaptureError, Rendered},
     };
 
@@ -222,16 +193,18 @@ mod tests {
             files: [("item.json".to_owned(), content.to_owned())].into(),
             manifest: json!({"items": [{"name": "item", "file": "item.json"}]}),
             identifiers: identifiers.to_vec(),
+            sources: Vec::new(),
+            vocabulary: Vocabulary::default(),
         };
         let directory = rendered.write(scratch.path())?;
         match self_check(&directory, &rendered) {
             Ok(()) if directory.exists() => Ok(None),
             Ok(()) => Err("a passing self-check removed the directory".into()),
-            Err(CaptureError::IdentifierLeaked { item, kind })
-                if item == "item.json" && !directory.exists() =>
-            {
-                Ok(Some(kind))
-            }
+            Err(CaptureError::IdentifierLeaked {
+                item,
+                kind,
+                hits: _,
+            }) if item == "item.json" && !directory.exists() => Ok(Some(kind)),
             Err(error) => Err(error.into()),
         }
     }

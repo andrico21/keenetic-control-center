@@ -2,9 +2,11 @@
 //!
 //! Only anonymized output is written; raw responses stay in memory. The router serial
 //! must be listed in `--allow-serial` before any other resource is read. After writing, a
-//! self-check scans the output for every identifier the anonymizer learned; on a hit it
-//! deletes the output and exits with status 3. Only then does `--identifiers-out` add the
-//! learned identifiers to its file.
+//! fidelity check compares the schema of every written file with the raw answer's; on a
+//! difference it deletes the output and exits with status 4. Then a self-check scans the
+//! output for every identifier the anonymizer learned; on a hit it deletes the output and
+//! exits with status 3. Only then does `--identifiers-out` add the learned identifiers to
+//! its file.
 
 use core::error::Error;
 use std::{fs, io, path::PathBuf, process::ExitCode};
@@ -14,7 +16,7 @@ use kcc_rci::{RouterUrl, capabilities::RouterInfo};
 use kcc_testkit::{
     DEFAULT_LOGIN,
     capture::{
-        CaptureError, connect,
+        CaptureError, connect, fidelity,
         identifiers_out::{append_identifiers, refused},
         read_all, render,
         self_check::self_check,
@@ -82,6 +84,7 @@ async fn capture(args: Args) -> Result<(), Box<dyn Error>> {
     let captured = read_all(&connection).await;
     let rendered = render(&captured, &hw_id, &title);
     let directory = rendered.write(&args.out).map_err(CaptureError::from)?;
+    fidelity::check(&directory, &captured, &rendered)?;
     self_check(&directory, &rendered)?;
     if let Some(file) = &args.identifiers_out {
         if refused(file, &args.out)? {

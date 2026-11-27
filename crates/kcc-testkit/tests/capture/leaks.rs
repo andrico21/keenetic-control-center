@@ -101,7 +101,8 @@ async fn variants_and_non_ascii_names_are_rewritten_and_listed() -> TestResult {
 }
 
 /// A learned value only in the manifest (the name of a skipped item) fails the self-check
-/// (todo 4).
+/// (todo 4), and stderr names the hit's place, kind, source and length without the value
+/// (todo 12).
 #[tokio::test(flavor = "multi_thread")]
 async fn a_learned_value_only_in_the_manifest_fails_the_self_check() -> TestResult {
     let builder = FakeRouter::builder(Profile::default())
@@ -122,6 +123,19 @@ async fn a_learned_value_only_in_the_manifest_fails_the_self_check() -> TestResu
     let stderr = stderr_of(&output);
     assert!(stderr.contains("manifest.json"), "the manifest is named");
     assert!(!stderr.contains(&IFACE.to_lowercase()), "no value printed");
+    assert!(!stderr.contains("planted"), "no part of the value printed");
+    for field in [
+        "file=manifest.json",
+        "at=$.items[",
+        "].name",
+        "kind=host",
+        "source=show-interface.*.description",
+        "value=len16/mixed",
+        "matched-len=16",
+        "text=show-interface-stat-<match>",
+    ] {
+        assert!(stderr.contains(field), "stderr lacks {field}");
+    }
     Ok(())
 }
 

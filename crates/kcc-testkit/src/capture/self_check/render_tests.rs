@@ -11,7 +11,7 @@ use tempfile::TempDir;
 
 use super::self_check;
 use crate::{
-    anonymize::IdentifierKind,
+    anonymize::{IdentifierKind, vocabulary::Vocabulary},
     capture::{CaptureError, Captured, Item, Raw, RawBody, Rendered, Request, render},
 };
 
@@ -205,16 +205,18 @@ fn unlearned_leak(content: &str) -> Result<Option<IdentifierKind>, Box<dyn Error
         files: [("item.txt".to_owned(), content.to_owned())].into(),
         manifest: json!({"items": [{"name": "item", "file": "item.txt"}]}),
         identifiers: Vec::new(),
+        sources: Vec::new(),
+        vocabulary: Vocabulary::default(),
     };
     let directory = rendered.write(scratch.path())?;
     match self_check(&directory, &rendered) {
         Ok(()) if directory.exists() => Ok(None),
         Ok(()) => Err("a passing self-check removed the directory".into()),
-        Err(CaptureError::IdentifierLeaked { item, kind })
-            if item == "item.txt" && !directory.exists() =>
-        {
-            Ok(Some(kind))
-        }
+        Err(CaptureError::IdentifierLeaked {
+            item,
+            kind,
+            hits: _,
+        }) if item == "item.txt" && !directory.exists() => Ok(Some(kind)),
         Err(error) => Err(error.into()),
     }
 }
@@ -292,6 +294,8 @@ fn a_failed_write_removes_the_new_directory() -> TestResult {
         files: [("missing/item.json".to_owned(), "{}".to_owned())].into(),
         manifest: json!({"items": []}),
         identifiers: Vec::new(),
+        sources: Vec::new(),
+        vocabulary: Vocabulary::default(),
     };
     let written = rendered.write(scratch.path());
     assert!(written.is_err(), "the write succeeded");

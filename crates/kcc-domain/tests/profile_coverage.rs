@@ -23,12 +23,17 @@ use crate::support::PROFILES;
 /// This guard's own suite: it reads sources and talks to no router.
 const GUARD: &str = "profile_coverage";
 
-/// Suites that are single-profile by nature, each with a one-line reason. Empty: every
-/// suite iterates `support::PROFILES`.
-const SINGLE_PROFILE: &[(&str, &str)] = &[(
-    "capture_coverage",
-    "it talks to no router: it checks the capture tool's item list against the descriptor registry",
-)];
+/// Suites that are single-profile by nature, each with a one-line reason.
+const SINGLE_PROFILE: &[(&str, &str)] = &[
+    (
+        "capture_coverage",
+        "it talks to no router: it checks the capture tool's item list against the descriptor registry",
+    ),
+    (
+        "live_capture_decode",
+        "replays one captured KN-1811 5.1 router; its firmware is the capture's own",
+    ),
+];
 
 /// Firmware lines the fake router models for the fixture's model but `PROFILES` leaves
 /// out, each with its reason.

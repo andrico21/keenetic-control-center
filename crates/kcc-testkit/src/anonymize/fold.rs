@@ -88,12 +88,16 @@ impl<'value> Learned<'value> {
         self.folded.len()
     }
 
-    /// Byte end of a match of this value starting at byte `start` of `text`: its exact
-    /// spelling anywhere, or any case under the matching rule.
+    /// Byte end of a match of this value starting at byte `start` of `text`, in its exact
+    /// spelling or any case, under the matching rule: anywhere from
+    /// [`ANYWHERE_MIN_CHARS`] characters, else only as a whole word (so a short value never
+    /// rewrites part of a longer word such as a firmware key).
     fn match_at(&self, text: &str, start: usize) -> Option<usize> {
         let rest = text.get(start..)?;
+        let anywhere = self.folded.len() >= ANYWHERE_MIN_CHARS;
+        let whole = |end: usize| (anywhere || stands_alone(text, start, end)).then_some(end);
         if rest.starts_with(self.original) {
-            return Some(start.saturating_add(self.original.len()));
+            return whole(start.saturating_add(self.original.len()));
         }
         let mut expected = self.folded.iter();
         for (offset, character) in rest.char_indices() {
@@ -103,26 +107,35 @@ impl<'value> Learned<'value> {
                 }
             }
             if expected.as_slice().is_empty() {
-                let end = start
-                    .saturating_add(offset)
-                    .saturating_add(character.len_utf8());
-                let anywhere = self.folded.len() >= ANYWHERE_MIN_CHARS;
-                return (anywhere || stands_alone(text, start, end)).then_some(end);
+                return whole(
+                    start
+                        .saturating_add(offset)
+                        .saturating_add(character.len_utf8()),
+                );
             }
         }
         None
     }
 }
 
-/// Replaces every match of `learned` (tried in the given order at each position) in one
-/// left-to-right pass, so a replacement is never matched again.
-pub(crate) fn replace_all(text: &str, learned: &[Learned<'_>]) -> String {
+/// Replaces every match of `learned` except where it would alter a `protected` word.
+///
+/// The values are tried in the given order at each position, in one left-to-right pass, so
+/// a replacement is never matched again. A match never cuts into a protected word (a run of
+/// word characters) nor replaces exactly one; a match that holds a protected word whole
+/// among other words (a learned value of several words) is replaced.
+pub(crate) fn replace_all_except(
+    text: &str,
+    learned: &[Learned<'_>],
+    protected: impl Fn(&str) -> bool,
+) -> String {
     let mut output = String::with_capacity(text.len());
     let mut position = 0_usize;
     while let Some(next) = text.get(position..).and_then(|rest| rest.chars().next()) {
-        let found = learned
-            .iter()
-            .find_map(|value| Some((value.match_at(text, position)?, value.replacement)));
+        let found = learned.iter().find_map(|value| {
+            let end = value.match_at(text, position)?;
+            (!alters(text, position, end, &protected)).then_some((end, value.replacement))
+        });
         if let Some((end, replacement)) = found {
             output.push_str(replacement);
             position = end;
@@ -132,4 +145,44 @@ pub(crate) fn replace_all(text: &str, learned: &[Learned<'_>]) -> String {
         }
     }
     output
+}
+
+/// Whether replacing `text[start..end]` would alter a `protected` word: cut into the word
+/// at either end of the match, or be exactly that word.
+fn alters(text: &str, start: usize, end: usize, protected: impl Fn(&str) -> bool) -> bool {
+    let last = text
+        .get(..end)
+        .and_then(|head| head.char_indices().next_back())
+        .map_or(start, |(index, _)| index);
+    [start, last].into_iter().any(|inside| {
+        let (from, to) = word_around(text, inside);
+        let cut = from < start || to > end;
+        let exact = from == start && to == end;
+        from < to && (cut || exact) && text.get(from..to).is_some_and(&protected)
+    })
+}
+
+/// The run of word characters holding the character at byte `index` of `text`, as a byte
+/// range; empty when that character is not a word character.
+fn word_around(text: &str, index: usize) -> (usize, usize) {
+    let Some(character) = text.get(index..).and_then(|rest| rest.chars().next()) else {
+        return (index, index);
+    };
+    if !is_word(character) {
+        return (index, index);
+    }
+    let from = text.get(..index).map_or(index, |head| {
+        head.char_indices()
+            .rev()
+            .take_while(|(_, before)| is_word(*before))
+            .last()
+            .map_or(index, |(found, _)| found)
+    });
+    let after = index.saturating_add(character.len_utf8());
+    let to = text.get(after..).map_or(after, |tail| {
+        tail.char_indices()
+            .find(|(_, next)| !is_word(*next))
+            .map_or(text.len(), |(found, _)| after.saturating_add(found))
+    });
+    (from, to)
 }

@@ -540,6 +540,10 @@ pub struct FakeRouterBuilder {
     show_overrides: BTreeMap<String, Value>,
     /// `show rc` answers replacing whole roots, keyed by JSON pointer.
     rc_overrides: Map<String, Value>,
+    /// Captured answers of continued exchanges, keyed by resource path.
+    continued: BTreeMap<String, Vec<Value>>,
+    /// Whether `show` and `show rc` answer only from the fixtures, verbatim.
+    replayed: bool,
     /// Whether an interface owns the loopback address the fake is reached on.
     reached_directly: bool,
 }
@@ -626,6 +630,30 @@ impl FakeRouterBuilder {
         self
     }
 
+    /// Replays the continued exchange `answers` at the resource `path` (such as
+    /// `tools/ping`): a POST to `path` answers with the first value and restarts the
+    /// exchange for its session, and each following `GET` of `path` in the same session
+    /// (any query) with the next one; the last value repeats, and a session that started
+    /// none reads 404. A string value is answered as plain text.
+    #[inline]
+    pub fn continued_fixture<S>(mut self, path: S, answers: Vec<Value>) -> Self
+    where
+        S: Into<String>,
+    {
+        drop(self.continued.insert(path.into(), answers));
+        self
+    }
+
+    /// Replays a captured router: every `show` read answers with its
+    /// [`show_fixture`](Self::show_fixture) exactly as given (no running-configuration
+    /// projection, no simulated state) or 404 without one, and `show rc` answers only from
+    /// the [`rc_fixture`](Self::rc_fixture) roots (a root without one is absent).
+    #[inline]
+    pub const fn replayed(mut self) -> Self {
+        self.replayed = true;
+        self
+    }
+
     /// Lists `Loopback0` owning `127.0.0.1`, the address the fake is reached on, as a router
     /// kcc reaches directly lists the interface whose address kcc connects to.
     ///
@@ -667,6 +695,12 @@ impl FakeRouterBuilder {
                     "link":"up","state":"up","address":Ipv4Addr::LOCALHOST.to_string(),"mask":"255.0.0.0"}),
             ));
         }
+        let verbatim = self.replayed.then(|| {
+            self.show_overrides
+                .iter()
+                .map(|(path, value)| (path.clone(), value.clone()))
+                .collect::<Map<String, Value>>()
+        });
         for (path, value) in self.show_overrides {
             drop(show.insert(path, value));
         }
@@ -700,7 +734,8 @@ impl FakeRouterBuilder {
             config,
             self.faults,
         )
-        .with_rc_overrides(self.rc_overrides);
+        .with_rc_overrides(self.rc_overrides)
+        .with_replay(self.continued, verbatim);
         Ok(FakeRouter {
             shared: Arc::new(shared),
         })
@@ -782,6 +817,8 @@ impl FakeRouter {
             faults: FaultInjection::default(),
             show_overrides: BTreeMap::new(),
             rc_overrides: Map::new(),
+            continued: BTreeMap::new(),
+            replayed: false,
             reached_directly: false,
         }
     }

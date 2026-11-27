@@ -7,8 +7,12 @@
 //! anonymized result under `<out>/<hw_id>-<title>/`. Raw responses never reach the disk.
 
 mod continued;
+mod detector;
+pub mod fidelity;
 pub mod identifiers_out;
 pub mod self_check;
+mod sources;
+mod vocabulary;
 
 use alloc::collections::BTreeMap;
 use core::{error::Error, fmt, time::Duration};
@@ -29,13 +33,17 @@ use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::{Map, Value, json};
 use zeroize::Zeroizing;
 
+use self::self_check::hits::LeakHit;
 use crate::{
-    anonymize::{AnonymizeError, Anonymizer, Identifier, IdentifierKind},
+    anonymize::{AnonymizeError, Anonymizer, Identifier, IdentifierKind, vocabulary::Vocabulary},
     outbound::lan_policy,
 };
 
 /// Largest accepted response per captured item, in bytes.
 pub const ITEM_BYTE_CAP: usize = 1024 * 1024;
+
+/// Name prefix of the `show interface stat` item of one interface; the interface id follows.
+pub(crate) const INTERFACE_STAT_PREFIX: &str = "show-interface-stat-";
 
 /// Lines requested from `show log`.
 const LOG_LINES: u8 = 50;
@@ -519,22 +527,47 @@ pub enum CaptureError {
     Io(io::Error),
     /// A learned identifier survived anonymization; the output directory was deleted.
     IdentifierLeaked {
-        /// The written file that held it.
+        /// The first written file that held one.
         item: String,
         /// What kind of identifier it was; the value is never kept here.
         kind: IdentifierKind,
+        /// Every hit, value-free (at most ten per file).
+        hits: Vec<LeakHit>,
     },
     /// The identifiers list is not a regular file with one link or lies under `--out`.
     IdentifiersInsideCapture,
+    /// A written file's schema differs from the router's answer (a key, a JSON kind or a
+    /// configuration keyword changed); the output directory was deleted.
+    SchemaChanged {
+        /// The written file.
+        item: String,
+        /// The first differing place: a JSON path (router-chosen keys as `*`) or `line N`.
+        at: String,
+        /// What the router's answer has there: JSON kinds or configuration keywords.
+        expected: String,
+        /// What the written file has there.
+        found: String,
+    },
 }
 
 impl CaptureError {
-    /// The process exit code for this error: 3 for a leaked identifier, 1 otherwise.
+    /// The process exit code for this error: 3 for a leaked identifier, 4 for a changed
+    /// schema, 1 otherwise.
     #[inline]
     #[must_use]
     pub const fn exit_code(&self) -> u8 {
         match self {
-            Self::IdentifierLeaked { item: _, kind: _ } => 3,
+            Self::IdentifierLeaked {
+                item: _,
+                kind: _,
+                hits: _,
+            } => 3,
+            Self::SchemaChanged {
+                item: _,
+                at: _,
+                expected: _,
+                found: _,
+            } => 4,
             Self::Rci(_)
             | Self::SerialMissing
             | Self::SerialNotAllowed
@@ -552,12 +585,28 @@ impl fmt::Display for CaptureError {
             Self::SerialMissing => f.write_str("router reports no serial"),
             Self::SerialNotAllowed => f.write_str("router serial is not in the allowlist"),
             Self::Io(error) => write!(f, "cannot write fixture: {error}"),
-            Self::IdentifierLeaked { item, kind } => write!(
-                f,
-                "self-check found a {kind} identifier in {item}; the capture was deleted"
-            ),
+            Self::IdentifierLeaked { item, kind, hits } => {
+                write!(
+                    f,
+                    "self-check found a {kind} identifier in {item}; the capture was deleted"
+                )?;
+                for hit in hits {
+                    write!(f, "\n  hit: {hit}")?;
+                }
+                Ok(())
+            }
             Self::IdentifiersInsideCapture => f.write_str(
                 "the identifiers list must be a regular file with one link outside the output directory",
+            ),
+            Self::SchemaChanged {
+                item,
+                at,
+                expected,
+                found,
+            } => write!(
+                f,
+                "fidelity check: {item} differs from the router's answer at {at}: {expected} \
+                 became {found}; the capture was deleted"
             ),
         }
     }
@@ -571,8 +620,18 @@ impl Error for CaptureError {
             Self::Io(error) => Some(error),
             Self::SerialMissing
             | Self::SerialNotAllowed
-            | Self::IdentifierLeaked { item: _, kind: _ }
-            | Self::IdentifiersInsideCapture => None,
+            | Self::IdentifierLeaked {
+                item: _,
+                kind: _,
+                hits: _,
+            }
+            | Self::IdentifiersInsideCapture
+            | Self::SchemaChanged {
+                item: _,
+                at: _,
+                expected: _,
+                found: _,
+            } => None,
         }
     }
 }
@@ -639,7 +698,7 @@ pub async fn read_all(connection: &Connection) -> Vec<Captured> {
         {
             for id in interface_ids(value).into_iter().rev() {
                 pending.push(Item {
-                    name: format!("show-interface-stat-{}", file_safe(&id)),
+                    name: format!("{INTERFACE_STAT_PREFIX}{}", file_safe(&id)),
                     request: Request::InterfaceStat(id),
                 });
             }
@@ -818,6 +877,11 @@ pub struct Rendered {
     pub manifest: Value,
     /// Every original value the anonymizer replaced, for the self-check; never written.
     pub identifiers: Vec<Identifier>,
+    /// Where each of `identifiers` (same order) was first learned, value-free: the item
+    /// and the key path in its answer, for the self-check's diagnostics.
+    pub sources: Vec<String>,
+    /// The firmware's words in the raw answers, for the fidelity check; never written.
+    pub vocabulary: Vocabulary,
 }
 
 /// The capture directory name for a router, `<hw_id>-<title>` made file-safe.
@@ -831,10 +895,17 @@ pub fn directory_name(hw_id: &str, title: &str) -> String {
 #[inline]
 #[must_use]
 pub fn render(captured: &[Captured], hw_id: &str, title: &str) -> Rendered {
-    let mut anonymizer = Anonymizer::new();
-    for (item, result) in captured {
+    let vocabulary = vocabulary::learn(captured);
+    let mut anonymizer = Anonymizer::new().with_vocabulary(vocabulary.clone());
+    let mut first: Vec<(Identifier, usize)> = Vec::new();
+    for (index, (item, result)) in captured.iter().enumerate() {
         if let Ok(raw) = result {
             drop(anonymize(&mut anonymizer, item, raw));
+            for identifier in anonymizer.identifiers() {
+                if !first.iter().any(|(known, _)| *known == identifier) {
+                    first.push((identifier, index));
+                }
+            }
         }
     }
     let mut files = BTreeMap::new();
@@ -861,11 +932,14 @@ pub fn render(captured: &[Captured], hw_id: &str, title: &str) -> Rendered {
         }
         entries.push(Value::Object(entry));
     }
+    let identifiers = anonymizer.identifiers();
     Rendered {
         directory: directory_name(hw_id, title),
         files,
         manifest: json!({"hw_id": hw_id, "title": title, "items": entries}),
-        identifiers: anonymizer.identifiers(),
+        sources: sources::describe(captured, &first, &identifiers),
+        identifiers,
+        vocabulary,
     }
 }
 

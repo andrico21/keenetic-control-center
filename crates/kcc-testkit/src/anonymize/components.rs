@@ -3,14 +3,14 @@
 
 use serde_json::{Map, Value};
 
-use super::{AnonymizeError, Anonymizer, Context, classify};
+use super::{AnonymizeError, Anonymizer, Context, classify, named_context};
 
 /// Keys whose string values are component words inside a components answer.
 const COMPONENT_WORDS: &[&str] = &["name", "description"];
 
-/// Anonymizes a components answer: as [`Anonymizer::json`], except that the string values
-/// of [`COMPONENT_WORDS`] keys, at any depth below plain members, only go through
-/// [`Anonymizer::text`].
+/// Anonymizes a components answer held under `parent`: as [`Anonymizer::json`], except
+/// that the string values of [`COMPONENT_WORDS`] keys, at any depth below plain members,
+/// only go through [`Anonymizer::text`].
 ///
 /// # Errors
 ///
@@ -18,34 +18,41 @@ const COMPONENT_WORDS: &[&str] = &["name", "description"];
 pub(super) fn anonymize(
     anonymizer: &mut Anonymizer,
     value: &Value,
+    parent: Option<&str>,
 ) -> Result<Value, AnonymizeError> {
     Ok(match value {
         Value::Object(object) => {
             let mut result = Map::new();
             for (key, member) in object {
                 let context = classify(key);
-                let scrubbed = match member {
-                    Value::String(word) if COMPONENT_WORDS.contains(&key.as_str()) => {
+                let scrubbed = match (member, named_context(parent, key)) {
+                    (Value::String(word), _) if COMPONENT_WORDS.contains(&key.as_str()) => {
                         Value::String(anonymizer.text(word)?)
                     }
-                    Value::Object(_) | Value::Array(_) if context == Context::Plain => {
-                        anonymize(anonymizer, member)?
+                    (Value::Object(inner), Some(names)) => {
+                        anonymizer.named_members(inner, names)?
                     }
-                    Value::Null
-                    | Value::Bool(_)
-                    | Value::Number(_)
-                    | Value::String(_)
-                    | Value::Object(_)
-                    | Value::Array(_) => anonymizer.value(member, context)?,
+                    (Value::Object(_) | Value::Array(_), _) if context == Context::Plain => {
+                        anonymize(anonymizer, member, Some(key))?
+                    }
+                    (
+                        Value::Null
+                        | Value::Bool(_)
+                        | Value::Number(_)
+                        | Value::String(_)
+                        | Value::Object(_)
+                        | Value::Array(_),
+                        _,
+                    ) => anonymizer.value(member, context)?,
                 };
-                drop(result.insert(anonymizer.text(key)?, scrubbed));
+                drop(result.insert(anonymizer.key(key)?, scrubbed));
             }
             Value::Object(result)
         }
         Value::Array(items) => Value::Array(
             items
                 .iter()
-                .map(|item| anonymize(anonymizer, item))
+                .map(|item| anonymize(anonymizer, item, parent))
                 .collect::<Result<_, _>>()?,
         ),
         Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {

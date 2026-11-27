@@ -15,21 +15,30 @@
 //!   link-local or multicast address with other groups set (it may carry another address
 //!   or prefix) maps like a global one, its subnet id dropped too; a solicited-node group
 //!   keeps its shape, its low 24 bits replaced when they do not fit in 16.
-//! - Names, hostnames, domains, descriptions and SSIDs become `host-N` / `ssid-N`; user names
-//!   (map keys under `user`, at any depth) become `user-N`, schedule names (map keys of the
-//!   `show schedule` root) `schedule-N`; serials, IMEI, ICCID, `cid`, `servicetag` and
-//!   `license` become zeros; registry secrets, `ns3` payloads and WireGuard-key-shaped strings
-//!   become [`PLACEHOLDER`].
+//! - Names, hostnames, domains, descriptions and SSIDs become `host-N` / `ssid-N`; serials,
+//!   IMEI, ICCID, `cid`, `servicetag` and `license` become zeros; registry secrets, `ns3`
+//!   payloads and WireGuard-key-shaped strings become [`PLACEHOLDER`].
+//! - The keys of a name-keyed map are names: user names (objects under
+//!   `user` or `users`, at any depth) become `user-N`, schedule names (objects under
+//!   `schedule`, and the `show schedule` root) `schedule-N`, and the names of `known host`,
+//!   `ip host`, `ip http proxy` and `object-group fqdn` entries `host-N`. Any other JSON key
+//!   only goes through the shape rules (secrets, MACs, addresses): a learned value never
+//!   rewrites it, so a learned name left in such a key fails the self-check instead of
+//!   rewriting the router's schema.
 //!
 //! Unspecified, broadcast, loopback, multicast, link-local IPv4 and netmask-shaped values
 //! are kept unchanged, as are unspecified, loopback and IPv6 multicast groups with groups
 //! 1-5 zero. An IPv4 address is also read dashed or underscored in a host name label,
 //! zero-padded and followed by a dotted port, and keeps its spelling.
 //!
-//! Every learned original is also replaced in free text: in its exact spelling anywhere,
-//! and with Unicode case ignored anywhere when it has six or more characters, else only as
-//! a whole word. A MAC also matches in its dotted spelling, and a learned MAC in its bare
+//! Every learned original is also replaced in free text, in its exact spelling and with
+//! Unicode case ignored: anywhere when it has six or more characters, else only as a whole
+//! word. A MAC also matches in its dotted spelling, and a learned MAC in its bare
 //! twelve-hex-digit spelling.
+//!
+//! Words of the firmware's own [`Vocabulary`] are never owner identifiers: a value equal to
+//! one (as a whole, case ignored) is neither aliased nor learned, except a serial, which is
+//! always learned (see [`vocabulary`]).
 
 use alloc::collections::{BTreeMap, BTreeSet};
 use core::{
@@ -52,12 +61,19 @@ use zeroize::Zeroizing;
 mod components;
 pub(crate) mod fold;
 pub(crate) mod ipv4_forms;
+#[cfg(test)]
+mod learned_text_tests;
 pub(crate) mod mac_forms;
 pub(crate) mod runs;
 #[cfg(test)]
 mod spelling_tests;
 #[cfg(test)]
 mod variant_tests;
+pub mod vocabulary;
+#[cfg(test)]
+mod vocabulary_tests;
+
+use self::vocabulary::Vocabulary;
 
 /// Replacement for every secret value and `ns3` payload.
 pub const PLACEHOLDER: &str = "<redacted>";
@@ -185,6 +201,30 @@ enum Context {
     Schedule,
 }
 
+/// How the members of one JSON object are read.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Members {
+    /// Each member in the context its key implies.
+    Plain,
+    /// Every member is a secret.
+    Secret,
+    /// An interface reference (`{id, name, description}` under an `interface` key, as in a
+    /// `show ip hotspot` row): the firmware assigns its `id` and `name`, so they are plain
+    /// text, neither aliased nor learned; other members as under [`Members::Plain`].
+    Interface,
+}
+
+impl Members {
+    /// The members of an object held in `context`.
+    const fn of(context: Context) -> Self {
+        if matches!(context, Context::Secret) {
+            Self::Secret
+        } else {
+            Self::Plain
+        }
+    }
+}
+
 /// What a learned identifier is.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -262,6 +302,41 @@ fn classify(key: &str) -> Context {
     }
 }
 
+/// Whether the value under the JSON object key `key` is learned (a name, serial, SSID or
+/// secret) rather than read as free text.
+pub(crate) fn learns_from(key: &str) -> bool {
+    classify(key) != Context::Plain
+}
+
+/// Whether the value under the JSON object key `key` is a secret.
+pub(crate) fn secret_key(key: &str) -> bool {
+    classify(key) == Context::Secret
+}
+
+/// The context of the keys of an object held under `key` in an object held under
+/// `parent`, when that object is keyed by names.
+fn named_context(parent: Option<&str>, key: &str) -> Option<Context> {
+    let normalized = |word: &str| word.to_ascii_lowercase().replace('_', "-");
+    match (parent.map(normalized).as_deref(), normalized(key).as_str()) {
+        (_, "user" | "users") => Some(Context::User),
+        (_, "schedule") => Some(Context::Schedule),
+        (Some("known" | "ip"), "host")
+        | (Some("http"), "proxy")
+        | (Some("object-group"), "fqdn") => Some(Context::Host),
+        _ => None,
+    }
+}
+
+/// Whether an object held under `key` (in an object held under `parent`) is a name-keyed
+/// map, whose keys are names the anonymizer aliases.
+///
+/// These are the objects under `user` and
+/// `users` (router users, also the users of a VPN server) and `schedule`, at any depth, and
+/// under `known.host`, `ip.host`, `ip.http.proxy` and `object-group.fqdn`.
+pub(crate) fn names_below(parent: Option<&str>, key: &str) -> bool {
+    named_context(parent, key).is_some()
+}
+
 /// Deterministic anonymizer for one capture run.
 pub struct Anonymizer {
     /// Per-run HMAC key; generated in memory and never written anywhere.
@@ -289,6 +364,8 @@ pub struct Anonymizer {
     /// Original values, replaced wherever they appear in free text, with their replacement
     /// and the context they were learned in.
     learned: BTreeMap<String, (String, Context)>,
+    /// Words of the firmware's schema: never learned, and never rewritten as a key.
+    vocabulary: Vocabulary,
 }
 
 impl fmt::Debug for Anonymizer {
@@ -304,6 +381,7 @@ impl fmt::Debug for Anonymizer {
             .field("ssids", &self.ssids.len())
             .field("users", &self.users.len())
             .field("schedules", &self.schedules.len())
+            .field("vocabulary", &self.vocabulary.len())
             .finish_non_exhaustive()
     }
 }
@@ -338,7 +416,17 @@ impl Anonymizer {
             schedules: BTreeMap::new(),
             addresses: BTreeSet::new(),
             learned: BTreeMap::new(),
+            vocabulary: Vocabulary::empty(),
         }
+    }
+
+    /// This anonymizer with `vocabulary` as the firmware's words: a value equal to one is
+    /// neither aliased nor learned, and a key that is one is never rewritten.
+    #[inline]
+    #[must_use]
+    pub fn with_vocabulary(mut self, vocabulary: Vocabulary) -> Self {
+        self.vocabulary = vocabulary;
+        self
     }
 
     /// Anonymizes a JSON document.
@@ -360,7 +448,7 @@ impl Anonymizer {
     /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
     #[inline]
     pub fn components(&mut self, value: &Value) -> Result<Value, AnonymizeError> {
-        components::anonymize(self, value)
+        components::anonymize(self, value, None)
     }
 
     /// Anonymizes a `show schedule` answer: the keys of its root object (or of the object
@@ -418,22 +506,34 @@ impl Anonymizer {
     /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
     #[inline]
     pub fn text(&mut self, text: &str) -> Result<String, AnonymizeError> {
+        let shaped = self.shapes(text)?;
+        Ok(self.replace_learned(&shaped))
+    }
+
+    /// The shape rules of [`Anonymizer::text`] alone: secrets, MACs and addresses.
+    ///
+    /// # Errors
+    ///
+    /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
+    fn shapes(&mut self, text: &str) -> Result<String, AnonymizeError> {
         let without_secrets = redact_secret_shapes(text);
         let hex = runs::rewrite(&without_secrets, runs::is_hex_char, |run, before, after| {
             self.hex_run(run, before, after)
         })?;
-        let addressed = runs::rewrite(&hex, ipv4_forms::is_run_char, |run, before, after| {
+        runs::rewrite(&hex, ipv4_forms::is_run_char, |run, before, after| {
             ipv4_forms::rewrite(run, before, after, |address| self.map_ipv4(address))
-        })?;
-        Ok(self.replace_learned(&addressed))
+        })
     }
 
     /// Anonymizes a Keenetic configuration text structurally.
     ///
     /// Registry secrets and every `ns3` payload become [`PLACEHOLDER`]; `ssid`,
     /// `description`, `hostname`, `known host`, `ip host` and `domain name` arguments
-    /// become aliases; other words go through [`Anonymizer::text`]. The header keeps
-    /// model, version and agent, drops the checksum and generalizes the user name.
+    /// become aliases; a vocabulary word is kept; other words go through
+    /// [`Anonymizer::text`]. The header keeps model, version and agent, drops the checksum
+    /// and generalizes the user name. Last, every learned value is replaced in the printed
+    /// text, so one that spans several words (a route comment of two words) is replaced
+    /// too, without altering a vocabulary word.
     ///
     /// # Errors
     ///
@@ -454,7 +554,8 @@ impl Anonymizer {
         for node in &mut ast.nodes {
             self.config_node(node)?;
         }
-        Ok(config_text::print(&ast))
+        let printed = config_text::print(&ast);
+        Ok(self.replace_learned_except(&printed, |word| self.vocabulary.is_key(word)))
     }
 
     /// Rewrites one configuration node and its children in place.
@@ -499,6 +600,7 @@ impl Anonymizer {
             (_, Some("description" | "hostname"))
             | (Some("known" | "ip"), Some("host"))
             | (Some("domain"), Some("name")) => Ok(self.alias(word, Context::Host)),
+            _ if self.vocabulary.is_key(word) => Ok(word.to_owned()),
             _ => self.text(word),
         }
     }
@@ -524,7 +626,7 @@ impl Anonymizer {
                 | Context::Secret
                 | Context::Serial
                 | Context::Ssid
-                | Context::Host => self.members(object, context == Context::Secret)?,
+                | Context::Host => self.members(object, Members::of(context), None)?,
             },
             Value::Array(items) => Value::Array(
                 items
@@ -559,8 +661,9 @@ impl Anonymizer {
         })
     }
 
-    /// Anonymizes an object's members, each in the context its key implies (every member
-    /// is a secret inside a secret).
+    /// Anonymizes the members of an object held under `parent`, each in the context its key
+    /// implies: every member is a secret inside a secret, a name-keyed map has its keys
+    /// aliased, and the `id` and `name` of an interface reference are plain text.
     ///
     /// # Errors
     ///
@@ -568,19 +671,42 @@ impl Anonymizer {
     fn members(
         &mut self,
         object: &Map<String, Value>,
-        inside_secret: bool,
+        kind: Members,
+        parent: Option<&str>,
     ) -> Result<Value, AnonymizeError> {
         let mut result = Map::new();
         for (key, member) in object {
-            let member_context = if inside_secret {
-                Context::Secret
-            } else {
-                classify(key)
+            let anonymized = match (kind, member) {
+                (Members::Secret, _) => self.value(member, Context::Secret)?,
+                (Members::Interface, _) if matches!(key.as_str(), "id" | "name") => {
+                    self.value(member, Context::Plain)?
+                }
+                (Members::Plain | Members::Interface, Value::Object(inner)) => {
+                    match named_context(parent, key) {
+                        Some(context) => self.named_members(inner, context)?,
+                        None if key == "interface"
+                            && inner.get("id").is_some_and(Value::is_string) =>
+                        {
+                            self.members(inner, Members::Interface, Some(key))?
+                        }
+                        None => self.members(inner, Members::of(classify(key)), Some(key))?,
+                    }
+                }
+                (Members::Plain | Members::Interface, _) => self.value(member, classify(key))?,
             };
-            let anonymized = self.value(member, member_context)?;
-            drop(result.insert(self.text(key)?, anonymized));
+            drop(result.insert(self.key(key)?, anonymized));
         }
         Ok(Value::Object(result))
+    }
+
+    /// Anonymizes a JSON object key outside a name-keyed map: only the shape rules apply,
+    /// a learned value never rewrites it.
+    ///
+    /// # Errors
+    ///
+    /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
+    fn key(&mut self, key: &str) -> Result<String, AnonymizeError> {
+        self.shapes(key)
     }
 
     /// Anonymizes an object keyed by names: each key becomes an alias in `context`, each
@@ -602,11 +728,15 @@ impl Anonymizer {
         Ok(Value::Object(result))
     }
 
-    /// The replacement for a value whose meaning is known from its key.
+    /// The replacement for a value whose meaning is known from its key; a firmware word
+    /// keeps its name and is not learned. A secret equal to one is still replaced (not
+    /// learned, so a configuration keyword is never redacted); a serial is always replaced
+    /// and learned.
     fn alias(&mut self, original: &str, context: Context) -> String {
         if original.is_empty() || original == PLACEHOLDER {
             return original.to_owned();
         }
+        let firmware_word = self.vocabulary.holds(original);
         let replacement = match context {
             Context::Secret => PLACEHOLDER.to_owned(),
             Context::Serial => original
@@ -619,12 +749,18 @@ impl Anonymizer {
                     }
                 })
                 .collect(),
+            Context::Ssid | Context::User | Context::Schedule | Context::Host | Context::Plain
+                if firmware_word =>
+            {
+                return original.to_owned();
+            }
             Context::Ssid => numbered(&mut self.ssids, "ssid", original),
             Context::User => numbered(&mut self.users, "user", original),
             Context::Schedule => numbered(&mut self.schedules, "schedule", original),
             Context::Host | Context::Plain => numbered(&mut self.host_names, "host", original),
         };
-        if original.chars().count() >= MIN_LEARNED_CHARS {
+        let learns = context == Context::Serial || !firmware_word;
+        if learns && original.chars().count() >= MIN_LEARNED_CHARS {
             drop(
                 self.learned
                     .insert(original.to_owned(), (replacement.clone(), context)),
@@ -635,13 +771,18 @@ impl Anonymizer {
 
     /// Replaces every learned original value under the rule of [`fold`], longest first.
     fn replace_learned(&self, text: &str) -> String {
+        self.replace_learned_except(text, |_| false)
+    }
+
+    /// Replaces like [`Anonymizer::replace_learned`], never altering a `protected` word.
+    fn replace_learned_except(&self, text: &str, protected: impl Fn(&str) -> bool) -> String {
         let mut learned: Vec<fold::Learned<'_>> = self
             .learned
             .iter()
             .filter_map(|(original, (replacement, _))| fold::Learned::new(original, replacement))
             .collect();
         learned.sort_by_key(|value| Reverse(value.folded_len()));
-        fold::replace_all(text, &learned)
+        fold::replace_all_except(text, &learned, protected)
     }
 
     /// Rewrites a run that is one MAC in dotted spelling, or a learned MAC in bare
@@ -839,7 +980,7 @@ impl Anonymizer {
 /// That is an alias, a zeroed serial (ASCII `0` and ASCII punctuation only, which includes
 /// a value with no letter or digit at all), the placeholder or a documentation address. A
 /// value in any other script identifies something.
-fn is_synthetic(value: &str) -> bool {
+pub(crate) fn is_synthetic(value: &str) -> bool {
     let alias = ALIAS_PREFIXES.iter().any(|prefix| {
         value.strip_prefix(prefix).is_some_and(|number| {
             !number.is_empty() && number.chars().all(|digit| digit.is_ascii_digit())
