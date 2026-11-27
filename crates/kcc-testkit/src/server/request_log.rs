@@ -68,3 +68,33 @@ pub(super) fn record_commands(shared: &Shared, RecordIndex(index): RecordIndex, 
         record.commands.extend(lines);
     }
 }
+
+/// Attaches to the record at `index` what a background tool was asked to do.
+///
+/// The line is the path's words, then `<key> <value>` for each scalar member of `body` in
+/// key order (`tools ping count 2 host <address>`); one with a secret-bearing field is
+/// logged as `None`.
+pub(super) fn record_tool(
+    shared: &Shared,
+    RecordIndex(index): RecordIndex,
+    path: &str,
+    body: &Value,
+) {
+    let mut line = path.replace('/', " ");
+    for (key, member) in body.as_object().into_iter().flatten() {
+        let text = match member {
+            Value::String(text) => text.clone(),
+            Value::Number(number) => number.to_string(),
+            Value::Bool(flag) => flag.to_string(),
+            Value::Null | Value::Array(_) | Value::Object(_) => continue,
+        };
+        line.push(' ');
+        line.push_str(key);
+        line.push(' ');
+        line.push_str(&text);
+    }
+    let secret = SECRET_MARKERS.iter().any(|marker| line.contains(marker));
+    if let Some(record) = lock(&shared.request_log).get_mut(index) {
+        record.commands.push((!secret).then_some(line));
+    }
+}

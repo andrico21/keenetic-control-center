@@ -33,7 +33,27 @@ pub(crate) fn workspace() -> PathBuf {
 /// # Errors
 /// Returns anonymizer, serialization or file failures.
 pub(crate) fn write(directory: &Path, name: &str, capture: &Value) -> TestResult<PathBuf> {
-    let clean = Anonymizer::new().json(capture)?;
+    let mut anonymizer = Anonymizer::new();
+    let clean = match capture {
+        Value::Object(members) => Value::Object(
+            members
+                .iter()
+                .map(|(key, member)| {
+                    let clean = if key == "components" {
+                        anonymizer.components(member)
+                    } else {
+                        anonymizer.json(member)
+                    };
+                    Ok((key.clone(), clean?))
+                })
+                .collect::<TestResult<_>>()?,
+        ),
+        other @ (Value::Null
+        | Value::Bool(_)
+        | Value::Number(_)
+        | Value::String(_)
+        | Value::Array(_)) => anonymizer.json(other)?,
+    };
     fs::create_dir_all(directory)?;
     let path = directory.join(name);
     fs::write(

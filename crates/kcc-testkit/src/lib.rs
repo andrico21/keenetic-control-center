@@ -81,7 +81,7 @@ use axum::{
     serve::Listener as AxumListener,
 };
 use kcc_config::config_text::ParseError;
-use serde_json::Value;
+use serde_json::{Map, Value};
 #[cfg(unix)]
 use tokio::runtime;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
@@ -494,6 +494,8 @@ pub struct FakeRouterBuilder {
     faults: FaultInjection,
     /// Per-path show fixture replacements for focused integration scenarios.
     show_overrides: BTreeMap<String, Value>,
+    /// `show rc` answers replacing whole roots, keyed by JSON pointer.
+    rc_overrides: Map<String, Value>,
     /// Whether an interface owns the loopback address the fake is reached on.
     reached_directly: bool,
 }
@@ -566,6 +568,17 @@ impl FakeRouterBuilder {
         S: Into<String>,
     {
         drop(self.show_overrides.insert(path.into(), value));
+        self
+    }
+
+    /// Replaces the `show rc` answer for the root at the JSON pointer `root_pointer` (such
+    /// as `/user` or `/ip/policy`) whenever a `show rc` request reaches that root.
+    #[inline]
+    pub fn rc_fixture<S>(mut self, root_pointer: S, value: Value) -> Self
+    where
+        S: Into<String>,
+    {
+        drop(self.rc_overrides.insert(root_pointer.into(), value));
         self
     }
 
@@ -642,7 +655,8 @@ impl FakeRouterBuilder {
             show,
             config,
             self.faults,
-        );
+        )
+        .with_rc_overrides(self.rc_overrides);
         Ok(FakeRouter {
             shared: Arc::new(shared),
         })
@@ -723,6 +737,7 @@ impl FakeRouter {
             clock: Arc::new(SystemClock::new()),
             faults: FaultInjection::default(),
             show_overrides: BTreeMap::new(),
+            rc_overrides: Map::new(),
             reached_directly: false,
         }
     }
@@ -969,10 +984,9 @@ impl Handle {
     #[inline]
     #[must_use]
     pub fn settings_snapshot(&self) -> Value {
-        self.router.as_ref().map_or_else(
-            || Value::Object(serde_json::Map::new()),
-            |shared| shared.settings(),
-        )
+        self.router
+            .as_ref()
+            .map_or_else(|| Value::Object(Map::new()), |shared| shared.settings())
     }
 
     /// Applies the configuration line `line` directly, as test setup: no request is logged

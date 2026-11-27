@@ -1,7 +1,10 @@
 //! `kcc-capture`: captures a router's read-only resources into anonymized fixtures.
 //!
 //! Only anonymized output is written; raw responses stay in memory. The router serial
-//! must be listed in `--allow-serial` before any other resource is read.
+//! must be listed in `--allow-serial` before any other resource is read. After writing, a
+//! self-check scans the output for every identifier the anonymizer learned; on a hit it
+//! deletes the output and exits with status 3. Only then does `--identifiers-out` add the
+//! learned identifiers to its file.
 
 use core::error::Error;
 use std::{fs, io, path::PathBuf, process::ExitCode};
@@ -10,7 +13,13 @@ use clap::Parser;
 use kcc_rci::{RouterUrl, capabilities::RouterInfo};
 use kcc_testkit::{
     DEFAULT_LOGIN,
-    capture::{connect, read_all, render, verify_serial},
+    capture::{
+        CaptureError, connect,
+        identifiers_out::{append_identifiers, refused},
+        read_all, render,
+        self_check::self_check,
+        verify_serial,
+    },
 };
 use secrecy::SecretString;
 use tokio::runtime::Builder;
@@ -38,6 +47,11 @@ struct Args {
     /// Admit loopback targets (for the fake router).
     #[arg(long)]
     allow_loopback: bool,
+    /// After a passing self-check, add every learned identifier to this file (one per
+    /// line, created with mode 0600); it must be missing or a regular file with one link
+    /// (not a symlink, FIFO or hard link) outside the `--out` directory.
+    #[arg(long)]
+    identifiers_out: Option<PathBuf>,
 }
 
 /// Connects, checks the serial, captures, anonymizes and writes.
@@ -60,9 +74,21 @@ async fn capture(args: Args) -> Result<(), Box<dyn Error>> {
         .as_deref()
         .unwrap_or("unknown")
         .to_owned();
+    if let Some(file) = &args.identifiers_out
+        && refused(file, &args.out)?
+    {
+        return Err(CaptureError::IdentifiersInsideCapture.into());
+    }
     let captured = read_all(&connection).await;
     let rendered = render(&captured, &hw_id, &title);
-    let directory = rendered.write(&args.out)?;
+    let directory = rendered.write(&args.out).map_err(CaptureError::from)?;
+    self_check(&directory, &rendered)?;
+    if let Some(file) = &args.identifiers_out {
+        if refused(file, &args.out)? {
+            return Err(CaptureError::IdentifiersInsideCapture.into());
+        }
+        append_identifiers(file, &rendered.identifiers)?;
+    }
     tracing::info!(
         directory = %directory.display(),
         files = rendered.files.len(),
@@ -84,7 +110,11 @@ fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             tracing::error!(%error, "kcc-capture failed");
-            ExitCode::FAILURE
+            error
+                .downcast_ref::<CaptureError>()
+                .map_or(ExitCode::FAILURE, |capture| {
+                    ExitCode::from(capture.exit_code())
+                })
         }
     }
 }

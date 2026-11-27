@@ -47,6 +47,7 @@ tracing-subscriber = { workspace = true, features = ["fmt", "std"] }
 zeroize = { workspace = true }
 
 [dev-dependencies]
+tempfile = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "test-util"] }
 tower = { workspace = true, features = ["util"] }
 

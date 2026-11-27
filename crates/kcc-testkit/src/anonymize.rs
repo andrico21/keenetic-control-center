@@ -11,20 +11,32 @@
 //!   Every other IPv4 address (public, or a private `/24` past the second) becomes one host
 //!   in `203.0.113.0/24`.
 //! - IPv6 `/48` prefixes map to `2001:db8:N::/48` with the subnet id kept; interface ids
-//!   above `0xffff` are replaced through the HMAC. Link-local keeps `fe80::/64`.
-//! - Hostnames, descriptions and SSIDs become `host-N` / `ssid-N`; serials, IMEI and ICCID
-//!   become zeros; registry secrets, `ns3` payloads and WireGuard-key-shaped strings become
-//!   [`PLACEHOLDER`].
+//!   above `0xffff` are replaced through the HMAC. Link-local keeps `fe80::/64`. A
+//!   link-local or multicast address with other groups set (it may carry another address
+//!   or prefix) maps like a global one, its subnet id dropped too; a solicited-node group
+//!   keeps its shape, its low 24 bits replaced when they do not fit in 16.
+//! - Names, hostnames, domains, descriptions and SSIDs become `host-N` / `ssid-N`; user names
+//!   (map keys under `user`, at any depth) become `user-N`, schedule names (map keys of the
+//!   `show schedule` root) `schedule-N`; serials, IMEI, ICCID, `cid`, `servicetag` and
+//!   `license` become zeros; registry secrets, `ns3` payloads and WireGuard-key-shaped strings
+//!   become [`PLACEHOLDER`].
 //!
 //! Unspecified, broadcast, loopback, multicast, link-local IPv4 and netmask-shaped values
-//! are kept unchanged.
+//! are kept unchanged, as are unspecified, loopback and IPv6 multicast groups with groups
+//! 1-5 zero. An IPv4 address is also read dashed or underscored in a host name label,
+//! zero-padded and followed by a dotted port, and keeps its spelling.
+//!
+//! Every learned original is also replaced in free text: in its exact spelling anywhere,
+//! and with Unicode case ignored anywhere when it has six or more characters, else only as
+//! a whole word. A MAC also matches in its dotted spelling, and a learned MAC in its bare
+//! twelve-hex-digit spelling.
 
 use alloc::collections::{BTreeMap, BTreeSet};
 use core::{
     cmp::Reverse,
     error::Error,
     fmt,
-    net::{Ipv4Addr, Ipv6Addr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
 };
 
 use hmac::{Hmac, KeyInit as _, Mac as _};
@@ -36,6 +48,16 @@ use rand::RngExt as _;
 use serde_json::{Map, Value};
 use sha2::Sha256;
 use zeroize::Zeroizing;
+
+mod components;
+pub(crate) mod fold;
+pub(crate) mod ipv4_forms;
+pub(crate) mod mac_forms;
+pub(crate) mod runs;
+#[cfg(test)]
+mod spelling_tests;
+#[cfg(test)]
+mod variant_tests;
 
 /// Replacement for every secret value and `ns3` payload.
 pub const PLACEHOLDER: &str = "<redacted>";
@@ -97,11 +119,19 @@ const SSID_KEYS: &[&str] = &["ssid", "essid"];
 const HOST_KEYS: &[&str] = &[
     "hostname",
     "host",
+    "name",
+    "known-host",
+    "fqdn",
+    "http-host",
+    "booked",
     "description",
     "domain",
     "domain-name",
     "comment",
 ];
+
+/// Alias prefixes the anonymizer hands out; a value of that shape identifies nothing.
+const ALIAS_PREFIXES: &[&str] = &["host-", "ssid-", "user-", "schedule-"];
 
 /// Why a value could not be anonymized.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -149,6 +179,68 @@ enum Context {
     Ssid,
     /// A host name or description.
     Host,
+    /// A user name; an object in this context is keyed by user names.
+    User,
+    /// A schedule name; an object in this context is keyed by schedule names.
+    Schedule,
+}
+
+/// What a learned identifier is.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum IdentifierKind {
+    /// A host name, domain, description or other name.
+    Host,
+    /// A wireless network name.
+    Ssid,
+    /// A serial, cid, service tag or other hardware identifier.
+    Serial,
+    /// A router user name.
+    User,
+    /// A schedule name.
+    Schedule,
+    /// A secret; it is only ever compared in memory.
+    Secret,
+    /// A MAC address.
+    Mac,
+    /// An IP address outside the kept ranges.
+    Address,
+}
+
+impl fmt::Display for IdentifierKind {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Host => "host",
+            Self::Ssid => "ssid",
+            Self::Serial => "serial",
+            Self::User => "user",
+            Self::Schedule => "schedule",
+            Self::Secret => "secret",
+            Self::Mac => "mac",
+            Self::Address => "address",
+        })
+    }
+}
+
+/// One original value the anonymizer replaced; its `Debug` output hides the value.
+#[derive(Clone, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct Identifier {
+    /// The original value as the router sent it.
+    pub value: String,
+    /// What it is.
+    pub kind: IdentifierKind,
+}
+
+impl fmt::Debug for Identifier {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Identifier")
+            .field("value", &"[REDACTED]")
+            .field("kind", &self.kind)
+            .finish()
+    }
 }
 
 /// Classifies a JSON object key.
@@ -163,6 +255,8 @@ fn classify(key: &str) -> Context {
         Context::Ssid
     } else if HOST_KEYS.contains(&name) {
         Context::Host
+    } else if name == "user" {
+        Context::User
     } else {
         Context::Plain
     }
@@ -186,8 +280,15 @@ pub struct Anonymizer {
     host_names: BTreeMap<String, String>,
     /// SSIDs to `ssid-N`.
     ssids: BTreeMap<String, String>,
-    /// Original values replaced wherever they appear in free text.
-    learned: BTreeMap<String, String>,
+    /// User names to `user-N`.
+    users: BTreeMap<String, String>,
+    /// Schedule names to `schedule-N`.
+    schedules: BTreeMap<String, String>,
+    /// Original addresses that were replaced.
+    addresses: BTreeSet<IpAddr>,
+    /// Original values, replaced wherever they appear in free text, with their replacement
+    /// and the context they were learned in.
+    learned: BTreeMap<String, (String, Context)>,
 }
 
 impl fmt::Debug for Anonymizer {
@@ -201,6 +302,8 @@ impl fmt::Debug for Anonymizer {
             .field("prefixes", &self.prefixes.len())
             .field("host_names", &self.host_names.len())
             .field("ssids", &self.ssids.len())
+            .field("users", &self.users.len())
+            .field("schedules", &self.schedules.len())
             .finish_non_exhaustive()
     }
 }
@@ -231,6 +334,9 @@ impl Anonymizer {
             prefixes: BTreeMap::new(),
             host_names: BTreeMap::new(),
             ssids: BTreeMap::new(),
+            users: BTreeMap::new(),
+            schedules: BTreeMap::new(),
+            addresses: BTreeSet::new(),
             learned: BTreeMap::new(),
         }
     }
@@ -245,6 +351,66 @@ impl Anonymizer {
         self.value(value, Context::Plain)
     }
 
+    /// Anonymizes a components answer (`components list` or `preview`, `show components
+    /// status` or `pending`): like [`Anonymizer::json`], but component names and descriptions
+    /// are firmware words, so they are not aliased nor learned.
+    ///
+    /// # Errors
+    ///
+    /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
+    #[inline]
+    pub fn components(&mut self, value: &Value) -> Result<Value, AnonymizeError> {
+        components::anonymize(self, value)
+    }
+
+    /// Anonymizes a `show schedule` answer: the keys of its root object (or of the object
+    /// under a single root key `schedule`) are schedule names; an array under that key is a
+    /// list of rows whose `name` is aliased like any other name.
+    ///
+    /// # Errors
+    ///
+    /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
+    #[inline]
+    pub fn schedules(&mut self, value: &Value) -> Result<Value, AnonymizeError> {
+        self.value(value, Context::Schedule)
+    }
+
+    /// Every original value replaced so far that could identify the network: names of at
+    /// least four characters, MACs and addresses, none of a replacement's own shape (an
+    /// alias, a zeroed serial, a documentation address).
+    #[inline]
+    #[must_use]
+    pub fn identifiers(&self) -> Vec<Identifier> {
+        let learned = self.learned.iter().map(|(value, (_, context))| Identifier {
+            value: value.clone(),
+            kind: match context {
+                Context::Plain | Context::Host => IdentifierKind::Host,
+                Context::Secret => IdentifierKind::Secret,
+                Context::Serial => IdentifierKind::Serial,
+                Context::Ssid => IdentifierKind::Ssid,
+                Context::User => IdentifierKind::User,
+                Context::Schedule => IdentifierKind::Schedule,
+            },
+        });
+        let macs = self.macs.keys().map(|mac| Identifier {
+            value: mac
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<Vec<_>>()
+                .join(":"),
+            kind: IdentifierKind::Mac,
+        });
+        let addresses = self.addresses.iter().map(|address| Identifier {
+            value: address.to_string(),
+            kind: IdentifierKind::Address,
+        });
+        learned
+            .chain(macs)
+            .chain(addresses)
+            .filter(|identifier| !is_synthetic(&identifier.value))
+            .collect()
+    }
+
     /// Anonymizes free text: secrets, then addresses, then learned names and serials.
     ///
     /// # Errors
@@ -253,9 +419,13 @@ impl Anonymizer {
     #[inline]
     pub fn text(&mut self, text: &str) -> Result<String, AnonymizeError> {
         let without_secrets = redact_secret_shapes(text);
-        let hex = rewrite_runs(&without_secrets, is_hex_run_char, |run| self.hex_run(run))?;
-        let addressed = rewrite_runs(&hex, is_ipv4_run_char, |run| self.ipv4_run(run))?;
-        Ok(self.replace_learned(addressed))
+        let hex = runs::rewrite(&without_secrets, runs::is_hex_char, |run, before, after| {
+            self.hex_run(run, before, after)
+        })?;
+        let addressed = runs::rewrite(&hex, ipv4_forms::is_run_char, |run, before, after| {
+            ipv4_forms::rewrite(run, before, after, |address| self.map_ipv4(address))
+        })?;
+        Ok(self.replace_learned(&addressed))
     }
 
     /// Anonymizes a Keenetic configuration text structurally.
@@ -273,8 +443,8 @@ impl Anonymizer {
     pub fn config(&mut self, text: &str) -> Result<String, AnonymizeError> {
         let mut ast = secrets::redact(&config_text::parse(text)?);
         ast.header.md5 = None;
-        if ast.header.username.is_some() {
-            ast.header.username = Some("admin".to_owned());
+        if let Some(username) = ast.header.username.take() {
+            ast.header.username = Some(self.alias(&username, Context::User));
         }
         let mut extra = BTreeMap::new();
         for (key, value) in &ast.header.extra {
@@ -340,44 +510,96 @@ impl Anonymizer {
     /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
     fn value(&mut self, value: &Value, context: Context) -> Result<Value, AnonymizeError> {
         Ok(match value {
-            Value::Object(object) => {
-                let inherited = context == Context::Secret;
-                let has_mac = object.contains_key("mac");
-                let mut result = Map::new();
-                for (key, member) in object {
-                    let member_context = match classify(key) {
-                        _ if inherited => Context::Secret,
-                        Context::Plain if key == "name" && has_mac => Context::Host,
-                        known @ (Context::Plain
-                        | Context::Secret
-                        | Context::Serial
-                        | Context::Ssid
-                        | Context::Host) => known,
-                    };
-                    let anonymized = self.value(member, member_context)?;
-                    drop(result.insert(self.text(key)?, anonymized));
-                }
-                Value::Object(result)
-            }
+            Value::Object(object) => match context {
+                Context::Schedule if object.len() == 1 => match object.get("schedule") {
+                    Some(inner @ (Value::Object(_) | Value::Array(_))) => {
+                        let mut result = Map::new();
+                        drop(result.insert("schedule".to_owned(), self.value(inner, context)?));
+                        Value::Object(result)
+                    }
+                    Some(_) | None => self.named_members(object, context)?,
+                },
+                Context::User | Context::Schedule => self.named_members(object, context)?,
+                Context::Plain
+                | Context::Secret
+                | Context::Serial
+                | Context::Ssid
+                | Context::Host => self.members(object, context == Context::Secret)?,
+            },
             Value::Array(items) => Value::Array(
                 items
                     .iter()
-                    .map(|item| self.value(item, context))
+                    .map(|item| match (item, context) {
+                        (Value::Object(_), Context::User | Context::Schedule) => {
+                            self.value(item, Context::Plain)
+                        }
+                        _ => self.value(item, context),
+                    })
                     .collect::<Result<_, _>>()?,
             ),
             Value::String(text) => Value::String(match context {
                 Context::Plain => self.text(text)?,
-                Context::Secret | Context::Serial | Context::Ssid | Context::Host => {
-                    self.alias(text, context)
-                }
+                Context::Secret
+                | Context::Serial
+                | Context::Ssid
+                | Context::Host
+                | Context::User
+                | Context::Schedule => self.alias(text, context),
             }),
             Value::Number(_) => match context {
                 Context::Secret => Value::String(PLACEHOLDER.to_owned()),
                 Context::Serial => Value::from(0_u8),
-                Context::Plain | Context::Ssid | Context::Host => value.clone(),
+                Context::Plain
+                | Context::Ssid
+                | Context::Host
+                | Context::User
+                | Context::Schedule => value.clone(),
             },
             Value::Null | Value::Bool(_) => value.clone(),
         })
+    }
+
+    /// Anonymizes an object's members, each in the context its key implies (every member
+    /// is a secret inside a secret).
+    ///
+    /// # Errors
+    ///
+    /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
+    fn members(
+        &mut self,
+        object: &Map<String, Value>,
+        inside_secret: bool,
+    ) -> Result<Value, AnonymizeError> {
+        let mut result = Map::new();
+        for (key, member) in object {
+            let member_context = if inside_secret {
+                Context::Secret
+            } else {
+                classify(key)
+            };
+            let anonymized = self.value(member, member_context)?;
+            drop(result.insert(self.text(key)?, anonymized));
+        }
+        Ok(Value::Object(result))
+    }
+
+    /// Anonymizes an object keyed by names: each key becomes an alias in `context`, each
+    /// member is anonymized as plain data.
+    ///
+    /// # Errors
+    ///
+    /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
+    fn named_members(
+        &mut self,
+        object: &Map<String, Value>,
+        context: Context,
+    ) -> Result<Value, AnonymizeError> {
+        let mut result = Map::new();
+        for (key, member) in object {
+            let anonymized = self.value(member, Context::Plain)?;
+            drop(result.insert(self.alias(key, context), anonymized));
+        }
+        Ok(Value::Object(result))
     }
 
     /// The replacement for a value whose meaning is known from its key.
@@ -398,50 +620,67 @@ impl Anonymizer {
                 })
                 .collect(),
             Context::Ssid => numbered(&mut self.ssids, "ssid", original),
+            Context::User => numbered(&mut self.users, "user", original),
+            Context::Schedule => numbered(&mut self.schedules, "schedule", original),
             Context::Host | Context::Plain => numbered(&mut self.host_names, "host", original),
         };
         if original.chars().count() >= MIN_LEARNED_CHARS {
             drop(
                 self.learned
-                    .insert(original.to_owned(), replacement.clone()),
+                    .insert(original.to_owned(), (replacement.clone(), context)),
             );
         }
         replacement
     }
 
-    /// Replaces every learned original value, longest first.
-    fn replace_learned(&self, text: String) -> String {
-        let mut originals: Vec<(&String, &String)> = self.learned.iter().collect();
-        originals.sort_by_key(|entry| Reverse(entry.0.len()));
-        originals
-            .into_iter()
-            .fold(text, |current, (original, replacement)| {
-                if current.contains(original.as_str()) {
-                    current.replace(original.as_str(), replacement)
-                } else {
-                    current
-                }
-            })
+    /// Replaces every learned original value under the rule of [`fold`], longest first.
+    fn replace_learned(&self, text: &str) -> String {
+        let mut learned: Vec<fold::Learned<'_>> = self
+            .learned
+            .iter()
+            .filter_map(|(original, (replacement, _))| fold::Learned::new(original, replacement))
+            .collect();
+        learned.sort_by_key(|value| Reverse(value.folded_len()));
+        fold::replace_all(text, &learned)
     }
 
-    /// Rewrites a run of hex digits, `:`, `-` and `.`: MAC addresses and IPv6.
+    /// Rewrites a run that is one MAC in dotted spelling, or a learned MAC in bare
+    /// spelling, keeping the separators around it; `None` for any other run.
+    fn other_mac_spelling(&mut self, run: &str) -> Option<String> {
+        let separators = ['.', '-', ':'];
+        let core = run.trim_matches(separators);
+        let prefix_len = run
+            .len()
+            .saturating_sub(run.trim_start_matches(separators).len());
+        let prefix = run.get(..prefix_len)?;
+        let suffix = run.get(prefix_len.saturating_add(core.len())..)?;
+        let rewritten = match (mac_forms::parse_dotted(core), mac_forms::parse_bare(core)) {
+            (Some(mac), _) => mac_forms::dotted(self.map_mac(mac)),
+            (None, Some(mac)) if self.macs.contains_key(&mac) => mac_forms::bare(self.map_mac(mac)),
+            (None, Some(_) | None) => return None,
+        };
+        Some(format!("{prefix}{rewritten}{suffix}"))
+    }
+
+    /// Rewrites a run of hex digits, `:`, `-` and `.` (a letter or digit is right `before`
+    /// or `after` it): every IPv6 address in it, one glued to a letter or digit only with
+    /// three or more groups (so `Core::Authenticator` is no address), else MAC addresses.
     ///
     /// # Errors
     ///
     /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
-    fn hex_run(&mut self, run: &str) -> Result<String, AnonymizeError> {
-        if run.contains(':') && !run.trim_end_matches(['.', '-']).contains('.') {
-            let candidates = [
-                run,
-                run.trim_end_matches(['.', '-']),
-                run.trim_end_matches(['.', ':', '-']),
-            ];
-            for candidate in candidates {
-                if let Ok(address) = candidate.parse::<Ipv6Addr>() {
-                    let suffix = run.get(candidate.len()..).unwrap_or_default();
-                    return Ok(format!("{}{suffix}", self.map_ipv6(address)?));
-                }
-            }
+    fn hex_run(&mut self, run: &str, before: bool, after: bool) -> Result<String, AnonymizeError> {
+        let spans = runs::addresses(run, before, after);
+        if spans.is_empty() {
+            return Ok(self.macs_in(run));
+        }
+        runs::replace(run, &spans, |address| self.map_ipv6(address))
+    }
+
+    /// Rewrites the MAC addresses in a run of hex digits, `:`, `-` and `.`.
+    fn macs_in(&mut self, run: &str) -> String {
+        if let Some(rewritten) = self.other_mac_spelling(run) {
+            return rewritten;
         }
         let mut output = String::with_capacity(run.len());
         let mut position = 0_usize;
@@ -462,25 +701,7 @@ impl Anonymizer {
                 }
             }
         }
-        Ok(output)
-    }
-
-    /// Rewrites a run of digits and dots holding one IPv4 address.
-    ///
-    /// # Errors
-    ///
-    /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
-    fn ipv4_run(&mut self, run: &str) -> Result<String, AnonymizeError> {
-        let core = run.trim_matches('.');
-        let prefix_len = run.len().saturating_sub(run.trim_start_matches('.').len());
-        let prefix = run.get(..prefix_len).unwrap_or_default();
-        let suffix = run
-            .get(prefix_len.saturating_add(core.len())..)
-            .unwrap_or_default();
-        match core.parse::<Ipv4Addr>() {
-            Ok(address) => Ok(format!("{prefix}{}{suffix}", self.map_ipv4(address)?)),
-            Err(_) => Ok(run.to_owned()),
-        }
+        output
     }
 
     /// Maps a MAC address to the low three bytes of its `02:00:00` replacement.
@@ -510,6 +731,7 @@ impl Anonymizer {
         if keeps_ipv4(address) {
             return Ok(address);
         }
+        let _: bool = self.addresses.insert(IpAddr::V4(address));
         let [first, second, third, host] = address.octets();
         if is_structured(address) {
             let network = [first, second, third];
@@ -545,8 +767,17 @@ impl Anonymizer {
     ///
     /// [`AnonymizeError::AddressSpaceExhausted`] when the documentation ranges run out.
     fn map_ipv6(&mut self, address: Ipv6Addr) -> Result<Ipv6Addr, AnonymizeError> {
-        if address.is_unspecified() || address.is_loopback() || address.is_multicast() {
-            return Ok(address);
+        let shape = runs::shape(address);
+        match shape {
+            runs::Shape::Kept => return Ok(address),
+            runs::Shape::SolicitedNode => {
+                let mapped = runs::solicited_node(address, |low| self.digest(b"snm", low, 0));
+                if mapped.is_some() {
+                    let _: bool = self.addresses.insert(IpAddr::V6(address));
+                }
+                return Ok(mapped.unwrap_or(address));
+            }
+            runs::Shape::LinkLocal | runs::Shape::Embedding | runs::Shape::Routed => {}
         }
         let [s0, s1, s2, s3, s4, s5, s6, s7] = address.segments();
         let interface_id = [s4, s5, s6, s7];
@@ -569,9 +800,13 @@ impl Anonymizer {
                 u16::from_be_bytes([d6, d7]),
             ]
         };
-        if s0 & 0xffc0 == 0xfe80 {
+        if shape == runs::Shape::LinkLocal {
+            if (s4, s5, s6) != (0, 0, 0) {
+                let _: bool = self.addresses.insert(IpAddr::V6(address));
+            }
             return Ok(Ipv6Addr::new(s0, s1, s2, s3, i0, i1, i2, i3));
         }
+        let _: bool = self.addresses.insert(IpAddr::V6(address));
         let prefix = [s0, s1, s2];
         let slot = if let Some(slot) = self.prefixes.get(&prefix).copied() {
             slot
@@ -581,7 +816,12 @@ impl Anonymizer {
             let _: Option<_> = self.prefixes.insert(prefix, fresh);
             fresh
         };
-        Ok(Ipv6Addr::new(0x2001, 0x0db8, slot, s3, i0, i1, i2, i3))
+        let subnet = if shape == runs::Shape::Embedding {
+            0
+        } else {
+            s3
+        };
+        Ok(Ipv6Addr::new(0x2001, 0x0db8, slot, subnet, i0, i1, i2, i3))
     }
 
     /// HMAC-SHA256 of `domain || input || counter` under the run key.
@@ -592,6 +832,28 @@ impl Anonymizer {
         mac.update(&[counter]);
         mac.finalize().into_bytes().into()
     }
+}
+
+/// Whether `value` has the shape of a replacement, so it identifies nothing.
+///
+/// That is an alias, a zeroed serial (ASCII `0` and ASCII punctuation only, which includes
+/// a value with no letter or digit at all), the placeholder or a documentation address. A
+/// value in any other script identifies something.
+fn is_synthetic(value: &str) -> bool {
+    let alias = ALIAS_PREFIXES.iter().any(|prefix| {
+        value.strip_prefix(prefix).is_some_and(|number| {
+            !number.is_empty() && number.chars().all(|digit| digit.is_ascii_digit())
+        })
+    });
+    let zeroed = value.chars().all(|character| {
+        character == '0' || (character.is_ascii() && !character.is_ascii_alphanumeric())
+    });
+    let documentation = match value.parse::<IpAddr>() {
+        Ok(IpAddr::V4(address)) => address.is_documentation(),
+        Ok(IpAddr::V6(address)) => matches!(address.segments(), [0x2001, 0x0db8, ..]),
+        Err(_) => false,
+    };
+    alias || zeroed || documentation || value == PLACEHOLDER
 }
 
 /// Length of a MAC address in text form.
@@ -656,16 +918,6 @@ const fn is_structured(address: Ipv4Addr) -> bool {
     address.is_private() || (first == 100 && second & 0xc0 == 64)
 }
 
-/// Characters of a candidate MAC or IPv6 run.
-const fn is_hex_run_char(character: char) -> bool {
-    character.is_ascii_hexdigit() || matches!(character, ':' | '-' | '.')
-}
-
-/// Characters of a candidate IPv4 run.
-const fn is_ipv4_run_char(character: char) -> bool {
-    character.is_ascii_digit() || character == '.'
-}
-
 /// Characters of standard Base64.
 const fn is_base64_char(character: char) -> bool {
     character.is_ascii_alphanumeric() || matches!(character, '+' | '/' | '=')
@@ -707,35 +959,6 @@ fn redact_secret_shapes(text: &str) -> String {
         }
     }
     output
-}
-
-/// Splits `text` into maximal runs of `is_run` characters and rewrites each run.
-///
-/// # Errors
-///
-/// The first error returned by `rewrite`.
-fn rewrite_runs<F, E>(text: &str, is_run: fn(char) -> bool, mut rewrite: F) -> Result<String, E>
-where
-    F: FnMut(&str) -> Result<String, E>,
-{
-    let mut output = String::with_capacity(text.len());
-    let mut run_start: Option<usize> = None;
-    for (index, character) in text.char_indices() {
-        match (run_start, is_run(character)) {
-            (None, true) => run_start = Some(index),
-            (Some(start), false) => {
-                output.push_str(&rewrite(text.get(start..index).unwrap_or_default())?);
-                run_start = None;
-                output.push(character);
-            }
-            (None, false) => output.push(character),
-            (Some(_), true) => {}
-        }
-    }
-    if let Some(start) = run_start {
-        output.push_str(&rewrite(text.get(start..).unwrap_or_default())?);
-    }
-    Ok(output)
 }
 
 #[cfg(test)]
@@ -955,6 +1178,73 @@ mod tests {
             mapped.as_deref(),
             Ok("2001:db8:1::/48 2001:db8:1:5::1 2001:db8:2::1 ::1"),
             "prefix slots and subnet ids are kept"
+        );
+    }
+
+    /// Planted names, user keys and schedule keys are replaced and reported (todo 4).
+    ///
+    /// Names, hosts, fqdns, cids, user keys and schedule keys are aliased or zeroed, a
+    /// `whoami` password stays masked, and every replaced original is reported as an
+    /// identifier unless it already has a replacement's shape.
+    ///
+    /// # Panics
+    ///
+    /// Panics when an original survives or an identifier is missing.
+    #[test]
+    fn names_users_and_schedules_are_aliased_and_reported() {
+        let mut anonymizer = fixed();
+        let hosts = json!([{"name": "PLANTED-NAME", "known-host": "PLANTED-KNOWN",
+            "fqdn": "planted.example", "http-host": "planted-http.example",
+            "booked": "PLANTED-BOOKED", "cid": "PLANTED-CID", "servicetag": "PLANTED-TAG",
+            "license": "PLANTED-LICENSE", "description": "host-3"}]);
+        let users = json!({"user": {"PLANTED-USER": {"tag": ["cli"]}, "nested": {"user": {"OTHER-USER": {}}}}});
+        let whoami = json!({"name": "admin", "password": "PLANTED-SECRET"});
+        let schedules = json!({"schedule": {"PLANTED-SCHEDULE": {"action": []}}});
+        let output = [
+            anonymizer.json(&hosts),
+            anonymizer.json(&users),
+            anonymizer.json(&whoami),
+            anonymizer.schedules(&schedules),
+        ]
+        .into_iter()
+        .map(|result| result.map_or_default(|value| value.to_string()))
+        .collect::<Vec<_>>()
+        .join("\n");
+        for original in [
+            "PLANTED-NAME",
+            "PLANTED-KNOWN",
+            "planted.example",
+            "planted-http.example",
+            "PLANTED-BOOKED",
+            "PLANTED-CID",
+            "PLANTED-TAG",
+            "PLANTED-LICENSE",
+            "PLANTED-USER",
+            "OTHER-USER",
+            "PLANTED-SECRET",
+            "PLANTED-SCHEDULE",
+        ] {
+            assert!(
+                !output.contains(original),
+                "{original} survived in {output}"
+            );
+            assert!(
+                anonymizer
+                    .identifiers()
+                    .iter()
+                    .any(|found| found.value == original),
+                "{original} is an identifier"
+            );
+        }
+        for alias in ["user-1", "user-2", "schedule-1", PLACEHOLDER] {
+            assert!(output.contains(alias), "{alias} in {output}");
+        }
+        assert!(
+            anonymizer
+                .identifiers()
+                .iter()
+                .all(|found| found.value != "host-3"),
+            "an alias-shaped value is not an identifier"
         );
     }
 

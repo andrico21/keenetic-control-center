@@ -224,6 +224,8 @@ pub(crate) struct Shared {
     settings: Mutex<Value>,
     /// Show fixtures keyed by the path below `show/`.
     show: Map<String, Value>,
+    /// `show rc` answers keyed by the JSON pointer of the root they replace.
+    rc_overrides: Map<String, Value>,
     /// Independent running/startup CLI configuration.
     config: Mutex<ConfigState>,
     /// Installed, staged, and committing component state.
@@ -358,6 +360,7 @@ impl Shared {
             sessions: Mutex::new(BTreeMap::new()),
             settings: Mutex::new(settings),
             show,
+            rc_overrides: Map::new(),
             config: Mutex::new(config),
             components: Mutex::new(components),
             migration: Mutex::new(MigrationState::default()),
@@ -989,6 +992,32 @@ impl Shared {
             || lock(&self.config).has_interface(name)
     }
 
+    /// Replaces each overridden root that the `show rc` request tree `request` reaches.
+    fn override_rc(&self, request: &Value, answer: &mut Value) {
+        for (pointer, value) in &self.rc_overrides {
+            if request.pointer(pointer).is_none() {
+                continue;
+            }
+            let mut node = &mut *answer;
+            for segment in segments(pointer) {
+                if !node.is_object() {
+                    *node = Value::Object(Map::new());
+                }
+                let Some(object) = node.as_object_mut() else {
+                    return;
+                };
+                node = object.entry(segment).or_insert(Value::Null);
+            }
+            *node = value.clone();
+        }
+    }
+
+    /// Sets the `show rc` answers that replace whole roots, keyed by JSON pointer.
+    pub(crate) fn with_rc_overrides(mut self, overrides: Map<String, Value>) -> Self {
+        self.rc_overrides = overrides;
+        self
+    }
+
     /// Answers the value of a `{"show": ..}` member of a root POST.
     fn show_member(&self, settings: &Value, request: &Value) -> Value {
         let mut answer = Map::new();
@@ -999,6 +1028,7 @@ impl Shared {
                 let dynamic = tree::read_through(&projected, sub);
                 let mut merged = merge_json(fixture, dynamic);
                 if key == "rc" {
+                    self.override_rc(sub, &mut merged);
                     for (pointer, value) in &self.faults.rc_overrides {
                         set_pointer(&mut merged, pointer, value.clone());
                     }
@@ -1474,6 +1504,7 @@ async fn rci_post_root(
 async fn rci_post(
     State(shared): State<Arc<Shared>>,
     Extension(Login(login)): Extension<Login>,
+    Extension(record): Extension<request_log::RecordIndex>,
     Path(path): Path<String>,
     Query(query): Query<BTreeMap<String, String>>,
     body: Bytes,
@@ -1518,7 +1549,13 @@ async fn rci_post(
         return read(&shared, &login, &path, &params);
     }
     if let Some(kind) = ProcessKind::from_path(&path) {
+        request_log::record_tool(&shared, record, &path, &parsed);
         return Json(shared.start_process(kind)).into_response();
+    }
+    if path == "components/list"
+        && let Some(listed) = shared.show.get("components/list")
+    {
+        return Json(listed.clone()).into_response();
     }
     if shared.silent_noop(&path) {
         return Json(tree::status("message", "saved.")).into_response();
