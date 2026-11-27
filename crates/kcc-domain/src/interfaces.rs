@@ -10,12 +10,12 @@ use kcc_app::{
     },
 };
 use kcc_catalog::Risk;
-use kcc_rci::{ObjectName, RciBody};
+use kcc_rci::ObjectName;
 use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token, descriptor, planning::validate, pointer, read_show,
+    cli_token, decode, descriptor, planning::validate, pointer, read_show,
 };
 
 /// Interface change execution and its read-back.
@@ -128,15 +128,15 @@ pub async fn read_interfaces(router: &RouterCtx) -> Result<BTreeMap<String, Inte
 // session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_interface(router: &RouterCtx, name: &ObjectName) -> Result<Interface> {
-    let RciBody::Json(response) = router.client.show_interface(name).await? else {
-        return Err(DomainError::InvalidResponse);
-    };
-    let selected = response
-        .value
+    let answer: Value = decode::body(
+        router.client.log_id(),
+        "show interface",
+        &router.client.show_interface(name).await?,
+    )?;
+    let selected = answer
         .pointer("/show/interface")
-        .cloned()
         .ok_or(DomainError::InvalidResponse)?;
-    serde_json::from_value(selected).map_err(|_error| DomainError::InvalidResponse)
+    decode::value(router.client.log_id(), "show interface", selected)
 }
 
 /// Reads counters for all interfaces.

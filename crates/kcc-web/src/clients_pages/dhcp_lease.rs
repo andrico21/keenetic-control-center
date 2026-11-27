@@ -161,6 +161,7 @@ fn refusal(locale: Locale, error: &DomainError) -> Rejected {
         }
         DomainError::Rci(_)
         | DomainError::InvalidResponse
+        | DomainError::UnreadableAnswer(_)
         | DomainError::Validation { issues: _ }
         | DomainError::ConfirmationMismatch
         | DomainError::ProtectedAccount

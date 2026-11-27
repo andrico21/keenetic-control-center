@@ -123,6 +123,7 @@ pub(crate) fn plan_failure(family: Family, locale: Locale, error: &DomainError) 
             "entware_drive_in_use",
         ),
         DomainError::InvalidResponse
+        | DomainError::UnreadableAnswer(_)
         | DomainError::ConfirmationMismatch
         | DomainError::StaticLeaseOutsidePool
         | DomainError::StaticLeaseAddressInUse
@@ -214,7 +215,7 @@ mod tests {
     use kcc_rci::RciResponse;
     use serde_json::json;
 
-    use super::rci_failure;
+    use super::{DomainError, plan_failure, rci_failure};
     use crate::page_kit::{family::Family, outcome::Outcome};
 
     #[test]
@@ -230,5 +231,19 @@ mod tests {
         assert_eq!(outcome.audit(), "rci_error", "audit id");
         assert_eq!(outcome.tone(), "error", "tone");
         Ok(())
+    }
+
+    #[test]
+    fn an_unreadable_answer_fails_a_plan_like_an_invalid_response() {
+        let error = DomainError::UnreadableAnswer(kcc_rci::not_json("show x", b"x"));
+        let unreadable = Outcome::failed(plan_failure(Family::Commands, Locale::En, &error));
+        let invalid = Outcome::failed(plan_failure(
+            Family::Commands,
+            Locale::En,
+            &DomainError::InvalidResponse,
+        ));
+        assert_eq!(unreadable.audit(), invalid.audit(), "audit id");
+        assert_eq!(unreadable.tone(), invalid.tone(), "tone");
+        assert_eq!(unreadable.audit(), "failed", "the generic failure");
     }
 }

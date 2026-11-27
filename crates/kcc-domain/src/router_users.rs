@@ -17,7 +17,7 @@ use serde_json::{Value, json};
 use self::protection::OwnLogins;
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token::validate as validate_token, descriptor, planning::validate,
+    cli_token::validate as validate_token, decode, descriptor, planning::validate,
 };
 
 /// One secret-free router account returned by `show rc user`.
@@ -105,9 +105,11 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 #[inline]
 pub async fn read_users(router: &RouterCtx) -> Result<Vec<RouterUser>> {
     let response = router.client.show_rc(json!({"user":{}})).await?;
-    let projection =
-        serde_json::from_value::<UserProjection>(response.configuration_tree().clone())
-            .map_err(|_error| DomainError::InvalidResponse)?;
+    let projection: UserProjection = decode::value(
+        router.client.log_id(),
+        "show rc user",
+        response.configuration_tree(),
+    )?;
     Ok(projection
         .user
         .into_iter()

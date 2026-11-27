@@ -22,6 +22,8 @@ pub(crate) async fn read(domain: &RouterCtx) -> Result<Firewall, MessageKey> {
                 tracing::warn!(?error, "firewall page: running configuration unavailable");
                 keys::WEB_KIT_UNREACHABLE
             }
-            DomainError::InvalidResponse | _ => keys::WEB_KIT_FAILED,
+            DomainError::InvalidResponse | DomainError::UnreadableAnswer(_) | _ => {
+                keys::WEB_KIT_FAILED
+            }
         })
 }

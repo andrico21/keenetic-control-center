@@ -27,7 +27,7 @@ use self::{
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
     components::{self, ComponentState},
-    descriptor, dns, storage, system, verification,
+    decode, descriptor, dns, storage, system, verification,
 };
 
 /// Entware read inventory: the router reads the status combines.
@@ -56,14 +56,10 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 #[inline]
 pub async fn read_settings(router: &RouterCtx) -> Result<EntwareSettings> {
     let response = router.client.show_rc(json!({"opkg":{}})).await?;
-    response
-        .configuration_tree()
-        .get("opkg")
-        .map_or_else(
-            || Ok(EntwareSettings::default()),
-            |tree| serde_json::from_value(tree.clone()),
-        )
-        .map_err(|_error| DomainError::InvalidResponse)
+    response.configuration_tree().get("opkg").map_or_else(
+        || Ok(EntwareSettings::default()),
+        |tree| decode::value(router.client.log_id(), "show rc opkg", tree),
+    )
 }
 
 /// Reads whether Entware can be installed, the `opkg` and `ext` components, the `opkg`

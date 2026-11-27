@@ -997,7 +997,13 @@ impl Shared {
                 let fixture = tree::read_through(settings, sub);
                 let projected = lock(&self.config).projection(key == "sc");
                 let dynamic = tree::read_through(&projected, sub);
-                drop(answer.insert(key.clone(), merge_json(fixture, dynamic)));
+                let mut merged = merge_json(fixture, dynamic);
+                if key == "rc" {
+                    for (pointer, value) in &self.faults.rc_overrides {
+                        set_pointer(&mut merged, pointer, value.clone());
+                    }
+                }
+                drop(answer.insert(key.clone(), merged));
                 continue;
             }
             let mut segments = vec![key.as_str()];
@@ -1176,6 +1182,21 @@ fn merge_json(mut fixture: Value, dynamic: Value) -> Value {
         }
         (_, replacement) => replacement,
     }
+}
+
+/// Sets `value` at JSON `pointer` of `root`, creating the missing parent objects.
+fn set_pointer(root: &mut Value, pointer: &str, value: Value) {
+    let mut node = root;
+    for segment in pointer.split('/').filter(|segment| !segment.is_empty()) {
+        if !node.is_object() {
+            *node = Value::Object(Map::new());
+        }
+        let Value::Object(map) = node else {
+            return;
+        };
+        node = map.entry(segment.to_owned()).or_insert(Value::Null);
+    }
+    *node = value;
 }
 
 /// Splits an RCI path into its non-empty segments.
@@ -1395,6 +1416,9 @@ async fn rci_get(
         .contains(path.trim_end_matches('/'))
     {
         return empty(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    if let Some(text) = shared.faults.show_text.get(path.trim_end_matches('/')) {
+        return text.clone().into_response();
     }
     if shared.reject_read(&path) {
         return empty(StatusCode::INTERNAL_SERVER_ERROR);

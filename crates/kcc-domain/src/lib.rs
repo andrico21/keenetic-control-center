@@ -11,6 +11,7 @@ extern crate alloc;
 
 mod cli_token;
 mod config_tree;
+mod decode;
 mod descriptor;
 mod planning;
 mod pointer;
@@ -54,7 +55,7 @@ use kcc_app::{
     workflow::{CliCommand, SecretCommandError, VerificationSpec, WorkflowError},
 };
 use kcc_catalog::{Catalog, Risk, ValidatedRequest, ValidationIssue};
-use kcc_rci::{RciBody, RciClient, RciError, RciPath};
+use kcc_rci::{RciClient, RciError, RciPath};
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
@@ -287,6 +288,10 @@ pub enum DomainError {
     /// A typed response could not be decoded.
     #[error("router returned an invalid domain response")]
     InvalidResponse,
+    /// The router's answer could not be read: the command, the field path and the JSON
+    /// kinds, never a value of the answer.
+    #[error("the router's answer could not be read: {0}")]
+    UnreadableAnswer(Box<kcc_rci::DecodeDetail>),
     /// Catalog validation rejected a planned operation.
     #[error("domain operation is unavailable or invalid")]
     Validation {
@@ -352,9 +357,9 @@ pub type Result<T> = CoreResult<T, DomainError>;
 ///
 /// # Errors
 ///
-/// Returns an error when a router request fails or its reply does not decode
-/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
-/// does not have the expected shape ([`DomainError::InvalidResponse`]).
+/// Returns an error when a router request fails ([`DomainError::Rci`]), when its reply
+/// does not decode ([`DomainError::UnreadableAnswer`]), or when the path is not a valid
+/// RCI path ([`DomainError::InvalidResponse`]).
 // NOT cancel-safe: it only sends one `show` read, but it may sign in first, and a sign-in dropped
 // mid-way can leave an orphaned router session.
 pub(crate) async fn read_show<T>(client: &RciClient, segments: &[&str]) -> Result<T>
@@ -362,10 +367,8 @@ where
     T: DeserializeOwned,
 {
     let path = RciPath::from_segments(segments).map_err(|_error| DomainError::InvalidResponse)?;
-    let RciBody::Json(response) = client.show(&path, &()).await? else {
-        return Err(DomainError::InvalidResponse);
-    };
-    serde_json::from_value(response.value).map_err(|_error| DomainError::InvalidResponse)
+    let body = client.show(&path, &()).await?;
+    decode::body(client.log_id(), &segments.join(" "), &body)
 }
 
 /// Returns the complete domain registry.

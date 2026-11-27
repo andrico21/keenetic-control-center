@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    descriptor, interfaces, read_show,
+    decode, descriptor, interfaces, read_show,
 };
 
 /// Tolerant, secret-free Wi-Fi response models.
@@ -93,7 +93,7 @@ impl Encryption {
 pub async fn read_access_point(router: &RouterCtx, name: &ObjectName) -> Result<AccessPoint> {
     let value = serde_json::to_value(interfaces::read_interface(router, name).await?)
         .map_err(|_error| DomainError::InvalidResponse)?;
-    serde_json::from_value(value).map_err(|_error| DomainError::InvalidResponse)
+    decode::value(router.client.log_id(), "show interface", &value)
 }
 
 /// Reads every access point from `show interface`, each with whether it stores a WPA
@@ -108,15 +108,15 @@ pub async fn read_access_point(router: &RouterCtx, name: &ObjectName) -> Result<
 #[inline]
 pub async fn read_access_points(router: &RouterCtx) -> Result<BTreeMap<String, AccessPoint>> {
     let values: BTreeMap<String, Value> = read_show(&router.client, &["show", "interface"]).await?;
-    values
+    let points = values
         .into_iter()
         .filter(|(_, value)| value.get("type").and_then(Value::as_str) == Some("AccessPoint"))
-        .map(|(name, value)| {
-            serde_json::from_value::<AccessPoint>(value)
-                .map(|point| (name, point))
-                .map_err(|_error| DomainError::InvalidResponse)
-        })
-        .collect()
+        .collect();
+    decode::value(
+        router.client.log_id(),
+        "show interface",
+        &Value::Object(points),
+    )
 }
 
 /// Reads radios and derives their bands from `show interface`.

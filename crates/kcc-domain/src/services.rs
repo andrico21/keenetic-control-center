@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token::validate as validate_token, descriptor, planning::validate,
+    cli_token::validate as validate_token, decode, descriptor, planning::validate,
     request_words::first_argument,
 };
 
@@ -184,9 +184,12 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 )]
 pub async fn read_services(router: &RouterCtx) -> Result<Vec<ServiceState>> {
     let response = router.client.show_rc(json!({"service":{}})).await?;
-    serde_json::from_value::<ServiceProjection>(response.configuration_tree().clone())
-        .map(|projection| projection.service)
-        .map_err(|_error| DomainError::InvalidResponse)
+    decode::value::<ServiceProjection>(
+        router.client.log_id(),
+        "show rc service",
+        response.configuration_tree(),
+    )
+    .map(|projection| projection.service)
 }
 
 /// Plans enabling or disabling one service present in the selected catalog.

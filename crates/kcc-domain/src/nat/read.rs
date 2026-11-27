@@ -1,11 +1,11 @@
 //! NAT configuration and paginated runtime reads.
 
-use kcc_rci::{RciBody, RciPath};
+use kcc_rci::RciPath;
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::json;
 
 use super::model::{ConfiguredRule, NatPage, NatSession};
-use crate::{DomainError, Result, RouterCtx};
+use crate::{DomainError, Result, RouterCtx, decode};
 
 /// Maximum number of runtime NAT rows requested from the router at once.
 pub const PAGE_SIZE: usize = 200;
@@ -69,7 +69,7 @@ pub async fn sessions_page(router: &RouterCtx, offset: usize) -> Result<NatPage>
     }
     let path = RciPath::from_segments(["show", "ip", "nat"])
         .map_err(|_error| DomainError::InvalidResponse)?;
-    let RciBody::Json(response) = router
+    let body = router
         .client
         .show(
             &path,
@@ -78,12 +78,8 @@ pub async fn sessions_page(router: &RouterCtx, offset: usize) -> Result<NatPage>
                 limit: PAGE_SIZE,
             },
         )
-        .await?
-    else {
-        return Err(DomainError::InvalidResponse);
-    };
-    let rows = serde_json::from_value::<Vec<NatSession>>(response.value)
-        .map_err(|_error| DomainError::InvalidResponse)?;
+        .await?;
+    let rows: Vec<NatSession> = decode::body(router.client.log_id(), "show ip nat", &body)?;
     if rows.len() > PAGE_SIZE {
         return Err(DomainError::InvalidResponse);
     }
@@ -110,12 +106,9 @@ async fn configuration(
     } else {
         router.client.show_rc(request).await?
     };
-    let pointer = format!("/ip/{leaf}");
-    serde_json::from_value(
-        body.configuration_tree()
-            .pointer(&pointer)
-            .cloned()
-            .unwrap_or(Value::Array(Vec::new())),
-    )
-    .map_err(|_error| DomainError::InvalidResponse)
+    let Some(rows) = body.configuration_tree().pointer(&format!("/ip/{leaf}")) else {
+        return Ok(Vec::new());
+    };
+    let resource = format!("show {} ip {leaf}", if startup { "sc" } else { "rc" });
+    decode::value(router.client.log_id(), &resource, rows)
 }

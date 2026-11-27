@@ -151,6 +151,10 @@ pub struct FaultInjection {
     show_requires_post: BTreeSet<String>,
     /// Show resources whose `GET` answers 405 while `POST` answers normally.
     show_get_not_allowed: BTreeSet<String>,
+    /// Show resources whose `GET` answers 200 with this text instead of JSON.
+    show_text: BTreeMap<String, String>,
+    /// JSON pointers into the `show rc` answer, each replaced by its value.
+    rc_overrides: Vec<(String, Value)>,
     /// Answers left out at the end of every root batch reply.
     batch_answers_dropped: usize,
     /// Parser command whose connection is lost before or after application.
@@ -225,6 +229,32 @@ impl FaultInjection {
         S: Into<String>,
     {
         let _: bool = self.show_requires_post.insert(path.into());
+        self
+    }
+
+    /// Answers `GET /rci/<path>` for the show resource `path` (for example
+    /// `show/ip/route`) with 200 and `text` as a plain body instead of JSON.
+    #[inline]
+    #[must_use]
+    pub fn show_answers_text<S, T>(mut self, path: S, text: T) -> Self
+    where
+        S: Into<String>,
+        T: Into<String>,
+    {
+        drop(self.show_text.insert(path.into(), text.into()));
+        self
+    }
+
+    /// Replaces the value at JSON `pointer` (for example `/user`) of every `show rc` answer
+    /// with `value`, creating missing parents, so a test can serve a shape the profile never
+    /// produces.
+    #[inline]
+    #[must_use]
+    pub fn rc_override<S>(mut self, pointer: S, value: Value) -> Self
+    where
+        S: Into<String>,
+    {
+        self.rc_overrides.push((pointer.into(), value));
         self
     }
 

@@ -300,6 +300,7 @@ pub(crate) fn refusal_message(error: &DomainError, locale: Locale) -> String {
         DomainError::ProtectedAccount => tr(locale, keys::WEB_SYSTEM_USERS_PROTECTED, None),
         DomainError::Rci(_)
         | DomainError::InvalidResponse
+        | DomainError::UnreadableAnswer(_)
         | DomainError::Validation { issues: _ }
         | DomainError::ConfirmationMismatch
         | DomainError::StaticLeaseOutsidePool

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
+    ChangeOp, DomainDescriptor, DomainId, OperationDescriptor, Result, RouterCtx, decode,
     descriptor, read_show,
 };
 
@@ -369,7 +369,7 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 /// # Errors
 ///
 /// Returns an error when a router request fails or its reply does not decode
-/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
+/// ([`crate::DomainError::Rci`], [`crate::DomainError::InvalidResponse`]).
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
@@ -382,8 +382,8 @@ pub async fn read_dns_proxy(router: &RouterCtx) -> Result<DnsProxyState> {
 /// # Errors
 ///
 /// Returns an error when a router request fails or its reply does not decode
-/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
-/// does not have the expected shape ([`DomainError::InvalidResponse`]).
+/// ([`crate::DomainError::Rci`], [`crate::DomainError::InvalidResponse`]), or when a reply or a plan
+/// does not have the expected shape ([`crate::DomainError::InvalidResponse`]).
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
@@ -395,8 +395,11 @@ pub async fn read_configuration(router: &RouterCtx) -> Result<DnsConfiguration> 
         "nextdns": {}
     });
     let response = router.client.show_rc(tree).await?;
-    let configuration = response.configuration_tree().clone();
-    serde_json::from_value(configuration).map_err(|_error| DomainError::InvalidResponse)
+    decode::value(
+        router.client.log_id(),
+        "show rc dns-proxy ip object-group nextdns",
+        response.configuration_tree(),
+    )
 }
 
 /// Plans one catalog-validated DNS mutation.
@@ -404,7 +407,7 @@ pub async fn read_configuration(router: &RouterCtx) -> Result<DnsConfiguration> 
 /// # Errors
 ///
 /// Returns an error when the catalog refuses a planned request
-/// ([`DomainError::Validation`]).
+/// ([`crate::DomainError::Validation`]).
 #[inline]
 pub fn plan_change(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
     change::plan(router, change)
@@ -414,10 +417,10 @@ pub fn plan_change(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
 ///
 /// # Errors
 ///
-/// Returns [`DomainError::InvalidCliToken`] when a request field is not one safe CLI word,
-/// [`DomainError::InvalidResponse`] when a request is not a DNS command, lacks a field, or a
+/// Returns [`crate::DomainError::InvalidCliToken`] when a request field is not one safe CLI word,
+/// [`crate::DomainError::InvalidResponse`] when a request is not a DNS command, lacks a field, or a
 /// command cannot be given a read-back of its own (a secret-bearing command, or a line that is not
-/// exactly one configuration row), and [`DomainError::Workflow`] when a rendered line does not
+/// exactly one configuration row), and [`crate::DomainError::Workflow`] when a rendered line does not
 /// match its request.
 #[inline]
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {

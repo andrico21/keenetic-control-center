@@ -358,6 +358,7 @@ impl From<DomainError> for Failure {
             }
             DomainError::PermissionDenied | DomainError::ConfirmationRequired => Exit::Policy,
             DomainError::InvalidResponse
+            | DomainError::UnreadableAnswer(_)
             | DomainError::SafetyAbort
             | DomainError::RouteCountMismatch => Exit::Router,
             DomainError::ConfirmationMismatch
@@ -373,4 +374,26 @@ impl From<DomainError> for Failure {
 /// The permission or scope refusal of `router`.
 pub(crate) fn denied(router: &str) -> Failure {
     Failure::message(Exit::Policy, keys::CLI_REFUSED, &[("router", router)])
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test assertions are not rendered API documentation"
+)]
+mod tests {
+    use kcc_domain::DomainError;
+
+    use super::{Exit, Failure};
+
+    /// An answer kcc cannot read exits like any other bad router answer.
+    #[test]
+    fn an_unreadable_answer_exits_like_an_invalid_response() {
+        let unreadable = DomainError::UnreadableAnswer(kcc_rci::not_json("show x", b"x"));
+        assert_eq!(Failure::from(unreadable).exit(), Exit::Router);
+        assert_eq!(
+            Failure::from(DomainError::InvalidResponse).exit(),
+            Exit::Router
+        );
+    }
 }

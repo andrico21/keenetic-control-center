@@ -12,7 +12,7 @@ use secrecy::ExposeSecret as _;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::{DomainError, Result, RouterCtx};
+use crate::{DomainError, Result, RouterCtx, decode};
 
 /// Union of every reported include and inherit edge, indexed by bridge.
 ///
@@ -30,18 +30,21 @@ pub(crate) async fn read(router: &RouterCtx) -> Result<BTreeMap<String, BTreeSet
         .configuration_tree()
         .get("interface")
         .ok_or(DomainError::InvalidResponse)?;
-    merge(lines, tree)
+    merge(router.client.log_id(), lines, tree)
 }
 
 /// Parses and unions the two independently reported membership representations.
 ///
 /// # Errors
 ///
-/// Returns an error when a reply or a plan does not have the expected shape
-/// ([`DomainError::InvalidResponse`]).
-fn merge(lines: Vec<Vec<String>>, tree: &Value) -> Result<BTreeMap<String, BTreeSet<String>>> {
-    let interfaces: BTreeMap<String, Members> =
-        serde_json::from_value(tree.clone()).map_err(|_error| DomainError::InvalidResponse)?;
+/// Returns an error when the tree of the router logged as `router` does not decode
+/// ([`DomainError::UnreadableAnswer`]).
+fn merge(
+    router: &str,
+    lines: Vec<Vec<String>>,
+    tree: &Value,
+) -> Result<BTreeMap<String, BTreeSet<String>>> {
+    let interfaces: BTreeMap<String, Members> = decode::value(router, "show rc interface", tree)?;
     let mut membership = BTreeMap::<String, BTreeSet<String>>::new();
     for (bridge, members) in interfaces {
         membership.entry(bridge).or_default().extend(
@@ -145,7 +148,7 @@ mod tests {
                 "show-inherit".to_owned(),
             ]),
         )]);
-        assert_eq!(merge(lines, &tree).ok(), Some(expected));
+        assert_eq!(merge("", lines, &tree).ok(), Some(expected));
     }
 
     /// Invalid membership payloads cannot be treated as an empty successful topology read.
@@ -156,8 +159,8 @@ mod tests {
             json!({"Bridge0":{"inherit":[{}]}}),
         ] {
             assert!(matches!(
-                merge(Vec::new(), &tree),
-                Err(DomainError::InvalidResponse)
+                merge("", Vec::new(), &tree),
+                Err(DomainError::UnreadableAnswer(_))
             ));
         }
     }

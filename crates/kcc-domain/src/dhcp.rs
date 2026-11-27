@@ -19,7 +19,7 @@ use serde_json::{Value, json};
 use self::model::{Binding, Neighbour, Pool, PoolConfig, StaticLease};
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    cli_token, descriptor, read_show,
+    cli_token, decode, descriptor, read_show,
 };
 
 /// DHCP read inventory.
@@ -74,7 +74,7 @@ pub async fn read_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> 
         .client
         .show_rc(json!({"ip":{"dhcp":{"host":{}}}}))
         .await?;
-    decode_config_rows(&answer, "/ip/dhcp/host")
+    decode_config_rows(router.client.log_id(), &answer, "/ip/dhcp/host")
 }
 
 /// Reads current DHCP bindings.
@@ -229,24 +229,26 @@ pub async fn apply(
     changes.apply_cli(command::request(operation)?).await
 }
 
-/// Decodes projected configuration rows.
+/// Decodes the configuration rows at `pointer` of the router logged as `router`.
 ///
 /// # Errors
 ///
-/// Returns an error when a reply or a plan does not have the expected shape
-/// ([`DomainError::InvalidResponse`]).
-fn decode_config_rows<T>(answer: &kcc_rci::ConfigurationAnswer, pointer: &str) -> Result<Vec<T>>
+/// Returns an error when `pointer` is absent ([`DomainError::InvalidResponse`]) or its
+/// rows do not decode ([`DomainError::UnreadableAnswer`]).
+fn decode_config_rows<T>(
+    router: &str,
+    answer: &kcc_rci::ConfigurationAnswer,
+    pointer: &str,
+) -> Result<Vec<T>>
 where
     T: DeserializeOwned,
 {
-    serde_json::from_value(
-        answer
-            .configuration_tree()
-            .pointer(pointer)
-            .cloned()
-            .ok_or(DomainError::InvalidResponse)?,
-    )
-    .map_err(|_error| DomainError::InvalidResponse)
+    let rows = answer
+        .configuration_tree()
+        .pointer(pointer)
+        .ok_or(DomainError::InvalidResponse)?;
+    let resource = format!("show rc{}", pointer.replace('/', " "));
+    decode::value(router, &resource, rows)
 }
 
 /// Returns the network and mask for an interface show row.

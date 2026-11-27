@@ -23,7 +23,7 @@ impl From<DomainError> for WorkflowError {
             DomainError::FirewallVerificationFailed => Self::VerificationFailed {
                 field: FIREWALL_RULE_FIELD.to_owned(),
             },
-            DomainError::InvalidResponse => Self::UnexpectedBody,
+            DomainError::InvalidResponse | DomainError::UnreadableAnswer(_) => Self::UnexpectedBody,
             DomainError::StaticLeaseOutsidePool
             | DomainError::StaticLeaseAddressInUse
             | DomainError::InvalidCliToken
@@ -113,6 +113,21 @@ mod tests {
         assert!(matches!(
             WorkflowError::from(DomainError::ProtectedAccount),
             WorkflowError::Refused(Refusal::ProtectedAccount)
+        ));
+    }
+
+    /// A router answer kcc cannot read is the workflow's unexpected body, like an invalid
+    /// response.
+    #[test]
+    fn an_unreadable_answer_is_an_unexpected_body() {
+        let unreadable = DomainError::UnreadableAnswer(kcc_rci::not_json("show x", b"x"));
+        assert!(matches!(
+            WorkflowError::from(unreadable),
+            WorkflowError::UnexpectedBody
+        ));
+        assert!(matches!(
+            WorkflowError::from(DomainError::InvalidResponse),
+            WorkflowError::UnexpectedBody
         ));
     }
 }
