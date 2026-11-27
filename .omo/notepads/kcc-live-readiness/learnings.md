@@ -67,3 +67,27 @@ Reference only: no code is copied and no dependency is added. Local copy of its 
 - The decode deduper is process-wide: a test that hits the same (router id, resource, problem kind) twice sees one WARN; give each test its own log id (`with_log_id`).
 - `kcc serve_scheduled::a_started_run_is_reported_interrupted_once` timed out once (90 s) in a full `--workspace` run under host load and passed alone in 0.41 s: load flake.
 - Removing a now-unused `DomainError` import breaks rustdoc intra-doc links in that file; write them `[`crate::DomainError::X`]` (precedent: routing/read.rs).
+
+## [2026-11-27] Todo 9 learnings
+- Thread-local tracing capture (`set_default`) is flaky in a multi-test binary: with at most one live dispatcher tracing decides a callsite's interest from the first thread that reaches it (JustOne rebuilder), so another test thread without a subscriber can disable the callsite for everyone. `kcc_testkit::log_capture::start()` keeps two permanent dispatchers alive; use it instead of a private `Captured`.
+- `tracing` string fields log quoted when recorded as plain `&str` (`router="home"`); use `%` for unquoted values.
+- `kcc-cargo` can wait many minutes for a slot, even for fmt; run it detached, and never `rm` a log that a detached job redirects into.
+
+## [2026-11-27] Todo 8 learnings
+- `cargo xtask i18n-check` fails on a message no code or template names: removing the last use of a key means deleting it from all six locales and re-running `i18n-gen`.
+- `ReadProblem: From<MessageKey>` lets a `Result<_, ReadProblem>` function keep `?` on old `MessageKey` errors (store failures, parse errors) unchanged.
+- Askama macros in `partials/kit_macros.html` can call the page's `Localize` methods (`t_read`) and other macros of the same file (`details(..)`); an inline `source =` template can `{%- import "partials/kit_macros.html" as kit -%}` too.
+- A show resource the fake must answer 404 for by GET and POST: `FaultInjection::show_absent(path)` (the POST fallback otherwise hides a GET 404).
+
+## [2026-11-27] Process lessons (waves 1-3)
+- Verifier mutation chase: round counts reached 5-6 for the capture tool and 4 for the router-name todo, each round finding a new untested-but-correct call site. The standard was relaxed (see decisions.md / the verifier rules file). Keep verifier briefs to the plan's own bar: one mutation per NEW rule, plus anything that leaks or is wrong.
+- Rebase conflicts so far were append-only locale files and generated keys.rs (keep both blocks, run i18n-gen) and one test-infrastructure overlap (two different overrides for the fake's `show rc` answer: both kept).
+- Model quota errors ("monthly quota exceeded") and gateway errors appear in bursts; a retry a bit later worked.
+
+## [2026-11-27] First real capture: facts for the next todos (structure only, no values)
+- Capture: KN-1811 on firmware 5.1.10, 94 manifest items (85 written, 9 skipped), 38 interface-stat items, 12 of 30 harness reads already decode, 18 fail as expected.
+- Real shapes confirmed object-envelope again: hotspot, DHCP bindings, associations, IPv6 routes, policies, UPnP, media, usb, schedules, `show rc user`/`service`, `show mws associations`; `show ndns` booked is a string; `show components list` is an object; the log and ping use the continuation protocol (no /process/id).
+- Surprise: `show ip nat` ALREADY decodes (a bare array whose rows fit NatSession) in the capture: todo 17 should still implement local paging and the real field names, but its red test needs a synthetic fixture with more than 200 rows, not the capture.
+- The router refuses 8 reads with `Core::Configurator` router errors when asked as single `show rc` roots or as `show interface bands/rrd`: show-interface-bands, show-interface-rrd, show-rc-opkg, show-rc-dns, show-rc-vpn-server, show-rc-oc-server, show-rc-wireguard-server, show-rc-crypto; `show components pending` is not-found. The harness replay DROPS refused roots, so `live_vpn_servers` passes vacuously: todo 22 must replay a refused root as a router error (structured skip record) before it can claim the VPN read is proven.
+- The anonymizer lessons: free-text comments in a running config span several words; firmware interface references (`interface: {id, name, ...}`) must not be learned as host names.
+- A privacy tool that rewrites text must also prove it preserved the schema: a learned generic word that equals a firmware key corrupted keys inside the first real capture (found only by looking at key paths with a value-free shape view, `kcc-shape.py`). Todo 12 round 4 adds the vocabulary rule and a fidelity self-check. Lesson for the F-wave: verify fixtures against the capture's KEY PATHS, not only against decode results.

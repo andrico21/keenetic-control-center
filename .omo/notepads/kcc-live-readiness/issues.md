@@ -36,3 +36,37 @@
 - R2: the mode of an EXISTING identifiers file is not tightened to 0600 (only a new file is created 0600, as the plan requires).
 - R4: a run killed between `Rendered::write` and the self-check leaves an unchecked capture directory; the next run refuses it (exit 1), so the operator must inspect or delete it.
 - Out of scope, found while deciding the IPv4 sweep: the anonymizer rewrites any dotted-quad run, so 4-part version strings in JSON (the `show version` `title`, component versions) become `203.0.113.N` in the fixtures (fidelity loss, not a leak). Todo 12 may want to know before reading component versions from the capture.
+
+## [2026-11-27] Todo 11 fix round: outside scope
+- `web-admin-role-scope-help` / `web-admin-error-scope` say "router names" (en; de "Routernamen"; kk) while role scopes match router IDs. Pre-existing wording; candidate for todo 26 or a follow-up.
+
+## [2026-11-27] Todo 4 fix round 5: residuals D16-D18 (verifier proposed fixes for possible later round)
+- **D16** (low, ~7% of addresses): a learned IPv4 address written in reversed form (in-addr.arpa or reversed ISP PTR) survives when the reversed quad falls in a range kept by the anonymizer: loopback (ends in .127), multicast (.224–.239), link-local (x.x.254.169), or netmask-shaped.
+  - Location: `crates/kcc-testkit/src/anonymize/ipv4_forms.rs:158–168` (the reader `holds_learned` only compares forward windows), and `anonymize.rs:907–913` (`keeps_ipv4` keeps those ranges).
+  - Repro: learn `81.2.69.230`, then `text("<230.69.2.81>.in-addr.arpa")` unchanged, self-check passes (exit 0).
+  - Proposed fix (verifier round-5 report):
+<<'FIX_D16'
+In `holds_learned`, after matching each window's forward bytes, also match its reversed octets against `learned`:
+- After line 165, add `|| quad(run, &reversed_four).is_some_and(|address| learned.contains(&address))` where `reversed_four` = the window in reverse order.
+- This fails closed: any learned address never survives reversed.
+FIX_D16
+
+- **D17** (low): a learned /48 in the `ip6.arpa` nibble form (12 dots, e.g., `1.2.3.4.5.6.0.0.0.0.0.a.b.c.d.ip6.arpa`) or dashed spelling (e.g., `2a02-6b8-1c2d`) survives with exit 0.
+  - Location: `crates/kcc-testkit/src/capture/self_check.rs:114–127` (reader `learned_addresses` and `anonymize/runs.rs:225–235` (`holds_prefix` reads `:` spans only).
+  - Repro: addr `2a02:6b8:1c2d:3e4f:...` with ptr `1.2.3.4.5.6.0.0.0.0.0.a.b.c.d.ip6.arpa` gives exit 0 with nibbles in file; dashed `-` spelling survives too.
+  - Proposed fix:
+<<'FIX_D17'
+In `learned_addresses`, add each learned /48's nibble string (12 reversed nibbles joined by `.`) and its `-`-joined spelling (plain and zero-padded) to the needles checked by `holds_prefix`. Example: `2a02:6b8:1c2d::` -> nibbles `d.2.c.1.8.b.6.0.a.0.2.0` and dashed `2a02-6b8-1c2d`.
+FIX_D17
+
+- **D18** (low): `cafe:<G48>::1` (non-routable leading group joined to a routable /48) keeps `<site>` as the subnet and exits 0 even when `<G>` is learned.
+  - Location: `crates/kcc-testkit/src/anonymize/runs.rs:134–153` (`shape` function), with `anonymize.rs:819–823` (a Routed address keeps its s3).
+  - Repro: `text("cafe:<G48>::1")` with G learned -> exit 0, marker in file.
+  - Proposed fix:
+<<'FIX_D18'
+When `!is_routable(s0, s1) && is_routable(s1, s2)` (non-routable leading group but routable offset-1 pair), classify as `Embedding` (subnet dropped) instead of `Routed`. Add test case `cafe:<G48>::1` and `1:<GC>` to `addresses_joined_to_link_local_or_multicast_groups_are_rewritten`, asserting that the `:site>` group is rewritten with the learned address.
+FIX_D18
+
+## [2026-11-27] Todo 12 (outside scope, not fixed)
+- The fake router answers `POST /rci/components/list` with its component-state OBJECT, while kcc's `components::read_components` reads `GET show/components/list` and decodes a SEQUENCE; replaying a fake-router capture shows it (`live_components_list`: "show components list at $: found object, expected a sequence", and `live_entware_status` through it). Reproduce: capture the fake with `kcc-capture --allow-loopback`, then `KCC_LIVE_CAPTURE_DIR=<abs dir> cargo test -p kcc-domain --test live_capture_decode -- --ignored live_components_list`.
+- `kcc-capture` installs `tracing_subscriber::fmt().init()` without honouring `RUST_LOG`, so it cannot print its own value-free request list (`kcc_rci::session::send` DEBUG lines); todo 12's action log had to be reconstructed from the documented request set.
