@@ -386,7 +386,7 @@ W2 and W3 hold fewer than five todos and W6-W9 one each because they contain exa
   Commit: Y | fix(domain,testkit): read real client, lease and ARP answers
   Recommended task executor category: deep-low - decoder, simulator and page join with many consumers
 
-- [ ] 14. Wi-Fi reads the real station list
+- [x] 14. Wi-Fi reads the real station list
   What to do / Must NOT do (procedure; capture items `show-associations`, `show-interface`):
   - `wifi::read_stations` (`crates/kcc-domain/src/wifi.rs:151-152`): accept `{"station":[...]}` and a bare array; `Station` (`wifi/models.rs:97-117`): `rx_rate` alias `rxrate`, `tx_rate` alias `txrate`, `interface` alias `ap`; new `rx_bytes`/`tx_bytes` (aliases `rxbytes`/`txbytes`), `uptime: Option<u64>`.
   - Confirm `AccessPoint` and `Radio` decode the captured `show interface` entries (types `AccessPoint` and `WifiMaster`); add a fixture test.

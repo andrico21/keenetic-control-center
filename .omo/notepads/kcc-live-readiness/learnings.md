@@ -91,3 +91,11 @@ Reference only: no code is copied and no dependency is added. Local copy of its 
 - The router refuses 8 reads with `Core::Configurator` router errors when asked as single `show rc` roots or as `show interface bands/rrd`: show-interface-bands, show-interface-rrd, show-rc-opkg, show-rc-dns, show-rc-vpn-server, show-rc-oc-server, show-rc-wireguard-server, show-rc-crypto; `show components pending` is not-found. The harness replay DROPS refused roots, so `live_vpn_servers` passes vacuously: todo 22 must replay a refused root as a router error (structured skip record) before it can claim the VPN read is proven.
 - The anonymizer lessons: free-text comments in a running config span several words; firmware interface references (`interface: {id, name, ...}`) must not be learned as host names.
 - A privacy tool that rewrites text must also prove it preserved the schema: a learned generic word that equals a firmware key corrupted keys inside the first real capture (found only by looking at key paths with a value-free shape view, `kcc-shape.py`). Todo 12 round 4 adds the vocabulary rule and a fidelity self-check. Lesson for the F-wave: verify fixtures against the capture's KEY PATHS, not only against decode results.
+
+## [2026-11-28] Todo 16 gotchas
+- kcc-web `/ui/admin/scheduled/new?...&kind=policy_switch` answers 503 when the page has no scheduler attached: build `Scheduled::over(Some(Stub::new()), builder)` (or `build(Some(..))`), never `None`, for dialog tests.
+- `cargo test` stops at the first failing test binary of a crate: a gate run that fails in the middle leaves later binaries unrun; rerun the whole gate after the fix.
+- A `show_fixture("ipv6/route", ...)` override can be the envelope or a bare list; the projection unwraps `route6` before appending the running static routes.
+
+## 2026-11-28 Verifier lesson (todo 14 round 1)
+- The fake-router projection of a real shape (plan procedure step 4 / IS-11) was changed by the worker but pinned by no test (mutant: projection back to the old shape survived every suite). Every decoder todo of wave W4 (13, 15, 16, 17) must have a test that reads the fake's DEFAULT answer raw for every model/firmware profile and asserts the captured envelope/keys. Verifiers of 13, 15, 16, 17: mutate the fake projection and require a named test red.

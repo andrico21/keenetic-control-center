@@ -226,7 +226,15 @@
         "opencode:ses_de051b867ffeIhmd8Q7qkCjx5X",
         "opencode:ses_de0517ba3ffeB3w1dVrDmGP6KH",
         "opencode:ses_de0513405ffebeKk4Q81Af9FbL",
-        "opencode:ses_de050f29bffe0wwDi2rIPx0VCa"
+        "opencode:ses_de050f29bffe0wwDi2rIPx0VCa",
+        "opencode:ses_ddf7971bcffexJ3e0uESUJ1oVG",
+        "opencode:ses_ddf6abad6ffeVXd9ymeudLzFxM",
+        "opencode:ses_ddf2ccd76ffe0V10LXWrfNQHkM",
+        "opencode:ses_ddedebb9affeBgAbeIrMD6v6aH",
+        "opencode:ses_ddeccdb03ffeQExQpwc6yD1tyH",
+        "opencode:ses_dde938324ffexvczJWRtSlpU1C",
+        "opencode:ses_dde807795ffe9U1bF34Xx3cuw3",
+        "opencode:ses_dde7c587cffe35iUneHpsgjrTt"
       ],
       "session_origins": {
         "opencode:ses_dea0797c5ffeI3gP0PImEMmni9": "direct",
@@ -307,12 +315,20 @@
         "opencode:ses_de051b867ffeIhmd8Q7qkCjx5X": "appended",
         "opencode:ses_de0517ba3ffeB3w1dVrDmGP6KH": "appended",
         "opencode:ses_de0513405ffebeKk4Q81Af9FbL": "appended",
-        "opencode:ses_de050f29bffe0wwDi2rIPx0VCa": "appended"
+        "opencode:ses_de050f29bffe0wwDi2rIPx0VCa": "appended",
+        "opencode:ses_ddf7971bcffexJ3e0uESUJ1oVG": "appended",
+        "opencode:ses_ddf6abad6ffeVXd9ymeudLzFxM": "appended",
+        "opencode:ses_ddf2ccd76ffe0V10LXWrfNQHkM": "appended",
+        "opencode:ses_ddedebb9affeBgAbeIrMD6v6aH": "appended",
+        "opencode:ses_ddeccdb03ffeQExQpwc6yD1tyH": "appended",
+        "opencode:ses_dde938324ffexvczJWRtSlpU1C": "appended",
+        "opencode:ses_dde807795ffe9U1bF34Xx3cuw3": "appended",
+        "opencode:ses_dde7c587cffe35iUneHpsgjrTt": "appended"
       },
       "status": "active",
       "worktree_path": null,
       "started_at": "2026-11-26T03:50:56.000Z",
-      "updated_at": "2026-11-28T01:04:57.353Z",
+      "updated_at": "2026-11-28T09:36:47.882Z",
       "agent": "atlas",
       "task_sessions": {
         "todo:1": {
@@ -358,6 +374,15 @@
           "agent": "Sisyphus-Junior",
           "category": "deep-low",
           "updated_at": "2026-11-28T01:04:57.353Z"
+        },
+        "todo:13": {
+          "task_key": "todo:13",
+          "task_label": "13",
+          "task_title": "Clients and DHCP read the real answers; device names come back",
+          "session_id": "opencode:ses_dde7c587cffe35iUneHpsgjrTt",
+          "agent": "Sisyphus-Junior",
+          "category": "unspecified-low",
+          "updated_at": "2026-11-28T09:36:47.882Z"
         }
       }
     }
@@ -365,7 +390,7 @@
   "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/kcc-live-readiness.md",
   "started_at": "2026-11-26T03:50:56.000Z",
   "status": "active",
-  "updated_at": "2026-11-28T01:04:57.353Z",
+  "updated_at": "2026-11-28T09:36:47.882Z",
   "session_ids": [
     "opencode:ses_dea0797c5ffeI3gP0PImEMmni9",
     "opencode:ses_dea02a81bffe9ID9gFsKPigrtc",
@@ -445,7 +470,15 @@
     "opencode:ses_de051b867ffeIhmd8Q7qkCjx5X",
     "opencode:ses_de0517ba3ffeB3w1dVrDmGP6KH",
     "opencode:ses_de0513405ffebeKk4Q81Af9FbL",
-    "opencode:ses_de050f29bffe0wwDi2rIPx0VCa"
+    "opencode:ses_de050f29bffe0wwDi2rIPx0VCa",
+    "opencode:ses_ddf7971bcffexJ3e0uESUJ1oVG",
+    "opencode:ses_ddf6abad6ffeVXd9ymeudLzFxM",
+    "opencode:ses_ddf2ccd76ffe0V10LXWrfNQHkM",
+    "opencode:ses_ddedebb9affeBgAbeIrMD6v6aH",
+    "opencode:ses_ddeccdb03ffeQExQpwc6yD1tyH",
+    "opencode:ses_dde938324ffexvczJWRtSlpU1C",
+    "opencode:ses_dde807795ffe9U1bF34Xx3cuw3",
+    "opencode:ses_dde7c587cffe35iUneHpsgjrTt"
   ],
   "session_origins": {
     "opencode:ses_dea0797c5ffeI3gP0PImEMmni9": "direct",
@@ -526,7 +559,15 @@
     "opencode:ses_de051b867ffeIhmd8Q7qkCjx5X": "appended",
     "opencode:ses_de0517ba3ffeB3w1dVrDmGP6KH": "appended",
     "opencode:ses_de0513405ffebeKk4Q81Af9FbL": "appended",
-    "opencode:ses_de050f29bffe0wwDi2rIPx0VCa": "appended"
+    "opencode:ses_de050f29bffe0wwDi2rIPx0VCa": "appended",
+    "opencode:ses_ddf7971bcffexJ3e0uESUJ1oVG": "appended",
+    "opencode:ses_ddf6abad6ffeVXd9ymeudLzFxM": "appended",
+    "opencode:ses_ddf2ccd76ffe0V10LXWrfNQHkM": "appended",
+    "opencode:ses_ddedebb9affeBgAbeIrMD6v6aH": "appended",
+    "opencode:ses_ddeccdb03ffeQExQpwc6yD1tyH": "appended",
+    "opencode:ses_dde938324ffexvczJWRtSlpU1C": "appended",
+    "opencode:ses_dde807795ffe9U1bF34Xx3cuw3": "appended",
+    "opencode:ses_dde7c587cffe35iUneHpsgjrTt": "appended"
   },
   "plan_name": "kcc-live-readiness",
   "task_sessions": {
@@ -573,6 +614,15 @@
       "agent": "Sisyphus-Junior",
       "category": "deep-low",
       "updated_at": "2026-11-28T01:04:57.353Z"
+    },
+    "todo:13": {
+      "task_key": "todo:13",
+      "task_label": "13",
+      "task_title": "Clients and DHCP read the real answers; device names come back",
+      "session_id": "opencode:ses_dde7c587cffe35iUneHpsgjrTt",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-low",
+      "updated_at": "2026-11-28T09:36:47.882Z"
     }
   },
   "agent": "atlas",

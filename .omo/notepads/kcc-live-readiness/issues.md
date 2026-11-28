@@ -74,3 +74,30 @@ FIX_D18
 ## [2026-11-28] Todo 28 (outside scope, not fixed)
 - `crates/kcc-domain/src/diagnostics.rs` `read_log` (todo 21): when the first POST `show log` answer has `continued: true` it calls `client.start(path, ..)`, which is a SECOND POST in a new session (restarts the stream) and then polls a stream that never stops continuing. Before todo 28 this failed at once with `Decode(MissingPointer("/process/id"))`; now it ends with `RciError::Timeout` after the handle's 300 s deadline. Reproduction: `KCC_LIVE_CAPTURE_DIR=<abs capture dir> cargo test -p kcc-domain --test live_capture_decode -- --ignored live_log` (fails after 300 s, "the router did not answer in time"). Todo 21 should read the one-shot form or consume the stream's first chunks itself, never `start()` after a POST.
 - `live_components_list` (object vs sequence) and `live_components_pending` (router not-found) still fail on the capture: todo 19.
+
+## [2026-11-28] Todo 16: `show rc ip policy` real shape vs kcc's read-back (out of scope, for todo 25/29)
+- `crates/kcc-domain/src/policies/change/apply.rs` `policy_commands` and `crates/kcc-web/src/routing_page/policy_rows.rs` `words` expect command-word rows under `/ip/policy/<name>`; the captured 5.1.10 tree holds an object per policy (`description`, `permit[{interface,enabled,no}]`, `rate-limit[{interface,input{auto|rate},output{..}}]`; see fixture `crates/kcc-testkit/fixtures/KN-1811/real-5.1.10/show-rc-ip-policy.json`). Policy write verification answers InvalidResponse on hardware; the policies page shows no configured permits. Not changed by todo 16 (Must NOT).
+
+## 2026-11-28 Todo 16 worker finding (rc policy read-back), owner todo undecided
+- Worker claim-task-16 section (h): `crates/kcc-domain/src/policies/change/apply.rs` (`policy_commands`) and `crates/kcc-web/src/routing_page/policy_rows.rs` (`words`) read `show rc ip policy` as command-word rows. The captured 5.1.10 tree holds one object per policy (`description`, `permit[{interface,enabled,no}]`, `rate-limit[...]`).
+- Effect on hardware if confirmed: a policy write read-back returns InvalidResponse, and the policies page shows no permits from the configuration.
+- Todo 16 text: "Must NOT change ... the configuration reads `show rc ip policy` beyond what the captured shape requires". Todo 29 does not list this read. The todo 16 verifier (bg_f474e233) is asked to confirm or refute and name the owning todo. If confirmed and not owned: add it to todo 25 (fix failing changes from evidence) or a follow-up worker after todo 16 lands.
+
+## [2026-11-28] Todo 15: outside-scope finding (mesh acquire read-back on the real shape)
+- `crates/kcc-domain/src/mesh.rs` `plan` (the `mws acquire` branch): the read-back is `VerificationSpec::collection(show mws member, "", {"id": <candidate>}, true)`, which matches RAW rows. The captured 5.1.10 member rows carry `cid`, not `id`, so on a real 5.1.10 router the acquire read-back cannot find the acquired member. The fake still appends acquired members as `{"id": <candidate>, "online": true}` (assumed), so the tests stay green. Not changed in todo 15: what `mws acquire` takes as candidate (cid, MAC or a candidate id) is not in the capture; a fix needs `show mws candidate`-style evidence (todo 25 or a follow-up). Reproduce: `FakeRouter::show_fixture("mws/member", <real-5.1.10 fixture>)` and acquire `00000000-0000-0000-0000-000000000001`: the collection check looks for `id` only.
+
+## 2026-11-28 Todo 15 worker finding (mesh acquire read-back), owner todo undecided
+- Worker claim-task-15 section (h): `crates/kcc-domain/src/mesh.rs` `plan` (`mws acquire` branch) checks the read-back as `collection(show mws member, {"id": <candidate>})` on RAW rows. Real 5.1.10 rows carry `cid`, not `id`, so the acquire read-back cannot match on a real router. What `mws acquire` takes as candidate is not in the capture. Candidate owner: todo 25 (fix failing changes from evidence) or a follow-up worker after todo 15 lands. Same class as the todo 16 `show rc ip policy` read-back finding.
+
+## 2026-11-28 Todo 16 verifier round 1: needs-fix (bg_f474e233) -> fix worker bg_e2da2410
+- B1 CONFIRMED and owned by todo 16 (not 25/29): `show rc ip policy` real shape is an object per policy; `policies/change/apply.rs::policy_commands` and `kcc-web/src/routing_page/policy_rows.rs::words` reject/ignore it, so every policy write is applied then reported failed. Todo 16's own capture items include show-rc-ip-policy and procedure step 4 requires read-backs on real shapes.
+- B2: no test pins the fake's captured ipv6/policy projections (mutants M8a/M8b survive). Same class as todo 14 m7.
+- Rule for all W4 decoder todos: a read-back that fails on the captured shape belongs to the todo that owns the resource. Todo 15's `mws acquire` read-back (cid vs id) is therefore a todo-15 item if its verifier confirms it.
+
+## [2026-11-28] Todo 13 findings outside scope
+- `crates/kcc-app/src/poller.rs:563` `count_clients` counts object members, so the dashboard shows 1 client for a real `{"host":[...]}` answer (the fake now answers that shape too; no test pins it). Owned by todo 29.
+- `crates/kcc-domain/src/interfaces/management.rs:225` `observed_sources` decodes hotspot rows as a bare list, so the envelope yields no evidence. Owned by todo 29.
+- The notepad's "Todo 13a lenient helpers" says `lenient` is private `pub(crate)`; the tree has `pub mod lenient` with `pub fn`s.
+
+## 2026-11-28 Todo 17 verifier round 1: needs-fix (bg_c2dc37dc) -> fix worker
+- Product correct. Blockers: M9c survives (no test with an exact multiple of 200 rows: Next link rule follows total); stale crates/kcc-web/DESIGN.md:1055,1078-1079 ("router pages of 200"). Recommended: CLI/MCP assertion on `total` (M11).
