@@ -14,7 +14,10 @@ mod tests {
 
     use axum::http::Method;
     use kcc_rci::{ObjectName, RciPath};
-    use kcc_testkit::{FaultInjection, model::Profile};
+    use kcc_testkit::{
+        FaultInjection,
+        model::{Model, Profile},
+    };
     use serde_json::{Value, json};
 
     use crate::support::{TestResult, json, spawned};
@@ -204,6 +207,42 @@ mod tests {
         assert!(!after.configuration_tree().to_string().contains("\"cli\""));
         assert!(after.configuration_tree().to_string().contains("readonly"));
         handle.shutdown().await?;
+        Ok(())
+    }
+
+    /// Todo 14: the default `show associations` answer of every profile is the captured shape.
+    ///
+    /// An object with a non-empty `station` array, rows with the router's own field names and
+    /// none of the simulator's old spellings (`interface`, `ssid`).
+    #[tokio::test]
+    async fn default_associations_keep_the_captured_envelope_and_field_names() -> TestResult {
+        let path = RciPath::from_segments(["show", "associations"])?;
+        let mut checked = 0_usize;
+        for model in Model::ALL {
+            for firmware in model.firmware_lines() {
+                let profile = Profile::new(model, *firmware)?;
+                let (handle, client) = spawned(profile, FaultInjection::default()).await?;
+                let answer = json(client.show(&path, &()).await?)?;
+                handle.shutdown().await?;
+
+                let object = answer.as_object().ok_or("an object envelope")?;
+                let stations = object
+                    .get("station")
+                    .and_then(Value::as_array)
+                    .ok_or("a station array")?;
+                assert!(!stations.is_empty(), "{profile:?} has stations");
+                for row in stations {
+                    for key in ["ap", "rxrate", "txrate", "rxbytes", "txbytes", "uptime"] {
+                        assert!(row.get(key).is_some(), "{profile:?} row lacks {key}");
+                    }
+                    for key in ["interface", "ssid"] {
+                        assert!(row.get(key).is_none(), "{profile:?} row has {key}");
+                    }
+                }
+                checked = checked.saturating_add(1);
+            }
+        }
+        assert_eq!(checked, 7, "every simulator profile");
         Ok(())
     }
 }

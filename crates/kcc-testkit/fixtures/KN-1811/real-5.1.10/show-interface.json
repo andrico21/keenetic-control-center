@@ -1,0 +1,823 @@
+{
+  "Bridge0": {
+    "address": "192.0.2.2",
+    "admin-only": false,
+    "auth-type": "none",
+    "bridge": {
+      "interface": [
+        {
+          "inherited": "value-4",
+          "interface": "GigabitEthernet1",
+          "link": false
+        }
+      ]
+    },
+    "connected": "yes",
+    "description": "description-7",
+    "global": false,
+    "id": "Bridge0",
+    "index": 1,
+    "interface-name": "Bridge0",
+    "ipv6": {
+      "addresses": [
+        {
+          "address": "2001:db8::c",
+          "prefix-length": 64,
+          "proto": "KERNEL",
+          "valid-lifetime": "infinite"
+        }
+      ]
+    },
+    "link": "up",
+    "mac": "02:00:00:00:14:0e",
+    "mask": "255.255.255.0",
+    "mtu": 1,
+    "security-level": "private",
+    "state": "up",
+    "summary": {
+      "layer": {
+        "conf": "value-17",
+        "ctrl": "value-18",
+        "ipv4": "value-19",
+        "ipv6": "value-20",
+        "link": "running"
+      }
+    },
+    "traits": [
+      "value-22"
+    ],
+    "tx-queue-length": 1,
+    "type": "Bridge",
+    "uptime": 1
+  },
+  "Bridge1": {
+    "address": "192.0.2.24",
+    "admin-only": false,
+    "auth-type": "none",
+    "bridge": {
+      "interface": [
+        {
+          "interface": "GigabitEthernet1",
+          "link": false
+        }
+      ]
+    },
+    "connected": "yes",
+    "description": "description-27",
+    "global": false,
+    "id": "Bridge1",
+    "index": 1,
+    "interface-name": "Bridge1",
+    "ipv6": {
+      "addresses": [
+        {
+          "address": "2001:db8::20",
+          "prefix-length": 64,
+          "proto": "KERNEL",
+          "valid-lifetime": "infinite"
+        }
+      ]
+    },
+    "link": "up",
+    "mac": "02:00:00:00:14:22",
+    "mask": "255.255.255.0",
+    "mtu": 1,
+    "security-level": "private",
+    "state": "up",
+    "summary": {
+      "layer": {
+        "conf": "value-37",
+        "ctrl": "value-38",
+        "ipv4": "value-39",
+        "ipv6": "value-40",
+        "link": "running"
+      }
+    },
+    "traits": [
+      "value-42"
+    ],
+    "tx-queue-length": 1,
+    "type": "Bridge",
+    "uptime": 1
+  },
+  "Bridge2": {
+    "address": "192.0.2.44",
+    "admin-only": false,
+    "auth-type": "none",
+    "bridge": {
+      "interface": [
+        {
+          "interface": "GigabitEthernet1",
+          "link": false
+        }
+      ]
+    },
+    "connected": "yes",
+    "description": "description-47",
+    "global": false,
+    "id": "Bridge2",
+    "index": 1,
+    "interface-name": "Bridge2",
+    "ipv6": {
+      "addresses": [
+        {
+          "address": "2001:db8::34",
+          "prefix-length": 64,
+          "proto": "KERNEL",
+          "valid-lifetime": "infinite"
+        }
+      ]
+    },
+    "link": "up",
+    "mac": "02:00:00:00:14:36",
+    "mask": "255.255.255.0",
+    "mtu": 1,
+    "security-level": "private",
+    "state": "up",
+    "summary": {
+      "layer": {
+        "conf": "value-57",
+        "ctrl": "value-58",
+        "ipv4": "value-59",
+        "ipv6": "value-60",
+        "link": "running"
+      }
+    },
+    "traits": [
+      "value-62"
+    ],
+    "tx-queue-length": 1,
+    "type": "Bridge",
+    "uptime": 1
+  },
+  "Bridge3": {
+    "address": "192.0.2.64",
+    "admin-only": false,
+    "auth-type": "none",
+    "bridge": {
+      "interface": [
+        {
+          "interface": "GigabitEthernet1",
+          "link": false
+        }
+      ]
+    },
+    "connected": "yes",
+    "description": "description-67",
+    "global": false,
+    "id": "Bridge3",
+    "index": 1,
+    "interface-name": "Bridge3",
+    "ipv6": {
+      "addresses": [
+        {
+          "address": "2001:db8::48",
+          "prefix-length": 64,
+          "proto": "KERNEL",
+          "valid-lifetime": "infinite"
+        }
+      ]
+    },
+    "link": "up",
+    "mac": "02:00:00:00:14:4a",
+    "mask": "255.255.255.0",
+    "mtu": 1,
+    "security-level": "private",
+    "state": "up",
+    "summary": {
+      "layer": {
+        "conf": "value-77",
+        "ctrl": "value-78",
+        "ipv4": "value-79",
+        "ipv6": "value-80",
+        "link": "running"
+      }
+    },
+    "traits": [
+      "value-82"
+    ],
+    "tx-queue-length": 1,
+    "type": "Bridge",
+    "uptime": 1
+  },
+  "GigabitEthernet0": {
+    "admin-only": false,
+    "connected": "yes",
+    "description": "description-84",
+    "id": "GigabitEthernet0",
+    "index": 1,
+    "interface-name": "GigabitEthernet0",
+    "link": "up",
+    "mtu": 1,
+    "port": {
+      "1": {
+        "admin-only": false,
+        "auto-negotiation": "value-87",
+        "cable-diagnostics": false,
+        "duplex": "value-88",
+        "eee": "value-89",
+        "flow-control": "value-90",
+        "id": "GigabitEthernet0",
+        "index": 1,
+        "interface-name": "GigabitEthernet0",
+        "label": "1",
+        "last-change": "value-93",
+        "last-overflow": "value-94",
+        "link": "down",
+        "link-group": {
+          "enabled": false,
+          "group-id": 1,
+          "master": false,
+          "supported": false
+        },
+        "public": false,
+        "speed": "value-95",
+        "traits": [
+          "value-97"
+        ],
+        "type": "Port"
+      },
+      "2": {
+        "admin-only": false,
+        "auto-negotiation": "value-98",
+        "cable-diagnostics": false,
+        "duplex": "value-99",
+        "eee": "value-100",
+        "flow-control": "value-101",
+        "id": "GigabitEthernet0",
+        "index": 1,
+        "interface-name": "GigabitEthernet0",
+        "label": "1",
+        "last-change": "value-104",
+        "last-overflow": "value-105",
+        "link": "down",
+        "link-group": {
+          "enabled": false,
+          "group-id": 1,
+          "master": false,
+          "supported": false
+        },
+        "public": false,
+        "speed": "value-106",
+        "traits": [
+          "value-108"
+        ],
+        "type": "Port"
+      }
+    },
+    "state": "up",
+    "summary": {
+      "layer": {
+        "conf": "value-109",
+        "link": "running"
+      }
+    },
+    "traits": [
+      "value-111"
+    ],
+    "tx-queue-length": 1,
+    "type": "GigabitEthernet"
+  },
+  "GigabitEthernet1": {
+    "admin-only": false,
+    "auth-type": "none",
+    "connected": "yes",
+    "description": "description-113",
+    "global": false,
+    "id": "GigabitEthernet1",
+    "index": 1,
+    "interface-name": "GigabitEthernet1",
+    "ipv6": {
+      "addresses": [
+        {
+          "address": "2001:db8::76",
+          "prefix-length": 64,
+          "proto": "KERNEL",
+          "valid-lifetime": "infinite"
+        }
+      ]
+    },
+    "link": "up",
+    "mac": "02:00:00:00:14:78",
+    "mtu": 1,
+    "port": {
+      "admin-only": false,
+      "auto-negotiation": "value-121",
+      "cable-diagnostics": false,
+      "duplex": "value-122",
+      "eee": "value-123",
+      "flow-control": "value-124",
+      "id": "GigabitEthernet1",
+      "index": 1,
+      "interface-name": "GigabitEthernet1",
+      "label": "0",
+      "link": "up",
+      "speed": "value-127",
+      "traits": [
+        "value-129"
+      ],
+      "type": "Port"
+    },
+    "security-level": "private",
+    "state": "up",
+    "summary": {
+      "layer": {
+        "conf": "value-131",
+        "ctrl": "value-132",
+        "ipv4": "value-133",
+        "ipv6": "value-134",
+        "link": "running"
+      }
+    },
+    "traits": [
+      "value-136"
+    ],
+    "tx-queue-length": 1,
+    "type": "GigabitEthernet",
+    "usedby": [
+      "value-138"
+    ]
+  },
+  "PPPoE0": {
+    "ac-mac": "02:00:00:00:14:8b",
+    "address": "192.0.2.141",
+    "admin-only": false,
+    "auth-type": "none",
+    "connected": "yes",
+    "defaultgw": false,
+    "description": "description-142",
+    "fail": "value-143",
+    "global": false,
+    "id": "PPPoE0",
+    "index": 1,
+    "interface-name": "PPPoE0",
+    "ipv6": {
+      "addresses": [
+        {
+          "address": "2001:db8::94",
+          "prefix-length": 64,
+          "proto": "KERNEL",
+          "valid-lifetime": "infinite"
+        }
+      ],
+      "defaultgw": false
+    },
+    "last-change": "value-150",
+    "link": "up",
+    "mask": "255.255.255.0",
+    "mtu": 1,
+    "priority": 1,
+    "remote": "192.0.2.153",
+    "role": [
+      "value-154"
+    ],
+    "security-level": "private",
+    "session-id": 1,
+    "state": "up",
+    "summary": {
+      "layer": {
+        "conf": "value-156",
+        "ctrl": "value-157",
+        "ipv4": "value-158",
+        "ipv6": "value-159",
+        "link": "running"
+      }
+    },
+    "traits": [
+      "value-161"
+    ],
+    "tx-queue-length": 1,
+    "type": "PPPoE",
+    "uptime": 1,
+    "via": "GigabitEthernet1"
+  },
+  "WifiMaster0": {
+    "admin-only": false,
+    "bandwidth": "value-163",
+    "bitrate": 1,
+    "busy-channels": [
+      1
+    ],
+    "channel": 1,
+    "connected": "yes",
+    "description": "description-165",
+    "hwstate": "on",
+    "id": "WifiMaster0",
+    "index": 1,
+    "interface-name": "WifiMaster0",
+    "link": "up",
+    "mtu": 1,
+    "state": "up",
+    "summary": {
+      "layer": {
+        "conf": "value-168",
+        "link": "running"
+      }
+    },
+    "temperature": 1,
+    "traits": [
+      "value-170"
+    ],
+    "tx-queue-length": 1,
+    "type": "WifiMaster"
+  },
+  "WifiMaster1": {
+    "admin-only": false,
+    "bandwidth": "value-171",
+    "bitrate": 1,
+    "busy-channels": [
+      1
+    ],
+    "channel": 1,
+    "connected": "yes",
+    "description": "description-173",
+    "hwstate": "on",
+    "id": "WifiMaster1",
+    "index": 1,
+    "interface-name": "WifiMaster1",
+    "link": "up",
+    "mtu": 1,
+    "state": "up",
+    "summary": {
+      "layer": {
+        "conf": "value-176",
+        "link": "running"
+      }
+    },
+    "temperature": 1,
+    "traits": [
+      "value-178"
+    ],
+    "tx-queue-length": 1,
+    "type": "WifiMaster"
+  },
+  "Wireguard0": {
+    "address": "192.0.2.180",
+    "admin-only": false,
+    "connected": "yes",
+    "defaultgw": false,
+    "description": "description-181",
+    "global": false,
+    "id": "Wireguard0",
+    "index": 1,
+    "interface-name": "Wireguard0",
+    "ipv6": {
+      "defaultgw": false
+    },
+    "link": "up",
+    "mask": "255.255.255.0",
+    "mtu": 1,
+    "priority": 1,
+    "security-level": "private",
+    "state": "up",
+    "summary": {
+      "layer": {
+        "conf": "value-186",
+        "ctrl": "value-187",
+        "ipv4": "value-188",
+        "ipv6": "value-189",
+        "link": "running"
+      }
+    },
+    "traits": [
+      "value-191"
+    ],
+    "tx-queue-length": 1,
+    "type": "Wireguard",
+    "uptime": 1,
+    "wireguard": {
+      "listen-port": 1,
+      "peer": [
+        {
+          "description": "description-197",
+          "enabled": false,
+          "fwmark": 1,
+          "last-handshake": 1,
+          "local-endpoint-address": "192.0.2.199",
+          "local-port": 1,
+          "online": false,
+          "public-key": "public-key-199",
+          "remote-endpoint-address": "192.0.2.201",
+          "remote-port": 1,
+          "rxbytes": 1,
+          "txbytes": 1,
+          "via": "GigabitEthernet1"
+        }
+      ],
+      "public-key": "public-key-202",
+      "status": "value-203"
+    }
+  },
+  "Wireguard1": {
+    "address": "192.0.2.205",
+    "admin-only": false,
+    "connected": "yes",
+    "defaultgw": false,
+    "description": "description-206",
+    "global": false,
+    "id": "Wireguard1",
+    "index": 1,
+    "interface-name": "Wireguard1",
+    "ipv6": {
+      "defaultgw": false
+    },
+    "link": "up",
+    "mask": "255.255.255.0",
+    "mtu": 1,
+    "priority": 1,
+    "security-level": "private",
+    "state": "up",
+    "summary": {
+      "layer": {
+        "conf": "value-211",
+        "ctrl": "value-212",
+        "ipv4": "value-213",
+        "ipv6": "value-214",
+        "link": "running"
+      }
+    },
+    "traits": [
+      "value-216"
+    ],
+    "tx-queue-length": 1,
+    "type": "Wireguard",
+    "uptime": 1,
+    "wireguard": {
+      "listen-port": 1,
+      "peer": [
+        {
+          "description": "description-222",
+          "enabled": false,
+          "fwmark": 1,
+          "last-handshake": 1,
+          "local-endpoint-address": "192.0.2.224",
+          "local-port": 1,
+          "online": false,
+          "public-key": "public-key-224",
+          "remote-endpoint-address": "192.0.2.226",
+          "remote-port": 1,
+          "rxbytes": 1,
+          "txbytes": 1,
+          "via": "GigabitEthernet1"
+        }
+      ],
+      "public-key": "public-key-227",
+      "status": "value-228"
+    }
+  },
+  "Wireguard2": {
+    "admin-only": false,
+    "connected": "yes",
+    "defaultgw": false,
+    "description": "description-230",
+    "global": false,
+    "id": "Wireguard2",
+    "index": 1,
+    "interface-name": "Wireguard2",
+    "ipv6": {
+      "defaultgw": false
+    },
+    "link": "down",
+    "mtu": 1,
+    "priority": 1,
+    "security-level": "private",
+    "state": "down",
+    "summary": {
+      "layer": {
+        "conf": "value-234",
+        "ctrl": "value-235",
+        "ipv4": "value-236",
+        "ipv6": "value-237",
+        "link": "disabled"
+      }
+    },
+    "traits": [
+      "value-239"
+    ],
+    "tx-queue-length": 1,
+    "type": "Wireguard",
+    "wireguard": {
+      "listen-port": 1,
+      "peer": [
+        {
+          "description": "description-245",
+          "enabled": false,
+          "fwmark": 1,
+          "last-handshake": 1,
+          "local-endpoint-address": "192.0.2.247",
+          "local-port": 1,
+          "online": false,
+          "public-key": "public-key-247",
+          "remote-endpoint-address": "192.0.2.249",
+          "remote-port": 1,
+          "rxbytes": 1,
+          "txbytes": 1,
+          "via": "GigabitEthernet1"
+        }
+      ],
+      "public-key": "public-key-250",
+      "status": "value-251"
+    }
+  },
+  "WifiMaster0/AccessPoint0": {
+    "id": "WifiMaster0/AccessPoint0",
+    "index": 40,
+    "interface-name": "WifiMaster0/AccessPoint0",
+    "type": "AccessPoint",
+    "link": "up",
+    "admin-only": false,
+    "traits": [
+      "trait-1",
+      "trait-2"
+    ],
+    "description": "description-40",
+    "connected": "yes",
+    "mac": "02:00:00:00:14:28",
+    "mtu": 1500,
+    "tx-queue-length": 1000,
+    "state": "up",
+    "auth-type": "none",
+    "ipv6": {},
+    "ssid": "ssid-1",
+    "encryption": "wpa2",
+    "global": false,
+    "group": "Bridge0",
+    "security-level": "private",
+    "usedby": [
+      "Bridge0"
+    ],
+    "summary": {
+      "layer": {
+        "conf": "running",
+        "link": "running",
+        "ctrl": "running",
+        "ipv4": "running",
+        "ipv6": "running"
+      }
+    }
+  },
+  "WifiMaster1/AccessPoint0": {
+    "id": "WifiMaster1/AccessPoint0",
+    "index": 41,
+    "interface-name": "WifiMaster1/AccessPoint0",
+    "type": "AccessPoint",
+    "link": "up",
+    "admin-only": false,
+    "traits": [
+      "trait-1",
+      "trait-2"
+    ],
+    "description": "description-41",
+    "connected": "yes",
+    "mac": "02:00:00:00:14:29",
+    "mtu": 1500,
+    "tx-queue-length": 1000,
+    "state": "up",
+    "auth-type": "none",
+    "ipv6": {
+      "addresses": [
+        {
+          "address": "2001:db8::41",
+          "prefix-length": 64,
+          "proto": "KERNEL",
+          "valid-lifetime": "infinite"
+        }
+      ]
+    },
+    "ssid": "ssid-2",
+    "encryption": "wpa2,wpa3",
+    "summary": {
+      "layer": {
+        "conf": "running",
+        "link": "running",
+        "ctrl": "running"
+      }
+    }
+  },
+  "WifiMaster1/AccessPoint1": {
+    "id": "WifiMaster1/AccessPoint1",
+    "index": 42,
+    "interface-name": "WifiMaster1/AccessPoint1",
+    "type": "AccessPoint",
+    "link": "down",
+    "admin-only": false,
+    "traits": [
+      "trait-1",
+      "trait-2"
+    ],
+    "description": "description-42",
+    "connected": "yes",
+    "mac": "02:00:00:00:14:2a",
+    "mtu": 1500,
+    "tx-queue-length": 1000,
+    "state": "down",
+    "auth-type": "none",
+    "ipv6": {},
+    "encryption": "",
+    "summary": {
+      "layer": {
+        "conf": "disabled",
+        "link": "disabled",
+        "ctrl": "disabled"
+      }
+    }
+  },
+  "WifiMaster0/WifiStation0": {
+    "id": "WifiMaster0/WifiStation0",
+    "index": 43,
+    "interface-name": "WifiMaster0/WifiStation0",
+    "type": "WifiStation",
+    "link": "down",
+    "admin-only": false,
+    "traits": [
+      "trait-1",
+      "trait-2"
+    ],
+    "description": "description-43",
+    "connected": "yes",
+    "mac": "02:00:00:00:14:2b",
+    "mtu": 1500,
+    "tx-queue-length": 1000,
+    "state": "down",
+    "auth-type": "none",
+    "ipv6": {},
+    "encryption": "wpa2",
+    "ap": "WifiMaster0/AccessPoint9",
+    "summary": {
+      "layer": {
+        "conf": "disabled",
+        "link": "pending",
+        "ctrl": "pending"
+      }
+    }
+  },
+  "GigabitEthernet0/Vlan1": {
+    "id": "GigabitEthernet0/Vlan1",
+    "index": 44,
+    "interface-name": "GigabitEthernet0/Vlan1",
+    "type": "Vlan",
+    "link": "up",
+    "admin-only": false,
+    "traits": [
+      "trait-1",
+      "trait-2"
+    ],
+    "description": "description-44",
+    "connected": "yes",
+    "mac": "02:00:00:00:14:2c",
+    "mtu": 1500,
+    "tx-queue-length": 1000,
+    "state": "up",
+    "auth-type": "none",
+    "ipv6": {},
+    "global": false,
+    "group": "Bridge0",
+    "security-level": "private",
+    "usedby": [
+      "Bridge0"
+    ],
+    "summary": {
+      "layer": {
+        "conf": "running",
+        "link": "running",
+        "ctrl": "running",
+        "ipv4": "running",
+        "ipv6": "running"
+      }
+    }
+  },
+  "GigabitEthernet1/0": {
+    "id": "GigabitEthernet1/0",
+    "index": 45,
+    "interface-name": "GigabitEthernet1/0",
+    "type": "Port",
+    "link": "up",
+    "admin-only": false,
+    "traits": [
+      "trait-1",
+      "trait-2"
+    ],
+    "label": "0",
+    "cable-diagnostics": true,
+    "auto-negotiation": "on",
+    "duplex": "full",
+    "eee": "off",
+    "flow-control": "on",
+    "speed": "1000",
+    "last-change": "value-45",
+    "last-overflow": "value-46",
+    "public": true,
+    "link-group": {
+      "enabled": false,
+      "group-id": 1,
+      "master": false,
+      "supported": true
+    },
+    "summary": {
+      "layer": {
+        "conf": "running",
+        "link": "running"
+      }
+    }
+  }
+}

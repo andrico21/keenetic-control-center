@@ -12,9 +12,12 @@ use kcc_i18n::{
     locale::Locale,
 };
 
-use crate::table::{
-    Direction, Sort,
-    rows::{Row, SortKey},
+use crate::{
+    net_wifi_rows::ApRow,
+    table::{
+        Direction, Sort,
+        rows::{Row, SortKey},
+    },
 };
 
 /// One connected device.
@@ -35,12 +38,20 @@ pub(crate) struct StationRow {
 }
 
 impl StationRow {
-    /// The row of `station`.
-    fn new(station: Station) -> Self {
+    /// The row of `station`; without a network name of its own it takes the one of its
+    /// access point in `points`, as a real router reports none per station.
+    fn new(station: Station, points: &[ApRow]) -> Self {
+        let ssid = station.ssid.or_else(|| {
+            let interface = station.interface.as_deref()?;
+            points
+                .iter()
+                .find(|point| point.id() == interface)
+                .and_then(|point| point.ssid().map(str::to_owned))
+        });
         Self {
             mac: station.mac.unwrap_or_default(),
             interface: station.interface,
-            ssid: station.ssid,
+            ssid,
             rssi: station.rssi,
             rx: station.rx_rate,
             tx: station.tx_rate,
@@ -108,18 +119,21 @@ impl Row for StationRow {
     }
 }
 
-/// The devices connected to the router of `domain`.
+/// The devices connected to the router of `domain`, named after `points`.
 ///
 /// # Errors
 ///
 /// Returns the router's error.
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, reads only.
-pub(crate) async fn stations(domain: &RouterCtx) -> Result<Vec<StationRow>, DomainError> {
+pub(crate) async fn stations(
+    domain: &RouterCtx,
+    points: &[ApRow],
+) -> Result<Vec<StationRow>, DomainError> {
     Ok(wifi::read_stations(domain)
         .await?
         .into_iter()
-        .map(StationRow::new)
+        .map(|station| StationRow::new(station, points))
         .collect())
 }
 

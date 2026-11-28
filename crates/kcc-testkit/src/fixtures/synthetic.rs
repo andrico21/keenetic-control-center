@@ -139,14 +139,15 @@ fn client_rows(state: &str) -> Value {
     )
 }
 
-/// Builds wireless association rows.
+/// Builds wireless association rows in the `{"station": [...]}` envelope and with the
+/// field names of a captured KN-1811 5.1.10 answer.
 fn associations() -> Value {
-    json!([
-        {"mac":"02:00:00:00:10:03","interface":"WifiMaster0/AccessPoint0","ssid":"ssid-1","rssi":-42_i8,"rx-rate":144_u16,"tx-rate":144_u16},
-        {"mac":"02:00:00:00:10:04","interface":"WifiMaster0/AccessPoint1","ssid":"ssid-guest","rssi":-58_i8,"rx-rate":72_u16,"tx-rate":65_u16},
-        {"mac":"02:00:00:00:10:05","interface":"WifiMaster1/AccessPoint0","ssid":"ssid-5","rssi":-37_i8,"rx-rate":866_u16,"tx-rate":780_u16},
-        {"mac":"02:00:00:00:10:06","interface":"WifiMaster1/AccessPoint0","ssid":"ssid-5","rssi":-66_i8,"rx-rate":173_u16,"tx-rate":130_u16}
-    ])
+    json!({"station": [
+        {"mac":"02:00:00:00:10:03","ap":"WifiMaster0/AccessPoint0","authenticated":true,"psm":false,"rssi":-42_i8,"rxrate":144_u16,"txrate":144_u16,"rxbytes":450_000_u64,"txbytes":210_000_u64,"uptime":3600_u32,"ht":20_u8,"mode":"11n","gi":800_u16,"mcs":7_u8,"txss":2_u8,"ebf":false,"pmf":false,"security":"wpa2-psk"},
+        {"mac":"02:00:00:00:10:04","ap":"WifiMaster0/AccessPoint1","authenticated":true,"psm":true,"rssi":-58_i8,"rxrate":72_u16,"txrate":65_u16,"rxbytes":90_000_u64,"txbytes":40_000_u64,"uptime":600_u32,"ht":20_u8,"mode":"11n","gi":800_u16,"mcs":4_u8,"txss":1_u8,"ebf":false,"pmf":false,"security":"wpa2-psk"},
+        {"mac":"02:00:00:00:10:05","ap":"WifiMaster1/AccessPoint0","authenticated":true,"psm":false,"rssi":-37_i8,"rxrate":866_u16,"txrate":780_u16,"rxbytes":980_000_u64,"txbytes":760_000_u64,"uptime":7200_u32,"ht":80_u8,"mode":"11n","gi":400_u16,"mcs":9_u8,"txss":2_u8,"ebf":true,"pmf":true,"security":"wpa3-psk"},
+        {"mac":"02:00:00:00:10:06","ap":"WifiMaster1/AccessPoint0","authenticated":true,"psm":false,"rssi":-66_i8,"rxrate":173_u16,"txrate":130_u16,"rxbytes":70_000_u64,"txbytes":50_000_u64,"uptime":60_u32,"ht":40_u8,"mode":"11n","gi":800_u16,"mcs":5_u8,"txss":1_u8,"ebf":false,"pmf":true,"security":"wpa3-psk"}
+    ]})
 }
 
 /// Builds interface counters keyed by interface id.

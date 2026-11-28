@@ -136,3 +136,13 @@ mod mesh;
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 #[path = "network_pages/unread.rs"]
 mod unread;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "network_pages/wifi_real_shape.rs"]
+mod wifi_real_shape;

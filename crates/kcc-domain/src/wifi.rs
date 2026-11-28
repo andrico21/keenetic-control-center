@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    decode, descriptor, interfaces, read_show,
+    decode, descriptor, interfaces, lenient, read_show,
 };
 
 /// Tolerant, secret-free Wi-Fi response models.
@@ -139,17 +139,23 @@ pub async fn read_radios(router: &RouterCtx) -> Result<BTreeMap<String, Radio>> 
         .collect())
 }
 
-/// Reads associated Wi-Fi stations.
+/// Reads associated Wi-Fi stations from the `{"station": [...]}` answer, or from a bare
+/// list; an empty object is no station.
 ///
 /// # Errors
 ///
 /// Returns an error when a router request fails or its reply does not decode
-/// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
+/// ([`DomainError::Rci`], [`DomainError::UnreadableAnswer`], [`DomainError::InvalidResponse`]).
 // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
 // session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_stations(router: &RouterCtx) -> Result<Vec<Station>> {
-    read_show(&router.client, &["show", "associations"]).await
+    let answer: Value = read_show(&router.client, &["show", "associations"]).await?;
+    decode::value(
+        router.client.log_id(),
+        "show associations",
+        &lenient::unwrap_envelope(&answer, "station"),
+    )
 }
 
 /// Plans an access-point SSID change.

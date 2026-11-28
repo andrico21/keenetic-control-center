@@ -114,7 +114,10 @@ All profiles add the same deterministic synthetic baseline after model-specific 
 and older-firmware removals. The baseline is **assumed** and contains:
 
 - six `show ip hotspot` clients spanning wired/wireless and registered/unregistered states,
-  matching DHCP bindings, ARP neighbours and wireless associations;
+  matching DHCP bindings, ARP neighbours and wireless associations; `show associations`
+  answers `{"station": [...]}` with the router's field names (`ap`, `rxrate`, `txrate`,
+  `rxbytes`, `txbytes`, `uptime`, ...) and no per-station SSID. **captured: KN-1811 5.1.10;
+  assumed: other models, 4.3, 5.0**;
 - `Bridge0` with `192.0.2.1`, Internet-facing `ISP`, 2.4/5 GHz `WifiMaster0`/`WifiMaster1`,
   access points, and numeric `show interface stat` counters keyed by interface id;
 - policy, IPv4/IPv6 route, DNS proxy, media, USB, schedule, KeenDNS, mesh-member and UPnP

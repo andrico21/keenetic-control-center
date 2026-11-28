@@ -149,7 +149,7 @@ impl Listing {
     ) -> Result<Self, DomainError> {
         let found_radios = radios(domain).await?;
         let points = access_points(domain).await?;
-        let devices = stations(domain).await?;
+        let devices = stations(domain, &points).await?;
         let (router, locale, controls) = viewer.into_parts();
         let table = Table::new(devices, query, format!("/ui/r/{router}/wifi"));
         Ok(Self {

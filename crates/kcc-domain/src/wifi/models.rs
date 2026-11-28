@@ -99,18 +99,27 @@ pub struct Radio {
 pub struct Station {
     /// Station MAC address.
     pub mac: Option<String>,
-    /// Access-point interface.
+    /// Access-point interface; the router names it `ap`.
+    #[serde(alias = "ap")]
     pub interface: Option<String>,
     /// Associated SSID.
     pub ssid: Option<String>,
     /// Received signal strength.
     pub rssi: Option<i16>,
     /// Receive rate.
-    #[serde(rename = "rx-rate")]
+    #[serde(rename = "rx-rate", alias = "rxrate")]
     pub rx_rate: Option<u64>,
     /// Transmit rate.
-    #[serde(rename = "tx-rate")]
+    #[serde(rename = "tx-rate", alias = "txrate")]
     pub tx_rate: Option<u64>,
+    /// Bytes received from the station.
+    #[serde(rename = "rx-bytes", alias = "rxbytes")]
+    pub rx_bytes: Option<u64>,
+    /// Bytes sent to the station.
+    #[serde(rename = "tx-bytes", alias = "txbytes")]
+    pub tx_bytes: Option<u64>,
+    /// Seconds since the station associated.
+    pub uptime: Option<u64>,
     /// Unmodelled station fields.
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
