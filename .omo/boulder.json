@@ -214,7 +214,19 @@
         "opencode:ses_de192144dffe4Ia6b0HjZ44K20",
         "opencode:ses_de18fa2bcffeNMjvyVo5pplY0b",
         "opencode:ses_de168abb5ffe5Wi6paBzIvxp6L",
-        "opencode:ses_de165f7e7ffeR9qOAAWXgNwyT9"
+        "opencode:ses_de165f7e7ffeR9qOAAWXgNwyT9",
+        "opencode:ses_de135466dffeOne38SeTnaUoGQ",
+        "opencode:ses_de1324865ffemqkCuTpd89cCqn",
+        "opencode:ses_de131e41bffexjRVG60EfvPTUo",
+        "opencode:ses_de0afa521ffe1hOWGF2rn2Sk3c",
+        "opencode:ses_de0af1572ffeoXHu4xxMv1DkXi",
+        "opencode:ses_de0ae58f4ffesvKBVPaD4B6Zp1",
+        "opencode:ses_de052879affeOISbTmmDAd5DaD",
+        "opencode:ses_de0522499ffesOCeLE747lZLRG",
+        "opencode:ses_de051b867ffeIhmd8Q7qkCjx5X",
+        "opencode:ses_de0517ba3ffeB3w1dVrDmGP6KH",
+        "opencode:ses_de0513405ffebeKk4Q81Af9FbL",
+        "opencode:ses_de050f29bffe0wwDi2rIPx0VCa"
       ],
       "session_origins": {
         "opencode:ses_dea0797c5ffeI3gP0PImEMmni9": "direct",
@@ -283,12 +295,24 @@
         "opencode:ses_de192144dffe4Ia6b0HjZ44K20": "appended",
         "opencode:ses_de18fa2bcffeNMjvyVo5pplY0b": "appended",
         "opencode:ses_de168abb5ffe5Wi6paBzIvxp6L": "appended",
-        "opencode:ses_de165f7e7ffeR9qOAAWXgNwyT9": "appended"
+        "opencode:ses_de165f7e7ffeR9qOAAWXgNwyT9": "appended",
+        "opencode:ses_de135466dffeOne38SeTnaUoGQ": "appended",
+        "opencode:ses_de1324865ffemqkCuTpd89cCqn": "appended",
+        "opencode:ses_de131e41bffexjRVG60EfvPTUo": "appended",
+        "opencode:ses_de0afa521ffe1hOWGF2rn2Sk3c": "appended",
+        "opencode:ses_de0af1572ffeoXHu4xxMv1DkXi": "appended",
+        "opencode:ses_de0ae58f4ffesvKBVPaD4B6Zp1": "appended",
+        "opencode:ses_de052879affeOISbTmmDAd5DaD": "appended",
+        "opencode:ses_de0522499ffesOCeLE747lZLRG": "appended",
+        "opencode:ses_de051b867ffeIhmd8Q7qkCjx5X": "appended",
+        "opencode:ses_de0517ba3ffeB3w1dVrDmGP6KH": "appended",
+        "opencode:ses_de0513405ffebeKk4Q81Af9FbL": "appended",
+        "opencode:ses_de050f29bffe0wwDi2rIPx0VCa": "appended"
       },
       "status": "active",
       "worktree_path": null,
       "started_at": "2026-11-26T03:50:56.000Z",
-      "updated_at": "2026-11-27T20:02:22.476Z",
+      "updated_at": "2026-11-28T01:04:57.353Z",
       "agent": "atlas",
       "task_sessions": {
         "todo:1": {
@@ -325,6 +349,15 @@
           "started_at": "2026-11-27T17:55:24.297Z",
           "status": "running",
           "updated_at": "2026-11-27T20:02:22.476Z"
+        },
+        "todo:12": {
+          "task_key": "todo:12",
+          "task_label": "12",
+          "task_title": "Read-only capture of the owner's router and an offline replay harness",
+          "session_id": "opencode:ses_de050f29bffe0wwDi2rIPx0VCa",
+          "agent": "Sisyphus-Junior",
+          "category": "deep-low",
+          "updated_at": "2026-11-28T01:04:57.353Z"
         }
       }
     }
@@ -332,7 +365,7 @@
   "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/kcc-live-readiness.md",
   "started_at": "2026-11-26T03:50:56.000Z",
   "status": "active",
-  "updated_at": "2026-11-27T20:02:22.476Z",
+  "updated_at": "2026-11-28T01:04:57.353Z",
   "session_ids": [
     "opencode:ses_dea0797c5ffeI3gP0PImEMmni9",
     "opencode:ses_dea02a81bffe9ID9gFsKPigrtc",
@@ -400,7 +433,19 @@
     "opencode:ses_de192144dffe4Ia6b0HjZ44K20",
     "opencode:ses_de18fa2bcffeNMjvyVo5pplY0b",
     "opencode:ses_de168abb5ffe5Wi6paBzIvxp6L",
-    "opencode:ses_de165f7e7ffeR9qOAAWXgNwyT9"
+    "opencode:ses_de165f7e7ffeR9qOAAWXgNwyT9",
+    "opencode:ses_de135466dffeOne38SeTnaUoGQ",
+    "opencode:ses_de1324865ffemqkCuTpd89cCqn",
+    "opencode:ses_de131e41bffexjRVG60EfvPTUo",
+    "opencode:ses_de0afa521ffe1hOWGF2rn2Sk3c",
+    "opencode:ses_de0af1572ffeoXHu4xxMv1DkXi",
+    "opencode:ses_de0ae58f4ffesvKBVPaD4B6Zp1",
+    "opencode:ses_de052879affeOISbTmmDAd5DaD",
+    "opencode:ses_de0522499ffesOCeLE747lZLRG",
+    "opencode:ses_de051b867ffeIhmd8Q7qkCjx5X",
+    "opencode:ses_de0517ba3ffeB3w1dVrDmGP6KH",
+    "opencode:ses_de0513405ffebeKk4Q81Af9FbL",
+    "opencode:ses_de050f29bffe0wwDi2rIPx0VCa"
   ],
   "session_origins": {
     "opencode:ses_dea0797c5ffeI3gP0PImEMmni9": "direct",
@@ -469,7 +514,19 @@
     "opencode:ses_de192144dffe4Ia6b0HjZ44K20": "appended",
     "opencode:ses_de18fa2bcffeNMjvyVo5pplY0b": "appended",
     "opencode:ses_de168abb5ffe5Wi6paBzIvxp6L": "appended",
-    "opencode:ses_de165f7e7ffeR9qOAAWXgNwyT9": "appended"
+    "opencode:ses_de165f7e7ffeR9qOAAWXgNwyT9": "appended",
+    "opencode:ses_de135466dffeOne38SeTnaUoGQ": "appended",
+    "opencode:ses_de1324865ffemqkCuTpd89cCqn": "appended",
+    "opencode:ses_de131e41bffexjRVG60EfvPTUo": "appended",
+    "opencode:ses_de0afa521ffe1hOWGF2rn2Sk3c": "appended",
+    "opencode:ses_de0af1572ffeoXHu4xxMv1DkXi": "appended",
+    "opencode:ses_de0ae58f4ffesvKBVPaD4B6Zp1": "appended",
+    "opencode:ses_de052879affeOISbTmmDAd5DaD": "appended",
+    "opencode:ses_de0522499ffesOCeLE747lZLRG": "appended",
+    "opencode:ses_de051b867ffeIhmd8Q7qkCjx5X": "appended",
+    "opencode:ses_de0517ba3ffeB3w1dVrDmGP6KH": "appended",
+    "opencode:ses_de0513405ffebeKk4Q81Af9FbL": "appended",
+    "opencode:ses_de050f29bffe0wwDi2rIPx0VCa": "appended"
   },
   "plan_name": "kcc-live-readiness",
   "task_sessions": {
@@ -507,6 +564,15 @@
       "started_at": "2026-11-27T17:55:24.297Z",
       "status": "running",
       "updated_at": "2026-11-27T20:02:22.476Z"
+    },
+    "todo:12": {
+      "task_key": "todo:12",
+      "task_label": "12",
+      "task_title": "Read-only capture of the owner's router and an offline replay harness",
+      "session_id": "opencode:ses_de050f29bffe0wwDi2rIPx0VCa",
+      "agent": "Sisyphus-Junior",
+      "category": "deep-low",
+      "updated_at": "2026-11-28T01:04:57.353Z"
     }
   },
   "agent": "atlas",
