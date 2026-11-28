@@ -13,6 +13,7 @@ mod cli_token;
 mod config_tree;
 mod decode;
 mod descriptor;
+pub mod lenient;
 mod planning;
 mod pointer;
 mod request_words;
