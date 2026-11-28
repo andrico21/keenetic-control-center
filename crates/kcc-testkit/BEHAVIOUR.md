@@ -213,8 +213,20 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 
 - `PUT /fui/startup-config.txt` parses and replaces startup config; running changes only
   after `system reboot`. **assumed (R-RCI/R-FORUM-UPLOAD documentation, not live-verified).**
-- `tools ping` returns a per-instance background process id and running state. POST-only
-  show/process behavior is **assumed (R-CLI documentation, not live-verified - see
+- Background commands follow the session continuation by default (**captured: KN-1811
+  5.1.10**, items `tools-ping`, `show-log-stream`, `components-list`): the POST answers the
+  first output chunk with `"continued": true` and no process id, each `GET` of the same
+  resource without a query in the same session answers the next chunk, and the last chunk
+  has no `continued`. A second POST restarts the command; signing the session out ends it.
+  `tools *` chunks are `{"message": [<output lines>], "continued": true}` (one line per
+  chunk, two in the last, which has no `continued`); the `show log` stream (`once: false`)
+  answers `{"continued": true, "log": {<new records>}}` every time; `components list`
+  answers one `{"continued": true}` and then the list. `mws log` answers like `tools *`
+  (**assumed**: not captured).
+- `FakeRouter::builder(..).process_ids(true)` keeps the earlier process-id mode for the same
+  commands: the POST returns a per-instance process id and running state, `GET ?id=` polls
+  it (`continued` three times, then a final `reply`), and `DELETE ?id=` stops it. This mode
+  is **assumed (R-CLI documentation, not live-verified - see
   `spikes/live-router/RESULT.md`)**.
 - `components install <name>` and `components remove <name>` stage additions/removals,
   visible through `show components list` and `show components pending`. `components commit`

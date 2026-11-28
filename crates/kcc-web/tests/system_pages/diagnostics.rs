@@ -1,8 +1,9 @@
 //! Diagnostics.
 //!
 //! A ping started as a job streams its replies from the fake router as server-sent events
-//! until it ends, Stop ends the router process with `DELETE`, and a bad host is refused
-//! before anything is sent.
+//! until it ends (the router's own output lines when it continues in the session, localized
+//! replies when it answers a process id), Stop ends the router process with `DELETE` in
+//! process-id mode, and a bad host is refused before anything is sent.
 
 use core::{str, time::Duration};
 
@@ -13,6 +14,8 @@ use axum::{
 };
 use futures_util::{StreamExt as _, stream::BoxStream};
 use kcc_i18n::keys;
+use kcc_testkit::{FakeRouter, model::Profile};
+use serde_json::json;
 use tokio::time::{Instant, timeout_at};
 
 use crate::support::{
@@ -62,9 +65,74 @@ fn events(body: Body) -> Chunks {
     body.into_data_stream().boxed()
 }
 
+/// The pages over a fake router whose background commands answer a process id.
+async fn process_ids() -> TestResult<Fixture> {
+    Fixture::with_router(
+        FakeRouter::builder(Profile::default())
+            .process_ids(true)
+            .reached_directly()
+            .build()?,
+    )
+    .await
+}
+
+/// Todo 28: a ping that continues in the session shows every output line of the router,
+/// from the POST answer, the middle chunks and the last chunk, as an `event: line`.
+///
+/// Real time: the fake answers over loopback TCP.
+#[tokio::test]
+async fn a_continued_ping_streams_every_router_line() -> TestResult {
+    let written = [
+        "PING 192.0.2.1 (192.0.2.1): 56 data bytes",
+        "64 bytes from 192.0.2.1: seq=0 ttl=64 time=1.0 ms",
+        "64 bytes from 192.0.2.1: seq=1 ttl=64 time=1.1 ms",
+        "--- 192.0.2.1 ping statistics ---",
+        "2 packets transmitted, 2 packets received, 0% packet loss",
+    ];
+    let [first, second, third, fourth, fifth] = written;
+    let fixture = Fixture::with_router(
+        FakeRouter::builder(Profile::default())
+            .continued_fixture(
+                "tools/ping",
+                vec![
+                    json!({"message": [first, second], "continued": true}),
+                    json!({"message": [third], "continued": true}),
+                    json!({"continued": true}),
+                    json!({"message": [fourth, fifth]}),
+                ],
+            )
+            .reached_directly()
+            .build()?,
+    )
+    .await?;
+    let viewer = fixture.login("viewer").await?;
+    let (stream, _stop) = ping(&fixture, &viewer).await?;
+    let response = fixture.get(&stream, &viewer).await?;
+    assert_eq!(response.status(), StatusCode::OK, "stream");
+    let received = until_done(events(response.into_body())).await?;
+
+    let lines: Vec<&str> = received
+        .split("event: ")
+        .filter(|event| event.starts_with("line"))
+        .collect();
+    for (index, message) in written.iter().enumerate() {
+        assert!(
+            lines
+                .get(index)
+                .is_some_and(|event| event.contains(message)),
+            "line {index} in order: {received}"
+        );
+    }
+    assert!(
+        received.contains(&en(keys::WEB_EXPLORER_JOB_COMPLETED)),
+        "completed: {received}"
+    );
+    Ok(())
+}
+
 #[tokio::test(start_paused = true)]
 async fn a_ping_streams_its_replies_until_it_ends() -> TestResult {
-    let fixture = Fixture::new().await?;
+    let fixture = process_ids().await?;
     let viewer = fixture.login("viewer").await?;
     let page = text(fixture.get(PAGE, &viewer).await?).await?;
     assert!(
@@ -100,7 +168,7 @@ async fn a_ping_streams_its_replies_until_it_ends() -> TestResult {
 
 #[tokio::test(start_paused = true)]
 async fn stop_ends_the_router_process_with_delete() -> TestResult {
-    let fixture = Fixture::new().await?;
+    let fixture = process_ids().await?;
     let operator = fixture.login("operator").await?;
     let (stream, stop) = ping(&fixture, &operator).await?;
     let listening = fixture.get(&stream, &operator).await?;

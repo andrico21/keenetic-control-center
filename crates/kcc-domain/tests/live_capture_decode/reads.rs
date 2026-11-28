@@ -7,7 +7,7 @@ use kcc_domain::{
     policies, router_users, routing, schedules, services, storage, system, vpn_servers, wifi,
 };
 use kcc_rci::{RciBody, RciPath};
-use serde_json::json;
+use serde_json::{Value, json};
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
@@ -187,19 +187,51 @@ async fn live_dns_configuration() -> TestResult {
     decodes(async |router: &RouterCtx| dns::read_configuration(router).await).await
 }
 
-/// Starts `tools ping` and polls it against the captured chunks.
-async fn ping(router: &RouterCtx) -> TestResult<RciBody> {
+/// Starts `tools ping` and reads every captured chunk; returns the `message` strings of all
+/// chunks.
+async fn ping(router: &RouterCtx) -> TestResult<Vec<String>> {
     let path = RciPath::from_segments(["tools", "ping"])?;
     let handle = router
         .client
         .start(path, &json!({"host": "192.0.2.1", "count": 2_u8}))
         .await?
         .with_poll_interval(Duration::from_millis(1));
-    Ok(timeout(PING_BOUND, handle.poll(&CancellationToken::new())).await??)
+    let mut written = Vec::new();
+    let collect = |chunk: &RciBody| {
+        if let RciBody::Json(response) = chunk {
+            written.extend(
+                response
+                    .value
+                    .get("message")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned),
+            );
+        }
+    };
+    drop(
+        timeout(
+            PING_BOUND,
+            handle.poll_each(&CancellationToken::new(), collect),
+        )
+        .await??,
+    );
+    Ok(written)
 }
 
+/// Todo 28: the captured ping continues in the session; every chunk is read and at least
+/// one output line arrives.
 #[tokio::test]
 #[ignore = "needs KCC_LIVE_CAPTURE_DIR"]
 async fn live_diagnostics_ping() -> TestResult {
-    decodes(ping).await
+    decodes(async |router: &RouterCtx| -> TestResult<usize> {
+        let written = ping(router).await?;
+        if written.is_empty() {
+            return Err("the captured ping wrote no output line".into());
+        }
+        Ok(written.len())
+    })
+    .await
 }

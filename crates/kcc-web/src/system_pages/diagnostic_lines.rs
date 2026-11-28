@@ -2,7 +2,9 @@
 //!
 //! The diagnostics domain reports each result as one JSON line (`{"kind": "ping",
 //! "sample": 12}`, a traceroute hop, an ARP reply, a throughput); each becomes one
-//! localized sentence. A value the page cannot read is shown as the router wrote it.
+//! localized sentence. A `text` line, an output line of a router that continues the
+//! diagnostic in the session, is shown as the router wrote it; a line the page cannot read
+//! is left out.
 
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, format, keys, locale::Locale};
@@ -13,6 +15,12 @@ pub(crate) fn sentence(line: &str, locale: Locale) -> Option<String> {
     let parsed: Value = serde_json::from_str(line).ok()?;
     let mut args = FluentArgs::new();
     let key = match parsed.get("kind").and_then(Value::as_str)? {
+        "text" => {
+            return parsed
+                .get("text")
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+        }
         "ping" => {
             let sample = parsed.get("sample")?;
             args.set("value", text(sample));
@@ -86,9 +94,25 @@ mod tests {
         }
         assert_eq!(sentence("not json", Locale::En), None, "unreadable");
         assert_eq!(
+            sentence(r#"{"kind":"text"}"#, Locale::En),
+            None,
+            "a text line without text"
+        );
+        assert_eq!(
             sentence(r#"{"kind":"nmap"}"#, Locale::En),
             None,
             "unknown kind"
         );
+    }
+
+    /// Todo 28: a `text` line, an output line of a router that continues in the session,
+    /// reads as the router wrote it.
+    #[test]
+    fn a_text_line_reads_as_the_router_wrote_it() {
+        let written = "64 bytes from 192.0.2.1: seq=0 ttl=64 time=1.0 ms";
+        let line = serde_json::json!({"kind": "text", "text": written}).to_string();
+
+        assert_eq!(sentence(&line, Locale::Ru).as_deref(), Some(written));
+        assert_eq!(sentence("not json", Locale::En), None);
     }
 }

@@ -8,6 +8,7 @@ use fluent_bundle::FluentArgs;
 use futures_util::StreamExt as _;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::{RciBody, RciPath};
+use kcc_testkit::{FakeRouter, model::Profile};
 use serde_json::Value;
 use tokio::time::{Instant, timeout_at};
 
@@ -104,7 +105,13 @@ async fn management_changes_run_under_the_fail_safe_timer() -> TestResult {
 /// and Stop ends the router process with DELETE.
 #[tokio::test(start_paused = true)]
 async fn background_commands_run_as_jobs_and_stop() -> TestResult {
-    let fixture = Fixture::new().await?;
+    let fixture = Fixture::with_router(
+        FakeRouter::builder(Profile::default())
+            .process_ids(true)
+            .reached_directly()
+            .build()?,
+    )
+    .await?;
     let browser = fixture.login("admin").await?;
     let ping = form(&[
         ("path", "tools ping"),

@@ -341,11 +341,15 @@ fn a_long_expected_list_is_cut() -> TestResult {
 }
 
 /// (j) A background start answered without a process id names the missing pointer.
+///
+/// The answer must be no JSON object either: a JSON object without a process id is the
+/// first chunk of a router that continues in the session (todo 28). A one-shot `show log`
+/// of a router with no records answers text.
 #[tokio::test]
 async fn a_background_answer_without_a_process_id_names_the_pointer() -> TestResult {
     let (address, handle, cookie) = serve(FaultInjection::default()).await?;
     let client = client(&format!("http://{address}"), RciClientOptions::default()).await?;
-    let path = RciPath::from_segments(["show", "version"])?;
+    let path = RciPath::from_segments(["show", "log"])?;
 
     let started = client.start(path, &json!({})).await;
 

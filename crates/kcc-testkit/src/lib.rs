@@ -546,6 +546,9 @@ pub struct FakeRouterBuilder {
     replayed: bool,
     /// Whether an interface owns the loopback address the fake is reached on.
     reached_directly: bool,
+    /// Whether background commands answer with a process id instead of continuing in the
+    /// session.
+    process_ids: bool,
 }
 
 impl FakeRouterBuilder {
@@ -654,6 +657,24 @@ impl FakeRouterBuilder {
         self
     }
 
+    /// With `true`, background commands answer with a process id instead of continuing.
+    ///
+    /// `tools *`, the `show log` stream and `mws log` then start a process: the POST answers
+    /// `{"process":{"id":..}}`, `GET ?id=` polls it until a final `reply`, and
+    /// `DELETE ?id=` stops it.
+    ///
+    /// By default they follow the session continuation of KN-1811 on 5.1.10: the POST
+    /// answers the first output chunk with `"continued": true`, each `GET` of the same
+    /// resource without a query in the same session answers the next one, the last chunk
+    /// has no `continued`, and signing the session out ends the command. `tools *` chunks
+    /// carry a `message` array of output lines; `components list` answers one empty
+    /// continued chunk and then the list.
+    #[inline]
+    pub const fn process_ids(mut self, enabled: bool) -> Self {
+        self.process_ids = enabled;
+        self
+    }
+
     /// Lists `Loopback0` owning `127.0.0.1`, the address the fake is reached on, as a router
     /// kcc reaches directly lists the interface whose address kcc connects to.
     ///
@@ -735,7 +756,8 @@ impl FakeRouterBuilder {
             self.faults,
         )
         .with_rc_overrides(self.rc_overrides)
-        .with_replay(self.continued, verbatim);
+        .with_replay(self.continued, verbatim)
+        .with_process_ids(self.process_ids);
         Ok(FakeRouter {
             shared: Arc::new(shared),
         })
@@ -820,6 +842,7 @@ impl FakeRouter {
             continued: BTreeMap::new(),
             replayed: false,
             reached_directly: false,
+            process_ids: false,
         }
     }
 

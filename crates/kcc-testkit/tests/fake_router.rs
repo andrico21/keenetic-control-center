@@ -407,7 +407,10 @@ mod tests {
     /// Poll and stop reject a process id presented at a different diagnostics endpoint.
     #[tokio::test]
     async fn diagnostic_process_ids_are_scoped_to_their_kind() -> TestResult {
-        let (fake, app) = ultra()?;
+        let fake = FakeRouter::builder(Profile::default())
+            .process_ids(true)
+            .build()?;
+        let app = fake.router();
         let cookie = login(&app, fake.realm()).await?;
         let started = send(
             &app,

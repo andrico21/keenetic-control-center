@@ -39,6 +39,9 @@ use crate::{
     tree::{self, Selector},
 };
 
+/// Session continuation of background commands.
+#[path = "server/continuation.rs"]
+mod continuation;
 /// Simulated media initialization.
 #[path = "server/media_init.rs"]
 mod media_init;
@@ -138,6 +141,8 @@ enum ProcessKind {
     Arping,
     /// Throughput measurement.
     Iperf3,
+    /// Mesh system log.
+    MwsLog,
 }
 
 impl ProcessKind {
@@ -150,6 +155,7 @@ impl ProcessKind {
             "tools/traceroute" => Some(Self::Traceroute),
             "tools/arping" => Some(Self::Arping),
             "tools/iperf3" => Some(Self::Iperf3),
+            "mws/log" => Some(Self::MwsLog),
             _ => None,
         }
     }
@@ -163,13 +169,14 @@ impl ProcessKind {
             Self::Traceroute => "traceroute",
             Self::Arping => "arping",
             Self::Iperf3 => "iperf3",
+            Self::MwsLog => "mws-log",
         }
     }
 
     /// Deterministic completed reply for this process kind.
     fn reply(self) -> Value {
         match self {
-            Self::Log => Value::Null,
+            Self::Log | Self::MwsLog => Value::Null,
             Self::Ping => serde_json::json!([1, 2, 3]),
             Self::Ping6 => serde_json::json!(["2001:db8::1", "2001:db8::1"]),
             Self::Traceroute => serde_json::json!([
@@ -263,6 +270,10 @@ pub(crate) struct Shared {
     process_id: AtomicU64,
     /// Running background processes by identifier.
     processes: Mutex<BTreeMap<String, Process>>,
+    /// Whether background commands answer a process id instead of continuing in the session.
+    process_ids: bool,
+    /// The background commands sessions continue.
+    continued: continuation::Continuations,
     /// Number of background processes stopped through DELETE.
     stopped_processes: AtomicU64,
     /// Injectable router log records by numeric id.
@@ -383,6 +394,8 @@ impl Shared {
             inflight: Counter::default(),
             process_id: AtomicU64::new(1),
             processes: Mutex::new(BTreeMap::new()),
+            process_ids: false,
+            continued: continuation::Continuations::default(),
             stopped_processes: AtomicU64::new(0),
             logs: Mutex::new(BTreeMap::new()),
             log_streams: AtomicU64::new(0),
@@ -577,10 +590,19 @@ impl Shared {
         accepted
     }
 
-    /// Ends the session in `headers`.
+    /// Ends the session in `headers` and the background commands it continues.
     fn logout(&self, headers: &HeaderMap) {
         if let Some(id) = self.session_id(headers) {
             drop(lock(&self.sessions).remove(&id));
+            for running in self.continued.end(&id) {
+                if let continuation::Running::Process {
+                    id: process,
+                    lines: _,
+                } = running
+                {
+                    let _: Option<Process> = lock(&self.processes).remove(&process);
+                }
+            }
         }
     }
 
@@ -839,21 +861,82 @@ impl Shared {
         self.faults.silent_noop_paths.contains(path)
     }
 
-    /// Allocates a simulated background-process response.
-    fn start_process(&self, kind: ProcessKind) -> Value {
-        let id = self.process_id.fetch_add(1, Ordering::SeqCst);
+    /// Starts a simulated background process of `kind`: the process-id answer, or with
+    /// session continuation the first output chunk.
+    fn start_process(&self, kind: ProcessKind, path: &str, session: Option<String>) -> Value {
+        let id = self.process_id.fetch_add(1, Ordering::SeqCst).to_string();
         if kind == ProcessKind::Log {
             let _: u64 = self.log_streams.fetch_add(1, Ordering::SeqCst);
         }
         let _: Option<Process> = lock(&self.processes).insert(
-            id.to_string(),
+            id.clone(),
             Process {
                 kind,
                 remaining: 3,
                 log_cursor: 0,
             },
         );
-        serde_json::json!({"process":{"id":id.to_string(),"status":"running","kind":kind.name()}})
+        if self.process_ids {
+            return serde_json::json!({"process":{"id":id,"status":"running","kind":kind.name()}});
+        }
+        let first = if kind == ProcessKind::Log {
+            self.poll_process(kind, &id).unwrap_or(Value::Null)
+        } else {
+            continuation::message_chunk(kind.name(), 1, 1, false)
+        };
+        let running = continuation::Running::Process { id, lines: 1 };
+        if let Some(owner) = session
+            && let Some(continuation::Running::Process {
+                id: restarted,
+                lines: _,
+            }) = self.continued.bind(owner, path, running)
+        {
+            let _: Option<Process> = lock(&self.processes).remove(&restarted);
+        }
+        first
+    }
+
+    /// Starts `components list` continued in `session`: one empty continued chunk.
+    fn start_components(&self, session: Option<String>) -> Value {
+        if let Some(id) = session {
+            drop(self.continued.bind(
+                id,
+                continuation::COMPONENTS,
+                continuation::Running::Components,
+            ));
+        }
+        serde_json::json!({"continued": true})
+    }
+
+    /// The next chunk of the command `session` continues at `path`; `None` when it
+    /// continues none there.
+    fn continue_command(&self, resource: &str, session_id: Option<&str>) -> Option<Value> {
+        let session = session_id?;
+        let path = resource.trim_end_matches('/');
+        match self.continued.get(session, path)? {
+            continuation::Running::Components => {
+                self.continued.finish(session, path);
+                self.show(continuation::COMPONENTS, None)
+            }
+            continuation::Running::Process { id, lines } => {
+                let kind = ProcessKind::from_path(path)?;
+                let polled = self.poll_process(kind, &id)?;
+                if kind == ProcessKind::Log {
+                    return Some(polled);
+                }
+                let next = lines.saturating_add(1);
+                if polled.get("reply").is_some() {
+                    self.continued.finish(session, path);
+                    return Some(continuation::message_chunk(kind.name(), next, 2, true));
+                }
+                drop(self.continued.bind(
+                    session.to_owned(),
+                    path,
+                    continuation::Running::Process { id, lines: next },
+                ));
+                Some(continuation::message_chunk(kind.name(), next, 1, false))
+            }
+        }
     }
 
     /// Polls one simulated background process at its matching resource path.
@@ -1026,6 +1109,12 @@ impl Shared {
     /// Sets the `show rc` answers that replace whole roots, keyed by JSON pointer.
     pub(crate) fn with_rc_overrides(mut self, overrides: Map<String, Value>) -> Self {
         self.rc_overrides = overrides;
+        self
+    }
+
+    /// Makes background commands answer a process id instead of continuing in the session.
+    pub(crate) const fn with_process_ids(mut self, enabled: bool) -> Self {
+        self.process_ids = enabled;
         self
     }
 
@@ -1463,8 +1552,14 @@ async fn rci_get(
     Path(path): Path<String>,
     Query(query): Query<BTreeMap<String, String>>,
 ) -> Response {
-    if let Some(replayed) = shared.replay.next(&path, shared.session_id(&headers)) {
+    let session = shared.session_id(&headers);
+    if let Some(replayed) = shared.replay.next(&path, session.clone()) {
         return replayed;
+    }
+    if query.is_empty()
+        && let Some(chunk) = shared.continue_command(&path, session.as_deref())
+    {
+        return Json(chunk).into_response();
     }
     let resource = path.trim_end_matches('/');
     if shared.faults.show_requires_post.contains(resource)
@@ -1580,7 +1675,8 @@ async fn rci_post(
                     String::into_response,
                 )
             } else {
-                Json(shared.start_process(ProcessKind::Log)).into_response()
+                Json(shared.start_process(ProcessKind::Log, &path, shared.session_id(&headers)))
+                    .into_response()
             };
         }
         let mut params = query;
@@ -1593,7 +1689,11 @@ async fn rci_post(
     }
     if let Some(kind) = ProcessKind::from_path(&path) {
         request_log::record_tool(&shared, record, &path, &parsed);
-        return Json(shared.start_process(kind)).into_response();
+        return Json(shared.start_process(kind, &path, shared.session_id(&headers)))
+            .into_response();
+    }
+    if path == continuation::COMPONENTS && !shared.process_ids {
+        return Json(shared.start_components(shared.session_id(&headers))).into_response();
     }
     if path == "components/list"
         && let Some(listed) = shared.show.get("components/list")

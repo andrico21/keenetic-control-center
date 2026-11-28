@@ -122,6 +122,9 @@ pub enum ProgressLine {
     Arping(ArpingReply),
     /// Iperf3 throughput result.
     Iperf3(Iperf3Reply),
+    /// One output line as the router wrote it, from a router that continues the diagnostic
+    /// in the session.
+    Text(String),
 }
 
 /// Diagnostics read inventory.
@@ -225,14 +228,20 @@ pub async fn start_job(
                 .map_err(|error| error.to_string())?
                 .with_poll_interval(POLL_INTERVAL);
             let completed = handle
-                .poll(&context.cancellation())
+                .poll_each(&context.cancellation(), |chunk| {
+                    for line in text_lines(chunk) {
+                        context.structured_progress(JobProgress::OutputLine(line));
+                    }
+                })
                 .await
                 .map_err(|error| error.to_string())?;
             let RciBody::Json(response) = completed else {
                 return Err("diagnostic returned text".to_owned());
             };
-            for line in progress_lines(kind, response.value.get("reply").unwrap_or(&Value::Null)) {
-                context.structured_progress(JobProgress::OutputLine(line));
+            if let Some(reply) = response.value.get("reply") {
+                for line in progress_lines(kind, reply) {
+                    context.structured_progress(JobProgress::OutputLine(line));
+                }
             }
             context.progress(100);
             Ok(())
@@ -279,6 +288,24 @@ pub fn typed_progress(kind: DiagnosticKind, reply: &Value) -> Vec<ProgressLine> 
     }
 }
 
+/// The output lines of one answer of a router that continues in the session: each string of
+/// its `message` array as a `text` job output line, in order.
+fn text_lines(chunk: &RciBody) -> Vec<String> {
+    let RciBody::Json(response) = chunk else {
+        return Vec::new();
+    };
+    response
+        .value
+        .get("message")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(|text| ProgressLine::Text(text.to_owned()))
+        .filter_map(|line| serde_json::to_string(&progress_value(line)).ok())
+        .collect()
+}
+
 /// Serializes typed progress into job output lines.
 fn progress_lines(kind: DiagnosticKind, reply: &Value) -> Vec<String> {
     typed_progress(kind, reply)
@@ -295,5 +322,6 @@ fn progress_value(line: ProgressLine) -> Value {
         ProgressLine::Traceroute(hop) => json!({"kind":"traceroute","hop":hop}),
         ProgressLine::Arping(reply) => json!({"kind":"arping","reply":reply}),
         ProgressLine::Iperf3(reply) => json!({"kind":"iperf3","reply":reply}),
+        ProgressLine::Text(text) => json!({"kind":"text","text":text}),
     }
 }

@@ -124,7 +124,15 @@ mod tests {
         match *record.method() {
             Method::GET => {
                 path.starts_with("/rci/show/")
-                    || matches!(path, "/rci/whoami" | "/rci/" | "/auth")
+                    || matches!(
+                        path,
+                        "/rci/whoami"
+                            | "/rci/"
+                            | "/auth"
+                            | "/rci/components/list"
+                            | "/rci/components/preview"
+                            | "/rci/tools/ping"
+                    )
                     || path == "/ci/running-config.txt"
             }
             Method::POST => matches!(

@@ -136,7 +136,9 @@ async fn batch_preserves_ok_error_ok_and_splits_large_input_in_order() -> TestRe
 
 #[tokio::test]
 async fn background_poll_completes_and_cancellation_sends_delete() -> TestResult {
-    let fake = FakeRouter::builder(Profile::default()).build()?;
+    let fake = FakeRouter::builder(Profile::default())
+        .process_ids(true)
+        .build()?;
     let (address, handle) = fake.clone().serve(([127, 0, 0, 1], 0).into()).await?;
     let client = client(address).await?;
     let process = client

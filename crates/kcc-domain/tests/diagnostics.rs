@@ -43,7 +43,7 @@ use crate::support::PROFILES;
 async fn log_and_each_diagnostic_run_on_both_profiles() -> Result<(), Box<dyn Error>> {
     for firmware in PROFILES {
         let profile = Profile::new(Model::Kn1811, firmware)?;
-        let router = FakeRouter::builder(profile).build()?;
+        let router = FakeRouter::builder(profile).process_ids(true).build()?;
         let (endpoint, handle) = serve(router).await?;
         let client = connect(&endpoint).await?;
         assert!(
@@ -166,6 +166,78 @@ async fn diagnostic_job_emits_typed_output_line() -> Result<(), Box<dyn Error>> 
         assert_eq!(jobs.get(&id)?.status, JobStatus::Completed);
         handle.shutdown().await?;
     }
+    Ok(())
+}
+
+/// Todo 28: a ping that continues in the session emits one `text` output line per string
+/// of every chunk's `message`, in order: none is lost from the POST answer, the middle
+/// chunks or the last chunk.
+///
+/// Real time: no paused clock with the fake's socket.
+#[tokio::test]
+async fn a_continued_ping_job_emits_one_text_line_per_message() -> Result<(), Box<dyn Error>> {
+    let written = ["line 1", "line 2", "line 3", "line 4", "line 5"];
+    let [first, second, third, fourth, fifth] = written;
+    let profile = Profile::new(Model::Kn1811, PROFILES[0])?;
+    let router = FakeRouter::builder(profile)
+        .continued_fixture(
+            "tools/ping",
+            vec![
+                json!({"message": [first, second], "continued": true}),
+                json!({"message": [third], "continued": true}),
+                json!({"continued": true}),
+                json!({"message": [fourth, fifth]}),
+            ],
+        )
+        .build()?;
+    let (endpoint, handle) = serve(router).await?;
+    let client = connect(&endpoint).await?;
+    let directory = TempDir::new()?;
+    let state = StateStore::open(&directory.path().join("state"))?;
+    let registry = Arc::new(RouterRegistry::new(
+        state.clone(),
+        &[],
+        &OutboundConfig::default(),
+    )?);
+    let jobs = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
+    let mut events = jobs.subscribe();
+
+    let id = diagnostics::start_job(
+        &jobs,
+        "router".to_owned(),
+        client,
+        DiagnosticKind::Ping,
+        json!({"host":"192.0.2.1"}),
+    )
+    .await?;
+    let lines = timeout(Duration::from_secs(30), async {
+        let mut lines = Vec::new();
+        loop {
+            let event = events.recv().await?;
+            if event.id != id {
+                continue;
+            }
+            if let Some(JobProgress::OutputLine(line)) = event.detail {
+                lines.push(line);
+            }
+            if event.status != JobStatus::Running {
+                return Ok::<_, tokio::sync::broadcast::error::RecvError>(lines);
+            }
+        }
+    })
+    .await??;
+
+    let emitted: Vec<serde_json::Value> = lines
+        .iter()
+        .map(|line| serde_json::from_str(line))
+        .collect::<Result<_, _>>()?;
+    let expected: Vec<serde_json::Value> = written
+        .iter()
+        .map(|text| json!({"kind": "text", "text": text}))
+        .collect();
+    assert_eq!(emitted, expected);
+    assert_eq!(jobs.get(&id)?.status, JobStatus::Completed);
+    handle.shutdown().await?;
     Ok(())
 }
 

@@ -300,14 +300,15 @@ mod tests {
         assert_eq!(counts.phase_three.load(Ordering::SeqCst), 1);
         let permit = Arc::clone(&*BUDGET).acquire_owned().await?;
 
-        // The fixture answers without a process id: the start fails after its login.
+        // The fixture answers an object without a process id or `continued`: a finished
+        // command, started after its login.
         let started = timeout(
             Duration::from_secs(5),
             client.start(path, &serde_json::json!({})),
         )
         .await?;
 
-        assert!(matches!(started, Err(RciError::Decode(_))));
+        assert!(started.is_ok(), "{started:?}");
         assert_eq!(counts.phase_three.load(Ordering::SeqCst), 2);
         drop(permit);
         handle.shutdown().await?;
